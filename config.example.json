@@ -1,13 +1,13 @@
 {
   "target": {
     "url": "https://your-instance.example.com",
-    "adminToken": "sk-xxx"
+    "systemAccessToken": "your-system-access-token"
   },
   "providers": [
     {
       "name": "newapi",
       "baseUrl": "https://www.newapi.ai",
-      "accessToken": "your-system-access-token",
+      "systemAccessToken": "your-system-access-token",
       "enabledGroups": ["aws-q", "cc", "gemini"],
       "priority": 10
     }

@@ -27,13 +27,13 @@ export class TargetClient {
   constructor(config: TargetConfig) {
     this.config = {
       url: config.url.replace(/\/$/, ""),
-      adminToken: config.adminToken,
+      systemAccessToken: config.systemAccessToken,
     };
   }
 
   private get headers(): Record<string, string> {
     return {
-      Authorization: `Bearer ${this.config.adminToken}`,
+      Authorization: `Bearer ${this.config.systemAccessToken}`,
       "Content-Type": "application/json",
     };
   }

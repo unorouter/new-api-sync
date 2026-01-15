@@ -14,13 +14,13 @@ export interface Config {
 
 export interface TargetConfig {
   url: string;
-  adminToken: string;
+  systemAccessToken: string;
 }
 
 export interface ProviderConfig {
   name: string;
   baseUrl: string;
-  accessToken: string;
+  systemAccessToken: string;
   enabledGroups?: string[];
   priority?: number;
 }

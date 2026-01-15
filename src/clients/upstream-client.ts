@@ -52,7 +52,7 @@ export class UpstreamClient {
 
   private get headers(): Record<string, string> {
     return {
-      Authorization: `Bearer ${this.provider.accessToken}`,
+      Authorization: `Bearer ${this.provider.systemAccessToken}`,
       "Content-Type": "application/json",
     };
   }
