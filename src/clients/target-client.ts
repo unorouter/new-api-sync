@@ -28,12 +28,14 @@ export class TargetClient {
     this.config = {
       url: config.url.replace(/\/$/, ""),
       systemAccessToken: config.systemAccessToken,
+      userId: config.userId,
     };
   }
 
   private get headers(): Record<string, string> {
     return {
       Authorization: `Bearer ${this.config.systemAccessToken}`,
+      "New-Api-User": String(this.config.userId),
       "Content-Type": "application/json",
     };
   }

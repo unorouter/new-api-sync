@@ -17,6 +17,9 @@ export function validateConfig(config: Config): void {
   if (!config.target?.systemAccessToken) {
     throw new Error("Config missing: target.systemAccessToken");
   }
+  if (!config.target?.userId) {
+    throw new Error("Config missing: target.userId");
+  }
   if (!config.providers || config.providers.length === 0) {
     throw new Error("Config missing: providers (at least one required)");
   }
@@ -30,6 +33,9 @@ export function validateConfig(config: Config): void {
     }
     if (!provider.systemAccessToken) {
       throw new Error(`Provider ${provider.name} missing: systemAccessToken`);
+    }
+    if (!provider.userId) {
+      throw new Error(`Provider ${provider.name} missing: userId`);
     }
   }
 }

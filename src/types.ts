@@ -15,12 +15,14 @@ export interface Config {
 export interface TargetConfig {
   url: string;
   systemAccessToken: string;
+  userId: number;
 }
 
 export interface ProviderConfig {
   name: string;
   baseUrl: string;
   systemAccessToken: string;
+  userId: number;
   enabledGroups?: string[];
   priority?: number;
 }
