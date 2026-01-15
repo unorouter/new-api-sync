@@ -1,0 +1,20 @@
+{
+  "name": "proxy-sync",
+  "version": "0.2.0",
+  "description": "Declarative multi-provider sync for new-api instances",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run src/main.ts",
+    "sync": "bun run src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^22.0.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

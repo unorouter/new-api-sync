@@ -1,0 +1,23 @@
+
+{
+  "target": {
+    "url": "https://ai-api.coding.global",
+    "adminToken": "${ADMIN_TOKEN}"
+  },
+  "providers": [
+    {
+      "name": "api",
+      "baseUrl": "https://api.com",
+      "auth": {
+        "accessToken": "${API_ACCESS_TOKEN}",
+        "userId": "${API_USER_ID}"
+      },
+      "enabledGroups": ["aws-q", "cc", "gemini", "antigravity"],
+      "priority": 10
+    }
+  ],
+  "options": {
+    "tokenNamePrefix": "ai-api-sync",
+    "deleteStaleChannels": true
+  }
+}

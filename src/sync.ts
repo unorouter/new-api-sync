@@ -1,0 +1,336 @@
+/**
+ * Main sync orchestration
+ * Idempotent sync from multiple upstream providers to target instance
+ */
+
+import type {
+  Config,
+  SyncReport,
+  ProviderReport,
+  SyncError,
+  MergedGroup,
+  MergedModel,
+  Channel,
+  GroupInfo,
+} from "@/types";
+import { validateConfig } from "@/lib/config";
+import { UpstreamClient } from "@/clients/upstream-client";
+import { TargetClient } from "@/clients/target-client";
+import { logInfo, logError } from "@/lib/utils";
+
+/**
+ * Sync all providers to target instance
+ * Idempotent: can be run multiple times safely
+ */
+export async function sync(config: Config): Promise<SyncReport> {
+  const startTime = Date.now();
+
+  // Validate config
+  validateConfig(config);
+
+  const report: SyncReport = {
+    success: true,
+    providers: [],
+    channels: { created: 0, updated: 0, deleted: 0 },
+    options: { updated: [] },
+    errors: [],
+    timestamp: new Date(),
+  };
+
+  // Merged data from all providers
+  const mergedGroups: MergedGroup[] = [];
+  const mergedModels = new Map<string, MergedModel>();
+  const channelsToCreate: Array<{
+    name: string;
+    key: string;
+    baseUrl: string;
+    models: string[];
+    group: string;
+    priority: number;
+    provider: string;
+  }> = [];
+
+  const tokenPrefix = config.options?.tokenNamePrefix ?? "proxy-sync";
+
+  logInfo("=".repeat(60));
+  logInfo("Starting sync...");
+  logInfo("=".repeat(60));
+
+  // ==========================================================================
+  // Phase 1: Collect data from all providers
+  // ==========================================================================
+
+  for (const providerConfig of config.providers) {
+    const providerReport: ProviderReport = {
+      name: providerConfig.name,
+      success: false,
+      groups: 0,
+      models: 0,
+      tokens: { created: 0, existing: 0 },
+    };
+
+    try {
+      logInfo(`\n[Provider: ${providerConfig.name}]`);
+      const upstream = new UpstreamClient(providerConfig);
+
+      // Fetch pricing
+      const pricing = await upstream.fetchPricing();
+
+      // Filter groups if enabledGroups specified
+      let groups: GroupInfo[];
+      if (
+        providerConfig.enabledGroups &&
+        providerConfig.enabledGroups.length > 0
+      ) {
+        groups = pricing.groups.filter((g) =>
+          providerConfig.enabledGroups!.includes(g.name)
+        );
+        logInfo(
+          `Filtered to ${groups.length} groups: ${groups.map((g) => g.name).join(", ")}`
+        );
+      } else {
+        groups = pricing.groups;
+      }
+
+      // Ensure tokens exist on upstream
+      const tokenResult = await upstream.ensureTokens(groups, tokenPrefix);
+      providerReport.tokens = {
+        created: tokenResult.created,
+        existing: tokenResult.existing,
+      };
+
+      // Collect prefixed groups and channel specs
+      for (const group of groups) {
+        const prefixedName = `${providerConfig.name}-${group.name}`;
+
+        mergedGroups.push({
+          name: prefixedName,
+          ratio: group.ratio,
+          description: `[${providerConfig.name}] ${group.description}`,
+          provider: providerConfig.name,
+        });
+
+        channelsToCreate.push({
+          name: prefixedName,
+          key: tokenResult.tokens[group.name] ?? "",
+          baseUrl: providerConfig.baseUrl,
+          models: group.models,
+          group: prefixedName,
+          priority: providerConfig.priority ?? 0,
+          provider: providerConfig.name,
+        });
+      }
+
+      // Merge model ratios (lowest wins for duplicates)
+      for (const model of pricing.models) {
+        const existing = mergedModels.get(model.name);
+        if (!existing || model.ratio < existing.ratio) {
+          mergedModels.set(model.name, {
+            ratio: model.ratio,
+            completionRatio: model.completionRatio,
+          });
+        }
+      }
+
+      providerReport.groups = groups.length;
+      providerReport.models = pricing.models.length;
+      providerReport.success = true;
+
+      logInfo(
+        `Provider ${providerConfig.name}: ${groups.length} groups, ${pricing.models.length} models`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      providerReport.error = message;
+      report.errors.push({
+        provider: providerConfig.name,
+        phase: "fetch",
+        message,
+      });
+      logError(`Provider ${providerConfig.name} failed: ${message}`);
+      // Continue with other providers
+    }
+
+    report.providers.push(providerReport);
+  }
+
+  // Check if we have any data to sync
+  if (mergedGroups.length === 0) {
+    logError("No groups collected from any provider, aborting sync");
+    report.success = false;
+    report.errors.push({
+      phase: "collect",
+      message: "No groups collected from any provider",
+    });
+    return report;
+  }
+
+  // ==========================================================================
+  // Phase 2: Build merged options
+  // ==========================================================================
+
+  logInfo("\n[Merging data]");
+  logInfo(`Total groups: ${mergedGroups.length}`);
+  logInfo(`Total models: ${mergedModels.size}`);
+
+  // GroupRatio
+  const groupRatio = Object.fromEntries(
+    mergedGroups.map((g) => [g.name, g.ratio])
+  );
+
+  // AutoGroups (sorted by ratio, cheapest first)
+  const autoGroups = [...mergedGroups]
+    .sort((a, b) => a.ratio - b.ratio)
+    .map((g) => g.name);
+
+  // UserUsableGroups
+  const usableGroups: Record<string, string> = {
+    auto: "Auto (Smart Routing with Failover)",
+  };
+  for (const group of mergedGroups) {
+    usableGroups[group.name] = group.description;
+  }
+
+  // ModelRatio
+  const modelRatio = Object.fromEntries(
+    [...mergedModels.entries()].map(([k, v]) => [k, v.ratio])
+  );
+
+  // CompletionRatio
+  const completionRatio = Object.fromEntries(
+    [...mergedModels.entries()].map(([k, v]) => [k, v.completionRatio])
+  );
+
+  // ==========================================================================
+  // Phase 3: Update target options
+  // ==========================================================================
+
+  logInfo("\n[Updating target options]");
+  const target = new TargetClient(config.target);
+
+  const optionsResult = await target.updateOptions({
+    GroupRatio: JSON.stringify(groupRatio),
+    UserUsableGroups: JSON.stringify(usableGroups),
+    AutoGroups: JSON.stringify(autoGroups),
+    DefaultUseAutoGroup: "true",
+    ModelRatio: JSON.stringify(modelRatio),
+    CompletionRatio: JSON.stringify(completionRatio),
+  });
+
+  report.options.updated = optionsResult.updated;
+  if (optionsResult.failed.length > 0) {
+    for (const key of optionsResult.failed) {
+      report.errors.push({
+        phase: "options",
+        message: `Failed to update option: ${key}`,
+      });
+    }
+  }
+
+  // ==========================================================================
+  // Phase 4: Sync channels (upsert + delete stale)
+  // ==========================================================================
+
+  logInfo("\n[Syncing channels]");
+
+  // Get existing channels
+  const existingChannels = await target.listChannels();
+  const existingByName = new Map(existingChannels.map((c) => [c.name, c]));
+
+  // Track which channel names we want to keep
+  const desiredChannelNames = new Set(channelsToCreate.map((c) => c.name));
+
+  // Provider prefixes for stale detection
+  const providerPrefixes = config.providers.map((p) => `${p.name}-`);
+
+  // Upsert channels
+  for (const spec of channelsToCreate) {
+    const existing = existingByName.get(spec.name);
+    const channelData: Channel = {
+      name: spec.name,
+      type: 1, // OpenAI compatible
+      key: spec.key,
+      base_url: spec.baseUrl.replace(/\/$/, ""),
+      models: spec.models.join(","),
+      group: spec.group,
+      priority: spec.priority,
+      status: 1,
+    };
+
+    if (existing) {
+      // Update existing channel
+      channelData.id = existing.id;
+      const success = await target.updateChannel(channelData);
+      if (success) {
+        report.channels.updated++;
+      } else {
+        report.errors.push({
+          phase: "channels",
+          message: `Failed to update channel: ${spec.name}`,
+        });
+      }
+    } else {
+      // Create new channel
+      const id = await target.createChannel(channelData);
+      if (id) {
+        report.channels.created++;
+      } else {
+        report.errors.push({
+          phase: "channels",
+          message: `Failed to create channel: ${spec.name}`,
+        });
+      }
+    }
+  }
+
+  // Delete stale channels (only those managed by configured providers)
+  if (config.options?.deleteStaleChannels !== false) {
+    for (const channel of existingChannels) {
+      // Check if this channel was managed by one of our providers
+      const isManagedByUs = providerPrefixes.some((prefix) =>
+        channel.name.startsWith(prefix)
+      );
+
+      if (isManagedByUs && !desiredChannelNames.has(channel.name)) {
+        logInfo(`Deleting stale channel: ${channel.name}`);
+        const success = await target.deleteChannel(channel.id!);
+        if (success) {
+          report.channels.deleted++;
+        } else {
+          report.errors.push({
+            phase: "channels",
+            message: `Failed to delete stale channel: ${channel.name}`,
+          });
+        }
+      }
+    }
+  }
+
+  // ==========================================================================
+  // Phase 5: Summary
+  // ==========================================================================
+
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+  report.success = report.errors.length === 0;
+
+  logInfo("\n" + "=".repeat(60));
+  logInfo("Sync complete!");
+  logInfo("=".repeat(60));
+  logInfo(
+    `Providers: ${report.providers.filter((p) => p.success).length} success, ${report.providers.filter((p) => !p.success).length} failed`
+  );
+  logInfo(
+    `Channels: ${report.channels.created} created, ${report.channels.updated} updated, ${report.channels.deleted} deleted`
+  );
+  logInfo(`Options: ${report.options.updated.length} updated`);
+  logInfo(`Time: ${elapsed}s`);
+
+  if (report.errors.length > 0) {
+    logInfo(`\nErrors (${report.errors.length}):`);
+    for (const err of report.errors) {
+      logError(`  [${err.provider ?? "target"}/${err.phase}] ${err.message}`);
+    }
+  }
+
+  return report;
+}
