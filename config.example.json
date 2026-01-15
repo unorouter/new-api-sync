@@ -7,10 +7,7 @@
     {
       "name": "newapi",
       "baseUrl": "https://www.newapi.ai",
-      "auth": {
-        "accessToken": "your-access-token",
-        "userId": 123
-      },
+      "accessToken": "your-system-access-token",
       "enabledGroups": ["aws-q", "cc", "gemini"],
       "priority": 10
     }

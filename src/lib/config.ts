@@ -28,11 +28,8 @@ export function validateConfig(config: Config): void {
     if (!provider.baseUrl) {
       throw new Error(`Provider ${provider.name} missing: baseUrl`);
     }
-    if (!provider.auth?.accessToken) {
-      throw new Error(`Provider ${provider.name} missing: auth.accessToken`);
-    }
-    if (!provider.auth?.userId) {
-      throw new Error(`Provider ${provider.name} missing: auth.userId`);
+    if (!provider.accessToken) {
+      throw new Error(`Provider ${provider.name} missing: accessToken`);
     }
   }
 }

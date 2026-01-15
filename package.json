@@ -1,8 +1,8 @@
 {
-  "name": "proxy-sync",
+  "name": "new-api-sync",
   "version": "0.2.0",
   "description": "Declarative multi-provider sync for new-api instances",
-  "module": "src/index.ts",
+  "module": "src/main.ts",
   "type": "module",
   "private": true,
   "scripts": {

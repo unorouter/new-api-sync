@@ -1,5 +1,5 @@
 /**
- * Type definitions for proxy-sync
+ * Type definitions for new-api-sync
  */
 
 // =============================================================================
@@ -20,16 +20,13 @@ export interface TargetConfig {
 export interface ProviderConfig {
   name: string;
   baseUrl: string;
-  auth: {
-    accessToken: string;
-    userId: number;
-  };
+  accessToken: string;
   enabledGroups?: string[];
   priority?: number;
 }
 
 export interface SyncOptions {
-  tokenNamePrefix?: string; // Default: "proxy-sync"
+  tokenNamePrefix?: string; // Default: "new-api-sync"
   deleteStaleChannels?: boolean; // Default: true
 }
 

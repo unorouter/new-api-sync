@@ -52,8 +52,7 @@ export class UpstreamClient {
 
   private get headers(): Record<string, string> {
     return {
-      Authorization: `Bearer ${this.provider.auth.accessToken}`,
-      "New-Api-User": String(this.provider.auth.userId),
+      Authorization: `Bearer ${this.provider.accessToken}`,
       "Content-Type": "application/json",
     };
   }
