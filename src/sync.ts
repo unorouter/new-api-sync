@@ -68,6 +68,7 @@ export async function sync(config: Config): Promise<SyncReport> {
       providerReport.tokens = {
         created: tokenResult.created,
         existing: tokenResult.existing,
+        deleted: tokenResult.deleted,
       };
 
       for (const group of groups) {

@@ -1,15 +1,10 @@
-import { logInfo } from "@/lib/utils";
+import { logInfo, fetchPaginated } from "@/lib/utils";
 import type { Channel, ModelMeta, TargetConfig } from "@/types";
 
 interface ApiResponse<T = unknown> {
   success: boolean;
   message?: string;
   data?: T;
-}
-
-interface ChannelListResponse {
-  success: boolean;
-  data: { data?: Channel[]; items?: Channel[] } | Channel[];
 }
 
 export class TargetClient {
@@ -53,19 +48,12 @@ export class TargetClient {
   }
 
   async listChannels(): Promise<Channel[]> {
-    const allChannels: Channel[] = [];
-    let page = 0;
-    while (true) {
-      const response = await fetch(`${this.config.url}/api/channel/?p=${page}&page_size=100`, { headers: this.headers });
-      if (!response.ok) throw new Error(`Failed to list channels: ${response.status}`);
-      const data = (await response.json()) as ChannelListResponse;
-      if (!data.success) throw new Error("Channel list API returned success: false");
-      const channels = Array.isArray(data.data) ? data.data : (data.data?.items ?? data.data?.data ?? []);
-      allChannels.push(...channels);
-      if (channels.length < 100) break;
-      page++;
-    }
-    return allChannels;
+    return fetchPaginated<Channel>(
+      `${this.config.url}/api/channel/`,
+      this.headers,
+      (data: { data: { data?: Channel[]; items?: Channel[] } | Channel[] }) =>
+        Array.isArray(data.data) ? data.data : (data.data?.items ?? data.data?.data ?? [])
+    );
   }
 
   async createChannel(channel: Omit<Channel, "id">): Promise<number | null> {

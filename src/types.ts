@@ -37,7 +37,7 @@ export interface ProviderReport {
   success: boolean;
   groups: number;
   models: number;
-  tokens: { created: number; existing: number };
+  tokens: { created: number; existing: number; deleted: number };
   error?: string;
 }
 

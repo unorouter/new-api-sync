@@ -127,12 +127,22 @@ export class UpstreamClient {
     if (!data.success) throw new Error(`Token create failed: ${data.message ?? "unknown"}`);
   }
 
-  async ensureTokens(groups: GroupInfo[], prefix: string): Promise<{ tokens: Record<string, string>; created: number; existing: number }> {
+  async ensureTokens(groups: GroupInfo[], prefix: string): Promise<{ tokens: Record<string, string>; created: number; existing: number; deleted: number }> {
     const result: Record<string, string> = {};
-    let created = 0, existing = 0;
+    let created = 0, existing = 0, deleted = 0;
 
     const existingTokens = await this.listTokens();
     const tokensByName = new Map(existingTokens.map((t) => [t.name, t]));
+
+    // Delete tokens that don't match our naming pattern
+    for (const token of existingTokens) {
+      if (!token.name.endsWith(`-${prefix}`)) {
+        if (await this.deleteToken(token.id)) {
+          logInfo(`[${this.provider.name}] Deleted stale token: ${token.name}`);
+          deleted++;
+        }
+      }
+    }
 
     for (const group of groups) {
       const tokenName = `${group.name}-${prefix}`;
@@ -152,7 +162,7 @@ export class UpstreamClient {
       }
     }
 
-    return { tokens: result, created, existing };
+    return { tokens: result, created, existing, deleted };
   }
 
   async deleteToken(id: number): Promise<boolean> {
