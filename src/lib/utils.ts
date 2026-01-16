@@ -25,7 +25,3 @@ export async function fetchPaginated<T, D extends { success: boolean } = { succe
   }
   return all;
 }
-
-export function ensureSkPrefix(key: string): string {
-  return key.startsWith("sk-") ? key : `sk-${key}`;
-}

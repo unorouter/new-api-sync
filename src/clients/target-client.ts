@@ -1,4 +1,4 @@
-import { logInfo, fetchPaginated } from "@/lib/utils";
+import { fetchPaginated, logInfo } from "@/lib/utils";
 import type { Channel, ModelMeta, TargetConfig } from "@/types";
 
 interface ApiResponse<T = unknown> {
@@ -37,7 +37,9 @@ export class TargetClient {
     return data.success;
   }
 
-  async updateOptions(options: Record<string, string>): Promise<{ updated: string[]; failed: string[] }> {
+  async updateOptions(
+    options: Record<string, string>,
+  ): Promise<{ updated: string[]; failed: string[] }> {
     const updated: string[] = [];
     const failed: string[] = [];
     for (const [key, value] of Object.entries(options)) {
@@ -48,11 +50,16 @@ export class TargetClient {
   }
 
   async listChannels(): Promise<Channel[]> {
-    return fetchPaginated<Channel>(
-      `${this.config.url}/api/channel/`,
-      this.headers,
-      (data: { data: { data?: Channel[]; items?: Channel[] } | Channel[] }) =>
-        Array.isArray(data.data) ? data.data : (data.data?.items ?? data.data?.data ?? [])
+    return fetchPaginated<
+      Channel,
+      {
+        success: boolean;
+        data: { data?: Channel[]; items?: Channel[] } | Channel[];
+      }
+    >(`${this.config.url}/api/channel/`, this.headers, (data) =>
+      Array.isArray(data.data)
+        ? data.data
+        : (data.data?.items ?? data.data?.data ?? []),
     );
   }
 
@@ -102,9 +109,15 @@ export class TargetClient {
     const allModels: ModelMeta[] = [];
     let page = 0;
     while (true) {
-      const response = await fetch(`${this.config.url}/api/models/?p=${page}&page_size=100`, { headers: this.headers });
-      if (!response.ok) throw new Error(`Failed to list models: ${response.status}`);
-      const data = (await response.json()) as ApiResponse<{ items?: ModelMeta[] }>;
+      const response = await fetch(
+        `${this.config.url}/api/models/?p=${page}&page_size=100`,
+        { headers: this.headers },
+      );
+      if (!response.ok)
+        throw new Error(`Failed to list models: ${response.status}`);
+      const data = (await response.json()) as ApiResponse<{
+        items?: ModelMeta[];
+      }>;
       const models = data.data?.items ?? [];
       allModels.push(...models);
       if (models.length < 100) break;
