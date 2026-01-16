@@ -1,5 +1,5 @@
 import { logDebug, logError, logInfo } from "@/lib/utils";
-import type { Channel, TargetConfig } from "@/types";
+import type { Channel, ModelMeta, TargetConfig } from "@/types";
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -91,33 +91,46 @@ export class TargetClient {
   }
 
   /**
-   * List all channels
+   * List all channels with pagination
    */
   async listChannels(): Promise<Channel[]> {
     logDebug("Listing channels");
 
-    const response = await fetch(
-      `${this.config.url}/api/channel/?p=0&page_size=10000`,
-      {
-        headers: this.headers,
-      },
-    );
+    const allChannels: Channel[] = [];
+    const pageSize = 100;
+    let page = 0;
 
-    if (!response.ok) {
-      throw new Error(`Failed to list channels: ${response.status}`);
+    while (true) {
+      const response = await fetch(
+        `${this.config.url}/api/channel/?p=${page}&page_size=${pageSize}`,
+        {
+          headers: this.headers,
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to list channels: ${response.status}`);
+      }
+
+      const data = (await response.json()) as ChannelListResponse;
+      if (!data.success) {
+        throw new Error("Channel list API returned success: false");
+      }
+
+      // Handle multiple response formats (paginated with items/data or direct array)
+      const channels = Array.isArray(data.data)
+        ? data.data
+        : (data.data?.items ?? data.data?.data ?? []);
+
+      allChannels.push(...channels);
+
+      if (channels.length < pageSize) {
+        break;
+      }
+      page++;
     }
 
-    const data = (await response.json()) as ChannelListResponse;
-    if (!data.success) {
-      throw new Error("Channel list API returned success: false");
-    }
-
-    // Handle multiple response formats (paginated with items/data or direct array)
-    const channels = Array.isArray(data.data)
-      ? data.data
-      : (data.data?.items ?? data.data?.data ?? []);
-
-    return channels;
+    return allChannels;
   }
 
   /**
@@ -235,5 +248,66 @@ export class TargetClient {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * List all models with pagination
+   */
+  async listModels(): Promise<ModelMeta[]> {
+    logDebug("Listing models");
+
+    const allModels: ModelMeta[] = [];
+    const pageSize = 100;
+    let page = 0;
+
+    while (true) {
+      const response = await fetch(
+        `${this.config.url}/api/models/?p=${page}&page_size=${pageSize}`,
+        { headers: this.headers },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to list models: ${response.status}`);
+      }
+
+      const data = (await response.json()) as ApiResponse<{ items?: ModelMeta[] }>;
+      const models = data.data?.items ?? [];
+
+      allModels.push(...models);
+
+      if (models.length < pageSize) {
+        break;
+      }
+      page++;
+    }
+
+    return allModels;
+  }
+
+  /**
+   * Create a model
+   */
+  async createModel(model: Omit<ModelMeta, "id">): Promise<boolean> {
+    logDebug(`Creating model: ${model.model_name}`);
+
+    const response = await fetch(`${this.config.url}/api/models/`, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify(model),
+    });
+
+    if (!response.ok) {
+      logError(`Failed to create model ${model.model_name}: ${response.status}`);
+      return false;
+    }
+
+    const data = (await response.json()) as ApiResponse;
+    if (!data.success) {
+      logError(`Failed to create model ${model.model_name}: ${data.message}`);
+      return false;
+    }
+
+    logInfo(`Created model: ${model.model_name}`);
+    return true;
   }
 }

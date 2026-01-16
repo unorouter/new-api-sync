@@ -7,11 +7,11 @@ import type {
   Config,
   SyncReport,
   ProviderReport,
-  SyncError,
   MergedGroup,
   MergedModel,
   Channel,
   GroupInfo,
+  ModelInfo,
 } from "@/types";
 import { validateConfig } from "@/lib/config";
 import { UpstreamClient } from "@/clients/upstream-client";
@@ -40,6 +40,7 @@ export async function sync(config: Config): Promise<SyncReport> {
   // Merged data from all providers
   const mergedGroups: MergedGroup[] = [];
   const mergedModels = new Map<string, MergedModel>();
+  const upstreamModels: ModelInfo[] = [];
   const channelsToCreate: Array<{
     name: string;
     key: string;
@@ -127,6 +128,10 @@ export async function sync(config: Config): Promise<SyncReport> {
             ratio: model.ratio,
             completionRatio: model.completionRatio,
           });
+        }
+        // Collect all upstream models for model sync
+        if (!upstreamModels.find((m) => m.name === model.name)) {
+          upstreamModels.push(model);
         }
       }
 
@@ -238,13 +243,10 @@ export async function sync(config: Config): Promise<SyncReport> {
   // Track which channel names we want to keep
   const desiredChannelNames = new Set(channelsToCreate.map((c) => c.name));
 
-  // Provider suffixes for stale detection
-  const providerSuffixes = config.providers.map((p) => `-${p.name}`);
-
   // Upsert channels
   for (const spec of channelsToCreate) {
     const existing = existingByName.get(spec.name);
-    const channelData: Channel = {
+  const channelData: Channel = {
       name: spec.name,
       type: 1, // OpenAI compatible
       key: spec.key,
@@ -253,6 +255,7 @@ export async function sync(config: Config): Promise<SyncReport> {
       group: spec.group,
       priority: spec.priority,
       status: 1,
+      tag: spec.provider,
     };
 
     if (existing) {
@@ -281,16 +284,17 @@ export async function sync(config: Config): Promise<SyncReport> {
     }
   }
 
-  // Delete stale channels (only those managed by configured providers)
+  // Provider names for tag-based deletion
+  const configuredProviders = new Set(config.providers.map((p) => p.name));
+
+  // Delete stale channels (channels with tags not in current config)
   if (config.options?.deleteStaleChannels !== false) {
     for (const channel of existingChannels) {
-      // Check if this channel was managed by one of our providers
-      const isManagedByUs = providerSuffixes.some((suffix) =>
-        channel.name.endsWith(suffix)
-      );
+      if (desiredChannelNames.has(channel.name)) continue;
 
-      if (isManagedByUs && !desiredChannelNames.has(channel.name)) {
-        logInfo(`Deleting stale channel: ${channel.name}`);
+      // Delete if channel has a tag that's not in current providers
+      if (channel.tag && !configuredProviders.has(channel.tag)) {
+        logInfo(`Deleting channel from removed provider "${channel.tag}": ${channel.name}`);
         const success = await target.deleteChannel(channel.id!);
         if (success) {
           report.channels.deleted++;
@@ -305,7 +309,33 @@ export async function sync(config: Config): Promise<SyncReport> {
   }
 
   // ==========================================================================
-  // Phase 5: Summary
+  // Phase 5: Sync models (create missing)
+  // ==========================================================================
+
+  logInfo("\n[Syncing models]");
+
+  const existingModels = await target.listModels();
+  const existingModelNames = new Set(existingModels.map((m) => m.model_name));
+  let modelsCreated = 0;
+
+  for (const model of upstreamModels) {
+    if (!existingModelNames.has(model.name)) {
+      const success = await target.createModel({
+        model_name: model.name,
+        vendor_id: model.vendorId,
+        status: 1,
+        sync_official: 1,
+      });
+      if (success) {
+        modelsCreated++;
+      }
+    }
+  }
+
+  logInfo(`Models: ${modelsCreated} created`);
+
+  // ==========================================================================
+  // Phase 6: Summary
   // ==========================================================================
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);

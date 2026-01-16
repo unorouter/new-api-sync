@@ -40,3 +40,4 @@ package-lock.json
 yarn.lock
 bun.lock*
 *.png
+config copy.json

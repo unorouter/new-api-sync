@@ -102,6 +102,7 @@ export class UpstreamClient {
       ratio: m.model_ratio,
       completionRatio: m.completion_ratio,
       groups: m.enable_groups,
+      vendorId: m.vendor_id,
     }));
 
     // Build ratio maps
@@ -130,35 +131,48 @@ export class UpstreamClient {
   }
 
   /**
-   * List all tokens for this user on upstream
+   * List all tokens for this user on upstream with pagination
    */
   async listTokens(): Promise<UpstreamToken[]> {
     logDebug(`[${this.provider.name}] Listing tokens`);
 
-    const response = await fetch(
-      `${this.baseUrl}/api/token/?p=0&page_size=1000`,
-      {
-        headers: this.headers,
-      },
-    );
+    const allTokens: UpstreamToken[] = [];
+    const pageSize = 100;
+    let page = 0;
 
-    if (!response.ok) {
-      throw new Error(
-        `Failed to list tokens: ${response.status} ${response.statusText}`,
+    while (true) {
+      const response = await fetch(
+        `${this.baseUrl}/api/token/?p=${page}&page_size=${pageSize}`,
+        {
+          headers: this.headers,
+        },
       );
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to list tokens: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      const data = (await response.json()) as TokenListResponse;
+      if (!data.success) {
+        throw new Error(`Token list API returned success: false`);
+      }
+
+      // Handle multiple response formats (paginated with items/data or direct array)
+      const tokens = Array.isArray(data.data)
+        ? data.data
+        : (data.data?.items ?? data.data?.data ?? []);
+
+      allTokens.push(...tokens);
+
+      if (tokens.length < pageSize) {
+        break;
+      }
+      page++;
     }
 
-    const data = (await response.json()) as TokenListResponse;
-    if (!data.success) {
-      throw new Error(`Token list API returned success: false`);
-    }
-
-    // Handle multiple response formats (paginated with items/data or direct array)
-    const tokens = Array.isArray(data.data)
-      ? data.data
-      : (data.data?.items ?? data.data?.data ?? []);
-
-    return tokens;
+    return allTokens;
   }
 
   /**

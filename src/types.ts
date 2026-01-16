@@ -25,6 +25,8 @@ export interface ProviderConfig {
   userId: number;
   enabledGroups?: string[];
   priority?: number;
+  modelMapping?: Record<string, string>;
+  modelMappingUrl?: string; // URL to fetch model mapping JSON from
 }
 
 export interface SyncOptions {
@@ -92,6 +94,7 @@ export interface ModelInfo {
   ratio: number;
   completionRatio: number;
   groups: string[];
+  vendorId?: number;
 }
 
 export interface UpstreamToken {
@@ -113,9 +116,19 @@ export interface Channel {
   key: string;
   base_url: string;
   models: string;
+  model_mapping?: string;
   group: string;
   priority: number;
   status: number;
+  tag?: string;
+}
+
+export interface ModelMeta {
+  id?: number;
+  model_name: string;
+  vendor_id?: number;
+  status?: number;
+  sync_official?: number;
 }
 
 // =============================================================================
