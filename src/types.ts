@@ -1,11 +1,3 @@
-/**
- * Type definitions for new-api-sync
- */
-
-// =============================================================================
-// Config Types
-// =============================================================================
-
 export interface Config {
   target: TargetConfig;
   providers: ProviderConfig[];
@@ -25,29 +17,17 @@ export interface ProviderConfig {
   userId: number;
   enabledGroups?: string[];
   priority?: number;
-  modelMapping?: Record<string, string>;
-  modelMappingUrl?: string; // URL to fetch model mapping JSON from
 }
 
 export interface SyncOptions {
-  deleteStaleChannels?: boolean; // Default: true
+  deleteStaleChannels?: boolean;
 }
-
-// =============================================================================
-// Sync Report Types
-// =============================================================================
 
 export interface SyncReport {
   success: boolean;
   providers: ProviderReport[];
-  channels: {
-    created: number;
-    updated: number;
-    deleted: number;
-  };
-  options: {
-    updated: string[];
-  };
+  channels: { created: number; updated: number; deleted: number };
+  options: { updated: string[] };
   errors: SyncError[];
   timestamp: Date;
 }
@@ -57,10 +37,7 @@ export interface ProviderReport {
   success: boolean;
   groups: number;
   models: number;
-  tokens: {
-    created: number;
-    existing: number;
-  };
+  tokens: { created: number; existing: number };
   error?: string;
 }
 
@@ -69,10 +46,6 @@ export interface SyncError {
   phase: string;
   message: string;
 }
-
-// =============================================================================
-// Upstream Data Types (from /api/pricing)
-// =============================================================================
 
 export interface UpstreamPricing {
   groups: GroupInfo[];
@@ -106,10 +79,6 @@ export interface UpstreamToken {
   status: number;
 }
 
-// =============================================================================
-// Target Channel Types
-// =============================================================================
-
 export interface Channel {
   id?: number;
   name: string;
@@ -117,7 +86,6 @@ export interface Channel {
   key: string;
   base_url: string;
   models: string;
-  model_mapping?: string;
   group: string;
   priority: number;
   status: number;
@@ -132,10 +100,6 @@ export interface ModelMeta {
   sync_official?: number;
 }
 
-// =============================================================================
-// Internal Types (used during sync)
-// =============================================================================
-
 export interface MergedGroup {
   name: string;
   ratio: number;
@@ -146,14 +110,4 @@ export interface MergedGroup {
 export interface MergedModel {
   ratio: number;
   completionRatio: number;
-}
-
-export interface ChannelSpec {
-  name: string;
-  type: number;
-  key: string;
-  baseUrl: string;
-  models: string[];
-  group: string;
-  priority: number;
 }

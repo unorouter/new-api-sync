@@ -1,4 +1,4 @@
-import { logDebug, logError, logInfo } from "@/lib/utils";
+import { logInfo } from "@/lib/utils";
 import type { Channel, ModelMeta, TargetConfig } from "@/types";
 
 interface ApiResponse<T = unknown> {
@@ -9,12 +9,7 @@ interface ApiResponse<T = unknown> {
 
 interface ChannelListResponse {
   success: boolean;
-  data:
-    | {
-        data?: Channel[];
-        items?: Channel[];
-      }
-    | Channel[];
+  data: { data?: Channel[]; items?: Channel[] } | Channel[];
 }
 
 export class TargetClient {
@@ -36,278 +31,109 @@ export class TargetClient {
     };
   }
 
-  /**
-   * Update a single option
-   */
   async updateOption(key: string, value: string): Promise<boolean> {
-    logDebug(`Updating option: ${key}`);
-
     const response = await fetch(`${this.config.url}/api/option/`, {
       method: "PUT",
       headers: this.headers,
       body: JSON.stringify({ key, value }),
     });
-
-    if (!response.ok) {
-      logError(`Failed to update option ${key}: ${response.status}`);
-      return false;
-    }
-
+    if (!response.ok) return false;
     const data = (await response.json()) as ApiResponse;
-    if (!data.success) {
-      logError(`Failed to update option ${key}: ${data.message}`);
-      return false;
-    }
-
-    return true;
+    return data.success;
   }
 
-  /**
-   * Update multiple options
-   */
-  async updateOptions(
-    options: Record<string, string>,
-  ): Promise<{ updated: string[]; failed: string[] }> {
+  async updateOptions(options: Record<string, string>): Promise<{ updated: string[]; failed: string[] }> {
     const updated: string[] = [];
     const failed: string[] = [];
-
     for (const [key, value] of Object.entries(options)) {
-      const success = await this.updateOption(key, value);
-      if (success) {
-        updated.push(key);
-      } else {
-        failed.push(key);
-      }
+      if (await this.updateOption(key, value)) updated.push(key);
+      else failed.push(key);
     }
-
-    if (updated.length > 0) {
-      logInfo(`Updated options: ${updated.join(", ")}`);
-    }
-    if (failed.length > 0) {
-      logError(`Failed to update options: ${failed.join(", ")}`);
-    }
-
     return { updated, failed };
   }
 
-  /**
-   * List all channels with pagination
-   */
   async listChannels(): Promise<Channel[]> {
-    logDebug("Listing channels");
-
     const allChannels: Channel[] = [];
-    const pageSize = 100;
     let page = 0;
-
     while (true) {
-      const response = await fetch(
-        `${this.config.url}/api/channel/?p=${page}&page_size=${pageSize}`,
-        {
-          headers: this.headers,
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to list channels: ${response.status}`);
-      }
-
+      const response = await fetch(`${this.config.url}/api/channel/?p=${page}&page_size=100`, { headers: this.headers });
+      if (!response.ok) throw new Error(`Failed to list channels: ${response.status}`);
       const data = (await response.json()) as ChannelListResponse;
-      if (!data.success) {
-        throw new Error("Channel list API returned success: false");
-      }
-
-      // Handle multiple response formats (paginated with items/data or direct array)
-      const channels = Array.isArray(data.data)
-        ? data.data
-        : (data.data?.items ?? data.data?.data ?? []);
-
+      if (!data.success) throw new Error("Channel list API returned success: false");
+      const channels = Array.isArray(data.data) ? data.data : (data.data?.items ?? data.data?.data ?? []);
       allChannels.push(...channels);
-
-      if (channels.length < pageSize) {
-        break;
-      }
+      if (channels.length < 100) break;
       page++;
     }
-
     return allChannels;
   }
 
-  /**
-   * Create a new channel
-   * Supports both old format (direct channel) and new format (wrapped in mode+channel)
-   */
   async createChannel(channel: Omit<Channel, "id">): Promise<number | null> {
-    logDebug(`Creating channel: ${channel.name}`);
-
-    // Try new API format first (wrapped in mode+channel)
-    const newFormatBody = {
-      mode: "single",
-      channel: channel,
-    };
-
     let response = await fetch(`${this.config.url}/api/channel/`, {
       method: "POST",
       headers: this.headers,
-      body: JSON.stringify(newFormatBody),
+      body: JSON.stringify({ mode: "single", channel }),
     });
-
-    // If new format fails with 400/422, try old format (direct channel)
     if (response.status === 400 || response.status === 422) {
-      logDebug(`New API format failed, trying old format for: ${channel.name}`);
       response = await fetch(`${this.config.url}/api/channel/`, {
         method: "POST",
         headers: this.headers,
         body: JSON.stringify(channel),
       });
     }
-
-    if (!response.ok) {
-      logError(`Failed to create channel ${channel.name}: ${response.status}`);
-      return null;
-    }
-
+    if (!response.ok) return null;
     const data = (await response.json()) as ApiResponse<{ id: number }>;
-    if (!data.success) {
-      logError(`Failed to create channel ${channel.name}: ${data.message}`);
-      return null;
-    }
-
+    if (!data.success) return null;
     logInfo(`Created channel: ${channel.name}`);
-    // New API doesn't return ID, return 0 to indicate success
     return data.data?.id ?? 0;
   }
 
-  /**
-   * Update an existing channel
-   */
   async updateChannel(channel: Channel): Promise<boolean> {
-    if (!channel.id) {
-      logError(`Cannot update channel without ID: ${channel.name}`);
-      return false;
-    }
-
-    logDebug(`Updating channel: ${channel.name} (ID: ${channel.id})`);
-
+    if (!channel.id) return false;
     const response = await fetch(`${this.config.url}/api/channel/`, {
       method: "PUT",
       headers: this.headers,
       body: JSON.stringify(channel),
     });
-
-    if (!response.ok) {
-      logError(`Failed to update channel ${channel.name}: ${response.status}`);
-      return false;
-    }
-
+    if (!response.ok) return false;
     const data = (await response.json()) as ApiResponse;
-    if (!data.success) {
-      logError(`Failed to update channel ${channel.name}: ${data.message}`);
-      return false;
-    }
-
-    logInfo(`Updated channel: ${channel.name}`);
-    return true;
+    return data.success;
   }
 
-  /**
-   * Delete a channel by ID
-   */
   async deleteChannel(id: number): Promise<boolean> {
-    logDebug(`Deleting channel ID: ${id}`);
-
     const response = await fetch(`${this.config.url}/api/channel/${id}`, {
       method: "DELETE",
       headers: this.headers,
     });
-
-    if (!response.ok) {
-      logError(`Failed to delete channel ${id}: ${response.status}`);
-      return false;
-    }
-
+    if (!response.ok) return false;
     const data = (await response.json()) as ApiResponse;
-    if (!data.success) {
-      logError(`Failed to delete channel ${id}: ${data.message}`);
-      return false;
-    }
-
-    logInfo(`Deleted channel ID: ${id}`);
-    return true;
+    return data.success;
   }
 
-  /**
-   * Test connection to target
-   */
-  async testConnection(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.config.url}/api/status`, {
-        headers: this.headers,
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * List all models with pagination
-   */
   async listModels(): Promise<ModelMeta[]> {
-    logDebug("Listing models");
-
     const allModels: ModelMeta[] = [];
-    const pageSize = 100;
     let page = 0;
-
     while (true) {
-      const response = await fetch(
-        `${this.config.url}/api/models/?p=${page}&page_size=${pageSize}`,
-        { headers: this.headers },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to list models: ${response.status}`);
-      }
-
+      const response = await fetch(`${this.config.url}/api/models/?p=${page}&page_size=100`, { headers: this.headers });
+      if (!response.ok) throw new Error(`Failed to list models: ${response.status}`);
       const data = (await response.json()) as ApiResponse<{ items?: ModelMeta[] }>;
       const models = data.data?.items ?? [];
-
       allModels.push(...models);
-
-      if (models.length < pageSize) {
-        break;
-      }
+      if (models.length < 100) break;
       page++;
     }
-
     return allModels;
   }
 
-  /**
-   * Create a model
-   */
   async createModel(model: Omit<ModelMeta, "id">): Promise<boolean> {
-    logDebug(`Creating model: ${model.model_name}`);
-
     const response = await fetch(`${this.config.url}/api/models/`, {
       method: "POST",
       headers: this.headers,
       body: JSON.stringify(model),
     });
-
-    if (!response.ok) {
-      logError(`Failed to create model ${model.model_name}: ${response.status}`);
-      return false;
-    }
-
+    if (!response.ok) return false;
     const data = (await response.json()) as ApiResponse;
-    if (!data.success) {
-      logError(`Failed to create model ${model.model_name}: ${data.message}`);
-      return false;
-    }
-
-    logInfo(`Created model: ${model.model_name}`);
-    return true;
+    if (data.success) logInfo(`Created model: ${model.model_name}`);
+    return data.success;
   }
 }
