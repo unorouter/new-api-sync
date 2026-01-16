@@ -216,7 +216,7 @@ export class UpstreamClient {
     const tokensByName = new Map(existingTokens.map((t) => [t.name, t]));
 
     for (const group of groups) {
-      const tokenName = `${prefix}-${group.name}`;
+      const tokenName = `${group.name}-${prefix}`;
       const existingToken = tokensByName.get(tokenName);
 
       if (existingToken) {
@@ -254,5 +254,22 @@ export class UpstreamClient {
     );
 
     return { tokens: result, created, existing };
+  }
+
+  /**
+   * Delete a token by ID
+   */
+  async deleteToken(id: number): Promise<boolean> {
+    const response = await fetch(`${this.baseUrl}/api/token/${id}`, {
+      method: "DELETE",
+      headers: this.headers,
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data = (await response.json()) as { success: boolean };
+    return data.success;
   }
 }

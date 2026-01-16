@@ -99,12 +99,12 @@ export async function sync(config: Config): Promise<SyncReport> {
 
       // Collect prefixed groups and channel specs
       for (const group of groups) {
-        const prefixedName = `${providerConfig.name}-${group.name}`;
+        const prefixedName = `${group.name}-${providerConfig.name}`;
 
         mergedGroups.push({
           name: prefixedName,
           ratio: group.ratio,
-          description: `[${providerConfig.name}] ${group.description}`,
+          description: `${group.description} [${providerConfig.name}]`,
           provider: providerConfig.name,
         });
 
@@ -238,8 +238,8 @@ export async function sync(config: Config): Promise<SyncReport> {
   // Track which channel names we want to keep
   const desiredChannelNames = new Set(channelsToCreate.map((c) => c.name));
 
-  // Provider prefixes for stale detection
-  const providerPrefixes = config.providers.map((p) => `${p.name}-`);
+  // Provider suffixes for stale detection
+  const providerSuffixes = config.providers.map((p) => `-${p.name}`);
 
   // Upsert channels
   for (const spec of channelsToCreate) {
@@ -285,8 +285,8 @@ export async function sync(config: Config): Promise<SyncReport> {
   if (config.options?.deleteStaleChannels !== false) {
     for (const channel of existingChannels) {
       // Check if this channel was managed by one of our providers
-      const isManagedByUs = providerPrefixes.some((prefix) =>
-        channel.name.startsWith(prefix)
+      const isManagedByUs = providerSuffixes.some((suffix) =>
+        channel.name.endsWith(suffix)
       );
 
       if (isManagedByUs && !desiredChannelNames.has(channel.name)) {

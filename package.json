@@ -8,6 +8,7 @@
   "scripts": {
     "start": "bun run src/main.ts",
     "sync": "bun run src/main.ts",
+    "reset": "bun run src/reset.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
