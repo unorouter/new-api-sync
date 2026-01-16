@@ -87,6 +87,7 @@ export interface GroupInfo {
   description: string;
   ratio: number;
   models: string[];
+  channelType: number;
 }
 
 export interface ModelInfo {

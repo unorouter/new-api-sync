@@ -43,6 +43,7 @@ export async function sync(config: Config): Promise<SyncReport> {
   const upstreamModels: ModelInfo[] = [];
   const channelsToCreate: Array<{
     name: string;
+    type: number;
     key: string;
     baseUrl: string;
     models: string[];
@@ -91,6 +92,11 @@ export async function sync(config: Config): Promise<SyncReport> {
         groups = pricing.groups;
       }
 
+      // Log models per group
+      for (const group of groups) {
+        logInfo(`  Group "${group.name}" has ${group.models.length} models: ${group.models.slice(0, 5).join(", ")}${group.models.length > 5 ? ` ... and ${group.models.length - 5} more` : ""}`);
+      }
+
       // Ensure tokens exist on upstream (use provider name as prefix for consistency with channel names)
       const tokenResult = await upstream.ensureTokens(groups, providerConfig.name);
       providerReport.tokens = {
@@ -111,6 +117,7 @@ export async function sync(config: Config): Promise<SyncReport> {
 
         channelsToCreate.push({
           name: prefixedName,
+          type: group.channelType,
           key: tokenResult.tokens[group.name] ?? "",
           baseUrl: providerConfig.baseUrl,
           models: group.models,
@@ -248,7 +255,7 @@ export async function sync(config: Config): Promise<SyncReport> {
     const existing = existingByName.get(spec.name);
   const channelData: Channel = {
       name: spec.name,
-      type: 1, // OpenAI compatible
+      type: spec.type,
       key: spec.key,
       base_url: spec.baseUrl.replace(/\/$/, ""),
       models: spec.models.join(","),
@@ -316,19 +323,34 @@ export async function sync(config: Config): Promise<SyncReport> {
 
   const existingModels = await target.listModels();
   const existingModelNames = new Set(existingModels.map((m) => m.model_name));
-  let modelsCreated = 0;
+  logInfo(`Found ${existingModels.length} existing models on target`);
 
-  for (const model of upstreamModels) {
-    if (!existingModelNames.has(model.name)) {
+  // Only sync models from enabled groups, not all upstream models
+  const modelsToSync = new Set<string>();
+  for (const channel of channelsToCreate) {
+    for (const model of channel.models) {
+      modelsToSync.add(model);
+    }
+  }
+
+  logInfo(`Models to sync from enabled groups: ${modelsToSync.size}`);
+
+  let modelsCreated = 0;
+  for (const modelName of modelsToSync) {
+    if (!existingModelNames.has(modelName)) {
+      // Find model info from upstream
+      const modelInfo = upstreamModels.find((m) => m.name === modelName);
       const success = await target.createModel({
-        model_name: model.name,
-        vendor_id: model.vendorId,
+        model_name: modelName,
+        vendor_id: modelInfo?.vendorId,
         status: 1,
         sync_official: 1,
       });
       if (success) {
         modelsCreated++;
       }
+    } else {
+      logInfo(`  Model already exists: ${modelName}`);
     }
   }
 

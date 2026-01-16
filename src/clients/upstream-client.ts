@@ -39,6 +39,25 @@ interface TokenCreateResponse {
   message?: string;
 }
 
+/**
+ * Infer channel type from supported endpoint types
+ * Based on new-api/constant/endpoint_type.go and common/endpoint_type.go
+ *
+ * Endpoint types → Channel types:
+ * - jina-rerank → 38 (Jina)
+ * - openai-video → 55 (Sora)
+ * - anthropic → 14 (Anthropic)
+ * - gemini → 24 (Gemini)
+ * - openai, openai-response, image-generation, embeddings → 1 (OpenAI)
+ */
+function inferChannelTypeFromEndpoints(endpoints: string[]): number {
+  if (endpoints.includes("jina-rerank")) return 38;
+  if (endpoints.includes("openai-video")) return 55;
+  if (endpoints.includes("anthropic")) return 14;
+  if (endpoints.includes("gemini")) return 24;
+  return 1; // OpenAI (default for openai, openai-response, image-generation, embeddings)
+}
+
 export class UpstreamClient {
   private provider: ProviderConfig;
 
@@ -76,14 +95,19 @@ export class UpstreamClient {
       throw new Error(`Pricing API returned success: false`);
     }
 
-    // Build group info with models
+    // Build group info with models and endpoint types
     const groupModels = new Map<string, Set<string>>();
+    const groupEndpoints = new Map<string, Set<string>>();
     for (const model of data.data) {
       for (const group of model.enable_groups) {
         if (!groupModels.has(group)) {
           groupModels.set(group, new Set());
+          groupEndpoints.set(group, new Set());
         }
         groupModels.get(group)!.add(model.model_name);
+        for (const endpoint of model.supported_endpoint_types) {
+          groupEndpoints.get(group)!.add(endpoint);
+        }
       }
     }
 
@@ -94,6 +118,9 @@ export class UpstreamClient {
         description,
         ratio: data.group_ratio[name] ?? 1,
         models: Array.from(groupModels.get(name) ?? []),
+        channelType: inferChannelTypeFromEndpoints(
+          Array.from(groupEndpoints.get(name) ?? []),
+        ),
       }));
 
     // Build model info
