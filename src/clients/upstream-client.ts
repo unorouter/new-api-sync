@@ -1,16 +1,11 @@
-/**
- * Upstream client for interacting with new-api based providers
- * Handles fetching pricing and managing tokens
- */
-
+import { logDebug, logInfo } from "@/lib/utils";
 import type {
+  GroupInfo,
+  ModelInfo,
   ProviderConfig,
   UpstreamPricing,
   UpstreamToken,
-  GroupInfo,
-  ModelInfo,
 } from "@/types";
-import { logInfo, logDebug, logError } from "@/lib/utils";
 
 interface PricingResponse {
   success: boolean;
@@ -72,7 +67,7 @@ export class UpstreamClient {
     const response = await fetch(`${this.baseUrl}/api/pricing`);
     if (!response.ok) {
       throw new Error(
-        `Failed to fetch pricing: ${response.status} ${response.statusText}`
+        `Failed to fetch pricing: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -122,7 +117,7 @@ export class UpstreamClient {
     }
 
     logInfo(
-      `[${this.provider.name}] Found ${groups.length} groups, ${models.length} models`
+      `[${this.provider.name}] Found ${groups.length} groups, ${models.length} models`,
     );
 
     return {
@@ -144,12 +139,12 @@ export class UpstreamClient {
       `${this.baseUrl}/api/token/?p=0&page_size=1000`,
       {
         headers: this.headers,
-      }
+      },
     );
 
     if (!response.ok) {
       throw new Error(
-        `Failed to list tokens: ${response.status} ${response.statusText}`
+        `Failed to list tokens: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -161,7 +156,7 @@ export class UpstreamClient {
     // Handle multiple response formats (paginated with items/data or direct array)
     const tokens = Array.isArray(data.data)
       ? data.data
-      : data.data?.items ?? data.data?.data ?? [];
+      : (data.data?.items ?? data.data?.data ?? []);
 
     return tokens;
   }
@@ -170,7 +165,9 @@ export class UpstreamClient {
    * Create a new token on upstream
    */
   async createToken(name: string, group: string): Promise<void> {
-    logInfo(`[${this.provider.name}] Creating token: ${name} (group: ${group})`);
+    logInfo(
+      `[${this.provider.name}] Creating token: ${name} (group: ${group})`,
+    );
 
     const response = await fetch(`${this.baseUrl}/api/token/`, {
       method: "POST",
@@ -186,13 +183,15 @@ export class UpstreamClient {
 
     if (!response.ok) {
       throw new Error(
-        `Failed to create token: ${response.status} ${response.statusText}`
+        `Failed to create token: ${response.status} ${response.statusText}`,
       );
     }
 
     const data = (await response.json()) as TokenCreateResponse;
     if (!data.success) {
-      throw new Error(`Token create failed: ${data.message ?? "unknown error"}`);
+      throw new Error(
+        `Token create failed: ${data.message ?? "unknown error"}`,
+      );
     }
   }
 
@@ -202,8 +201,12 @@ export class UpstreamClient {
    */
   async ensureTokens(
     groups: GroupInfo[],
-    prefix: string
-  ): Promise<{ tokens: Record<string, string>; created: number; existing: number }> {
+    prefix: string,
+  ): Promise<{
+    tokens: Record<string, string>;
+    created: number;
+    existing: number;
+  }> {
     const result: Record<string, string> = {};
     let created = 0;
     let existing = 0;
@@ -235,7 +238,7 @@ export class UpstreamClient {
 
         if (!newToken) {
           throw new Error(
-            `Token ${tokenName} created but not found in token list`
+            `Token ${tokenName} created but not found in token list`,
           );
         }
 
@@ -247,7 +250,7 @@ export class UpstreamClient {
     }
 
     logInfo(
-      `[${this.provider.name}] Tokens: ${created} created, ${existing} existing`
+      `[${this.provider.name}] Tokens: ${created} created, ${existing} existing`,
     );
 
     return { tokens: result, created, existing };

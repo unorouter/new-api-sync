@@ -1,10 +1,5 @@
-/**
- * Target client for interacting with your new-api instance
- * Handles updating options and managing channels
- */
-
-import type { TargetConfig, Channel } from "@/types";
-import { logInfo, logDebug, logError } from "@/lib/utils";
+import { logDebug, logError, logInfo } from "@/lib/utils";
+import type { Channel, TargetConfig } from "@/types";
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -71,7 +66,7 @@ export class TargetClient {
    * Update multiple options
    */
   async updateOptions(
-    options: Record<string, string>
+    options: Record<string, string>,
   ): Promise<{ updated: string[]; failed: string[] }> {
     const updated: string[] = [];
     const failed: string[] = [];
@@ -105,7 +100,7 @@ export class TargetClient {
       `${this.config.url}/api/channel/?p=0&page_size=10000`,
       {
         headers: this.headers,
-      }
+      },
     );
 
     if (!response.ok) {
@@ -120,7 +115,7 @@ export class TargetClient {
     // Handle multiple response formats (paginated with items/data or direct array)
     const channels = Array.isArray(data.data)
       ? data.data
-      : data.data?.items ?? data.data?.data ?? [];
+      : (data.data?.items ?? data.data?.data ?? []);
 
     return channels;
   }

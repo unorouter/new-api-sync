@@ -1,7 +1,3 @@
-/**
- * Utility functions for proxy-sync
- */
-
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 let verboseMode = false;
@@ -54,7 +50,7 @@ export function logError(message: string, ...args: unknown[]) {
  */
 export async function fetchJson<T>(
   url: string,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<T> {
   const response = await fetch(url, {
     ...options,
@@ -85,7 +81,7 @@ export function sleep(ms: number): Promise<void> {
 export async function retry<T>(
   fn: () => Promise<T>,
   maxRetries = 3,
-  baseDelay = 1000
+  baseDelay = 1000,
 ): Promise<T> {
   let lastError: Error | undefined;
 
@@ -96,7 +92,9 @@ export async function retry<T>(
       lastError = error as Error;
       if (i < maxRetries - 1) {
         const delay = baseDelay * Math.pow(2, i);
-        logWarn(`Retry ${i + 1}/${maxRetries} after ${delay}ms: ${lastError.message}`);
+        logWarn(
+          `Retry ${i + 1}/${maxRetries} after ${delay}ms: ${lastError.message}`,
+        );
         await sleep(delay);
       }
     }
