@@ -163,6 +163,12 @@ export async function sync(config: Config): Promise<SyncReport> {
     [...mergedModels.entries()].map(([k, v]) => [k, v.completionRatio]),
   );
 
+  // Log a sample of ratios for debugging
+  const sampleModels = [...mergedModels.entries()].slice(0, 3);
+  for (const [name, ratios] of sampleModels) {
+    logInfo(`Model ${name}: ratio=${ratios.ratio}, completionRatio=${ratios.completionRatio}`);
+  }
+
   const target = new TargetClient(config.target);
 
   logInfo("Updating target options...");
