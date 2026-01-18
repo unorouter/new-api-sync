@@ -2,6 +2,17 @@ export function logInfo(message: string) {
   console.log(`${new Date().toISOString()} [INFO] ${message}`);
 }
 
+/**
+ * Removes Chinese characters from a string, keeping only ASCII alphanumeric,
+ * hyphens, and underscores. Collapses multiple hyphens into one.
+ */
+export function sanitizeGroupName(name: string): string {
+  return name
+    .replace(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 export function logError(message: string) {
   console.log(`${new Date().toISOString()} [ERROR] ${message}`);
 }

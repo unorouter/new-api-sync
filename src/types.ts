@@ -98,6 +98,7 @@ export interface Channel {
   priority: number;
   status: number;
   tag?: string;
+  remark?: string;
 }
 
 export interface ModelMeta {

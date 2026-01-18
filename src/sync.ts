@@ -1,7 +1,7 @@
 import { TargetClient } from "@/clients/target-client";
 import { UpstreamClient } from "@/clients/upstream-client";
 import { validateConfig } from "@/lib/config";
-import { logError, logInfo } from "@/lib/utils";
+import { logError, logInfo, sanitizeGroupName } from "@/lib/utils";
 import type {
   Channel,
   Config,
@@ -39,6 +39,7 @@ export async function sync(config: Config): Promise<SyncReport> {
     group: string;
     priority: number;
     provider: string;
+    remark: string;
   }> = [];
 
   logInfo("Starting sync...");
@@ -78,7 +79,8 @@ export async function sync(config: Config): Promise<SyncReport> {
       };
 
       for (const group of groups) {
-        const prefixedName = `${group.name}-${providerConfig.name}`;
+        const originalName = `${group.name}-${providerConfig.name}`;
+        const sanitizedName = sanitizeGroupName(originalName);
         let groupRatio = group.ratio;
 
         // Apply priceMultiplier to group ratio for per-provider billing
@@ -87,20 +89,21 @@ export async function sync(config: Config): Promise<SyncReport> {
         }
 
         mergedGroups.push({
-          name: prefixedName,
+          name: sanitizedName,
           ratio: groupRatio,
           description: `${group.description} [${providerConfig.name}]`,
           provider: providerConfig.name,
         });
         channelsToCreate.push({
-          name: prefixedName,
+          name: sanitizedName,
           type: group.channelType,
           key: tokenResult.tokens[group.name] ?? "",
           baseUrl: providerConfig.baseUrl,
           models: group.models,
-          group: prefixedName,
+          group: sanitizedName,
           priority: providerConfig.priority ?? 0,
           provider: providerConfig.name,
+          remark: originalName,
         });
       }
 
@@ -206,6 +209,7 @@ export async function sync(config: Config): Promise<SyncReport> {
       priority: spec.priority,
       status: 1,
       tag: spec.provider,
+      remark: spec.remark,
     };
 
     if (existing) {
