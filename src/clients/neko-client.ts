@@ -273,29 +273,37 @@ export class NekoClient {
     }
   }
 
-  async testModel(apiKey: string, model: string): Promise<{ success: boolean; responseTime?: number }> {
+  async testModel(apiKey: string, model: string, timeoutMs = 10000): Promise<{ success: boolean; responseTime?: number }> {
     try {
       const startTime = Date.now();
-      const response = await fetch(`${this.baseUrl}/v1/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: "user", content: "hi" }],
-          max_tokens: 1,
-        }),
-      });
-      const responseTime = Date.now() - startTime;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-      if (!response.ok) return { success: false };
+      try {
+        const response = await fetch(`${this.baseUrl}/v1/messages`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: "hi" }],
+            max_tokens: 1,
+          }),
+          signal: controller.signal,
+        });
+        const responseTime = Date.now() - startTime;
 
-      const data = await response.json() as { type?: string; error?: { type?: string } };
-      // Success if we get a message response (not an error)
-      return { success: data.type !== "error", responseTime };
+        if (!response.ok) return { success: false };
+
+        const data = await response.json() as { type?: string; error?: { type?: string } };
+        // Success if we get a message response (not an error)
+        return { success: data.type !== "error", responseTime };
+      } finally {
+        clearTimeout(timeoutId);
+      }
     } catch {
       return { success: false };
     }

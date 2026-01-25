@@ -196,45 +196,54 @@ export class NewApiClient {
       throw new Error(`Token create failed: ${data.message ?? "unknown"}`);
   }
 
-  async testModel(apiKey: string, model: string, channelType: number): Promise<{ success: boolean; responseTime?: number }> {
+  async testModel(apiKey: string, model: string, channelType: number, timeoutMs = 10000): Promise<{ success: boolean; responseTime?: number }> {
     try {
       const startTime = Date.now();
-      // Use Anthropic format for channel type 14, OpenAI for others
-      if (channelType === 14) {
-        const response = await fetch(`${this.baseUrl}/v1/messages`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: "user", content: "hi" }],
-            max_tokens: 1,
-          }),
-        });
-        const responseTime = Date.now() - startTime;
-        if (!response.ok) return { success: false };
-        const data = await response.json() as { type?: string };
-        return { success: data.type !== "error", responseTime };
-      } else {
-        const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: "user", content: "hi" }],
-            max_tokens: 1,
-          }),
-        });
-        const responseTime = Date.now() - startTime;
-        if (!response.ok) return { success: false };
-        const data = await response.json() as { error?: unknown };
-        return { success: !data.error, responseTime };
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        // Use Anthropic format for channel type 14, OpenAI for others
+        if (channelType === 14) {
+          const response = await fetch(`${this.baseUrl}/v1/messages`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": apiKey,
+              "anthropic-version": "2023-06-01",
+            },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: "user", content: "hi" }],
+              max_tokens: 1,
+            }),
+            signal: controller.signal,
+          });
+          const responseTime = Date.now() - startTime;
+          if (!response.ok) return { success: false };
+          const data = await response.json() as { type?: string };
+          return { success: data.type !== "error", responseTime };
+        } else {
+          const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: "user", content: "hi" }],
+              max_tokens: 1,
+            }),
+            signal: controller.signal,
+          });
+          const responseTime = Date.now() - startTime;
+          if (!response.ok) return { success: false };
+          const data = await response.json() as { error?: unknown };
+          return { success: !data.error, responseTime };
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch {
       return { success: false };

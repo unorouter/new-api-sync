@@ -20,6 +20,7 @@ function migrateProvider(p: any): AnyProviderConfig {
       baseUrl: p.baseUrl,
       sessionToken: p.sessionToken,
       enabledGroups: p.enabledGroups,
+      enabledVendors: p.enabledVendors,
       priority: p.priority,
       priceMultiplier: p.priceMultiplier,
     } as NekoProviderConfig;
@@ -33,6 +34,7 @@ function migrateProvider(p: any): AnyProviderConfig {
       p.systemAccessToken ?? p.accessToken ?? p.auth?.accessToken,
     userId: p.userId ?? p.auth?.userId,
     enabledGroups: p.enabledGroups,
+    enabledVendors: p.enabledVendors,
     priority: p.priority,
     priceMultiplier: p.priceMultiplier,
   } as ProviderConfig;

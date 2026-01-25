@@ -15,7 +15,7 @@
       "baseUrl": "https://www.newapi.ai",
       "systemAccessToken": "your-system-access-token",
       "userId": 1,
-      "enabledGroups": ["aws-q", "cc", "gemini"],
+      "enabledVendors": ["anthropic", "openai"],
       "priceMultiplier": 0.33
     },
     {
@@ -23,7 +23,7 @@
       "name": "nekocode",
       "baseUrl": "https://nekocode.ai",
       "sessionToken": "your-session-cookie-value",
-      "enabledGroups": ["1", "2"],
+      "enabledVendors": ["anthropic"],
       "priceMultiplier": 1.0
     }
   ]

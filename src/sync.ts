@@ -47,6 +47,29 @@ export async function sync(config: Config): Promise<SyncReport> {
     remark: string;
   }> = [];
 
+  // Infer vendor from model name for filtering and vendor assignment
+  function inferVendorFromModelName(name: string): string | undefined {
+    const n = name.toLowerCase();
+    if (n.includes("claude") || n.includes("anthropic")) return "anthropic";
+    if (n.includes("gemini") || n.includes("palm")) return "google";
+    if (n.includes("gpt") || n.includes("o1-") || n.includes("o3-") || n.startsWith("chatgpt")) return "openai";
+    if (n.includes("deepseek")) return "deepseek";
+    if (n.includes("grok")) return "xai";
+    if (n.includes("mistral") || n.includes("codestral")) return "mistral";
+    if (n.includes("llama") || n.includes("meta-")) return "meta";
+    if (n.includes("qwen")) return "alibaba";
+    return undefined;
+  }
+
+  // Check if a group has models from any of the enabled vendors
+  function groupHasEnabledVendor(group: GroupInfo, enabledVendors: string[]): boolean {
+    const vendorSet = new Set(enabledVendors.map((v) => v.toLowerCase()));
+    return group.models.some((modelName) => {
+      const vendor = inferVendorFromModelName(modelName);
+      return vendor && vendorSet.has(vendor);
+    });
+  }
+
   for (const providerConfig of config.providers) {
     const providerReport: ProviderReport = {
       name: providerConfig.name,
@@ -85,13 +108,20 @@ export async function sync(config: Config): Promise<SyncReport> {
         );
       }
 
-      let groups: GroupInfo[];
+      let groups: GroupInfo[] = pricing.groups;
+
+      // Filter by enabledGroups if specified
       if (providerConfig.enabledGroups?.length) {
-        groups = pricing.groups.filter((g) =>
+        groups = groups.filter((g) =>
           providerConfig.enabledGroups!.includes(g.name),
         );
-      } else {
-        groups = pricing.groups;
+      }
+
+      // Filter by enabledVendors if specified
+      if (providerConfig.enabledVendors?.length) {
+        groups = groups.filter((g) =>
+          groupHasEnabledVendor(g, providerConfig.enabledVendors!),
+        );
       }
 
       const tokenResult = await upstream.ensureTokens(
@@ -333,20 +363,6 @@ export async function sync(config: Config): Promise<SyncReport> {
   const vendorNameToTargetId: Record<string, number> = {};
   for (const v of targetVendors) {
     vendorNameToTargetId[v.name.toLowerCase()] = v.id;
-  }
-
-  // Infer vendor from model name (more reliable than upstream vendor IDs)
-  function inferVendorFromModelName(name: string): string | undefined {
-    const n = name.toLowerCase();
-    if (n.includes("claude") || n.includes("anthropic")) return "anthropic";
-    if (n.includes("gemini") || n.includes("palm")) return "google";
-    if (n.includes("gpt") || n.includes("o1-") || n.includes("o3-") || n.startsWith("chatgpt")) return "openai";
-    if (n.includes("deepseek")) return "deepseek";
-    if (n.includes("grok")) return "xai";
-    if (n.includes("mistral") || n.includes("codestral")) return "mistral";
-    if (n.includes("llama") || n.includes("meta-")) return "meta";
-    if (n.includes("qwen")) return "alibaba";
-    return undefined;
   }
 
   let modelsCreated = 0;
