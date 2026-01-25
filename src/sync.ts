@@ -195,13 +195,7 @@ export async function sync(config: Config): Promise<SyncReport> {
         let groupRatio = group.ratio;
 
         // Always filter out non-text models first
-        const nonTextModels = group.models.filter((modelName) => !isTextModel(modelName));
         let workingModels = group.models.filter((modelName) => isTextModel(modelName));
-        if (nonTextModels.length > 0) {
-          logInfo(
-            `[${providerConfig.name}/${group.name}] Filtered ${nonTextModels.length} non-text models: ${nonTextModels.slice(0, 5).join(", ")}${nonTextModels.length > 5 ? "..." : ""}`,
-          );
-        }
 
         // Then filter by enabled vendors if specified
         if (providerConfig.enabledVendors?.length) {
@@ -246,36 +240,17 @@ export async function sync(config: Config): Promise<SyncReport> {
               currentBalance = newBalance;
             }
 
-            const failedCount = group.models.length - workingModels.length;
-            const costStr = testCost > 0 ? ` | Cost: $${testCost.toFixed(4)}` : "";
-            const testedCount = workingModels.length + failedCount;
+            const testedCount = workingModels.length + (group.models.length - workingModels.length);
+            const bonus = avgResponseTime !== undefined ? Math.round(10000 / (avgResponseTime + 100)) : 0;
+            const msStr = avgResponseTime !== undefined ? `${Math.round(avgResponseTime)}ms` : "-";
 
             if (workingModels.length === 0) {
-              logInfo(
-                `[${providerConfig.name}/${group.name}] ${testedCount}/${testedCount} models failed testing${costStr}`,
-              );
-              logInfo(
-                `[${providerConfig.name}/${group.name}] Skipping - no working models`,
-              );
+              logInfo(`[${providerConfig.name}/${group.name}] 0/${testedCount} | ${msStr} | $${testCost.toFixed(4)} | skip`);
               groupsWithNoWorkingModels.push(group.name);
               continue;
             }
 
-            // Build summary: working/total, response time, cost
-            const parts: string[] = [];
-            if (failedCount > 0) {
-              parts.push(`${workingModels.length}/${testedCount} working`);
-            } else {
-              parts.push(`${workingModels.length} models`);
-            }
-            if (avgResponseTime !== undefined) {
-              const bonus = Math.round(10000 / (avgResponseTime + 100));
-              parts.push(`${Math.round(avgResponseTime)}ms → +${bonus}`);
-            }
-            if (testCost > 0) {
-              parts.push(`$${testCost.toFixed(4)}`);
-            }
-            logInfo(`[${providerConfig.name}/${group.name}] ${parts.join(" | ")}`);
+            logInfo(`[${providerConfig.name}/${group.name}] ${workingModels.length}/${testedCount} | ${msStr} → +${bonus} | $${testCost.toFixed(4)}`);
           }
         }
 
@@ -535,29 +510,6 @@ export async function sync(config: Config): Promise<SyncReport> {
   console.log(
     `Done in ${elapsed}s | Providers: ${report.providers.filter((p) => p.success).length}/${report.providers.length} | Channels: +${report.channels.created} ~${report.channels.updated} -${report.channels.deleted} | Models: +${modelsCreated} ~${modelsUpdated} -${modelsDeleted}`,
   );
-
-  // Log cost per channel (model ratios)
-  console.log("\n--- Channel Cost Summary ---");
-  for (const channel of channelsToCreate) {
-    const modelCosts: { model: string; ratio: number }[] = [];
-    let totalRatio = 0;
-    for (const modelName of channel.models) {
-      const modelData = mergedModels.get(modelName);
-      if (modelData) {
-        modelCosts.push({ model: modelName, ratio: modelData.ratio });
-        totalRatio += modelData.ratio;
-      }
-    }
-    const avgRatio = channel.models.length > 0 ? totalRatio / channel.models.length : 0;
-    const topModels = modelCosts
-      .sort((a, b) => b.ratio - a.ratio)
-      .slice(0, 3)
-      .map((m) => `${m.model}:${m.ratio.toFixed(2)}`)
-      .join(", ");
-    console.log(
-      `[${channel.provider}/${channel.group}] ${channel.models.length} models | Avg ratio: ${avgRatio.toFixed(2)} | Top: ${topModels}`,
-    );
-  }
 
   if (report.errors.length > 0) {
     for (const err of report.errors) {

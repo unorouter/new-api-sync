@@ -1,4 +1,4 @@
-import { fetchPaginated, logInfo } from "@/lib/utils";
+import { fetchPaginated } from "@/lib/utils";
 import type { Channel, ModelMeta, TargetConfig, Vendor } from "@/types";
 
 interface ApiResponse<T = unknown> {
@@ -79,7 +79,6 @@ export class TargetClient {
     if (!response.ok) return null;
     const data = (await response.json()) as ApiResponse<{ id: number }>;
     if (!data.success) return null;
-    logInfo(`Created channel: ${channel.name}`);
     return data.data?.id ?? 0;
   }
 

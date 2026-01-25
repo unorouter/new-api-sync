@@ -324,7 +324,6 @@ export class NewApiClient {
         result[group.name] = newToken.key.startsWith("sk-")
           ? newToken.key
           : `sk-${newToken.key}`;
-        logInfo(`[${this.provider.name}] Created token: ${tokenName}`);
       }
     }
 
@@ -345,10 +344,6 @@ export class NewApiClient {
     const tokens = await this.listTokens();
     const token = tokens.find((t) => t.name === tokenName);
     if (!token) return false;
-    const success = await this.deleteToken(token.id);
-    if (success) {
-      logInfo(`[${this.provider.name}] Deleted token (no working models): ${tokenName}`);
-    }
-    return success;
+    return this.deleteToken(token.id);
   }
 }

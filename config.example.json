@@ -16,6 +16,7 @@
       "systemAccessToken": "your-system-access-token",
       "userId": 1,
       "enabledVendors": ["anthropic", "openai"],
+      "enabledModels": ["claude-sonnet-4-5", "claude-opus-4-5", "claude-haiku-4-5", "gpt-5"],
       "priceMultiplier": 0.33
     },
     {
@@ -24,6 +25,7 @@
       "baseUrl": "https://nekocode.ai",
       "sessionToken": "your-session-cookie-value",
       "enabledVendors": ["anthropic"],
+      "enabledModels": [],
       "priceMultiplier": 1.0
     }
   ]
