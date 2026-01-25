@@ -63,20 +63,6 @@ async function generateSign(
     .substring(0, 16);
 }
 
-function inferChannelType(provider: string): number {
-  switch (provider.toLowerCase()) {
-    case "claude":
-    case "anthropic":
-      return 14;
-    case "gemini":
-    case "google":
-      return 24;
-    case "openai":
-    default:
-      return 1;
-  }
-}
-
 function providerToVendorId(provider: string): number | undefined {
   const mapping: Record<string, number> = {
     openai: 1,
@@ -140,45 +126,50 @@ export class NekoClient {
   }
 
   async fetchPricing(): Promise<UpstreamPricing> {
-    const [pricingRes, subGroupsRes, paygoGroupsRes] = await Promise.all([
+    const [pricingRes, paygoGroupsRes] = await Promise.all([
       fetch(`${this.baseUrl}/api/pricing/public`).then((r) => r.json()) as Promise<{ data: NekoModel[] }>,
-      this.fetch<{ data: NekoGroup[] }>("/api/groups/by-type?type=subscription"),
       this.fetch<{ data: NekoGroup[] }>("/api/groups/by-type?type=pay_as_you_go"),
     ]);
 
     const nekoModels: NekoModel[] = pricingRes.data || [];
-    const subGroups = subGroupsRes.data || [];
     const paygoGroups = paygoGroupsRes.data || [];
 
     const enabledGroupIds = this.provider.enabledGroups
       ? new Set(this.provider.enabledGroups.map((g) => parseInt(g, 10) || g))
       : null;
 
-    const mapGroup = (g: NekoGroup, type: "sub" | "paygo"): GroupInfo & { nekoGroupId: number; nekoGroupType: string } => {
+    const mapGroup = (g: NekoGroup): GroupInfo & { nekoGroupId: number; nekoGroupType: string } => {
+      // Determine channel type based on group name - Codex groups use OpenAI format
+      const isOpenAI = g.name.toLowerCase().includes("codex");
+      const channelType = isOpenAI ? 1 : 14; // 1 = OpenAI, 14 = Anthropic
+
+      // Filter models based on channel type - OpenAI groups get OpenAI models, Claude groups get Claude models
       const groupModels = nekoModels
         .filter((m) => m.enabled)
+        .filter((m) => {
+          const provider = m.provider.toLowerCase();
+          if (isOpenAI) {
+            return provider === "openai" || provider.includes("gpt");
+          } else {
+            return provider === "claude" || provider === "anthropic";
+          }
+        })
         .map((m) => m.model);
 
-      const typeSuffix = type === "sub" ? "订阅" : "按量";
       return {
-        name: `${g.name}-${typeSuffix}`,
+        name: g.name,
         description: g.description || g.name,
         ratio: parseFloat(g.ratio) || 1,
         models: groupModels,
-        channelType: 14, // Anthropic format - nekocode.ai uses /v1/messages endpoint
+        channelType,
         nekoGroupId: g.id,
-        nekoGroupType: type === "sub" ? "subscription" : "pay_as_you_go",
+        nekoGroupType: "pay_as_you_go",
       };
     };
 
-    const groups: (GroupInfo & { nekoGroupId: number; nekoGroupType: string })[] = [
-      ...subGroups
-        .filter((g) => !enabledGroupIds || enabledGroupIds.has(g.id) || enabledGroupIds.has(g.name))
-        .map((g) => mapGroup(g, "sub")),
-      ...paygoGroups
-        .filter((g) => !enabledGroupIds || enabledGroupIds.has(g.id) || enabledGroupIds.has(g.name))
-        .map((g) => mapGroup(g, "paygo")),
-    ];
+    const groups: (GroupInfo & { nekoGroupId: number; nekoGroupType: string })[] = paygoGroups
+      .filter((g) => !enabledGroupIds || enabledGroupIds.has(g.id) || enabledGroupIds.has(g.name))
+      .map((g) => mapGroup(g));
 
     const models: ModelInfo[] = nekoModels
       .filter((m) => m.enabled)
