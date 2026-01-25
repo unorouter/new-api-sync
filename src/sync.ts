@@ -1,10 +1,9 @@
 import { NekoClient } from "@/clients/neko-client";
-import { TargetClient } from "@/clients/target-client";
 import { NewApiClient } from "@/clients/newapi-client";
+import { TargetClient } from "@/clients/target-client";
 import { validateConfig } from "@/lib/config";
 import { logInfo, sanitizeGroupName } from "@/lib/utils";
 import type {
-  AnyProviderConfig,
   Channel,
   Config,
   GroupInfo,
@@ -14,7 +13,7 @@ import type {
   NekoProviderConfig,
   ProviderConfig,
   ProviderReport,
-  SyncReport,
+  SyncReport
 } from "@/types";
 import { isNekoProvider } from "@/types";
 
