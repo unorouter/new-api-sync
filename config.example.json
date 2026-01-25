@@ -4,6 +4,10 @@
     "systemAccessToken": "your-system-access-token",
     "userId": 1
   },
+  "options": {
+    "testModels": true,
+    "deleteStaleChannels": true
+  },
   "providers": [
     {
       "type": "newapi",
