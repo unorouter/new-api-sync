@@ -196,7 +196,7 @@ export async function sync(config: Config): Promise<SyncReport> {
         mergedGroups.push({
           name: sanitizedName,
           ratio: groupRatio,
-          description: `${group.description} [${providerConfig.name}]`,
+          description: `${group.name} via ${providerConfig.name}`,
           provider: providerConfig.name,
         });
         channelsToCreate.push({
