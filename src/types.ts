@@ -41,6 +41,7 @@ export function isNewApiProvider(p: AnyProviderConfig): p is ProviderConfig {
 
 export interface SyncOptions {
   deleteStaleChannels?: boolean;
+  testModels?: boolean;
 }
 
 export interface SyncReport {

@@ -1,8 +1,8 @@
 import { NekoClient } from "@/clients/neko-client";
 import { TargetClient } from "@/clients/target-client";
-import { UpstreamClient } from "@/clients/upstream-client";
+import { NewApiClient } from "@/clients/newapi-client";
 import { validateConfig } from "@/lib/config";
-import { sanitizeGroupName } from "@/lib/utils";
+import { logInfo, sanitizeGroupName } from "@/lib/utils";
 import type {
   AnyProviderConfig,
   Channel,
@@ -60,7 +60,7 @@ export async function sync(config: Config): Promise<SyncReport> {
       const isNeko = isNekoProvider(providerConfig);
       const upstream = isNeko
         ? new NekoClient(providerConfig as NekoProviderConfig)
-        : new UpstreamClient(providerConfig as ProviderConfig);
+        : new NewApiClient(providerConfig as ProviderConfig);
       const pricing = await upstream.fetchPricing();
 
       let groups: GroupInfo[];
@@ -86,6 +86,31 @@ export async function sync(config: Config): Promise<SyncReport> {
         const originalName = `${group.name}-${providerConfig.name}`;
         const sanitizedName = sanitizeGroupName(originalName);
         let groupRatio = group.ratio;
+        let workingModels = group.models;
+
+        // Test models if option is enabled
+        if (config.options?.testModels) {
+          const apiKey = tokenResult.tokens[group.name] ?? "";
+          if (apiKey) {
+            workingModels = await upstream.testModelsWithKey(
+              apiKey,
+              group.models,
+              group.channelType,
+            );
+            const failedCount = group.models.length - workingModels.length;
+            if (failedCount > 0) {
+              logInfo(
+                `[${providerConfig.name}/${group.name}] ${failedCount}/${group.models.length} models failed testing`,
+              );
+            }
+            if (workingModels.length === 0) {
+              logInfo(
+                `[${providerConfig.name}/${group.name}] Skipping - no working models`,
+              );
+              continue;
+            }
+          }
+        }
 
         // Apply priceMultiplier to group ratio for per-provider billing
         if (providerConfig.priceMultiplier) {
@@ -103,7 +128,7 @@ export async function sync(config: Config): Promise<SyncReport> {
           type: group.channelType,
           key: tokenResult.tokens[group.name] ?? "",
           baseUrl: providerConfig.baseUrl,
-          models: group.models,
+          models: workingModels,
           group: sanitizedName,
           priority: providerConfig.priority ?? 0,
           provider: providerConfig.name,

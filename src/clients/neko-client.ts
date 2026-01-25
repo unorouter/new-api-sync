@@ -261,6 +261,47 @@ export class NekoClient {
     }
   }
 
+  async testModel(apiKey: string, model: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/v1/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: "hi" }],
+          max_tokens: 1,
+        }),
+      });
+
+      if (!response.ok) return false;
+
+      const data = await response.json() as { type?: string; error?: { type?: string } };
+      // Success if we get a message response (not an error)
+      return data.type !== "error";
+    } catch {
+      return false;
+    }
+  }
+
+  async testModelsWithKey(
+    apiKey: string,
+    models: string[],
+    _channelType?: number,
+  ): Promise<string[]> {
+    // Neko only supports Anthropic format, channelType is ignored
+    const results = await Promise.all(
+      models.map(async (model) => {
+        const works = await this.testModel(apiKey, model);
+        return { model, works };
+      }),
+    );
+    return results.filter((r) => r.works).map((r) => r.model);
+  }
+
   async ensureTokens(
     groups: GroupInfo[],
     prefix: string,

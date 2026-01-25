@@ -43,7 +43,7 @@ function inferChannelType(endpoints: string[]): number {
   return 1;
 }
 
-export class UpstreamClient {
+export class NewApiClient {
   private provider: ProviderConfig;
 
   constructor(provider: ProviderConfig) {
@@ -176,6 +176,62 @@ export class UpstreamClient {
     };
     if (!data.success)
       throw new Error(`Token create failed: ${data.message ?? "unknown"}`);
+  }
+
+  async testModel(apiKey: string, model: string, channelType: number): Promise<boolean> {
+    try {
+      // Use Anthropic format for channel type 14, OpenAI for others
+      if (channelType === 14) {
+        const response = await fetch(`${this.baseUrl}/v1/messages`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: "hi" }],
+            max_tokens: 1,
+          }),
+        });
+        if (!response.ok) return false;
+        const data = await response.json() as { type?: string };
+        return data.type !== "error";
+      } else {
+        const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: "hi" }],
+            max_tokens: 1,
+          }),
+        });
+        if (!response.ok) return false;
+        const data = await response.json() as { error?: unknown };
+        return !data.error;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  async testModelsWithKey(
+    apiKey: string,
+    models: string[],
+    channelType: number,
+  ): Promise<string[]> {
+    const results = await Promise.all(
+      models.map(async (model) => {
+        const works = await this.testModel(apiKey, model, channelType);
+        return { model, works };
+      }),
+    );
+    return results.filter((r) => r.works).map((r) => r.model);
   }
 
   async ensureTokens(

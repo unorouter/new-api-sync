@@ -1,6 +1,6 @@
 import { NekoClient } from "@/clients/neko-client";
 import { TargetClient } from "@/clients/target-client";
-import { UpstreamClient } from "@/clients/upstream-client";
+import { NewApiClient } from "@/clients/newapi-client";
 import { loadConfig } from "@/lib/config";
 import { logError, logInfo } from "@/lib/utils";
 import type { Config, NekoProviderConfig, ProviderConfig } from "@/types";
@@ -48,7 +48,7 @@ async function reset(config: Config) {
         }
       }
     } else {
-      const upstream = new UpstreamClient(providerConfig as ProviderConfig);
+      const upstream = new NewApiClient(providerConfig as ProviderConfig);
       const tokens = await upstream.listTokens();
       const tokensToDelete = tokens.filter((t) =>
         t.name.endsWith(`-${providerConfig.name}`),
