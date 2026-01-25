@@ -107,6 +107,12 @@ export async function sync(config: Config): Promise<SyncReport> {
     });
   }
 
+  // Check if a model matches any of the enabled model patterns (partial match)
+  function modelMatchesPatterns(modelName: string, patterns: string[]): boolean {
+    const n = modelName.toLowerCase();
+    return patterns.some((pattern) => n.includes(pattern.toLowerCase()));
+  }
+
   for (const providerConfig of config.providers) {
     const providerReport: ProviderReport = {
       name: providerConfig.name,
@@ -122,9 +128,10 @@ export async function sync(config: Config): Promise<SyncReport> {
         ? new NekoClient(providerConfig as NekoProviderConfig)
         : new NewApiClient(providerConfig as ProviderConfig);
 
-      const balance = await upstream.fetchBalance();
+      const startBalance = await upstream.fetchBalance();
       const pricing = await upstream.fetchPricing();
-      logInfo(`[${providerConfig.name}] Balance: ${balance}`);
+      logInfo(`[${providerConfig.name}] Balance: ${startBalance}`);
+      let currentBalance = parseFloat(startBalance.replace(/[^0-9.-]/g, ""));
 
       // Populate model endpoints map for text model detection
       for (const model of pricing.models) {
@@ -180,6 +187,7 @@ export async function sync(config: Config): Promise<SyncReport> {
 
       // Track groups with no working models to delete their tokens later
       const groupsWithNoWorkingModels: string[] = [];
+      let totalTestCost = 0;
 
       for (const group of groups) {
         const originalName = `${group.name}-${providerConfig.name}`;
@@ -204,7 +212,14 @@ export async function sync(config: Config): Promise<SyncReport> {
           });
         }
 
-        // Skip group if no models match enabled vendors
+        // Filter by enabled models if specified (partial match)
+        if (providerConfig.enabledModels?.length) {
+          workingModels = workingModels.filter((modelName) =>
+            modelMatchesPatterns(modelName, providerConfig.enabledModels!),
+          );
+        }
+
+        // Skip group if no models match filters
         if (workingModels.length === 0) {
           continue;
         }
@@ -221,25 +236,46 @@ export async function sync(config: Config): Promise<SyncReport> {
             );
             workingModels = testResult.workingModels;
             avgResponseTime = testResult.avgResponseTime;
+
+            // Calculate test cost by fetching new balance
+            const newBalanceStr = await upstream.fetchBalance();
+            const newBalance = parseFloat(newBalanceStr.replace(/[^0-9.-]/g, ""));
+            const testCost = currentBalance - newBalance;
+            if (testCost > 0) {
+              totalTestCost += testCost;
+              currentBalance = newBalance;
+            }
+
             const failedCount = group.models.length - workingModels.length;
-            if (failedCount > 0) {
-              logInfo(
-                `[${providerConfig.name}/${group.name}] ${failedCount}/${group.models.length} models failed testing`,
-              );
-            }
-            if (avgResponseTime !== undefined) {
-              const bonus = Math.round(10000 / (avgResponseTime + 100));
-              logInfo(
-                `[${providerConfig.name}/${group.name}] Avg response: ${Math.round(avgResponseTime)}ms → priority +${bonus}, weight ${bonus}`,
-              );
-            }
+            const costStr = testCost > 0 ? ` | Cost: $${testCost.toFixed(4)}` : "";
+            const testedCount = workingModels.length + failedCount;
+
             if (workingModels.length === 0) {
+              logInfo(
+                `[${providerConfig.name}/${group.name}] ${testedCount}/${testedCount} models failed testing${costStr}`,
+              );
               logInfo(
                 `[${providerConfig.name}/${group.name}] Skipping - no working models`,
               );
               groupsWithNoWorkingModels.push(group.name);
               continue;
             }
+
+            // Build summary: working/total, response time, cost
+            const parts: string[] = [];
+            if (failedCount > 0) {
+              parts.push(`${workingModels.length}/${testedCount} working`);
+            } else {
+              parts.push(`${workingModels.length} models`);
+            }
+            if (avgResponseTime !== undefined) {
+              const bonus = Math.round(10000 / (avgResponseTime + 100));
+              parts.push(`${Math.round(avgResponseTime)}ms → +${bonus}`);
+            }
+            if (testCost > 0) {
+              parts.push(`$${testCost.toFixed(4)}`);
+            }
+            logInfo(`[${providerConfig.name}/${group.name}] ${parts.join(" | ")}`);
           }
         }
 
@@ -306,6 +342,14 @@ export async function sync(config: Config): Promise<SyncReport> {
       providerReport.groups = groups.length;
       providerReport.models = pricing.models.length;
       providerReport.success = true;
+
+      // Log final balance and total test cost
+      if (config.options?.testModels && totalTestCost > 0) {
+        const finalBalance = await upstream.fetchBalance();
+        logInfo(
+          `[${providerConfig.name}] Final balance: ${finalBalance} | Total test cost: $${totalTestCost.toFixed(4)}`,
+        );
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       providerReport.error = message;

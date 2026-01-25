@@ -15,6 +15,7 @@ export interface BaseProviderConfig {
   baseUrl: string;
   enabledGroups?: string[];
   enabledVendors?: string[];
+  enabledModels?: string[];
   priority?: number;
   priceMultiplier?: number;
 }
