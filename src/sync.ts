@@ -1,7 +1,11 @@
 import { NekoClient } from "@/clients/neko-client";
 import { NewApiClient } from "@/clients/newapi-client";
 import { TargetClient } from "@/clients/target-client";
-import { validateConfig } from "@/lib/config";
+import {
+  calculatePriorityBonus,
+  inferVendorFromModelName,
+  isTextModel,
+} from "@/constants";
 import { logInfo, sanitizeGroupName } from "@/lib/utils";
 import type {
   Channel,
@@ -9,7 +13,6 @@ import type {
   GroupInfo,
   MergedGroup,
   MergedModel,
-  ModelInfo,
   NekoProviderConfig,
   ProviderConfig,
   ProviderReport,
@@ -19,7 +22,6 @@ import { isNekoProvider } from "@/types";
 
 export async function sync(config: Config): Promise<SyncReport> {
   const startTime = Date.now();
-  validateConfig(config);
 
   const report: SyncReport = {
     success: true,
@@ -32,8 +34,6 @@ export async function sync(config: Config): Promise<SyncReport> {
 
   const mergedGroups: MergedGroup[] = [];
   const mergedModels = new Map<string, MergedModel>();
-  const upstreamModels: ModelInfo[] = [];
-  const upstreamVendorIdToName: Record<number, string> = {};
   const channelsToCreate: Array<{
     name: string;
     type: number;
@@ -47,56 +47,8 @@ export async function sync(config: Config): Promise<SyncReport> {
     remark: string;
   }> = [];
 
-  // Text endpoint types from new-api (openai, anthropic, gemini, openai-response)
-  // Non-text types: image-generation, embeddings, openai-video, jina-rerank
-  const textEndpointTypes = new Set([
-    "openai", "anthropic", "gemini", "openai-response",
-  ]);
-
-  // Fallback patterns for providers that don't return endpoint types (e.g., neko)
-  const nonTextModelPatterns = [
-    "sora", "veo", "video", "image", "dall-e", "dalle", "midjourney",
-    "stable-diffusion", "flux", "imagen", "whisper", "tts", "speech",
-    "embedding", "embed", "moderation", "rerank",
-  ];
-
   // Map to store model endpoint types from upstream pricing
   const modelEndpoints = new Map<string, string[]>();
-
-  function isTextModel(name: string, endpoints?: string[]): boolean {
-    const n = name.toLowerCase();
-
-    // Always check pattern matching first - catches misclassified models from upstream
-    const matchesNonText = nonTextModelPatterns.some((pattern) => n.includes(pattern));
-    if (matchesNonText) return false;
-
-    // If we have endpoint info from API, also verify it has text endpoints
-    const modelEps = endpoints ?? modelEndpoints.get(name);
-    if (modelEps && modelEps.length > 0) {
-      // Model must have at least one text endpoint type
-      return modelEps.some((ep) => textEndpointTypes.has(ep));
-    }
-
-    // No endpoint info and no pattern match - assume text model
-    return true;
-  }
-
-  // Infer vendor from model name for filtering and vendor assignment
-  function inferVendorFromModelName(name: string): string | undefined {
-    // Skip non-text models
-    if (!isTextModel(name)) return undefined;
-
-    const n = name.toLowerCase();
-    if (n.includes("claude") || n.includes("anthropic")) return "anthropic";
-    if (n.includes("gemini") || n.includes("palm")) return "google";
-    if (n.includes("gpt") || n.includes("o1-") || n.includes("o3-") || n.includes("o4-") || n.startsWith("chatgpt")) return "openai";
-    if (n.includes("deepseek")) return "deepseek";
-    if (n.includes("grok")) return "xai";
-    if (n.includes("mistral") || n.includes("codestral")) return "mistral";
-    if (n.includes("llama") || n.includes("meta-")) return "meta";
-    if (n.includes("qwen")) return "alibaba";
-    return undefined;
-  }
 
   // Check if a group has models from any of the enabled vendors
   function groupHasEnabledVendor(group: GroupInfo, enabledVendors: string[]): boolean {
@@ -195,7 +147,7 @@ export async function sync(config: Config): Promise<SyncReport> {
         let groupRatio = group.ratio;
 
         // Always filter out non-text models first
-        let workingModels = group.models.filter((modelName) => isTextModel(modelName));
+        let workingModels = group.models.filter((modelName) => isTextModel(modelName, undefined, modelEndpoints));
 
         // Then filter by enabled vendors if specified
         if (providerConfig.enabledVendors?.length) {
@@ -218,9 +170,9 @@ export async function sync(config: Config): Promise<SyncReport> {
           continue;
         }
 
-        // Test models if option is enabled
+        // Test models (enabled by default)
         let avgResponseTime: number | undefined;
-        if (config.options?.testModels) {
+        if (config.options?.testModels ?? true) {
           const apiKey = tokenResult.tokens[group.name] ?? "";
           if (apiKey) {
             const testResult = await upstream.testModelsWithKey(
@@ -241,7 +193,7 @@ export async function sync(config: Config): Promise<SyncReport> {
             }
 
             const testedCount = workingModels.length + (group.models.length - workingModels.length);
-            const bonus = avgResponseTime !== undefined ? Math.round(10000 / (avgResponseTime + 100)) : 0;
+            const bonus = calculatePriorityBonus(avgResponseTime);
             const msStr = avgResponseTime !== undefined ? `${Math.round(avgResponseTime)}ms` : "-";
 
             if (workingModels.length === 0) {
@@ -260,13 +212,8 @@ export async function sync(config: Config): Promise<SyncReport> {
         }
 
         // Calculate dynamic priority and weight: faster response = higher values
-        // Formula: basePriority + bonus where bonus = 10000 / (avgResponseTime + 100)
-        // ~100ms → +50, ~400ms → +20, ~900ms → +10
         const basePriority = providerConfig.priority ?? 0;
-        const responseBonus =
-          avgResponseTime !== undefined
-            ? Math.round(10000 / (avgResponseTime + 100))
-            : 0;
+        const responseBonus = calculatePriorityBonus(avgResponseTime);
         const dynamicPriority = basePriority + responseBonus;
         const dynamicWeight = responseBonus > 0 ? responseBonus : 1;
 
@@ -307,19 +254,14 @@ export async function sync(config: Config): Promise<SyncReport> {
             completionRatio: model.completionRatio,
           });
         }
-        if (!upstreamModels.find((m) => m.name === model.name)) {
-          upstreamModels.push(model);
-        }
       }
-
-      Object.assign(upstreamVendorIdToName, pricing.vendorIdToName);
 
       providerReport.groups = groups.length;
       providerReport.models = pricing.models.length;
       providerReport.success = true;
 
       // Log final balance and total test cost
-      if (config.options?.testModels && totalTestCost > 0) {
+      if (totalTestCost > 0) {
         const finalBalance = await upstream.fetchBalance();
         logInfo(
           `[${providerConfig.name}] Final balance: ${finalBalance} | Total test cost: $${totalTestCost.toFixed(4)}`,
@@ -428,22 +370,18 @@ export async function sync(config: Config): Promise<SyncReport> {
     }
   }
 
-  if (config.options?.deleteStaleChannels !== false) {
-    for (const channel of existingChannels) {
-      if (desiredChannelNames.has(channel.name)) continue;
-      // Delete if: channel has a tag (managed by sync) AND either:
-      // 1. Tag matches a configured provider (stale channel from current provider)
-      // 2. Tag doesn't match any configured provider (orphan from removed provider)
-      if (channel.tag) {
-        const success = await target.deleteChannel(channel.id!);
-        if (success) {
-          report.channels.deleted++;
-        } else {
-          report.errors.push({
-            phase: "channels",
-            message: `Failed to delete channel: ${channel.name}`,
-          });
-        }
+  // Delete stale channels (managed by sync but no longer needed)
+  for (const channel of existingChannels) {
+    if (desiredChannelNames.has(channel.name)) continue;
+    if (channel.tag) {
+      const success = await target.deleteChannel(channel.id!);
+      if (success) {
+        report.channels.deleted++;
+      } else {
+        report.errors.push({
+          phase: "channels",
+          message: `Failed to delete channel: ${channel.name}`,
+        });
       }
     }
   }
@@ -504,11 +442,15 @@ export async function sync(config: Config): Promise<SyncReport> {
     }
   }
 
+  // Cleanup orphaned models directly from database (models not bound to any channel)
+  const orphansDeleted = await target.cleanupOrphanedModels();
+
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
   report.success = report.errors.length === 0;
 
+  const orphanStr = orphansDeleted > 0 ? ` | Orphans: -${orphansDeleted}` : "";
   console.log(
-    `Done in ${elapsed}s | Providers: ${report.providers.filter((p) => p.success).length}/${report.providers.length} | Channels: +${report.channels.created} ~${report.channels.updated} -${report.channels.deleted} | Models: +${modelsCreated} ~${modelsUpdated} -${modelsDeleted}`,
+    `Done in ${elapsed}s | Providers: ${report.providers.filter((p) => p.success).length}/${report.providers.length} | Channels: +${report.channels.created} ~${report.channels.updated} -${report.channels.deleted} | Models: +${modelsCreated} ~${modelsUpdated} -${modelsDeleted}${orphanStr}`,
   );
 
   if (report.errors.length > 0) {

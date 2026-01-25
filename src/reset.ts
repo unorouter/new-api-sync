@@ -30,6 +30,9 @@ async function reset(config: Config) {
     if (model.id && (await target.deleteModel(model.id))) modelsDeleted++;
   }
 
+  // Cleanup orphaned models directly from database
+  const orphansDeleted = await target.cleanupOrphanedModels();
+
   let totalTokensDeleted = 0;
   for (const providerConfig of config.providers) {
     if (isNekoProvider(providerConfig)) {
@@ -70,8 +73,9 @@ async function reset(config: Config) {
     CompletionRatio: "{}",
   });
 
+  const orphanStr = orphansDeleted > 0 ? ` | Orphans: -${orphansDeleted}` : "";
   logInfo(
-    `Done | Channels: -${channelsDeleted} | Models: -${modelsDeleted} | Tokens: -${totalTokensDeleted} | Options cleared: ${optionsResult.updated.length}`,
+    `Done | Channels: -${channelsDeleted} | Models: -${modelsDeleted}${orphanStr} | Tokens: -${totalTokensDeleted} | Options cleared: ${optionsResult.updated.length}`,
   );
 }
 

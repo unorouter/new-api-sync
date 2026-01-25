@@ -1,3 +1,5 @@
+import { inferChannelType, PAGINATION } from "@/constants";
+import { testModelsWithKey as testModels } from "@/lib/model-tester";
 import { logInfo } from "@/lib/utils";
 import type {
   GroupInfo,
@@ -33,14 +35,6 @@ interface PricingResponse {
 interface TokenListResponse {
   success: boolean;
   data: { data?: UpstreamToken[]; items?: UpstreamToken[] } | UpstreamToken[];
-}
-
-function inferChannelType(endpoints: string[]): number {
-  if (endpoints.includes("jina-rerank")) return 38;
-  if (endpoints.includes("openai-video")) return 55;
-  if (endpoints.includes("anthropic")) return 14;
-  if (endpoints.includes("gemini")) return 24;
-  return 1;
 }
 
 export class NewApiClient {
@@ -154,10 +148,10 @@ export class NewApiClient {
 
   async listTokens(): Promise<UpstreamToken[]> {
     const allTokens: UpstreamToken[] = [];
-    let page = 0;
+    let page = PAGINATION.START_PAGE_ZERO;
     while (true) {
       const response = await fetch(
-        `${this.baseUrl}/api/token/?p=${page}&page_size=100`,
+        `${this.baseUrl}/api/token/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
         { headers: this.headers },
       );
       if (!response.ok)
@@ -169,7 +163,7 @@ export class NewApiClient {
         ? data.data
         : (data.data?.items ?? data.data?.data ?? []);
       allTokens.push(...tokens);
-      if (tokens.length < 100) break;
+      if (tokens.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
       page++;
     }
     return allTokens;
@@ -197,83 +191,12 @@ export class NewApiClient {
       throw new Error(`Token create failed: ${data.message ?? "unknown"}`);
   }
 
-  async testModel(apiKey: string, model: string, channelType: number, timeoutMs = 10000): Promise<{ success: boolean; responseTime?: number }> {
-    try {
-      const startTime = Date.now();
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      try {
-        // Use Anthropic format for channel type 14, OpenAI for others
-        if (channelType === 14) {
-          const response = await fetch(`${this.baseUrl}/v1/messages`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": apiKey,
-              "anthropic-version": "2023-06-01",
-            },
-            body: JSON.stringify({
-              model,
-              messages: [{ role: "user", content: "hi" }],
-              max_tokens: 1,
-            }),
-            signal: controller.signal,
-          });
-          const responseTime = Date.now() - startTime;
-          if (!response.ok) return { success: false };
-          const data = await response.json() as { type?: string };
-          return { success: data.type !== "error", responseTime };
-        } else {
-          const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model,
-              messages: [{ role: "user", content: "hi" }],
-              max_tokens: 1,
-            }),
-            signal: controller.signal,
-          });
-          const responseTime = Date.now() - startTime;
-          if (!response.ok) return { success: false };
-          const data = await response.json() as { error?: unknown };
-          return { success: !data.error, responseTime };
-        }
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } catch {
-      return { success: false };
-    }
-  }
-
   async testModelsWithKey(
     apiKey: string,
     models: string[],
     channelType: number,
   ): Promise<{ workingModels: string[]; avgResponseTime?: number }> {
-    const results = await Promise.all(
-      models.map(async (model) => {
-        const result = await this.testModel(apiKey, model, channelType);
-        return { model, ...result };
-      }),
-    );
-    const working = results.filter((r) => r.success);
-    const responseTimes = working
-      .map((r) => r.responseTime)
-      .filter((t): t is number => t !== undefined);
-    const avgResponseTime =
-      responseTimes.length > 0
-        ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
-        : undefined;
-    return {
-      workingModels: working.map((r) => r.model),
-      avgResponseTime,
-    };
+    return testModels(this.baseUrl, apiKey, models, channelType);
   }
 
   async ensureTokens(

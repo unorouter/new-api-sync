@@ -1,3 +1,4 @@
+import { PAGINATION } from "@/constants";
 import { fetchPaginated } from "@/lib/utils";
 import type { Channel, ModelMeta, TargetConfig, Vendor } from "@/types";
 
@@ -106,10 +107,10 @@ export class TargetClient {
 
   async listModels(): Promise<ModelMeta[]> {
     const allModels: ModelMeta[] = [];
-    let page = 0;
+    let page = PAGINATION.START_PAGE_ZERO;
     while (true) {
       const response = await fetch(
-        `${this.config.url}/api/models/?p=${page}&page_size=100`,
+        `${this.config.url}/api/models/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
         { headers: this.headers },
       );
       if (!response.ok)
@@ -119,7 +120,7 @@ export class TargetClient {
       }>;
       const models = data.data?.items ?? [];
       allModels.push(...models);
-      if (models.length < 100) break;
+      if (models.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
       page++;
     }
     return allModels;
@@ -159,10 +160,10 @@ export class TargetClient {
 
   async listVendors(): Promise<Vendor[]> {
     const allVendors: Vendor[] = [];
-    let page = 1;
+    let page = PAGINATION.START_PAGE_ONE;
     while (true) {
       const response = await fetch(
-        `${this.config.url}/api/vendors/?page=${page}&page_size=100`,
+        `${this.config.url}/api/vendors/?page=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
         { headers: this.headers },
       );
       if (!response.ok)
@@ -170,9 +171,26 @@ export class TargetClient {
       const data = (await response.json()) as ApiResponse<{ items?: Vendor[] }>;
       const vendors = data.data?.items ?? [];
       allVendors.push(...vendors);
-      if (vendors.length < 100) break;
+      if (vendors.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
       page++;
     }
     return allVendors;
+  }
+
+  /**
+   * Delete orphaned models (models not bound to any channel) via API.
+   */
+  async cleanupOrphanedModels(): Promise<number> {
+    try {
+      const response = await fetch(`${this.config.url}/api/models/orphaned`, {
+        method: "DELETE",
+        headers: this.headers,
+      });
+      if (!response.ok) return 0;
+      const data = (await response.json()) as ApiResponse<{ deleted: number }>;
+      return data.data?.deleted ?? 0;
+    } catch {
+      return 0;
+    }
   }
 }

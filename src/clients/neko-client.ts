@@ -1,3 +1,5 @@
+import { CHANNEL_TYPES, PAGINATION } from "@/constants";
+import { testModelsWithKey as testModels } from "@/lib/model-tester";
 import { logInfo } from "@/lib/utils";
 import type {
   GroupInfo,
@@ -229,17 +231,17 @@ export class NekoClient {
 
   async listTokens(): Promise<NekoToken[]> {
     const allTokens: NekoToken[] = [];
-    let page = 1;
+    let page = PAGINATION.START_PAGE_ONE;
 
     while (true) {
       const res = await this.fetch<{ data: { data: NekoToken[]; total: number } }>(
-        `/api/token?page=${page}&size=100&order=-created_at`,
+        `/api/token?page=${page}&size=${PAGINATION.DEFAULT_PAGE_SIZE}&order=-created_at`,
       );
 
       const tokens = res.data?.data || [];
       allTokens.push(...tokens);
 
-      if (allTokens.length >= res.data.total || tokens.length < 100) break;
+      if (allTokens.length >= res.data.total || tokens.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
       page++;
     }
 
@@ -273,66 +275,13 @@ export class NekoClient {
     }
   }
 
-  async testModel(apiKey: string, model: string, timeoutMs = 10000): Promise<{ success: boolean; responseTime?: number }> {
-    try {
-      const startTime = Date.now();
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      try {
-        const response = await fetch(`${this.baseUrl}/v1/messages`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: "user", content: "hi" }],
-            max_tokens: 1,
-          }),
-          signal: controller.signal,
-        });
-        const responseTime = Date.now() - startTime;
-
-        if (!response.ok) return { success: false };
-
-        const data = await response.json() as { type?: string; error?: { type?: string } };
-        // Success if we get a message response (not an error)
-        return { success: data.type !== "error", responseTime };
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } catch {
-      return { success: false };
-    }
-  }
-
   async testModelsWithKey(
     apiKey: string,
     models: string[],
     _channelType?: number,
   ): Promise<{ workingModels: string[]; avgResponseTime?: number }> {
-    // Neko only supports Anthropic format, channelType is ignored
-    const results = await Promise.all(
-      models.map(async (model) => {
-        const result = await this.testModel(apiKey, model);
-        return { model, ...result };
-      }),
-    );
-    const working = results.filter((r) => r.success);
-    const responseTimes = working
-      .map((r) => r.responseTime)
-      .filter((t): t is number => t !== undefined);
-    const avgResponseTime =
-      responseTimes.length > 0
-        ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
-        : undefined;
-    return {
-      workingModels: working.map((r) => r.model),
-      avgResponseTime,
-    };
+    // Neko only supports Anthropic format
+    return testModels(this.baseUrl, apiKey, models, CHANNEL_TYPES.ANTHROPIC);
   }
 
   async ensureTokens(

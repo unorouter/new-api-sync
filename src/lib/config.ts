@@ -1,56 +1,12 @@
-import type {
-  AnyProviderConfig,
-  Config,
-  NekoProviderConfig,
-  ProviderConfig,
-} from "@/types";
+import type { Config } from "@/types";
 import { isNekoProvider } from "@/types";
 
 export async function loadConfig(path: string): Promise<Config> {
   const file = Bun.file(path);
   if (!(await file.exists())) throw new Error(`Config file not found: ${path}`);
-  return migrateConfig(await file.json());
-}
-
-function migrateProvider(p: any): AnyProviderConfig {
-  if (p.type === "neko") {
-    return {
-      type: "neko",
-      name: p.name,
-      baseUrl: p.baseUrl,
-      sessionToken: p.sessionToken,
-      enabledGroups: p.enabledGroups,
-      enabledVendors: p.enabledVendors,
-      priority: p.priority,
-      priceMultiplier: p.priceMultiplier,
-    } as NekoProviderConfig;
-  }
-
-  return {
-    type: p.type ?? "newapi",
-    name: p.name,
-    baseUrl: p.baseUrl,
-    systemAccessToken:
-      p.systemAccessToken ?? p.accessToken ?? p.auth?.accessToken,
-    userId: p.userId ?? p.auth?.userId,
-    enabledGroups: p.enabledGroups,
-    enabledVendors: p.enabledVendors,
-    priority: p.priority,
-    priceMultiplier: p.priceMultiplier,
-  } as ProviderConfig;
-}
-
-function migrateConfig(raw: any): Config {
-  const target = raw.target ?? {};
-  return {
-    target: {
-      url: target.url,
-      systemAccessToken: target.systemAccessToken ?? target.adminToken,
-      userId: target.userId,
-    },
-    providers: (raw.providers ?? []).map(migrateProvider),
-    options: raw.options,
-  };
+  const config = (await file.json()) as Config;
+  validateConfig(config);
+  return config;
 }
 
 export function validateConfig(config: Config): void {
