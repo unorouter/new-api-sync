@@ -134,6 +134,9 @@ export async function sync(config: Config): Promise<SyncReport> {
         deleted: tokenResult.deleted,
       };
 
+      // Track groups with no working models to delete their tokens later
+      const groupsWithNoWorkingModels: string[] = [];
+
       for (const group of groups) {
         const originalName = `${group.name}-${providerConfig.name}`;
         const sanitizedName = sanitizeGroupName(originalName);
@@ -168,6 +171,7 @@ export async function sync(config: Config): Promise<SyncReport> {
               logInfo(
                 `[${providerConfig.name}/${group.name}] Skipping - no working models`,
               );
+              groupsWithNoWorkingModels.push(group.name);
               continue;
             }
           }
@@ -207,6 +211,15 @@ export async function sync(config: Config): Promise<SyncReport> {
           provider: providerConfig.name,
           remark: originalName,
         });
+      }
+
+      // Delete tokens for groups with no working models
+      for (const groupName of groupsWithNoWorkingModels) {
+        const tokenName = `${groupName}-${providerConfig.name}`;
+        const deleted = await upstream.deleteTokenByName(tokenName);
+        if (deleted) {
+          providerReport.tokens.deleted++;
+        }
       }
 
       for (const model of pricing.models) {

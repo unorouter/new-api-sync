@@ -400,4 +400,15 @@ export class NekoClient {
 
     return { tokens: result, created, existing, deleted };
   }
+
+  async deleteTokenByName(tokenName: string): Promise<boolean> {
+    const tokens = await this.listTokens();
+    const token = tokens.find((t) => t.name === tokenName);
+    if (!token) return false;
+    const success = await this.deleteToken(token.id);
+    if (success) {
+      logInfo(`[${this.provider.name}] Deleted token (no working models): ${tokenName}`);
+    }
+    return success;
+  }
 }
