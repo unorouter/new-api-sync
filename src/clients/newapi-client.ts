@@ -1,18 +1,21 @@
 import { inferChannelType, PAGINATION } from "@/lib/constants";
-import { testModelsWithKey as testModels } from "@/lib/model-tester";
 import type {
+  Channel,
   GroupInfo,
   ModelInfo,
-  ProviderConfig,
+  ModelMeta,
+  NewApiConfig,
   UpstreamPricing,
   UpstreamToken,
+  Vendor,
 } from "@/lib/types";
-import { logInfo } from "@/lib/utils";
+import { testModelsWithKey as testModels } from "@/service/model-tester";
+import { consola } from "consola";
 
-interface VendorInfo {
-  id: number;
-  name: string;
-  icon?: string;
+interface ApiResponse<T = unknown> {
+  success: boolean;
+  message?: string;
+  data?: T;
 }
 
 interface PricingResponse {
@@ -29,7 +32,7 @@ interface PricingResponse {
   }>;
   group_ratio: Record<string, number>;
   usable_group: Record<string, string>;
-  vendors?: VendorInfo[];
+  vendors?: Array<{ id: number; name: string; icon?: string }>;
 }
 
 interface TokenListResponse {
@@ -38,23 +41,35 @@ interface TokenListResponse {
 }
 
 export class NewApiClient {
-  private provider: ProviderConfig;
+  private config: NewApiConfig;
+  private _name?: string;
 
-  constructor(provider: ProviderConfig) {
-    this.provider = provider;
+  constructor(config: NewApiConfig, name?: string) {
+    this.config = {
+      baseUrl: config.baseUrl.replace(/\/$/, ""),
+      systemAccessToken: config.systemAccessToken,
+      userId: config.userId,
+    };
+    this._name = name;
   }
 
   private get headers(): Record<string, string> {
     return {
-      Authorization: `Bearer ${this.provider.systemAccessToken}`,
-      "New-Api-User": String(this.provider.userId),
+      Authorization: `Bearer ${this.config.systemAccessToken}`,
+      "New-Api-User": String(this.config.userId),
       "Content-Type": "application/json",
     };
   }
 
   private get baseUrl(): string {
-    return this.provider.baseUrl.replace(/\/$/, "");
+    return this.config.baseUrl;
   }
+
+  private get name(): string {
+    return this._name ?? "target";
+  }
+
+  // ============ Provider Methods (fetch from upstream) ============
 
   async fetchBalance(): Promise<string> {
     try {
@@ -62,7 +77,7 @@ export class NewApiClient {
         headers: this.headers,
       });
       if (!response.ok) return "N/A";
-      const data = await response.json() as {
+      const data = (await response.json()) as {
         success: boolean;
         data?: { quota?: number; used_quota?: number };
       };
@@ -132,9 +147,7 @@ export class NewApiClient {
       }
     }
 
-    logInfo(
-      `[${this.provider.name}] ${groups.length} groups, ${models.length} models`,
-    );
+    consola.info(`[${this.name}] ${groups.length} groups, ${models.length} models`);
 
     return {
       groups,
@@ -222,7 +235,7 @@ export class NewApiClient {
     for (const token of existingTokens) {
       if (token.name.endsWith(`-${prefix}`) && !desiredTokenNames.has(token.name)) {
         if (await this.deleteToken(token.id)) {
-          logInfo(`[${this.provider.name}] Deleted stale token: ${token.name}`);
+          consola.info(`[${this.name}] Deleted stale token: ${token.name}`);
           deleted++;
         }
       }
@@ -268,5 +281,181 @@ export class NewApiClient {
     const token = tokens.find((t) => t.name === tokenName);
     if (!token) return false;
     return this.deleteToken(token.id);
+  }
+
+  // ============ Target Methods (sync to target instance) ============
+
+  async updateOption(key: string, value: string): Promise<boolean> {
+    const response = await fetch(`${this.baseUrl}/api/option/`, {
+      method: "PUT",
+      headers: this.headers,
+      body: JSON.stringify({ key, value }),
+    });
+    if (!response.ok) return false;
+    const data = (await response.json()) as ApiResponse;
+    return data.success;
+  }
+
+  async updateOptions(
+    options: Record<string, string>,
+  ): Promise<{ updated: string[]; failed: string[] }> {
+    const updated: string[] = [];
+    const failed: string[] = [];
+    for (const [key, value] of Object.entries(options)) {
+      if (await this.updateOption(key, value)) updated.push(key);
+      else failed.push(key);
+    }
+    return { updated, failed };
+  }
+
+  async listChannels(): Promise<Channel[]> {
+    const all: Channel[] = [];
+    let page = PAGINATION.START_PAGE_ZERO;
+    while (true) {
+      const response = await fetch(
+        `${this.baseUrl}/api/channel/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
+        { headers: this.headers },
+      );
+      if (!response.ok) throw new Error(`Failed to list channels: ${response.status}`);
+      const data = (await response.json()) as {
+        success: boolean;
+        data: { data?: Channel[]; items?: Channel[] } | Channel[];
+      };
+      if (!data.success) throw new Error("Channel list API returned success: false");
+      const items = Array.isArray(data.data)
+        ? data.data
+        : (data.data?.items ?? data.data?.data ?? []);
+      all.push(...items);
+      if (items.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
+      page++;
+    }
+    return all;
+  }
+
+  async createChannel(channel: Omit<Channel, "id">): Promise<number | null> {
+    let response = await fetch(`${this.baseUrl}/api/channel/`, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify({ mode: "single", channel }),
+    });
+    if (response.status === 400 || response.status === 422) {
+      response = await fetch(`${this.baseUrl}/api/channel/`, {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify(channel),
+      });
+    }
+    if (!response.ok) return null;
+    const data = (await response.json()) as ApiResponse<{ id: number }>;
+    if (!data.success) return null;
+    return data.data?.id ?? 0;
+  }
+
+  async updateChannel(channel: Channel): Promise<boolean> {
+    if (!channel.id) return false;
+    const response = await fetch(`${this.baseUrl}/api/channel/`, {
+      method: "PUT",
+      headers: this.headers,
+      body: JSON.stringify(channel),
+    });
+    if (!response.ok) return false;
+    const data = (await response.json()) as ApiResponse;
+    return data.success;
+  }
+
+  async deleteChannel(id: number): Promise<boolean> {
+    const response = await fetch(`${this.baseUrl}/api/channel/${id}`, {
+      method: "DELETE",
+      headers: this.headers,
+    });
+    if (!response.ok) return false;
+    const data = (await response.json()) as ApiResponse;
+    return data.success;
+  }
+
+  async listModels(): Promise<ModelMeta[]> {
+    const allModels: ModelMeta[] = [];
+    let page = PAGINATION.START_PAGE_ZERO;
+    while (true) {
+      const response = await fetch(
+        `${this.baseUrl}/api/models/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
+        { headers: this.headers },
+      );
+      if (!response.ok)
+        throw new Error(`Failed to list models: ${response.status}`);
+      const data = (await response.json()) as ApiResponse<{
+        items?: ModelMeta[];
+      }>;
+      const models = data.data?.items ?? [];
+      allModels.push(...models);
+      if (models.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
+      page++;
+    }
+    return allModels;
+  }
+
+  async createModel(model: Omit<ModelMeta, "id">): Promise<boolean> {
+    const response = await fetch(`${this.baseUrl}/api/models/`, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify(model),
+    });
+    if (!response.ok) return false;
+    const data = (await response.json()) as ApiResponse;
+    return data.success;
+  }
+
+  async updateModel(model: ModelMeta): Promise<boolean> {
+    const response = await fetch(`${this.baseUrl}/api/models/`, {
+      method: "PUT",
+      headers: this.headers,
+      body: JSON.stringify(model),
+    });
+    if (!response.ok) return false;
+    const data = (await response.json()) as ApiResponse;
+    return data.success;
+  }
+
+  async deleteModel(id: number): Promise<boolean> {
+    const response = await fetch(`${this.baseUrl}/api/models/${id}`, {
+      method: "DELETE",
+      headers: this.headers,
+    });
+    if (!response.ok) return false;
+    const data = (await response.json()) as ApiResponse;
+    return data.success;
+  }
+
+  async listVendors(): Promise<Vendor[]> {
+    const allVendors: Vendor[] = [];
+    let page = PAGINATION.START_PAGE_ONE;
+    while (true) {
+      const response = await fetch(
+        `${this.baseUrl}/api/vendors/?page=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
+        { headers: this.headers },
+      );
+      if (!response.ok)
+        throw new Error(`Failed to list vendors: ${response.status}`);
+      const data = (await response.json()) as ApiResponse<{ items?: Vendor[] }>;
+      const vendors = data.data?.items ?? [];
+      allVendors.push(...vendors);
+      if (vendors.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
+      page++;
+    }
+    return allVendors;
+  }
+
+  async cleanupOrphanedModels(): Promise<number> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/models/orphaned`, {
+        method: "DELETE",
+        headers: this.headers,
+      });
+      if (!response.ok) return 0;
+      const data = (await response.json()) as ApiResponse<{ deleted: number }>;
+      return data.data?.deleted ?? 0;
+    } catch {
+      return 0;
+    }
   }
 }

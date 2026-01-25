@@ -8,6 +8,7 @@
   "scripts": {
     "sync": "bun run src/sync.ts",
     "reset": "bun run src/reset.ts",
+    "build": "tsc", 
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
@@ -16,5 +17,8 @@
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "consola": "^3.4.2"
   }
 }

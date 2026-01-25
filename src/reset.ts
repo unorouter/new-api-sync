@@ -1,15 +1,14 @@
 import { NekoClient } from "@/clients/neko-client";
 import { NewApiClient } from "@/clients/newapi-client";
-import { TargetClient } from "@/clients/target-client";
 import { loadConfig } from "@/lib/config";
 import type { Config, NekoProviderConfig, ProviderConfig } from "@/lib/types";
-import { logError, logInfo } from "@/lib/utils";
+import { consola } from "consola";
 
 async function reset(config: Config) {
-  logInfo("Starting reset...\n");
+  consola.info("Starting reset...\n");
 
   const providerNames = new Set(config.providers.map((p) => p.name));
-  const target = new TargetClient(config.target);
+  const target = new NewApiClient(config.target);
   const channels = await target.listChannels();
   const channelsToDelete = channels.filter(
     (c) => c.tag && providerNames.has(c.tag),
@@ -44,9 +43,9 @@ async function reset(config: Config) {
       for (const token of tokensToDelete) {
         if (await neko.deleteToken(token.id)) {
           totalTokensDeleted++;
-          logInfo(`[${providerConfig.name}] Deleted token: ${token.name}`);
+          consola.info(`[${providerConfig.name}] Deleted token: ${token.name}`);
         } else {
-          logError(`Failed to delete token: ${token.name}`);
+          consola.error(`Failed to delete token: ${token.name}`);
         }
       }
     } else {
@@ -58,7 +57,7 @@ async function reset(config: Config) {
 
       for (const token of tokensToDelete) {
         if (await upstream.deleteToken(token.id)) totalTokensDeleted++;
-        else logError(`Failed to delete token: ${token.name}`);
+        else consola.error(`Failed to delete token: ${token.name}`);
       }
     }
   }
@@ -73,7 +72,7 @@ async function reset(config: Config) {
   });
 
   const orphanStr = orphansDeleted > 0 ? ` | Orphans: -${orphansDeleted}` : "";
-  logInfo(
+  consola.info(
     `Done | Channels: -${channelsDeleted} | Models: -${modelsDeleted}${orphanStr} | Tokens: -${totalTokensDeleted} | Options cleared: ${optionsResult.updated.length}`,
   );
 }

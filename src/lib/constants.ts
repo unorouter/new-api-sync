@@ -173,3 +173,14 @@ export function matchesGlobPattern(name: string, pattern: string): boolean {
 export function matchesAnyPattern(name: string, patterns: string[]): boolean {
   return patterns.some((p) => matchesGlobPattern(name, p));
 }
+
+/**
+ * Removes Chinese characters from a string, keeping only ASCII alphanumeric,
+ * hyphens, and underscores. Collapses multiple hyphens into one.
+ */
+export function sanitizeGroupName(name: string): string {
+  return name
+    .replace(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}

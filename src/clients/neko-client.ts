@@ -1,12 +1,12 @@
 import { CHANNEL_TYPES, PAGINATION } from "@/lib/constants";
-import { testModelsWithKey as testModels } from "@/lib/model-tester";
 import type {
   GroupInfo,
   ModelInfo,
   NekoProviderConfig,
   UpstreamPricing,
 } from "@/lib/types";
-import { logInfo } from "@/lib/utils";
+import { testModelsWithKey as testModels } from "@/service/model-tester";
+import { consola } from "consola";
 
 interface NekoGroup {
   id: number;
@@ -215,7 +215,7 @@ export class NekoClient {
       if (m.completionRatio > 0) completionRatios[m.name] = m.completionRatio;
     }
 
-    logInfo(
+    consola.info(
       `[${this.provider.name}] ${groups.length} groups, ${models.length} models (neko)`,
     );
 
@@ -308,7 +308,7 @@ export class NekoClient {
         !desiredTokenNames.has(token.name)
       ) {
         if (await this.deleteToken(token.id)) {
-          logInfo(`[${this.provider.name}] Deleted stale token: ${token.name}`);
+          consola.info(`[${this.provider.name}] Deleted stale token: ${token.name}`);
           deleted++;
         }
       }

@@ -1,6 +1,6 @@
 {
   "target": {
-    "url": "https://your-instance.example.com",
+    "baseUrl": "https://your-instance.example.com",
     "systemAccessToken": "your-system-access-token",
     "userId": 1
   },
@@ -18,7 +18,7 @@
     },
     {
       "type": "neko",
-      "name": "nekocode",
+      "name": "neko",
       "baseUrl": "https://nekocode.ai",
       "sessionToken": "your-session-cookie-value",
       "enabledVendors": ["anthropic"],

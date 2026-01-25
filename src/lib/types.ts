@@ -1,18 +1,17 @@
-export interface Config {
-  target: TargetConfig;
-  providers: AnyProviderConfig[];
-  blacklist?: string[];
-}
-
-export interface TargetConfig {
-  url: string;
+export interface NewApiConfig {
+  baseUrl: string;
   systemAccessToken: string;
   userId: number;
 }
 
-export interface BaseProviderConfig {
+export interface Config {
+  target: NewApiConfig;
+  providers: AnyProviderConfig[];
+  blacklist?: string[];
+}
+
+export interface BaseProviderConfig extends NewApiConfig {
   name: string;
-  baseUrl: string;
   enabledGroups?: string[];
   enabledVendors?: string[];
   enabledModels?: string[];
@@ -22,11 +21,9 @@ export interface BaseProviderConfig {
 
 export interface ProviderConfig extends BaseProviderConfig {
   type?: "newapi";
-  systemAccessToken: string;
-  userId: number;
 }
 
-export interface NekoProviderConfig extends BaseProviderConfig {
+export interface NekoProviderConfig extends Omit<BaseProviderConfig, "systemAccessToken" | "userId"> {
   type: "neko";
   sessionToken: string;
 }
