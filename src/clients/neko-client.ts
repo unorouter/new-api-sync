@@ -125,6 +125,18 @@ export class NekoClient {
     return data as T;
   }
 
+  async fetchBalance(): Promise<string> {
+    try {
+      const res = await this.fetch<{ data: { balance?: string } }>(
+        "/api/usage/summary",
+      );
+      const balance = res.data?.balance ?? "0";
+      return `$${parseFloat(balance).toFixed(2)}`;
+    } catch {
+      return "N/A";
+    }
+  }
+
   async fetchPricing(): Promise<UpstreamPricing> {
     const [pricingRes, paygoGroupsRes] = await Promise.all([
       fetch(`${this.baseUrl}/api/pricing/public`).then((r) => r.json()) as Promise<{ data: NekoModel[] }>,

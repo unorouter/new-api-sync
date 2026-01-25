@@ -61,7 +61,29 @@ export async function sync(config: Config): Promise<SyncReport> {
       const upstream = isNeko
         ? new NekoClient(providerConfig as NekoProviderConfig)
         : new NewApiClient(providerConfig as ProviderConfig);
+
+      const balance = await upstream.fetchBalance();
       const pricing = await upstream.fetchPricing();
+      logInfo(`[${providerConfig.name}] Balance: ${balance}`);
+
+      // Find groups with Anthropic models that aren't in config
+      const anthropicModels = new Set(
+        pricing.models
+          .filter((m) => m.name.toLowerCase().includes("claude") || m.vendorId === 2)
+          .map((m) => m.name),
+      );
+      const enabledSet = new Set(providerConfig.enabledGroups ?? []);
+      const suggestedGroups = pricing.groups.filter((g) => {
+        const hasAnthropicModel = g.models.some((m) => anthropicModels.has(m));
+        const notEnabled = !enabledSet.has(g.name);
+        return hasAnthropicModel && notEnabled;
+      });
+
+      if (suggestedGroups.length > 0 && providerConfig.enabledGroups?.length) {
+        logInfo(
+          `[${providerConfig.name}] Groups with Claude models (not in config): ${suggestedGroups.map((g) => g.name).join(", ")}`,
+        );
+      }
 
       let groups: GroupInfo[];
       if (providerConfig.enabledGroups?.length) {

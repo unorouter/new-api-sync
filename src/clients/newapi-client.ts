@@ -62,6 +62,24 @@ export class NewApiClient {
     return this.provider.baseUrl.replace(/\/$/, "");
   }
 
+  async fetchBalance(): Promise<string> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/user/self`, {
+        headers: this.headers,
+      });
+      if (!response.ok) return "N/A";
+      const data = await response.json() as {
+        success: boolean;
+        data?: { quota?: number; used_quota?: number };
+      };
+      if (!data.success || !data.data) return "N/A";
+      const quota = (data.data.quota ?? 0) / 500000;
+      return `$${quota.toFixed(2)}`;
+    } catch {
+      return "N/A";
+    }
+  }
+
   async fetchPricing(): Promise<UpstreamPricing> {
     const response = await fetch(`${this.baseUrl}/api/pricing`);
     if (!response.ok)
