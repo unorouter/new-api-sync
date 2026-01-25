@@ -273,8 +273,9 @@ export class NekoClient {
     }
   }
 
-  async testModel(apiKey: string, model: string): Promise<boolean> {
+  async testModel(apiKey: string, model: string): Promise<{ success: boolean; responseTime?: number }> {
     try {
+      const startTime = Date.now();
       const response = await fetch(`${this.baseUrl}/v1/messages`, {
         method: "POST",
         headers: {
@@ -288,14 +289,15 @@ export class NekoClient {
           max_tokens: 1,
         }),
       });
+      const responseTime = Date.now() - startTime;
 
-      if (!response.ok) return false;
+      if (!response.ok) return { success: false };
 
       const data = await response.json() as { type?: string; error?: { type?: string } };
       // Success if we get a message response (not an error)
-      return data.type !== "error";
+      return { success: data.type !== "error", responseTime };
     } catch {
-      return false;
+      return { success: false };
     }
   }
 
@@ -303,15 +305,26 @@ export class NekoClient {
     apiKey: string,
     models: string[],
     _channelType?: number,
-  ): Promise<string[]> {
+  ): Promise<{ workingModels: string[]; avgResponseTime?: number }> {
     // Neko only supports Anthropic format, channelType is ignored
     const results = await Promise.all(
       models.map(async (model) => {
-        const works = await this.testModel(apiKey, model);
-        return { model, works };
+        const result = await this.testModel(apiKey, model);
+        return { model, ...result };
       }),
     );
-    return results.filter((r) => r.works).map((r) => r.model);
+    const working = results.filter((r) => r.success);
+    const responseTimes = working
+      .map((r) => r.responseTime)
+      .filter((t): t is number => t !== undefined);
+    const avgResponseTime =
+      responseTimes.length > 0
+        ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+        : undefined;
+    return {
+      workingModels: working.map((r) => r.model),
+      avgResponseTime,
+    };
   }
 
   async ensureTokens(

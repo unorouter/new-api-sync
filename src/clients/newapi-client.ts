@@ -196,8 +196,9 @@ export class NewApiClient {
       throw new Error(`Token create failed: ${data.message ?? "unknown"}`);
   }
 
-  async testModel(apiKey: string, model: string, channelType: number): Promise<boolean> {
+  async testModel(apiKey: string, model: string, channelType: number): Promise<{ success: boolean; responseTime?: number }> {
     try {
+      const startTime = Date.now();
       // Use Anthropic format for channel type 14, OpenAI for others
       if (channelType === 14) {
         const response = await fetch(`${this.baseUrl}/v1/messages`, {
@@ -213,9 +214,10 @@ export class NewApiClient {
             max_tokens: 1,
           }),
         });
-        if (!response.ok) return false;
+        const responseTime = Date.now() - startTime;
+        if (!response.ok) return { success: false };
         const data = await response.json() as { type?: string };
-        return data.type !== "error";
+        return { success: data.type !== "error", responseTime };
       } else {
         const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
           method: "POST",
@@ -229,12 +231,13 @@ export class NewApiClient {
             max_tokens: 1,
           }),
         });
-        if (!response.ok) return false;
+        const responseTime = Date.now() - startTime;
+        if (!response.ok) return { success: false };
         const data = await response.json() as { error?: unknown };
-        return !data.error;
+        return { success: !data.error, responseTime };
       }
     } catch {
-      return false;
+      return { success: false };
     }
   }
 
@@ -242,14 +245,25 @@ export class NewApiClient {
     apiKey: string,
     models: string[],
     channelType: number,
-  ): Promise<string[]> {
+  ): Promise<{ workingModels: string[]; avgResponseTime?: number }> {
     const results = await Promise.all(
       models.map(async (model) => {
-        const works = await this.testModel(apiKey, model, channelType);
-        return { model, works };
+        const result = await this.testModel(apiKey, model, channelType);
+        return { model, ...result };
       }),
     );
-    return results.filter((r) => r.works).map((r) => r.model);
+    const working = results.filter((r) => r.success);
+    const responseTimes = working
+      .map((r) => r.responseTime)
+      .filter((t): t is number => t !== undefined);
+    const avgResponseTime =
+      responseTimes.length > 0
+        ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+        : undefined;
+    return {
+      workingModels: working.map((r) => r.model),
+      avgResponseTime,
+    };
   }
 
   async ensureTokens(

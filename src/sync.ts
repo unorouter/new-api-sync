@@ -42,6 +42,7 @@ export async function sync(config: Config): Promise<SyncReport> {
     models: string[];
     group: string;
     priority: number;
+    weight: number;
     provider: string;
     remark: string;
   }> = [];
@@ -110,18 +111,27 @@ export async function sync(config: Config): Promise<SyncReport> {
         let workingModels = group.models;
 
         // Test models if option is enabled
+        let avgResponseTime: number | undefined;
         if (config.options?.testModels) {
           const apiKey = tokenResult.tokens[group.name] ?? "";
           if (apiKey) {
-            workingModels = await upstream.testModelsWithKey(
+            const testResult = await upstream.testModelsWithKey(
               apiKey,
               group.models,
               group.channelType,
             );
+            workingModels = testResult.workingModels;
+            avgResponseTime = testResult.avgResponseTime;
             const failedCount = group.models.length - workingModels.length;
             if (failedCount > 0) {
               logInfo(
                 `[${providerConfig.name}/${group.name}] ${failedCount}/${group.models.length} models failed testing`,
+              );
+            }
+            if (avgResponseTime !== undefined) {
+              const bonus = Math.round(10000 / (avgResponseTime + 100));
+              logInfo(
+                `[${providerConfig.name}/${group.name}] Avg response: ${Math.round(avgResponseTime)}ms → priority +${bonus}, weight ${bonus}`,
               );
             }
             if (workingModels.length === 0) {
@@ -138,6 +148,17 @@ export async function sync(config: Config): Promise<SyncReport> {
           groupRatio *= providerConfig.priceMultiplier;
         }
 
+        // Calculate dynamic priority and weight: faster response = higher values
+        // Formula: basePriority + bonus where bonus = 10000 / (avgResponseTime + 100)
+        // ~100ms → +50, ~400ms → +20, ~900ms → +10
+        const basePriority = providerConfig.priority ?? 0;
+        const responseBonus =
+          avgResponseTime !== undefined
+            ? Math.round(10000 / (avgResponseTime + 100))
+            : 0;
+        const dynamicPriority = basePriority + responseBonus;
+        const dynamicWeight = responseBonus > 0 ? responseBonus : 1;
+
         mergedGroups.push({
           name: sanitizedName,
           ratio: groupRatio,
@@ -151,7 +172,8 @@ export async function sync(config: Config): Promise<SyncReport> {
           baseUrl: providerConfig.baseUrl,
           models: workingModels,
           group: sanitizedName,
-          priority: providerConfig.priority ?? 0,
+          priority: dynamicPriority,
+          weight: dynamicWeight,
           provider: providerConfig.name,
           remark: originalName,
         });
@@ -248,6 +270,7 @@ export async function sync(config: Config): Promise<SyncReport> {
       models: spec.models.join(","),
       group: spec.group,
       priority: spec.priority,
+      weight: spec.weight,
       status: 1,
       tag: spec.provider,
       remark: spec.remark,
@@ -276,8 +299,6 @@ export async function sync(config: Config): Promise<SyncReport> {
       }
     }
   }
-
-  const configuredProviders = new Set(config.providers.map((p) => p.name));
 
   if (config.options?.deleteStaleChannels !== false) {
     for (const channel of existingChannels) {
@@ -314,24 +335,26 @@ export async function sync(config: Config): Promise<SyncReport> {
     vendorNameToTargetId[v.name.toLowerCase()] = v.id;
   }
 
-  // Map upstream vendor names to target vendor names
-  const vendorNameMapping: Record<string, string> = {
-    gemini: "google",
-    grok: "xai",
-  };
+  // Infer vendor from model name (more reliable than upstream vendor IDs)
+  function inferVendorFromModelName(name: string): string | undefined {
+    const n = name.toLowerCase();
+    if (n.includes("claude") || n.includes("anthropic")) return "anthropic";
+    if (n.includes("gemini") || n.includes("palm")) return "google";
+    if (n.includes("gpt") || n.includes("o1-") || n.includes("o3-") || n.startsWith("chatgpt")) return "openai";
+    if (n.includes("deepseek")) return "deepseek";
+    if (n.includes("grok")) return "xai";
+    if (n.includes("mistral") || n.includes("codestral")) return "mistral";
+    if (n.includes("llama") || n.includes("meta-")) return "meta";
+    if (n.includes("qwen")) return "alibaba";
+    return undefined;
+  }
 
   let modelsCreated = 0;
   let modelsUpdated = 0;
   for (const modelName of modelsToSync) {
-    const modelInfo = upstreamModels.find((m) => m.name === modelName);
-    const upstreamVendorName = modelInfo?.vendorId
-      ? upstreamVendorIdToName[modelInfo.vendorId]
-      : undefined;
-    const mappedVendorName = upstreamVendorName
-      ? (vendorNameMapping[upstreamVendorName.toLowerCase()] ?? upstreamVendorName.toLowerCase())
-      : undefined;
-    const targetVendorId = mappedVendorName
-      ? vendorNameToTargetId[mappedVendorName]
+    const inferredVendor = inferVendorFromModelName(modelName);
+    const targetVendorId = inferredVendor
+      ? vendorNameToTargetId[inferredVendor]
       : undefined;
 
     const existing = existingModelsByName.get(modelName);

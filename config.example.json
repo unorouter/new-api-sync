@@ -16,7 +16,6 @@
       "systemAccessToken": "your-system-access-token",
       "userId": 1,
       "enabledGroups": ["aws-q", "cc", "gemini"],
-      "priority": 10,
       "priceMultiplier": 0.33
     },
     {
@@ -25,7 +24,6 @@
       "baseUrl": "https://nekocode.ai",
       "sessionToken": "your-session-cookie-value",
       "enabledGroups": ["1", "2"],
-      "priority": 5,
       "priceMultiplier": 1.0
     }
   ]

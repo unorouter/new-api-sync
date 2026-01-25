@@ -116,6 +116,7 @@ export interface Channel {
   models: string;
   group: string;
   priority: number;
+  weight?: number;
   status: number;
   tag?: string;
   remark?: string;
