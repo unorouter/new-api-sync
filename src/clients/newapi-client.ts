@@ -1,44 +1,19 @@
 import { inferChannelType, PAGINATION } from "@/lib/constants";
 import type {
+  ApiResponse,
   Channel,
   GroupInfo,
   ModelInfo,
   ModelMeta,
   NewApiConfig,
+  PricingResponse,
+  TokenListResponse,
   UpstreamPricing,
   UpstreamToken,
   Vendor,
 } from "@/lib/types";
-import { testModelsWithKey as testModels } from "@/service/model-tester";
+import { ModelTester } from "@/service/model-tester";
 import { consola } from "consola";
-
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  message?: string;
-  data?: T;
-}
-
-interface PricingResponse {
-  success: boolean;
-  data: Array<{
-    model_name: string;
-    vendor_id?: number;
-    quota_type: number;
-    model_ratio: number;
-    model_price: number;
-    completion_ratio: number;
-    enable_groups: string[];
-    supported_endpoint_types: string[];
-  }>;
-  group_ratio: Record<string, number>;
-  usable_group: Record<string, string>;
-  vendors?: Array<{ id: number; name: string; icon?: string }>;
-}
-
-interface TokenListResponse {
-  success: boolean;
-  data: { data?: UpstreamToken[]; items?: UpstreamToken[] } | UpstreamToken[];
-}
 
 export class NewApiClient {
   private config: NewApiConfig;
@@ -209,7 +184,7 @@ export class NewApiClient {
     models: string[],
     channelType: number,
   ): Promise<{ workingModels: string[]; avgResponseTime?: number }> {
-    return testModels(this.baseUrl, apiKey, models, channelType);
+    return new ModelTester(this.baseUrl, apiKey).testModels(models, channelType);
   }
 
   async ensureTokens(

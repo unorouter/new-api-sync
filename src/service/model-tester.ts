@@ -1,14 +1,5 @@
 import { CHANNEL_TYPES, TIMEOUTS } from "@/lib/constants";
-
-export interface TestResult {
-  success: boolean;
-  responseTime?: number;
-}
-
-export interface TestModelsResult {
-  workingModels: string[];
-  avgResponseTime?: number;
-}
+import type { TestModelsResult, TestResult } from "@/lib/types";
 
 export class ModelTester {
   constructor(
@@ -161,14 +152,4 @@ export class ModelTester {
       avgResponseTime,
     };
   }
-}
-
-// Convenience function for backwards compatibility
-export function testModelsWithKey(
-  baseUrl: string,
-  apiKey: string,
-  models: string[],
-  channelType: number,
-): Promise<TestModelsResult> {
-  return new ModelTester(baseUrl, apiKey).testModels(models, channelType);
 }

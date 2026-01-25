@@ -10,6 +10,7 @@ import {
 } from "@/lib/constants";
 import type {
   Channel,
+  ChannelSpec,
   Config,
   GroupInfo,
   MergedGroup,
@@ -25,18 +26,7 @@ export class SyncService {
   private mergedGroups: MergedGroup[] = [];
   private mergedModels = new Map<string, MergedModel>();
   private modelEndpoints = new Map<string, string[]>();
-  private channelsToCreate: Array<{
-    name: string;
-    type: number;
-    key: string;
-    baseUrl: string;
-    models: string[];
-    group: string;
-    priority: number;
-    weight: number;
-    provider: string;
-    remark: string;
-  }> = [];
+  private channelsToCreate: ChannelSpec[] = [];
 
   constructor(private config: Config) {}
 

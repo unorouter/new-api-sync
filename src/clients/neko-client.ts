@@ -2,79 +2,14 @@ import { CHANNEL_TYPES, PAGINATION } from "@/lib/constants";
 import type {
   GroupInfo,
   ModelInfo,
+  NekoGroup,
+  NekoModel,
   NekoProviderConfig,
+  NekoToken,
   UpstreamPricing,
 } from "@/lib/types";
-import { testModelsWithKey as testModels } from "@/service/model-tester";
+import { ModelTester } from "@/service/model-tester";
 import { consola } from "consola";
-
-interface NekoGroup {
-  id: number;
-  name: string;
-  description: string;
-  ratio: string;
-  rpm: number | null;
-  is_default: boolean;
-}
-
-interface NekoModel {
-  id: number;
-  model: string;
-  provider: string;
-  input_price_per_m: string;
-  output_price_per_m: string;
-  cache_read_price_per_m: string;
-  cache_write_price_per_m: string;
-  enabled: boolean;
-  description: string;
-}
-
-interface NekoToken {
-  id: number;
-  name: string;
-  key: string;
-  billing_type: string;
-  subscription_group_id: number;
-  pay_as_you_go_group_id: number;
-  used_quota: string;
-  enabled: boolean;
-  subscription_group?: { name: string; ratio: string };
-  pay_as_you_go_group?: { name: string; ratio: string };
-}
-
-function generateNonce(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  return Array.from(
-    { length: 8 },
-    () => chars[Math.floor(Math.random() * chars.length)],
-  ).join("");
-}
-
-async function generateSign(
-  timestamp: string,
-  nonce: string,
-  path: string,
-): Promise<string> {
-  const secret = "nekoneko";
-  const data = new TextEncoder().encode(timestamp + nonce + path + secret);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash), (b) =>
-    b.toString(16).padStart(2, "0"),
-  )
-    .join("")
-    .substring(0, 16);
-}
-
-function providerToVendorId(provider: string): number | undefined {
-  const mapping: Record<string, number> = {
-    openai: 1,
-    anthropic: 2,
-    claude: 2,
-    google: 3,
-    gemini: 3,
-  };
-  return mapping[provider.toLowerCase()];
-}
 
 export class NekoClient {
   private provider: NekoProviderConfig;
@@ -87,10 +22,40 @@ export class NekoClient {
     return this.provider.baseUrl.replace(/\/$/, "");
   }
 
+  private generateNonce(): string {
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    return Array.from(
+      { length: 8 },
+      () => chars[Math.floor(Math.random() * chars.length)],
+    ).join("");
+  }
+
+  private async generateSign(timestamp: string, nonce: string, path: string): Promise<string> {
+    const secret = "nekoneko";
+    const data = new TextEncoder().encode(timestamp + nonce + path + secret);
+    const hash = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(hash), (b) =>
+      b.toString(16).padStart(2, "0"),
+    )
+      .join("")
+      .substring(0, 16);
+  }
+
+  private providerToVendorId(provider: string): number | undefined {
+    const mapping: Record<string, number> = {
+      openai: 1,
+      anthropic: 2,
+      claude: 2,
+      google: 3,
+      gemini: 3,
+    };
+    return mapping[provider.toLowerCase()];
+  }
+
   private async getHeaders(path: string): Promise<Record<string, string>> {
     const timestamp = Math.floor(Date.now() / 1000).toString();
-    const nonce = generateNonce();
-    const sign = await generateSign(timestamp, nonce, path);
+    const nonce = this.generateNonce();
+    const sign = await this.generateSign(timestamp, nonce, path);
 
     return {
       "Content-Type": "application/json",
@@ -198,7 +163,7 @@ export class NekoClient {
           ratio,
           completionRatio,
           groups: groups.map((g) => g.name),
-          vendorId: providerToVendorId(m.provider),
+          vendorId: this.providerToVendorId(m.provider),
         };
       });
 
@@ -281,7 +246,7 @@ export class NekoClient {
     _channelType?: number,
   ): Promise<{ workingModels: string[]; avgResponseTime?: number }> {
     // Neko only supports Anthropic format
-    return testModels(this.baseUrl, apiKey, models, CHANNEL_TYPES.ANTHROPIC);
+    return new ModelTester(this.baseUrl, apiKey).testModels(models, CHANNEL_TYPES.ANTHROPIC);
   }
 
   async ensureTokens(

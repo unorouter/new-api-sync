@@ -128,3 +128,90 @@ export interface MergedModel {
   ratio: number;
   completionRatio: number;
 }
+
+export interface TestResult {
+  success: boolean;
+  responseTime?: number;
+}
+
+export interface TestModelsResult {
+  workingModels: string[];
+  avgResponseTime?: number;
+}
+
+export interface ChannelSpec {
+  name: string;
+  type: number;
+  key: string;
+  baseUrl: string;
+  models: string[];
+  group: string;
+  priority: number;
+  weight: number;
+  provider: string;
+  remark: string;
+}
+
+// Neko API types
+export interface NekoGroup {
+  id: number;
+  name: string;
+  description: string;
+  ratio: string;
+  rpm: number | null;
+  is_default: boolean;
+}
+
+export interface NekoModel {
+  id: number;
+  model: string;
+  provider: string;
+  input_price_per_m: string;
+  output_price_per_m: string;
+  cache_read_price_per_m: string;
+  cache_write_price_per_m: string;
+  enabled: boolean;
+  description: string;
+}
+
+export interface NekoToken {
+  id: number;
+  name: string;
+  key: string;
+  billing_type: string;
+  subscription_group_id: number;
+  pay_as_you_go_group_id: number;
+  used_quota: string;
+  enabled: boolean;
+  subscription_group?: { name: string; ratio: string };
+  pay_as_you_go_group?: { name: string; ratio: string };
+}
+
+// NewAPI response types
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  message?: string;
+  data?: T;
+}
+
+export interface PricingResponse {
+  success: boolean;
+  data: Array<{
+    model_name: string;
+    vendor_id?: number;
+    quota_type: number;
+    model_ratio: number;
+    model_price: number;
+    completion_ratio: number;
+    enable_groups: string[];
+    supported_endpoint_types: string[];
+  }>;
+  group_ratio: Record<string, number>;
+  usable_group: Record<string, string>;
+  vendors?: Array<{ id: number; name: string; icon?: string }>;
+}
+
+export interface TokenListResponse {
+  success: boolean;
+  data: { data?: UpstreamToken[]; items?: UpstreamToken[] } | UpstreamToken[];
+}
