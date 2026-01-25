@@ -1,167 +1,174 @@
 # new-api-sync
 
-Sync pricing, groups, and channels from multiple upstream new-api providers to your own instance.
+Declarative multi-provider sync for [new-api](https://github.com/Calcium-Ion/new-api) instances. Syncs pricing, groups, channels, and models from upstream providers to your own instance.
 
 ## Features
 
-- **Multi-provider support**: Sync from multiple upstream new-api sites
-- **Automatic token creation**: Creates tokens on upstream providers automatically
-- **Idempotent**: Safe to run multiple times - upserts everything, deletes stale channels
-- **Failover routing**: Configures auto-group with cheapest-first ordering
-- **Pricing sync**: Syncs both input (ModelRatio) and output (CompletionRatio) pricing
+- **Multi-provider support** — Sync from multiple new-api and Neko instances
+- **Model testing** — Validates models actually work before creating channels
+- **Glob pattern filtering** — Filter models with patterns like `claude-*-4-5`
+- **Vendor filtering** — Sync only specific vendors (anthropic, openai, google, etc.)
+- **Blacklist** — Exclude groups/models by keyword
+- **Dynamic priority** — Faster providers get higher priority automatically
+- **Price multipliers** — Per-provider billing adjustments
+- **Idempotent** — Safe to run repeatedly; upserts everything, cleans up stale data
 
 ## Quick Start
 
-1. Copy the example config:
+```bash
+# Install dependencies
+bun install
 
-   ```bash
-   cp config.example.json config.json
-   ```
+# Copy and edit config
+cp config.example.json config.json
 
-2. Edit `config.json` with your providers:
+# Run sync
+bun run sync
 
-   ```json
-   {
-     "target": {
-       "url": "https://your-instance.example.com",
-       "adminToken": "sk-xxx"
-     },
-     "providers": [
-       {
-         "name": "newapi",
-         "baseUrl": "https://www.newapi.ai",
-         "accessToken": "your-system-access-token",
-         "enabledGroups": ["aws-q", "cc", "gemini"],
-         "priority": 10
-       }
-     ]
-   }
-   ```
-
-3. Run sync:
-   ```bash
-   bun run sync
-   ```
+# Reset (delete all synced data)
+bun run reset
+```
 
 ## Configuration
-
-### Target
-
-Your new-api instance where channels and settings will be synced.
-
-### Providers
-
-| Field           | Description                                              |
-| --------------- | -------------------------------------------------------- |
-| `name`          | Unique identifier, used as channel prefix                |
-| `baseUrl`       | Provider URL (e.g., `https://www.newapi.ai`)             |
-| `accessToken`   | System Access Token from provider's account settings     |
-| `enabledGroups` | (Optional) Subset of groups to sync. Omit for all groups |
-| `priority`      | (Optional) Higher = preferred in failover (default: 0)   |
-
-## How It Works
-
-1. For each provider: fetch `/api/pricing`, filter groups, ensure tokens exist
-2. Merge all providers: GroupRatio, AutoGroups (cheapest first), ModelRatio, CompletionRatio
-3. Update target options
-4. Sync channels: upsert new, delete stale
-
-### Channel Naming
-
-Channels are named `{provider}-{group}`: `newapi-aws-q`, `newapi-cc`, etc.
-
-### Failover Order
-
-
-## Multi-Provider Example
 
 ```json
 {
   "target": {
-    "url": "https://your-instance.example.com",
-    "adminToken": "sk-xxx"
+    "baseUrl": "https://your-instance.example.com",
+    "systemAccessToken": "your-system-access-token",
+    "userId": 1
   },
+  "blacklist": ["nsfw", "kiro"],
   "providers": [
     {
-      "name": "newapi",
-      "baseUrl": "https://www.newapi.ai",
-      "accessToken": "token-1",
-      "enabledGroups": ["aws-q", "cc", "gemini"],
+      "type": "newapi",
+      "name": "provider1",
+      "baseUrl": "https://upstream-provider.com",
+      "systemAccessToken": "provider-system-token",
+      "userId": 12345,
+      "enabledVendors": ["anthropic", "openai"],
+      "enabledModels": ["claude-*-4-5", "gpt-5"],
+      "priceMultiplier": 0.5,
       "priority": 10
     },
     {
-      "name": "provider2",
-      "baseUrl": "https://other-newapi.example.com",
-      "accessToken": "token-2",
-      "priority": 5
+      "type": "neko",
+      "name": "neko",
+      "baseUrl": "https://nekocode.ai",
+      "sessionToken": "session-cookie-value",
+      "enabledVendors": ["anthropic"],
+      "priceMultiplier": 0.25
     }
   ]
 }
 ```
 
+### Target
 
-<!-- AutoGroups sorted by ratio (cheapest first). Failed requests retry on next cheapest.
+Your new-api instance where channels and settings will be synced.
 
-## Pricing & Margin Calculation
+| Field | Description |
+|-------|-------------|
+| `baseUrl` | Your instance URL |
+| `systemAccessToken` | System Access Token (Settings → Other) |
+| `userId` | Your user ID |
 
-### The Arbitrage
+### Providers
 
-Chinese API providers price in CNY. We convert **1 CNY = 1 USD** when reselling to international customers.
+#### new-api Provider (`type: "newapi"` or omit type)
 
-Actual exchange rate: **1 USD = ~7.3 CNY**
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | ✓ | Unique identifier, used as channel tag |
+| `baseUrl` | ✓ | Provider URL |
+| `systemAccessToken` | ✓ | System Access Token from provider |
+| `userId` | ✓ | Your user ID on the provider |
+| `enabledGroups` | | Specific groups to sync (omit for all) |
+| `enabledVendors` | | Filter by vendor: `anthropic`, `openai`, `google`, etc. |
+| `enabledModels` | | Glob patterns: `["claude-*-4-5", "gpt-5"]` |
+| `priceMultiplier` | | Multiply group ratios (e.g., `0.5` = 50% markup) |
+| `priority` | | Base priority for channels (default: 0) |
 
-This means every token sold has a built-in ~7.3x gross margin from the FX spread alone.
+#### Neko Provider (`type: "neko"`)
 
-### Example: claude-opus-4-5-20251101 (ikun, 0.5x multiplier)
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | ✓ | Unique identifier |
+| `baseUrl` | ✓ | Neko instance URL |
+| `sessionToken` | ✓ | Session cookie value |
+| `enabledVendors` | | Filter by vendor |
+| `enabledModels` | | Glob patterns |
+| `priceMultiplier` | | Price multiplier |
 
-| Step | Input/M | Output/M |
-|------|---------|----------|
-| Ikun listed price | ¥2 CNY | ¥10 CNY |
-| After 0.5x multiplier (our cost) | ¥1 CNY | ¥5 CNY |
-| Our cost in USD (÷7.3) | $0.137 | $0.685 |
-| We charge users (1 CNY = 1 USD) | $1.00 | $5.00 |
-| **Gross margin** | **7.3x** | **7.3x** |
+### Blacklist
 
-### After Fees & German Taxes (Einzelunternehmer)
+Global blacklist applies to group names, descriptions, and model names:
 
-Per M output tokens (€4.24 revenue):
+```json
+{
+  "blacklist": ["nsfw", "kiro", "奇罗"]
+}
+```
 
-| Deduction | Amount |
-|-----------|--------|
-| Revenue | €4.24 |
-| Stripe (~2.9% + €0.25) | -€0.37 |
-| Cost (ikun via Alipay) | -€0.58 |
-| Gewerbesteuer (~14%) | -€0.46 |
-| Einkommensteuer + Soli (~32%) | -€1.04 |
-| **Net profit** | **~€1.79** |
+### Model Patterns
 
-**Effective net margin: ~2.6x**
+`enabledModels` supports glob patterns:
 
-### Subscription Tier ($20/month)
+- `claude-*-4-5` — Matches `claude-sonnet-4-5-20250514`, `claude-opus-4-5-20251101`
+- `gpt-5` — Exact substring match
+- `*-preview` — Matches anything ending in `-preview`
 
-$20/month → $40 in token credits (2x value). Rate limited per 6h and weekly.
+## How It Works
 
-| | Pay-as-you-go | Subscription |
-|--|---------------|-------------|
-| User pays | $5/M output | $2.50/M output (effective) |
-| Your cost | $0.685/M | $0.685/M |
-| Gross margin | 7.3x | 3.65x |
-| Net after taxes | ~2.6x | ~1.8x |
+1. **Fetch** — For each provider: fetch pricing, filter groups/models
+2. **Test** — Test each model with a minimal request to verify it works
+3. **Token** — Create/reuse API tokens on upstream for each group
+4. **Merge** — Combine all providers: GroupRatio, AutoGroups, ModelRatio, CompletionRatio
+5. **Sync** — Update target options, upsert channels, sync model metadata
+6. **Cleanup** — Delete stale channels and orphaned models
 
-**Worst case (subscriber uses all $40):**
-- Your actual cost: $40 × ($0.685/$5) = $5.48
-- You collected: $20
-- Gross margin: 3.65x
+### Channel Naming
 
-**Best case (subscriber doesn't use all credits):**
-- Unused tokens = pure profit
-- $20 guaranteed revenue regardless of usage
+Channels are named `{group}-{provider}` and tagged with the provider name:
+- `aws-q-newapi`
+- `claude-neko`
 
-**Floor:** even at full usage, net profit per subscriber is ~$14.52/month before taxes.
+### Priority & Failover
 
-### Notes
+- **AutoGroups** sorted by ratio (cheapest first)
+- **Dynamic priority** from response time: faster = higher priority
+- Failed requests automatically retry on next available channel
 
-- VAT (USt 19%) charged on top to EU customers, remitted via OSS — net neutral
-- Non-EU customers: no VAT
-- Alipay receipts + ikun dashboard = Betriebsausgabe documentation (confirm with Steuerberater)
-- §13b reverse-charge applies on Chinese service imports -->
+## Project Structure
+
+```
+src/
+├── sync.ts              # Entry point
+├── reset.ts             # Reset/cleanup entry point
+├── clients/
+│   ├── newapi-client.ts # NewApiClient class (unified for target + providers)
+│   └── neko-client.ts   # NekoClient class
+├── service/
+│   ├── sync.ts          # SyncService class
+│   └── model-tester.ts  # ModelTester class
+└── lib/
+    ├── config.ts        # Config loading/validation
+    ├── constants.ts     # Constants and utility functions
+    └── types.ts         # TypeScript interfaces
+```
+
+## Commands
+
+```bash
+# Sync with default config
+bun run sync
+
+# Sync with custom config
+bun run sync ./custom-config.json
+
+# Reset all synced data
+bun run reset
+
+# Type check
+bun run typecheck
+```
