@@ -249,14 +249,7 @@ export class SyncService {
         );
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      providerReport.error = message;
-      report.errors.push({
-        provider: providerConfig.name,
-        phase: "fetch",
-        message,
-      });
-      consola.error(`Provider ${providerConfig.name} failed: ${message}`);
+      providerReport.error = error instanceof Error ? error.message : String(error);
     }
 
     return providerReport;
@@ -455,6 +448,13 @@ export class SyncService {
       `Done in ${elapsed}s | Providers: ${report.providers.filter((p) => p.success).length}/${report.providers.length} | Channels: +${report.channels.created} ~${report.channels.updated} -${report.channels.deleted} | Models: +${modelsCreated} ~${modelsUpdated} -${modelsDeleted}${orphanStr}`,
     );
 
+    // Log failed providers (non-fatal)
+    const failedProviders = report.providers.filter((p) => !p.success);
+    for (const p of failedProviders) {
+      consola.warn(`[${p.name}] ${p.error}`);
+    }
+
+    // Log fatal errors
     if (report.errors.length > 0) {
       for (const err of report.errors) {
         consola.error(`[${err.provider ?? "target"}/${err.phase}] ${err.message}`);
