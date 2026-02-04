@@ -85,8 +85,7 @@ Your new-api instance where channels and settings will be synced.
 | `enabledGroups` | | Specific groups to sync (omit for all) |
 | `enabledVendors` | | Filter by vendor: `anthropic`, `openai`, `google`, etc. |
 | `enabledModels` | | Glob patterns: `["claude-*-4-5", "gpt-5"]` |
-| `priceMultiplier` | | Multiply group ratios (e.g., `0.5` = 50% markup) |
-| `priority` | | Base priority for channels (default: 0) |
+| `priceMultiplier` | | Multiply group ratios (e.g., `0.5` = 50% discount, `2.0` = 100% markup) |
 
 ### Blacklist
 

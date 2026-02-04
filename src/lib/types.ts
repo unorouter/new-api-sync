@@ -11,7 +11,6 @@ export interface BaseProviderConfig extends NewApiConfig {
   enabledGroups?: string[];
   enabledVendors?: string[];
   enabledModels?: string[];
-  priority?: number;
   priceMultiplier?: number;
 }
 

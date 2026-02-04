@@ -194,9 +194,7 @@ export class SyncService {
         }
 
         // Calculate dynamic priority and weight: faster response = higher values
-        const basePriority = providerConfig.priority ?? 0;
-        const responseBonus = calculatePriorityBonus(avgResponseTime);
-        const dynamicPriority = basePriority + responseBonus;
+        const dynamicPriority = calculatePriorityBonus(avgResponseTime);
         const dynamicWeight = responseBonus > 0 ? responseBonus : 1;
 
         // Apply model name mapping if configured
