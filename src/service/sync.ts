@@ -195,7 +195,7 @@ export class SyncService {
 
         // Calculate dynamic priority and weight: faster response = higher values
         const dynamicPriority = calculatePriorityBonus(avgResponseTime);
-        const dynamicWeight = responseBonus > 0 ? responseBonus : 1;
+        const dynamicWeight = dynamicPriority > 0 ? dynamicPriority : 1;
 
         // Apply model name mapping if configured
         const mappedModels = workingModels.map((m) =>
@@ -405,6 +405,19 @@ export class SyncService {
       if (model.sync_official === 1 && !modelsToSync.has(model.model_name)) {
         if (model.id && (await target.deleteModel(model.id))) {
           modelsDeleted++;
+        }
+      }
+    }
+
+    // Delete models that are mapping sources (they've been remapped to something else)
+    if (this.config.modelMapping) {
+      const mappingSources = new Set(Object.keys(this.config.modelMapping));
+      for (const model of existingModels) {
+        if (mappingSources.has(model.model_name)) {
+          if (model.id && (await target.deleteModel(model.id))) {
+            modelsDeleted++;
+            consola.info(`Deleted mapped model: ${model.model_name}`);
+          }
         }
       }
     }
