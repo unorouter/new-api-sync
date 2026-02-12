@@ -18,13 +18,42 @@ export interface ProviderConfig extends BaseProviderConfig {
   type?: "newapi";
 }
 
-export type AnyProviderConfig = ProviderConfig;
+export interface Sub2ApiProviderConfig {
+  type: "sub2api";
+  name: string;
+  baseUrl: string;
+  adminApiKey: string;
+  apiKey: string;
+  groupName?: string;
+  enabledVendors?: string[];
+  enabledModels?: string[];
+  priceDiscount?: number;
+}
+
+export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig;
 
 export interface Config {
   target: NewApiConfig;
   providers: AnyProviderConfig[];
   blacklist?: string[];
   modelMapping?: Record<string, string>;
+}
+
+// ============ Sub2API Types ============
+
+export interface Sub2ApiAccount {
+  id: number;
+  name: string;
+  platform: string;
+  type: string;
+  status: string;
+  model_mapping?: Record<string, string>;
+}
+
+export interface Sub2ApiModel {
+  id: string;
+  type: string;
+  display_name?: string;
 }
 
 // ============ Reports ============

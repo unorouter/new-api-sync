@@ -24,6 +24,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # config with secrets
 config.json
+config.jsonc
 
 # caches
 .eslintcache
@@ -40,4 +41,4 @@ package-lock.json
 yarn.lock
 bun.lock*
 *.png
-config copy.json
+config copy.json*

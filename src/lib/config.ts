@@ -1,11 +1,19 @@
-import type { Config } from "@/lib/types";
+import type { Config, Sub2ApiProviderConfig } from "@/lib/types";
 
-export async function loadConfig(path: string): Promise<Config> {
-  const file = Bun.file(path);
-  if (!(await file.exists())) throw new Error(`Config file not found: ${path}`);
-  const config = (await file.json()) as Config;
+export async function loadConfig(path?: string): Promise<Config> {
+  const resolved = path ?? await resolveDefaultConfig();
+  const file = Bun.file(resolved);
+  if (!(await file.exists())) throw new Error(`Config file not found: ${resolved}`);
+  const text = await file.text();
+  const config = Bun.JSONC.parse(text) as Config;
   validateConfig(config);
   return config;
+}
+
+async function resolveDefaultConfig(): Promise<string> {
+  if (await Bun.file("./config.jsonc").exists()) return "./config.jsonc";
+  if (await Bun.file("./config.json").exists()) return "./config.json";
+  throw new Error("No config file found (tried config.jsonc, config.json)");
 }
 
 function isValidUrl(url: string): boolean {
@@ -42,6 +50,19 @@ export function validateConfig(config: Config): void {
     if (!p.baseUrl) throw new Error(`Provider "${p.name}" missing: baseUrl`);
     if (!isValidUrl(p.baseUrl))
       throw new Error(`Invalid URL: provider "${p.name}" baseUrl = "${p.baseUrl}"`);
+
+    if (p.type === "sub2api") {
+      const sp = p as Sub2ApiProviderConfig;
+      if (!sp.adminApiKey)
+        throw new Error(`Provider "${p.name}" missing: adminApiKey`);
+      if (!sp.apiKey)
+        throw new Error(`Provider "${p.name}" missing: apiKey`);
+      if (sp.priceDiscount !== undefined && (sp.priceDiscount < 0 || sp.priceDiscount >= 1))
+        throw new Error(
+          `Invalid priceDiscount: provider "${p.name}" must be between 0 and 1`,
+        );
+      continue;
+    }
 
     if (!("systemAccessToken" in p) || !p.systemAccessToken)
       throw new Error(`Provider "${p.name}" missing: systemAccessToken`);

@@ -38,8 +38,9 @@ export class ResetService {
     // Cleanup orphaned models
     report.orphans = await target.cleanupOrphanedModels();
 
-    // Delete provider tokens
+    // Delete provider tokens (only for newapi providers, sub2api has no token management)
     for (const providerConfig of this.config.providers) {
+      if (providerConfig.type === "sub2api") continue;
       const suffix = `-${providerConfig.name}`;
       const client = new NewApiClient(providerConfig);
       const tokens = await client.listTokens();

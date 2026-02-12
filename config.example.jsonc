@@ -18,6 +18,16 @@
       "enabledVendors": ["anthropic", "openai"],
       "enabledModels": ["claude-*-4-5*", "gpt-5"],
       "priceMultiplier": 0.33
+    },
+    {
+      "type": "sub2api",
+      "name": "sub2api",
+      "baseUrl": "https://sub2api.coding.global",
+      "adminApiKey": "admin-your-admin-api-key",
+      "apiKey": "sk-your-user-api-key",
+      "groupName": "sub2api",
+      "enabledVendors": ["anthropic", "openai", "google"],
+      "priceDiscount": 0.1
     }
   ]
 }

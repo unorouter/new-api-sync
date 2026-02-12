@@ -23,7 +23,7 @@ Declarative multi-provider sync for [new-api](https://github.com/QuantumNous/new
 bun install
 
 # Copy and edit config
-cp config.example.json config.json
+cp config.example.jsonc config.jsonc
 
 # Run sync
 bun run sync
@@ -34,7 +34,7 @@ bun run reset
 
 ## Configuration
 
-```json
+```jsonc
 {
   "target": {
     "baseUrl": "https://your-instance.example.com",
@@ -91,7 +91,7 @@ Your new-api instance where channels and settings will be synced.
 
 Global blacklist applies to group names, descriptions, and model names:
 
-```json
+```jsonc
 {
   "blacklist": ["nsfw", "kiro", "奇罗"]
 }
@@ -109,7 +109,7 @@ Global blacklist applies to group names, descriptions, and model names:
 
 Map complex upstream model names to simpler, user-friendly names:
 
-```json
+```jsonc
 {
   "modelMapping": {
     "claude-sonnet-4-5-20250929-complex-suffix": "claude-sonnet-4-5",
@@ -148,7 +148,7 @@ Channels are named `{group}-{provider}` and tagged with the provider name:
 bun run sync
 
 # Sync with custom config
-bun run sync ./custom-config.json
+bun run sync ./custom-config.jsonc
 
 # Reset all synced data
 bun run reset
