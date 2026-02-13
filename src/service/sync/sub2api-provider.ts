@@ -10,7 +10,6 @@ import type {
   Config,
   ProviderReport,
   Sub2ApiProviderConfig,
-  SyncReport,
 } from "@/lib/types";
 import { consola } from "consola";
 import type { SyncState } from "./types";
@@ -26,11 +25,17 @@ function platformToChannelType(platform: string): number {
   }
 }
 
+// Map new-api vendor names → sub2api platform names (one vendor can match multiple platforms)
+const VENDOR_TO_PLATFORMS: Record<string, string[]> = {
+  google: ["gemini", "antigravity"],
+  anthropic: ["anthropic"],
+  openai: ["openai"],
+};
+
 export async function processSub2ApiProvider(
   providerConfig: Sub2ApiProviderConfig,
   config: Config,
   state: SyncState,
-  report: SyncReport,
 ): Promise<ProviderReport> {
   const providerReport: ProviderReport = {
     name: providerConfig.name,
@@ -43,7 +48,43 @@ export async function processSub2ApiProvider(
   try {
     const client = new Sub2ApiClient(providerConfig);
     const discount = providerConfig.priceDiscount ?? 0.1;
-    const groupName = providerConfig.groupName ?? "sub2api";
+
+    // Fetch all active groups, filtered by enabledVendors
+    const allGroups = await client.listGroups();
+    let activeGroups = allGroups.filter((g) => g.status === "active");
+
+    if (providerConfig.enabledVendors?.length) {
+      const enabledPlatforms = new Set(
+        providerConfig.enabledVendors.flatMap((v) => VENDOR_TO_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()]),
+      );
+      activeGroups = activeGroups.filter((g) => enabledPlatforms.has(g.platform.toLowerCase()));
+    }
+
+    if (activeGroups.length === 0) {
+      providerReport.error = "No active groups on sub2api";
+      return providerReport;
+    }
+
+    // Resolve API key for each group
+    const groupKeys = new Map<number, { name: string; platform: string; apiKey: string }>();
+    for (const group of activeGroups) {
+      const apiKey = await client.getGroupApiKey(group.id);
+      if (!apiKey) {
+        consola.warn(`[${providerConfig.name}] No API key for group "${group.name}", skipping`);
+        continue;
+      }
+      groupKeys.set(group.id, {
+        name: group.name,
+        platform: group.platform.toLowerCase(),
+        apiKey,
+      });
+    }
+
+    if (groupKeys.size === 0) {
+      providerReport.error = "No groups with active API keys";
+      return providerReport;
+    }
+    consola.info(`[${providerConfig.name}] ${groupKeys.size} groups with API keys`);
 
     // Fetch all accounts and filter by active status
     const accounts = await client.listAccounts();
@@ -52,75 +93,65 @@ export async function processSub2ApiProvider(
       `[${providerConfig.name}] ${activeAccounts.length}/${accounts.length} active accounts`,
     );
 
-    if (activeAccounts.length === 0) {
-      providerReport.error = "No active accounts";
-      return providerReport;
+    // Group accounts by platform
+    const platformAccounts = new Map<string, typeof activeAccounts>();
+    for (const account of activeAccounts) {
+      const platform = account.platform.toLowerCase();
+      if (!platformAccounts.has(platform)) {
+        platformAccounts.set(platform, []);
+      }
+      platformAccounts.get(platform)!.push(account);
     }
 
-    // Collect models per platform from all active accounts
-    const platformModels = new Map<string, Set<string>>();
-    const testedAccountIds = new Set<number>();
+    // Process each group: test its platform's accounts, collect models, create channel
+    let totalModels = 0;
+    let groupsProcessed = 0;
 
-    for (const account of activeAccounts) {
-      // Filter by enabled vendors if specified
-      if (providerConfig.enabledVendors?.length) {
-        const vendorSet = new Set(providerConfig.enabledVendors.map((v) => v.toLowerCase()));
-        const accountVendor = account.platform.toLowerCase();
-        // Map sub2api platform names to vendor names
-        const vendorName =
-          accountVendor === "gemini" ? "google" : accountVendor;
-        if (!vendorSet.has(vendorName) && !vendorSet.has(accountVendor)) continue;
-      }
-
-      // Test account health
-      consola.info(`[${providerConfig.name}] Testing account ${account.id} (${account.platform}/${account.name})...`);
-      const healthy = await client.testAccount(account.id);
-      if (!healthy) {
-        consola.warn(`[${providerConfig.name}] Account ${account.id} (${account.name}) failed test, skipping`);
+    for (const [, groupInfo] of groupKeys) {
+      const accounts = platformAccounts.get(groupInfo.platform) ?? [];
+      if (accounts.length === 0) {
+        consola.warn(`[${providerConfig.name}] No ${groupInfo.platform} accounts for group "${groupInfo.name}"`);
         continue;
       }
-      testedAccountIds.add(account.id);
 
-      // Get models for this account
-      const models = await client.getAccountModels(account.id);
-      const platform = account.platform.toLowerCase();
+      // Test accounts and collect models
+      const models = new Set<string>();
+      let testedCount = 0;
 
-      if (!platformModels.has(platform)) {
-        platformModels.set(platform, new Set());
-      }
+      for (const account of accounts) {
+        consola.info(`[${providerConfig.name}] Testing account ${account.id} (${account.name})...`);
+        const healthy = await client.testAccount(account.id);
+        if (!healthy) {
+          consola.warn(`[${providerConfig.name}] Account ${account.id} (${account.name}) failed test, skipping`);
+          continue;
+        }
+        testedCount++;
 
-      for (const model of models) {
-        const modelId = model.id.replace(/^models\//, "");
-        if (!isTextModel(modelId)) continue;
-        if (matchesBlacklist(modelId, config.blacklist)) continue;
-
-        // Filter by enabled models if specified
-        if (providerConfig.enabledModels?.length) {
-          if (!matchesAnyPattern(modelId, providerConfig.enabledModels)) continue;
+        const accountModels = await client.getAccountModels(account.id);
+        for (const model of accountModels) {
+          const modelId = model.id.replace(/^models\//, "");
+          if (!isTextModel(modelId)) continue;
+          if (matchesBlacklist(modelId, config.blacklist)) continue;
+          if (providerConfig.enabledModels?.length) {
+            if (!matchesAnyPattern(modelId, providerConfig.enabledModels)) continue;
+          }
+          models.add(modelId);
         }
 
-        platformModels.get(platform)!.add(modelId);
+        consola.info(
+          `[${providerConfig.name}] Account ${account.id} (${account.name}): ${accountModels.length} models, healthy`,
+        );
       }
 
-      consola.info(
-        `[${providerConfig.name}] Account ${account.id} (${account.name}): ${models.length} models, healthy`,
-      );
-    }
+      if (testedCount === 0 || models.size === 0) {
+        consola.warn(`[${providerConfig.name}] No working models for group "${groupInfo.name}"`);
+        continue;
+      }
 
-    if (testedAccountIds.size === 0) {
-      providerReport.error = "No healthy accounts after testing";
-      return providerReport;
-    }
+      // Create channel for this group's platform
+      const channelType = platformToChannelType(groupInfo.platform);
+      const channelName = `${providerConfig.name}-${groupInfo.platform}`;
 
-    // Create channels per platform
-    let totalModels = 0;
-    for (const [platform, models] of platformModels) {
-      if (models.size === 0) continue;
-
-      const channelType = platformToChannelType(platform);
-      const channelName = `${groupName}-${platform}`;
-
-      // Apply model name mapping
       const mappedModels = [...models].map((m) =>
         applyModelMapping(m, config.modelMapping),
       );
@@ -149,32 +180,36 @@ export async function processSub2ApiProvider(
       state.mergedGroups.push({
         name: channelName,
         ratio: groupRatio,
-        description: `${platform} via ${providerConfig.name}`,
+        description: `${groupInfo.platform} via ${providerConfig.name}`,
         provider: providerConfig.name,
       });
 
       state.channelsToCreate.push({
         name: channelName,
         type: channelType,
-        key: providerConfig.apiKey,
+        key: groupInfo.apiKey,
         baseUrl: providerConfig.baseUrl,
         models: mappedModels,
         group: channelName,
         priority: 100,
         weight: 100,
         provider: providerConfig.name,
-        remark: `${providerConfig.name}-${platform}`,
+        remark: `${providerConfig.name}-${groupInfo.platform}`,
       });
 
       totalModels += models.size;
+      groupsProcessed++;
       consola.info(
-        `[${providerConfig.name}/${platform}] ${models.size} models, ratio: ${groupRatio.toFixed(4)} (${(discount * 100).toFixed(0)}% below remote)`,
+        `[${providerConfig.name}/${groupInfo.platform}] ${models.size} models, ratio: ${groupRatio.toFixed(4)} (${(discount * 100).toFixed(0)}% below remote)`,
       );
     }
 
-    providerReport.groups = platformModels.size;
+    providerReport.groups = groupsProcessed;
     providerReport.models = totalModels;
-    providerReport.success = true;
+    providerReport.success = groupsProcessed > 0;
+    if (!providerReport.success) {
+      providerReport.error = "No groups produced working channels";
+    }
   } catch (error) {
     providerReport.error = error instanceof Error ? error.message : String(error);
   }

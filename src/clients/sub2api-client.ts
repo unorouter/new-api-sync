@@ -1,5 +1,5 @@
 import { withRetry } from "@/lib/constants";
-import type { Sub2ApiAccount, Sub2ApiModel, Sub2ApiProviderConfig } from "@/lib/types";
+import type { Sub2ApiAccount, Sub2ApiGroup, Sub2ApiKey, Sub2ApiModel, Sub2ApiProviderConfig } from "@/lib/types";
 import { consola } from "consola";
 
 interface Sub2ApiResponse<T = unknown> {
@@ -19,26 +19,17 @@ interface PaginatedData<T> {
 export class Sub2ApiClient {
   private baseUrl: string;
   private adminApiKey: string;
-  private apiKey: string;
   private name: string;
 
   constructor(config: Sub2ApiProviderConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, "");
     this.adminApiKey = config.adminApiKey;
-    this.apiKey = config.apiKey;
     this.name = config.name;
   }
 
   private get adminHeaders(): Record<string, string> {
     return {
       "x-api-key": this.adminApiKey,
-      "Content-Type": "application/json",
-    };
-  }
-
-  private get userHeaders(): Record<string, string> {
-    return {
-      Authorization: `Bearer ${this.apiKey}`,
       "Content-Type": "application/json",
     };
   }
@@ -145,17 +136,46 @@ export class Sub2ApiClient {
     }
   }
 
-  async listModels(): Promise<Sub2ApiModel[]> {
-    const data = await withRetry(async () => {
-      const response = await fetch(`${this.baseUrl}/v1/models`, {
-        headers: this.userHeaders,
+  async listGroups(): Promise<Sub2ApiGroup[]> {
+    const allGroups: Sub2ApiGroup[] = [];
+    let page = 1;
+    const pageSize = 100;
+
+    while (true) {
+      const data = await withRetry(async () => {
+        const response = await fetch(
+          `${this.baseUrl}/api/v1/admin/groups?page=${page}&page_size=${pageSize}`,
+          { headers: this.adminHeaders },
+        );
+        if (!response.ok)
+          throw new Error(`Failed to list groups: ${response.status}`);
+        const data = (await response.json()) as Sub2ApiResponse<PaginatedData<Sub2ApiGroup>>;
+        if (data.code !== 0) throw new Error(`Group list failed: ${data.message}`);
+        return data.data!;
       });
+
+      allGroups.push(...data.items);
+      if (page >= data.pages) break;
+      page++;
+    }
+
+    return allGroups;
+  }
+
+  async getGroupApiKey(groupId: number): Promise<string | null> {
+    const data = await withRetry(async () => {
+      const response = await fetch(
+        `${this.baseUrl}/api/v1/admin/groups/${groupId}/api-keys?page=1&page_size=1`,
+        { headers: this.adminHeaders },
+      );
       if (!response.ok)
-        throw new Error(`Failed to list models: ${response.status}`);
-      const data = (await response.json()) as { data?: Sub2ApiModel[] };
-      return data.data ?? [];
+        throw new Error(`Failed to get group API keys: ${response.status}`);
+      const data = (await response.json()) as Sub2ApiResponse<PaginatedData<Sub2ApiKey>>;
+      if (data.code !== 0) throw new Error(`Get group API keys failed: ${data.message}`);
+      return data.data!;
     });
 
-    return data;
+    const activeKey = data.items.find((k) => k.status === "active");
+    return activeKey?.key ?? null;
   }
 }

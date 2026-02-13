@@ -2,11 +2,11 @@
   "target": {
     "baseUrl": "https://your-instance.example.com",
     "systemAccessToken": "your-system-access-token",
-    "userId": 1
+    "userId": 1,
   },
   "blacklist": ["kiro", "nsfw"],
   "modelMapping": {
-    "claude-sonnet-4-5-20250929-complex-name": "claude-sonnet-4-5"
+    "claude-sonnet-4-5-20250929-complex-name": "claude-sonnet-4-5",
   },
   "providers": [
     {
@@ -17,17 +17,15 @@
       "userId": 1,
       "enabledVendors": ["anthropic", "openai"],
       "enabledModels": ["claude-*-4-5*", "gpt-5"],
-      "priceMultiplier": 0.33
+      "priceMultiplier": 0.33,
     },
     {
       "type": "sub2api",
       "name": "sub2api",
-      "baseUrl": "https://sub2api.coding.global",
+      "baseUrl": "https://demo.sub2api.org",
       "adminApiKey": "admin-your-admin-api-key",
-      "apiKey": "sk-your-user-api-key",
-      "groupName": "sub2api",
       "enabledVendors": ["anthropic", "openai", "google"],
-      "priceDiscount": 0.1
-    }
-  ]
+      "priceDiscount": 0.1,
+    },
+  ],
 }

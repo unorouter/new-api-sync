@@ -23,8 +23,6 @@ export interface Sub2ApiProviderConfig {
   name: string;
   baseUrl: string;
   adminApiKey: string;
-  apiKey: string;
-  groupName?: string;
   enabledVendors?: string[];
   enabledModels?: string[];
   priceDiscount?: number;
@@ -54,6 +52,21 @@ export interface Sub2ApiModel {
   id: string;
   type: string;
   display_name?: string;
+}
+
+export interface Sub2ApiGroup {
+  id: number;
+  name: string;
+  platform: string;
+  status: string;
+}
+
+export interface Sub2ApiKey {
+  id: number;
+  key: string;
+  name: string;
+  group_id?: number;
+  status: string;
 }
 
 // ============ Reports ============

@@ -51,7 +51,6 @@ export class SyncService {
         providerConfig as Sub2ApiProviderConfig,
         this.config,
         this.state,
-        report,
       );
       report.providers.push(providerReport);
     }
