@@ -32,60 +32,30 @@ bun run sync
 bun run reset
 ```
 
-## Configuration
-
-```jsonc
-{
-  "target": {
-    "baseUrl": "https://your-instance.example.com",
-    "systemAccessToken": "your-system-access-token",
-    "userId": 1
-  },
-  "blacklist": ["nsfw", "kiro"],
-  "modelMapping": {
-    "claude-sonnet-4-5-20250929-long-name": "claude-sonnet-4-5",
-    "gpt-4o-turbo-2024-04-09": "gpt-4o-turbo"
-  },
-  "providers": [
-    {
-      "type": "newapi",
-      "name": "provider1",
-      "baseUrl": "https://upstream-provider.com",
-      "systemAccessToken": "provider-system-token",
-      "userId": 12345,
-      "enabledVendors": ["anthropic", "openai"],
-      "enabledModels": ["claude-*-4-5", "gpt-5"],
-      "priceMultiplier": 0.5,
-      "priority": 10
-    }
-  ]
-}
-```
-
 ### Target
 
 Your new-api instance where channels and settings will be synced.
 
-| Field | Description |
-|-------|-------------|
-| `baseUrl` | Your instance URL |
+| Field               | Description                            |
+| ------------------- | -------------------------------------- |
+| `baseUrl`           | Your instance URL                      |
 | `systemAccessToken` | System Access Token (Settings → Other) |
-| `userId` | Your user ID |
+| `userId`            | Your user ID                           |
 
 ### Providers
 
 #### new-api Provider (`type: "newapi"` or omit type)
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | ✓ | Unique identifier, used as channel tag |
-| `baseUrl` | ✓ | Provider URL |
-| `systemAccessToken` | ✓ | System Access Token from provider |
-| `userId` | ✓ | Your user ID on the provider |
-| `enabledGroups` | | Specific groups to sync (omit for all) |
-| `enabledVendors` | | Filter by vendor: `anthropic`, `openai`, `google`, etc. |
-| `enabledModels` | | Glob patterns: `["claude-*-4-5", "gpt-5"]` |
-| `priceMultiplier` | | Multiply group ratios (e.g., `0.5` = 50% discount, `2.0` = 100% markup) |
+| Field               | Required | Description                                                             |
+| ------------------- | -------- | ----------------------------------------------------------------------- |
+| `name`              | ✓        | Unique identifier, used as channel tag                                  |
+| `baseUrl`           | ✓        | Provider URL                                                            |
+| `systemAccessToken` | ✓        | System Access Token from provider                                       |
+| `userId`            | ✓        | Your user ID on the provider                                            |
+| `enabledGroups`     |          | Specific groups to sync (omit for all)                                  |
+| `enabledVendors`    |          | Filter by vendor: `anthropic`, `openai`, `google`, etc.                 |
+| `enabledModels`     |          | Glob patterns: `["claude-*-4-5", "gpt-5"]`                              |
+| `priceMultiplier`   |          | Multiply group ratios (e.g., `0.5` = 50% discount, `2.0` = 100% markup) |
 
 ### Blacklist
 
@@ -93,7 +63,7 @@ Global blacklist applies to group names, descriptions, and model names:
 
 ```jsonc
 {
-  "blacklist": ["nsfw", "kiro", "奇罗"]
+  "blacklist": ["nsfw", "kiro", "奇罗"],
 }
 ```
 
@@ -113,8 +83,8 @@ Map complex upstream model names to simpler, user-friendly names:
 {
   "modelMapping": {
     "claude-sonnet-4-5-20250929-complex-suffix": "claude-sonnet-4-5",
-    "gpt-4o-turbo-2024-04-09-preview-extended": "gpt-4o-turbo"
-  }
+    "gpt-4o-turbo-2024-04-09-preview-extended": "gpt-4o-turbo",
+  },
 }
 ```
 
@@ -132,6 +102,7 @@ This is useful for public welfare stations (公益站) that use complex model na
 ### Channel Naming
 
 Channels are named `{group}-{provider}` and tagged with the provider name:
+
 - `aws-q-newapi`
 - `claude-provider1`
 
