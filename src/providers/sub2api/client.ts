@@ -115,7 +115,7 @@ export class Sub2ApiClient {
                 success?: boolean;
                 error?: string;
               };
-              if (event.type === "message_stop") {
+              if (event.type === "test_complete") {
                 success = event.success ?? true;
               }
               if (event.type === "error") {

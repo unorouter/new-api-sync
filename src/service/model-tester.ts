@@ -78,6 +78,42 @@ export class ModelTester {
     }
   }
 
+  private async testOpenAIResponses(
+    model: string,
+    timeoutMs = TIMEOUTS.MODEL_TEST_MS,
+  ): Promise<TestResult> {
+    try {
+      const startTime = Date.now();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const response = await fetch(`${this.baseUrl}/responses`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            input: [{ role: "user", content: [{ type: "input_text", text: "hi" }] }],
+            max_output_tokens: 1,
+            store: false,
+          }),
+          signal: controller.signal,
+        });
+        const responseTime = Date.now() - startTime;
+        if (!response.ok) return { success: false };
+        const data = (await response.json()) as { error?: unknown };
+        return { success: !data.error, responseTime };
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    } catch {
+      return { success: false };
+    }
+  }
+
   private async testGemini(
     model: string,
     timeoutMs = TIMEOUTS.MODEL_TEST_MS,
@@ -116,6 +152,7 @@ export class ModelTester {
     model: string,
     channelType: number,
     timeoutMs = TIMEOUTS.MODEL_TEST_MS,
+    useResponsesAPI = false,
   ): Promise<TestResult> {
     if (channelType === CHANNEL_TYPES.ANTHROPIC) {
       return this.testAnthropic(model, timeoutMs);
@@ -123,16 +160,20 @@ export class ModelTester {
     if (channelType === CHANNEL_TYPES.GEMINI) {
       return this.testGemini(model, timeoutMs);
     }
+    if (useResponsesAPI) {
+      return this.testOpenAIResponses(model, timeoutMs);
+    }
     return this.testOpenAI(model, timeoutMs);
   }
 
   async testModels(
     models: string[],
     channelType: number,
+    useResponsesAPI = false,
   ): Promise<TestModelsResult> {
     const results = await Promise.all(
       models.map(async (model) => {
-        const result = await this.testModel(model, channelType);
+        const result = await this.testModel(model, channelType, undefined, useResponsesAPI);
         return { model, ...result };
       }),
     );

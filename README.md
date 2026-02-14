@@ -4,7 +4,7 @@ Declarative multi-provider sync for [new-api](https://github.com/QuantumNous/new
 
 ## Features
 
-- **Multi-provider support** — Sync from multiple new-api instances
+- **Multi-provider support** — Sync from new-api instances and sub2api gateways
 - **Model testing** — Validates models actually work before creating channels
 - **Model name mapping** — Transform complex model names to user-friendly aliases
 - **Glob pattern filtering** — Filter models with patterns like `claude-*-4-5`
@@ -57,6 +57,21 @@ Your new-api instance where channels and settings will be synced.
 | `enabledModels`     |          | Glob patterns: `["claude-*-4-5", "gpt-5"]`                              |
 | `priceMultiplier`   |          | Multiply group ratios (e.g., `0.5` = 50% discount, `2.0` = 100% markup) |
 
+#### sub2api Provider (`type: "sub2api"`)
+
+Syncs from a [sub2api](https://github.com/Wei-Shaw/sub2api) gateway. Collects models from all active accounts per platform, then tests each model via the group API key to verify it works before creating channels.
+
+| Field            | Required | Description                                                        |
+| ---------------- | -------- | ------------------------------------------------------------------ |
+| `name`           | ✓        | Unique identifier, used as channel tag                             |
+| `baseUrl`        | ✓        | Sub2API instance URL                                               |
+| `adminApiKey`    | ✓        | Admin API key (starts with `admin-`)                               |
+| `enabledVendors` |          | Filter by vendor: `anthropic`, `openai`, `google`                  |
+| `enabledModels`  |          | Glob patterns: `["claude-*-4-5*", "gpt-5*"]`                      |
+| `priceDiscount`  |          | Undercut remote prices by percentage (e.g., `0.1` = 10% cheaper)   |
+
+Sub2api groups map to platforms: each group (Anthropic, OpenAI, Gemini) gets its own channel with only verified working models.
+
 ### Blacklist
 
 Global blacklist applies to group names, descriptions, and model names:
@@ -101,10 +116,11 @@ This is useful for public welfare stations (公益站) that use complex model na
 
 ### Channel Naming
 
-Channels are named `{group}-{provider}` and tagged with the provider name:
+Channels are named `{group}-{provider}` (new-api) or `{provider}-{platform}` (sub2api):
 
-- `aws-q-newapi`
-- `claude-provider1`
+- `aws-q-pack` (new-api provider)
+- `sub2api-anthropic` (sub2api provider)
+- `sub2api-openai` (sub2api provider)
 
 ### Priority & Failover
 
