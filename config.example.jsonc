@@ -1,6 +1,6 @@
 {
   "target": {
-    "baseUrl": "https://your-instance.example.com",
+    "baseUrl": "https://ai-api.coding.global",
     "systemAccessToken": "your-system-access-token",
     "userId": 1,
   },
