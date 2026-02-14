@@ -46,7 +46,7 @@ Provide either `adminApiKey` (auto-discovers groups) or `groups` (explicit group
 | `groups`         |          | Explicit groups: `[{ "key": "sk-...", "platform": "anthropic" }]`    |
 | `enabledVendors` |          | Filter by vendor: `anthropic`, `openai`, `google`                    |
 | `enabledModels`  |          | Glob patterns: `["claude-*-4-5*", "gpt-5*"]`                        |
-| `priceDiscount`  |          | Undercut remote prices (e.g. `0.1` = 10% cheaper)                   |
+| `priceAdjustment`|          | Price adjustment (e.g. `0.1` = 10% cheaper, `-0.1` = 10% more expensive) |
 
 ### Options
 

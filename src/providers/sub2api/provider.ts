@@ -170,7 +170,7 @@ export async function processSub2ApiProvider(
 
   try {
     const client = new Sub2ApiClient(providerConfig);
-    const discount = providerConfig.priceDiscount ?? 0.1;
+    const discount = providerConfig.priceAdjustment ?? 0.1;
 
     // Resolve groups: admin mode or explicit groups mode
     const resolvedGroups = providerConfig.adminApiKey

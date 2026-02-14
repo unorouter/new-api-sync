@@ -32,7 +32,7 @@ export interface Sub2ApiProviderConfig {
   groups?: Sub2ApiGroupConfig[];
   enabledVendors?: string[];
   enabledModels?: string[];
-  priceDiscount?: number;
+  priceAdjustment?: number;
 }
 
 export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig;

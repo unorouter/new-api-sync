@@ -54,9 +54,9 @@ export function validateConfig(config: Config): void {
       const sp = p as Sub2ApiProviderConfig;
       if (!sp.adminApiKey)
         throw new Error(`Provider "${p.name}" missing: adminApiKey`);
-      if (sp.priceDiscount !== undefined && (sp.priceDiscount < 0 || sp.priceDiscount >= 1))
+      if (sp.priceAdjustment !== undefined && sp.priceAdjustment >= 1)
         throw new Error(
-          `Invalid priceDiscount: provider "${p.name}" must be between 0 and 1`,
+          `Invalid priceAdjustment: provider "${p.name}" must be less than 1 (e.g. 0.1 = 10% cheaper, -0.1 = 10% more expensive)`,
         );
       continue;
     }

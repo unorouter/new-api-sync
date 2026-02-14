@@ -25,7 +25,7 @@
       "baseUrl": "https://demo.sub2api.org",
       "adminApiKey": "admin-your-admin-api-key",
       "enabledVendors": ["anthropic", "openai", "google"],
-      "priceDiscount": 0.1,
+      "priceAdjustment": 0.1,
     },
   ],
 }
