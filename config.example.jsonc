@@ -2,11 +2,11 @@
   "target": {
     "baseUrl": "https://ai-api.coding.global",
     "systemAccessToken": "your-system-access-token",
-    "userId": 1,
+    "userId": 1
   },
   "blacklist": ["kiro", "nsfw"],
   "modelMapping": {
-    "claude-sonnet-4-5-20250929-complex-name": "claude-sonnet-4-5",
+    "claude-sonnet-4-5-20250929-complex-name": "claude-sonnet-4-5"
   },
   "providers": [
     {
@@ -17,7 +17,7 @@
       "userId": 1,
       "enabledVendors": ["anthropic", "openai"],
       "enabledModels": ["claude-*-4-5*", "gpt-5"],
-      "priceMultiplier": 0.33,
+      "priceMultiplier": 0.33
     },
     {
       "type": "sub2api",
@@ -27,10 +27,10 @@
       "groups": [
         { "key": "sk-...", "platform": "anthropic" },
         { "key": "sk-...", "platform": "openai" },
-        { "key": "sk-...", "platform": "gemini" },
+        { "key": "sk-...", "platform": "gemini" }
       ], // If not admin, use groups to specify API keys and platforms
       "enabledVendors": ["anthropic", "openai", "google"],
-      "priceAdjustment": 0.1,
-    },
-  ],
+      "priceAdjustment": 0.1
+    }
+  ]
 }
