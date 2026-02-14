@@ -37,8 +37,7 @@ export function validateConfig(config: Config): void {
     throw new Error(`Invalid userId: target.userId must be positive number`);
 
   // Validate providers
-  if (!config.providers?.length)
-    throw new Error("Config missing: providers (need at least one)");
+  config.providers ??= [];
 
   const providerNames = new Set<string>();
   for (const p of config.providers) {

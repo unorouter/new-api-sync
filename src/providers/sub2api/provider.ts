@@ -182,6 +182,15 @@ export async function processSub2ApiProvider(
       return providerReport;
     }
 
+    // Snapshot prices from other providers before this provider modifies state
+    const baseGroupRatio = state.mergedGroups.length > 0
+      ? Math.min(...state.mergedGroups.map((g) => g.ratio))
+      : 1;
+    const groupRatio = baseGroupRatio * (1 - discount);
+
+    const baseModelRatios = new Map(state.mergedModels);
+    const ownModels = new Set<string>();
+
     // Process each group: test models via group API key, create channel with working models
     let totalModels = 0;
     let groupsProcessed = 0;
@@ -207,24 +216,15 @@ export async function processSub2ApiProvider(
         applyModelMapping(m, config.modelMapping),
       );
 
-      // Determine pricing: undercut existing remote prices by discount %
-      const lowestGroupRatio = state.mergedGroups.length > 0
-        ? Math.min(...state.mergedGroups.map((g) => g.ratio))
-        : 1;
-      const groupRatio = lowestGroupRatio * (1 - discount);
-
+      // Determine model pricing: undercut other providers' prices, use groupRatio as floor
       for (const modelName of mappedModels) {
-        const existing = state.mergedModels.get(modelName);
-        const discountedRatio = existing
-          ? existing.ratio * (1 - discount)
-          : 1;
-        const discountedCompletion = existing
-          ? existing.completionRatio * (1 - discount)
-          : 1;
+        if (ownModels.has(modelName)) continue;
+        ownModels.add(modelName);
 
+        const base = baseModelRatios.get(modelName);
         state.mergedModels.set(modelName, {
-          ratio: discountedRatio,
-          completionRatio: discountedCompletion,
+          ratio: base ? base.ratio * (1 - discount) : groupRatio,
+          completionRatio: base ? base.completionRatio * (1 - discount) : groupRatio,
         });
       }
 

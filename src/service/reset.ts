@@ -19,10 +19,11 @@ export class ResetService {
     const providerNames = new Set(this.config.providers.map((p) => p.name));
     const target = new NewApiClient(this.config.target);
 
-    // Delete channels tagged with provider names
+    // Delete channels tagged with provider names (or all tagged channels if no providers configured)
     const channels = await target.listChannels();
     for (const channel of channels) {
-      if (channel.id && channel.tag && providerNames.has(channel.tag)) {
+      if (!channel.id || !channel.tag) continue;
+      if (providerNames.size === 0 || providerNames.has(channel.tag)) {
         if (await target.deleteChannel(channel.id)) report.channels++;
       }
     }

@@ -54,7 +54,7 @@ export class SyncService {
       report.providers.push(providerReport);
     }
 
-    if (this.state.mergedGroups.length === 0) {
+    if (this.state.mergedGroups.length === 0 && this.config.providers.length > 0) {
       consola.error("No groups collected from any provider");
       report.success = false;
       report.errors.push({ phase: "collect", message: "No groups collected" });
