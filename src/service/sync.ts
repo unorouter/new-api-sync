@@ -1,10 +1,12 @@
 import type {
   Config,
+  DirectProviderConfig,
   ProviderConfig,
   Sub2ApiProviderConfig,
   SyncReport,
   SyncState,
 } from "@/lib/types";
+import { processDirectProvider } from "@/providers/direct/provider";
 import { processNewApiProvider } from "@/providers/newapi/provider";
 import { processSub2ApiProvider } from "@/providers/sub2api/provider";
 import { consola } from "consola";
@@ -32,13 +34,23 @@ export class SyncService {
       timestamp: new Date(),
     };
 
-    // Process newapi providers first, then sub2api providers last
-    const newapiProviders = this.config.providers.filter((p) => p.type !== "sub2api");
+    // Process newapi first, then direct, then sub2api last (undercuts prices)
+    const newapiProviders = this.config.providers.filter((p) => p.type !== "sub2api" && p.type !== "direct");
+    const directProviders = this.config.providers.filter((p) => p.type === "direct");
     const sub2apiProviders = this.config.providers.filter((p) => p.type === "sub2api");
 
     for (const providerConfig of newapiProviders) {
       const providerReport = await processNewApiProvider(
         providerConfig as ProviderConfig,
+        this.config,
+        this.state,
+      );
+      report.providers.push(providerReport);
+    }
+
+    for (const providerConfig of directProviders) {
+      const providerReport = await processDirectProvider(
+        providerConfig as DirectProviderConfig,
         this.config,
         this.state,
       );

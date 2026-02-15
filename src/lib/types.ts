@@ -35,7 +35,17 @@ export interface Sub2ApiProviderConfig {
   priceAdjustment?: number;
 }
 
-export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig;
+export interface DirectProviderConfig {
+  type: "direct";
+  name: string;
+  vendor: string;
+  baseUrl?: string;
+  apiKey: string;
+  enabledModels?: string[];
+  groupRatio?: number;
+}
+
+export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig | DirectProviderConfig;
 
 export interface Config {
   target: NewApiConfig;

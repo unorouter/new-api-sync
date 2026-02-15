@@ -1,4 +1,5 @@
-import type { Config, Sub2ApiProviderConfig } from "@/lib/types";
+import type { Config, DirectProviderConfig, Sub2ApiProviderConfig } from "@/lib/types";
+import { VENDOR_REGISTRY } from "@/lib/constants";
 
 export async function loadConfig(path?: string): Promise<Config> {
   const resolved = path ?? await resolveDefaultConfig();
@@ -45,6 +46,25 @@ export function validateConfig(config: Config): void {
     if (providerNames.has(p.name))
       throw new Error(`Duplicate provider name: "${p.name}"`);
     providerNames.add(p.name);
+
+    if (p.type === "direct") {
+      const dp = p as DirectProviderConfig;
+      if (!dp.vendor)
+        throw new Error(`Provider "${p.name}" missing: vendor`);
+      if (!dp.apiKey)
+        throw new Error(`Provider "${p.name}" missing: apiKey`);
+      if (!VENDOR_REGISTRY[dp.vendor.toLowerCase()])
+        throw new Error(
+          `Provider "${p.name}" has unknown vendor: "${dp.vendor}". Supported: ${Object.keys(VENDOR_REGISTRY).join(", ")}`,
+        );
+      if (dp.baseUrl && !isValidUrl(dp.baseUrl))
+        throw new Error(`Invalid URL: provider "${p.name}" baseUrl = "${dp.baseUrl}"`);
+      if (dp.groupRatio !== undefined && dp.groupRatio <= 0)
+        throw new Error(
+          `Invalid groupRatio: provider "${p.name}" must be positive`,
+        );
+      continue;
+    }
 
     if (!p.baseUrl) throw new Error(`Provider "${p.name}" missing: baseUrl`);
     if (!isValidUrl(p.baseUrl))

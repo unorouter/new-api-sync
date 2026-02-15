@@ -20,6 +20,15 @@
       "priceMultiplier": 0.33
     },
     {
+      "type": "direct",
+      "name": "kimi",
+      "vendor": "moonshot", // Maps to channel type 25 (MOONSHOT)
+      "apiKey": "sk-kimi-your-api-key",
+      // "baseUrl": "https://api.moonshot.cn", // Optional, defaults from vendor registry
+      "enabledModels": ["kimi-*", "moonshot-*"], // Optional glob filters
+      "groupRatio": 1 // Optional, default 1
+    },
+    {
       "type": "sub2api",
       "name": "sub2api",
       "baseUrl": "https://demo.sub2api.org",

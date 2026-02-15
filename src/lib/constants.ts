@@ -4,19 +4,19 @@ import micromatch from "micromatch";
 export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 100,
   START_PAGE_ZERO: 0,
-  START_PAGE_ONE: 1,
+  START_PAGE_ONE: 1
 } as const;
 
 // Timeout configuration (milliseconds)
 export const TIMEOUTS = {
-  MODEL_TEST_MS: 10000,
+  MODEL_TEST_MS: 10000
 } as const;
 
 // Retry configuration
 export const RETRY = {
   MAX_ATTEMPTS: 3,
   BASE_DELAY_MS: 1000,
-  MAX_DELAY_MS: 10000,
+  MAX_DELAY_MS: 10000
 } as const;
 
 // Channel type identifiers from new-api (constant/channel.go)
@@ -74,13 +74,88 @@ export const CHANNEL_TYPES = {
   DOUBAO_VIDEO: 54,
   SORA: 55,
   REPLICATE: 56,
-  CODEX: 57,
+  CODEX: 57
 } as const;
+
+// Vendor registry: maps vendor name to channel type, default base URL, and model discovery method
+export interface VendorInfo {
+  channelType: number;
+  defaultBaseUrl: string;
+  modelDiscovery: "openai" | "anthropic" | "gemini";
+}
+
+export const VENDOR_REGISTRY: Record<string, VendorInfo> = {
+  openai: {
+    channelType: CHANNEL_TYPES.OPENAI,
+    defaultBaseUrl: "https://api.openai.com",
+    modelDiscovery: "openai"
+  },
+  anthropic: {
+    channelType: CHANNEL_TYPES.ANTHROPIC,
+    defaultBaseUrl: "https://api.anthropic.com",
+    modelDiscovery: "anthropic"
+  },
+  google: {
+    channelType: CHANNEL_TYPES.GEMINI,
+    defaultBaseUrl: "https://generativelanguage.googleapis.com",
+    modelDiscovery: "gemini"
+  },
+  deepseek: {
+    channelType: CHANNEL_TYPES.DEEPSEEK,
+    defaultBaseUrl: "https://api.deepseek.com",
+    modelDiscovery: "openai"
+  },
+  moonshot: {
+    channelType: CHANNEL_TYPES.MOONSHOT,
+    defaultBaseUrl: "https://api.moonshot.cn",
+    modelDiscovery: "openai"
+  },
+  mistral: {
+    channelType: CHANNEL_TYPES.MISTRAL,
+    defaultBaseUrl: "https://api.mistral.ai",
+    modelDiscovery: "openai"
+  },
+  xai: {
+    channelType: CHANNEL_TYPES.XAI,
+    defaultBaseUrl: "https://api.x.ai",
+    modelDiscovery: "openai"
+  },
+  siliconflow: {
+    channelType: CHANNEL_TYPES.SILICONFLOW,
+    defaultBaseUrl: "https://api.siliconflow.cn",
+    modelDiscovery: "openai"
+  },
+  cohere: {
+    channelType: CHANNEL_TYPES.COHERE,
+    defaultBaseUrl: "https://api.cohere.ai",
+    modelDiscovery: "openai"
+  },
+  zhipu: {
+    channelType: CHANNEL_TYPES.ZHIPU_V4,
+    defaultBaseUrl: "https://open.bigmodel.cn",
+    modelDiscovery: "openai"
+  },
+  volcengine: {
+    channelType: CHANNEL_TYPES.VOLCENGINE,
+    defaultBaseUrl: "https://ark.cn-beijing.volces.com",
+    modelDiscovery: "openai"
+  },
+  minimax: {
+    channelType: CHANNEL_TYPES.MINIMAX,
+    defaultBaseUrl: "https://api.minimax.chat",
+    modelDiscovery: "openai"
+  },
+  perplexity: {
+    channelType: CHANNEL_TYPES.PERPLEXITY,
+    defaultBaseUrl: "https://api.perplexity.ai",
+    modelDiscovery: "openai"
+  }
+};
 
 // Priority calculation constants
 export const PRIORITY = {
   RESPONSE_TIME_DIVISOR: 10000,
-  RESPONSE_TIME_OFFSET: 100,
+  RESPONSE_TIME_OFFSET: 100
 } as const;
 
 // Text endpoint types from new-api (constant/endpoint_type.go)
@@ -90,7 +165,7 @@ export const TEXT_ENDPOINT_TYPES = new Set([
   "anthropic",
   "gemini",
   "openai-response",
-  "openai-response-compact",
+  "openai-response-compact"
 ]);
 
 // Patterns that indicate non-text models (image, video, audio, embedding)
@@ -131,7 +206,7 @@ export const NON_TEXT_MODEL_PATTERNS = [
   "m3e-",
   // Other non-text
   "image",
-  "moderation",
+  "moderation"
 ];
 
 // Vendor name patterns for inferring vendor from model name
@@ -154,7 +229,7 @@ export const VENDOR_PATTERNS: Record<string, string[]> = {
   tencent: ["hunyuan-"],
   bytedance: ["doubao-"],
   yi: ["yi-"],
-  ai360: ["360gpt"],
+  ai360: ["360gpt"]
 };
 
 /**
@@ -195,7 +270,7 @@ export function matchesNonTextPattern(name: string): boolean {
 export function isTextModel(
   name: string,
   endpoints?: string[],
-  modelEndpoints?: Map<string, string[]>,
+  modelEndpoints?: Map<string, string[]>
 ): boolean {
   // Always check pattern matching first - catches misclassified models
   if (matchesNonTextPattern(name)) return false;
@@ -218,7 +293,8 @@ export function isTextModel(
 export function calculatePriorityBonus(avgResponseTime?: number): number {
   if (avgResponseTime === undefined) return 0;
   return Math.round(
-    PRIORITY.RESPONSE_TIME_DIVISOR / (avgResponseTime + PRIORITY.RESPONSE_TIME_OFFSET),
+    PRIORITY.RESPONSE_TIME_DIVISOR /
+      (avgResponseTime + PRIORITY.RESPONSE_TIME_OFFSET)
   );
 }
 
@@ -270,7 +346,7 @@ export function sanitizeGroupName(name: string): string {
  */
 export function applyModelMapping(
   modelName: string,
-  mapping?: Record<string, string>,
+  mapping?: Record<string, string>
 ): string {
   return mapping?.[modelName] ?? modelName;
 }
@@ -284,7 +360,7 @@ export function applyModelMapping(
 export async function withRetry<T>(
   fn: () => Promise<T>,
   maxAttempts = RETRY.MAX_ATTEMPTS,
-  baseDelay = RETRY.BASE_DELAY_MS,
+  baseDelay = RETRY.BASE_DELAY_MS
 ): Promise<T> {
   let lastError: Error | undefined;
 
@@ -297,7 +373,10 @@ export async function withRetry<T>(
       if (attempt === maxAttempts) break;
 
       // Exponential backoff: delay = baseDelay * 2^(attempt-1)
-      const delay = Math.min(baseDelay * 2 ** (attempt - 1), RETRY.MAX_DELAY_MS);
+      const delay = Math.min(
+        baseDelay * 2 ** (attempt - 1),
+        RETRY.MAX_DELAY_MS
+      );
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
