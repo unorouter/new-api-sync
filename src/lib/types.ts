@@ -256,6 +256,27 @@ export interface PricingResponse {
   vendors?: Array<{ id: number; name: string; icon?: string }>;
 }
 
+// Newer new-api format where data is an object instead of array
+export interface PricingResponseV2 {
+  success: boolean;
+  data: {
+    model_group: Record<string, {
+      DisplayName: string;
+      GroupRatio: number;
+      ModelPrice: Record<string, { priceType: number; price: number }>;
+    }>;
+    model_info: Record<string, {
+      key: string;
+      name: string;
+      supplier?: string;
+      tags?: string[];
+    }>;
+    model_completion_ratio: Record<string, number>;
+    group_special: Record<string, string[]>;
+    owner_by: Record<string, unknown>;
+  };
+}
+
 export interface TokenListResponse {
   success: boolean;
   data: { data?: UpstreamToken[]; items?: UpstreamToken[] } | UpstreamToken[];

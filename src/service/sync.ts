@@ -68,6 +68,10 @@ export class SyncService {
     }
 
     if (this.state.mergedGroups.length === 0 && this.config.providers.length > 0) {
+      const failedProviders = report.providers.filter((p) => !p.success);
+      for (const p of failedProviders) {
+        consola.warn(`[${p.name}] ${p.error}`);
+      }
       consola.error("No groups collected from any provider");
       report.success = false;
       report.errors.push({ phase: "collect", message: "No groups collected" });

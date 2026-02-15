@@ -1,4 +1,4 @@
-import { inferChannelType, PAGINATION, withRetry } from "@/lib/constants";
+import { CHANNEL_TYPES, inferChannelType, PAGINATION, sanitizeGroupName, withRetry } from "@/lib/constants";
 import type {
   ApiResponse,
   Channel,
@@ -7,6 +7,7 @@ import type {
   ModelMeta,
   NewApiConfig,
   PricingResponse,
+  PricingResponseV2,
   TokenListResponse,
   UpstreamPricing,
   UpstreamToken,
@@ -65,15 +66,26 @@ export class NewApiClient {
   }
 
   async fetchPricing(): Promise<UpstreamPricing> {
-    const data = await withRetry(async () => {
+    const raw = await withRetry(async () => {
       const response = await fetch(`${this.baseUrl}/api/pricing`);
       if (!response.ok)
         throw new Error(`Failed to fetch pricing: ${response.status}`);
-      const data = (await response.json()) as PricingResponse;
-      if (!data.success) throw new Error("Pricing API returned success: false");
-      return data;
+      const raw = (await response.json()) as { success: boolean; [key: string]: unknown };
+      if (!raw.success) throw new Error("Pricing API returned success: false");
+      return raw;
     });
 
+    // Detect format: V1 has data as array + top-level usable_group/group_ratio,
+    // V2 has data as object with model_group/model_info/model_completion_ratio
+    const isV1 = Array.isArray(raw.data);
+
+    if (isV1) {
+      return this.parsePricingV1(raw as unknown as PricingResponse);
+    }
+    return this.parsePricingV2(raw as unknown as PricingResponseV2);
+  }
+
+  private parsePricingV1(data: PricingResponse): UpstreamPricing {
     const groupModels = new Map<string, Set<string>>();
     const groupEndpoints = new Map<string, Set<string>>();
     for (const model of data.data) {
@@ -125,7 +137,7 @@ export class NewApiClient {
       }
     }
 
-    consola.info(`[${this.name}] ${groups.length} groups, ${models.length} models`);
+    consola.info(`[${this.name}] V1 format: ${groups.length} groups, ${models.length} models`);
 
     return {
       groups,
@@ -134,6 +146,63 @@ export class NewApiClient {
       modelRatios,
       completionRatios,
       vendorIdToName,
+    };
+  }
+
+  private parsePricingV2(raw: PricingResponseV2): UpstreamPricing {
+    const d = raw.data;
+    const groupRatios: Record<string, number> = {};
+    const modelRatios: Record<string, number> = {};
+    const completionRatios: Record<string, number> = { ...d.model_completion_ratio };
+
+    const groups: GroupInfo[] = Object.entries(d.model_group)
+      .filter(([name]) => name !== "")
+      .map(([name, group]) => {
+        const modelNames = Object.keys(group.ModelPrice);
+        groupRatios[name] = group.GroupRatio;
+
+        // Derive per-model ratios from ModelPrice (price field acts as model_ratio)
+        for (const [modelName, pricing] of Object.entries(group.ModelPrice)) {
+          if (pricing.price > 0 && !(modelName in modelRatios)) {
+            modelRatios[modelName] = pricing.price;
+          }
+        }
+
+        return {
+          name,
+          description: group.DisplayName || name,
+          ratio: group.GroupRatio,
+          models: modelNames,
+          channelType: CHANNEL_TYPES.OPENAI, // V2 doesn't expose endpoint types; default to OpenAI
+        };
+      });
+
+    // Build ModelInfo from the combined data
+    const allModels = new Map<string, ModelInfo>();
+    for (const [groupName, group] of Object.entries(d.model_group)) {
+      for (const [modelName, pricing] of Object.entries(group.ModelPrice)) {
+        if (!allModels.has(modelName)) {
+          allModels.set(modelName, {
+            name: modelName,
+            ratio: pricing.price || 1,
+            completionRatio: d.model_completion_ratio[modelName] ?? 1,
+            groups: [],
+          });
+        }
+        allModels.get(modelName)!.groups.push(groupName);
+      }
+    }
+    const models = Array.from(allModels.values());
+
+    consola.info(`[${this.name}] V2 format: ${groups.length} groups, ${models.length} models`);
+
+    return {
+      groups,
+      models,
+      groupRatios,
+      modelRatios,
+      completionRatios,
+      vendorIdToName: {},
     };
   }
 
@@ -211,7 +280,9 @@ export class NewApiClient {
     const existingTokens = await this.listTokens();
     const tokensByName = new Map(existingTokens.map((t) => [t.name, t]));
 
-    const desiredTokenNames = new Set(groups.map((g) => `${g.name}-${prefix}`));
+    const tokenNameForGroup = (groupName: string) =>
+      sanitizeGroupName(`${groupName}-${prefix}`) || `group-${prefix}`;
+    const desiredTokenNames = new Set(groups.map((g) => tokenNameForGroup(g.name)));
 
     // Delete tokens that are managed by us but no longer needed
     for (const token of existingTokens) {
@@ -224,7 +295,7 @@ export class NewApiClient {
     }
 
     for (const group of groups) {
-      const tokenName = `${group.name}-${prefix}`;
+      const tokenName = tokenNameForGroup(group.name);
       const existingToken = tokensByName.get(tokenName);
 
       if (existingToken) {

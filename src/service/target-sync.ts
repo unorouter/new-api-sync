@@ -117,6 +117,26 @@ export async function syncToTarget(
   for (const v of targetVendors) {
     vendorNameToTargetId[v.name.toLowerCase()] = v.id;
   }
+  // Add common aliases for vendor names so inference matches target entries
+  const VENDOR_ALIASES: Record<string, string[]> = {
+    zhipu: ["智谱", "zhipu ai", "chatglm"],
+    moonshot: ["月之暗面", "kimi"],
+    baidu: ["百度", "文心"],
+    xunfei: ["讯飞", "spark"],
+    alibaba: ["阿里", "通义", "qwen"],
+    tencent: ["腾讯", "混元"],
+    bytedance: ["字节", "豆包", "doubao"],
+  };
+  for (const [canonical, aliases] of Object.entries(VENDOR_ALIASES)) {
+    if (vendorNameToTargetId[canonical] !== undefined) continue;
+    for (const alias of aliases) {
+      const match = targetVendors.find((v) => v.name.toLowerCase().includes(alias.toLowerCase()));
+      if (match) {
+        vendorNameToTargetId[canonical] = match.id;
+        break;
+      }
+    }
+  }
 
   let modelsCreated = 0;
   let modelsUpdated = 0;

@@ -213,7 +213,7 @@ export async function processNewApiProvider(
 
     // Delete tokens for groups with no working models
     for (const groupName of groupsWithNoWorkingModels) {
-      const tokenName = `${groupName}-${providerConfig.name}`;
+      const tokenName = sanitizeGroupName(`${groupName}-${providerConfig.name}`);
       const deleted = await upstream.deleteTokenByName(tokenName);
       if (deleted) {
         providerReport.tokens.deleted++;
