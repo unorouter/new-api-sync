@@ -26,7 +26,8 @@
       "apiKey": "sk-kimi-your-api-key",
       // "baseUrl": "https://api.moonshot.cn", // Optional, defaults from vendor registry
       "enabledModels": ["kimi-*", "moonshot-*"], // Optional glob filters
-      "groupRatio": 1 // Optional, default 1
+      // "groupRatio": 1, // Optional, static ratio (default 1). Cannot use with priceAdjustment
+      "priceAdjustment": 0.1 // Optional, adjusts ratio relative to cheapest upstream (0.1 = 10% cheaper)
     },
     {
       "type": "sub2api",

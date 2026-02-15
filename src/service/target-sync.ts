@@ -26,21 +26,24 @@ export async function syncToTarget(
 
   const target = new NewApiClient(config.target);
 
-  const optionsResult = await target.updateOptions({
-    GroupRatio: JSON.stringify(groupRatio),
-    UserUsableGroups: JSON.stringify(usableGroups),
-    AutoGroups: JSON.stringify(autoGroups),
-    DefaultUseAutoGroup: "true",
-    ModelRatio: JSON.stringify(modelRatio),
-    CompletionRatio: JSON.stringify(completionRatio),
-  });
-
-  report.options.updated = optionsResult.updated;
-  for (const key of optionsResult.failed) {
-    report.errors.push({
-      phase: "options",
-      message: `Failed to update option: ${key}`,
+  // In partial sync mode, skip updating global options (they'd be incomplete)
+  if (!config.preserveUnlistedProviders) {
+    const optionsResult = await target.updateOptions({
+      GroupRatio: JSON.stringify(groupRatio),
+      UserUsableGroups: JSON.stringify(usableGroups),
+      AutoGroups: JSON.stringify(autoGroups),
+      DefaultUseAutoGroup: "true",
+      ModelRatio: JSON.stringify(modelRatio),
+      CompletionRatio: JSON.stringify(completionRatio),
     });
+
+    report.options.updated = optionsResult.updated;
+    for (const key of optionsResult.failed) {
+      report.errors.push({
+        phase: "options",
+        message: `Failed to update option: ${key}`,
+      });
+    }
   }
 
   const existingChannels = await target.listChannels();
@@ -88,9 +91,14 @@ export async function syncToTarget(
   }
 
   // Delete stale channels (managed by sync but no longer needed)
+  const activeProviderNames = config.preserveUnlistedProviders
+    ? new Set(config.providers.map((p) => p.name))
+    : null;
   for (const channel of existingChannels) {
     if (desiredChannelNames.has(channel.name)) continue;
     if (channel.tag) {
+      // In partial sync mode, only delete channels belonging to active providers
+      if (activeProviderNames && !activeProviderNames.has(channel.tag)) continue;
       const success = await target.deleteChannel(channel.id!);
       if (success) {
         report.channels.deleted++;
@@ -168,9 +176,23 @@ export async function syncToTarget(
     }
   }
 
+  // Build set of models used by channels we are NOT managing in this run
+  const modelsOwnedByOtherProviders = new Set<string>();
+  if (activeProviderNames) {
+    for (const channel of existingChannels) {
+      if (channel.tag && !activeProviderNames.has(channel.tag)) {
+        for (const m of (channel.models ?? "").split(",").filter(Boolean)) {
+          modelsOwnedByOtherProviders.add(m);
+        }
+      }
+    }
+  }
+
   let modelsDeleted = 0;
   for (const model of existingModels) {
     if (model.sync_official === 1 && !modelsToSync.has(model.model_name)) {
+      // In partial sync mode, don't delete models still used by other providers
+      if (activeProviderNames && modelsOwnedByOtherProviders.has(model.model_name)) continue;
       if (model.id && (await target.deleteModel(model.id))) {
         modelsDeleted++;
       }
@@ -182,6 +204,8 @@ export async function syncToTarget(
     const mappingSources = new Set(Object.keys(config.modelMapping));
     for (const model of existingModels) {
       if (mappingSources.has(model.model_name)) {
+        // In partial sync mode, don't delete mapped models still used by other providers
+        if (activeProviderNames && modelsOwnedByOtherProviders.has(model.model_name)) continue;
         if (model.id && (await target.deleteModel(model.id))) {
           modelsDeleted++;
           consola.info(`Deleted mapped model: ${model.model_name}`);
@@ -191,7 +215,8 @@ export async function syncToTarget(
   }
 
   // Cleanup orphaned models directly from database (models not bound to any channel)
-  const orphansDeleted = await target.cleanupOrphanedModels();
+  // Skip orphan cleanup in partial sync mode — other providers' models may appear orphaned
+  const orphansDeleted = activeProviderNames ? 0 : await target.cleanupOrphanedModels();
 
   return { modelsCreated, modelsUpdated, modelsDeleted, orphansDeleted };
 }

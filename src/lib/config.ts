@@ -63,6 +63,14 @@ export function validateConfig(config: Config): void {
         throw new Error(
           `Invalid groupRatio: provider "${p.name}" must be positive`,
         );
+      if (dp.priceAdjustment !== undefined && dp.priceAdjustment >= 1)
+        throw new Error(
+          `Invalid priceAdjustment: provider "${p.name}" must be less than 1 (e.g. 0.1 = 10% cheaper, -0.1 = 10% more expensive)`,
+        );
+      if (dp.priceAdjustment !== undefined && dp.groupRatio !== undefined)
+        throw new Error(
+          `Provider "${p.name}" cannot have both groupRatio and priceAdjustment`,
+        );
       continue;
     }
 
