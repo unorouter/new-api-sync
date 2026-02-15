@@ -95,6 +95,15 @@ export async function processNewApiProvider(
       );
     }
 
+    // Skip groups with ratio > 1 (more expensive than baseline)
+    const highRatioGroups = groups.filter((g) => g.ratio > 1);
+    if (highRatioGroups.length > 0) {
+      consola.info(
+        `[${providerConfig.name}] Skipping ${highRatioGroups.length} group(s) with ratio > 1: ${highRatioGroups.map((g) => `${g.name} (${g.ratio})`).join(", ")}`,
+      );
+      groups = groups.filter((g) => g.ratio <= 1);
+    }
+
     const tokenResult = await upstream.ensureTokens(groups, providerConfig.name);
     providerReport.tokens = {
       created: tokenResult.created,
