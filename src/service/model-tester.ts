@@ -170,13 +170,20 @@ export class ModelTester {
     models: string[],
     channelType: number,
     useResponsesAPI = false,
+    concurrency = 5,
   ): Promise<TestModelsResult> {
-    const results = await Promise.all(
-      models.map(async (model) => {
-        const result = await this.testModel(model, channelType, undefined, useResponsesAPI);
-        return { model, ...result };
-      }),
-    );
+    const results: { model: string; success: boolean; responseTime?: number }[] = [];
+
+    for (let i = 0; i < models.length; i += concurrency) {
+      const batch = models.slice(i, i + concurrency);
+      const batchResults = await Promise.all(
+        batch.map(async (model) => {
+          const result = await this.testModel(model, channelType, undefined, useResponsesAPI);
+          return { model, ...result };
+        }),
+      );
+      results.push(...batchResults);
+    }
 
     const working = results.filter((r) => r.success);
     const responseTimes = working

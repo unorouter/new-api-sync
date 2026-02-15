@@ -176,25 +176,40 @@ export async function syncToTarget(
     }
   }
 
-  // Build set of models used by channels we are NOT managing in this run
+  // Build sets of models owned by active vs non-managed providers
   const modelsOwnedByOtherProviders = new Set<string>();
+  const modelsOwnedByActiveProviders = new Set<string>();
   if (activeProviderNames) {
     for (const channel of existingChannels) {
-      if (channel.tag && !activeProviderNames.has(channel.tag)) {
-        for (const m of (channel.models ?? "").split(",").filter(Boolean)) {
-          modelsOwnedByOtherProviders.add(m);
-        }
+      const models = (channel.models ?? "").split(",").filter(Boolean);
+      if (channel.tag && activeProviderNames.has(channel.tag)) {
+        for (const m of models) modelsOwnedByActiveProviders.add(m);
+      } else if (channel.tag && !activeProviderNames.has(channel.tag)) {
+        for (const m of models) modelsOwnedByOtherProviders.add(m);
       }
     }
   }
 
   let modelsDeleted = 0;
   for (const model of existingModels) {
-    if (model.sync_official === 1 && !modelsToSync.has(model.model_name)) {
-      // In partial sync mode, don't delete models still used by other providers
+    if (modelsToSync.has(model.model_name)) continue;
+
+    // Always clean up sync-managed models that are no longer needed
+    if (model.sync_official === 1) {
       if (activeProviderNames && modelsOwnedByOtherProviders.has(model.model_name)) continue;
       if (model.id && (await target.deleteModel(model.id))) {
         modelsDeleted++;
+      }
+      continue;
+    }
+
+    // In partial sync: also clean up non-sync models that belong exclusively to
+    // active providers (stale models from before sync_official was introduced)
+    if (activeProviderNames && modelsOwnedByActiveProviders.has(model.model_name)
+        && !modelsOwnedByOtherProviders.has(model.model_name)) {
+      if (model.id && (await target.deleteModel(model.id))) {
+        modelsDeleted++;
+        consola.info(`Deleted stale model from active provider: ${model.model_name}`);
       }
     }
   }

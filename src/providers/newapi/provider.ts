@@ -95,13 +95,14 @@ export async function processNewApiProvider(
       );
     }
 
-    // Skip groups with ratio > 1 (more expensive than baseline)
-    const highRatioGroups = groups.filter((g) => g.ratio > 1);
+    // Skip groups whose effective ratio (ratio × priceMultiplier) exceeds 1
+    const multiplier = providerConfig.priceMultiplier ?? 1;
+    const highRatioGroups = groups.filter((g) => g.ratio * multiplier > 1);
     if (highRatioGroups.length > 0) {
       consola.info(
-        `[${providerConfig.name}] Skipping ${highRatioGroups.length} group(s) with ratio > 1: ${highRatioGroups.map((g) => `${g.name} (${g.ratio})`).join(", ")}`,
+        `[${providerConfig.name}] Skipping ${highRatioGroups.length} group(s) with effective ratio > 1: ${highRatioGroups.map((g) => `${g.name} (${g.ratio} × ${multiplier} = ${(g.ratio * multiplier).toFixed(2)})`).join(", ")}`,
       );
-      groups = groups.filter((g) => g.ratio <= 1);
+      groups = groups.filter((g) => g.ratio * multiplier <= 1);
     }
 
     const tokenResult = await upstream.ensureTokens(groups, providerConfig.name);
@@ -151,12 +152,14 @@ export async function processNewApiProvider(
       // Test models
       let avgResponseTime: number | undefined;
       const apiKey = tokenResult.tokens[group.name] ?? "";
+      const testedCount = workingModels.length;
       if (apiKey) {
         const testResult = await upstream.testModelsWithKey(
           apiKey,
           workingModels,
           group.channelType,
         );
+        const failedModels = workingModels.filter((m) => !testResult.workingModels.includes(m));
         workingModels = testResult.workingModels;
         avgResponseTime = testResult.avgResponseTime;
 
@@ -169,7 +172,6 @@ export async function processNewApiProvider(
           currentBalance = newBalance;
         }
 
-        const testedCount = workingModels.length + (group.models.length - workingModels.length);
         const bonus = calculatePriorityBonus(avgResponseTime);
         const msStr = avgResponseTime !== undefined ? `${Math.round(avgResponseTime)}ms` : "-";
 
@@ -179,6 +181,12 @@ export async function processNewApiProvider(
           );
           groupsWithNoWorkingModels.push(group.name);
           continue;
+        }
+
+        if (failedModels.length > 0) {
+          consola.info(
+            `[${providerConfig.name}/${group.name}] Failed: ${failedModels.join(", ")}`,
+          );
         }
 
         consola.info(
