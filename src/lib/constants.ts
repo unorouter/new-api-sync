@@ -244,6 +244,58 @@ export function inferChannelType(endpoints: string[]): number {
 }
 
 /**
+ * Infer channel type from model names using vendor detection.
+ * Falls back to endpoint-based inference if vendor can't be determined.
+ * This avoids misclassification when models support multiple endpoint types
+ * (e.g. GPT models with both openai and anthropic endpoints).
+ */
+export function inferChannelTypeFromModels(
+  models: string[],
+  modelEndpoints: Map<string, string[]>,
+): number {
+  // Count vendor occurrences among the models
+  const vendorCounts = new Map<string, number>();
+  for (const model of models) {
+    const vendor = inferVendorFromModelName(model);
+    if (vendor) {
+      vendorCounts.set(vendor, (vendorCounts.get(vendor) ?? 0) + 1);
+    }
+  }
+
+  // Pick the most common vendor
+  let topVendor: string | undefined;
+  let topCount = 0;
+  for (const [vendor, count] of vendorCounts) {
+    if (count > topCount) {
+      topVendor = vendor;
+      topCount = count;
+    }
+  }
+
+  // Map vendor to channel type via registry
+  if (topVendor) {
+    const vendorInfo = VENDOR_REGISTRY[topVendor];
+    if (vendorInfo) {
+      return vendorInfo.channelType;
+    }
+  }
+
+  // Fallback: use endpoint-based inference from filtered models
+  const endpoints = new Set<string>();
+  for (const model of models) {
+    const eps = modelEndpoints.get(model);
+    if (eps) {
+      for (const ep of eps) endpoints.add(ep);
+    }
+  }
+  if (endpoints.size > 0) {
+    return inferChannelType(Array.from(endpoints));
+  }
+
+  return CHANNEL_TYPES.OPENAI;
+}
+
+/**
  * Infer vendor from model name based on known patterns.
  */
 export function inferVendorFromModelName(name: string): string | undefined {

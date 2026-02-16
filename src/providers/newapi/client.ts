@@ -338,6 +338,31 @@ export class NewApiClient {
 
   // ============ Target Methods (sync to target instance) ============
 
+  async getOption(key: string): Promise<string | undefined> {
+    const response = await fetch(`${this.baseUrl}/api/option/`, {
+      headers: this.headers,
+    });
+    if (!response.ok) return undefined;
+    const data = (await response.json()) as { data?: Array<{ key: string; value: string }> };
+    return data.data?.find((o) => o.key === key)?.value;
+  }
+
+  async getOptions(keys: string[]): Promise<Record<string, string>> {
+    const response = await fetch(`${this.baseUrl}/api/option/`, {
+      headers: this.headers,
+    });
+    if (!response.ok) return {};
+    const data = (await response.json()) as { data?: Array<{ key: string; value: string }> };
+    const keySet = new Set(keys);
+    const result: Record<string, string> = {};
+    for (const opt of data.data ?? []) {
+      if (keySet.has(opt.key)) {
+        result[opt.key] = opt.value;
+      }
+    }
+    return result;
+  }
+
   async updateOption(key: string, value: string): Promise<boolean> {
     const response = await fetch(`${this.baseUrl}/api/option/`, {
       method: "PUT",

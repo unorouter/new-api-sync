@@ -1,6 +1,7 @@
 import {
   applyModelMapping,
   calculatePriorityBonus,
+  inferChannelTypeFromModels,
   inferVendorFromModelName,
   isTextModel,
   matchesAnyPattern,
@@ -214,9 +215,15 @@ export async function processNewApiProvider(
         description: `${sanitizeGroupName(group.name)} via ${providerConfig.name}`,
         provider: providerConfig.name,
       });
+      // Infer channel type from the actual filtered models' vendor names,
+      // not the group-level type which includes ALL models (e.g. video models
+      // in "default" group cause SORA type, anthropic endpoints on GPT models
+      // cause ANTHROPIC type)
+      const channelType = inferChannelTypeFromModels(workingModels, state.modelEndpoints);
+
       state.channelsToCreate.push({
         name: sanitizedName,
-        type: group.channelType,
+        type: channelType,
         key: tokenResult.tokens[group.name] ?? "",
         baseUrl: providerConfig.baseUrl,
         models: mappedModels,

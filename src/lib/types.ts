@@ -53,8 +53,6 @@ export interface Config {
   providers: AnyProviderConfig[];
   blacklist?: string[];
   modelMapping?: Record<string, string>;
-  /** When true, don't delete channels/models from providers not listed in the config. */
-  preserveUnlistedProviders?: boolean;
 }
 
 // ============ Sub2API Types ============

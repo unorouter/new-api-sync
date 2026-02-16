@@ -26,15 +26,29 @@ export async function syncToTarget(
 
   const target = new NewApiClient(config.target);
 
-  // In partial sync mode, skip updating global options (they'd be incomplete)
-  if (!config.preserveUnlistedProviders) {
+  // Always merge options into existing target values so synced models
+  // get proper pricing without overwriting unmanaged data
+  const existingOptions = await target.getOptions([
+    "ModelRatio", "CompletionRatio", "GroupRatio", "UserUsableGroups", "AutoGroups",
+  ]);
+  const parse = <T>(val: string | undefined, fallback: T): T => {
+    try { return val ? JSON.parse(val) : fallback; } catch { return fallback; }
+  };
+
+  const mergedModelRatio = { ...parse<Record<string, number>>(existingOptions.ModelRatio, {}), ...modelRatio };
+  const mergedCompletionRatio = { ...parse<Record<string, number>>(existingOptions.CompletionRatio, {}), ...completionRatio };
+  const mergedGroupRatio = { ...parse<Record<string, number>>(existingOptions.GroupRatio, {}), ...groupRatio };
+  const mergedUsableGroups = { ...parse<Record<string, string>>(existingOptions.UserUsableGroups, {}), ...usableGroups };
+  const mergedAutoGroups = [...new Set([...parse<string[]>(existingOptions.AutoGroups, []), ...autoGroups])];
+
+  {
     const optionsResult = await target.updateOptions({
-      GroupRatio: JSON.stringify(groupRatio),
-      UserUsableGroups: JSON.stringify(usableGroups),
-      AutoGroups: JSON.stringify(autoGroups),
+      GroupRatio: JSON.stringify(mergedGroupRatio),
+      UserUsableGroups: JSON.stringify(mergedUsableGroups),
+      AutoGroups: JSON.stringify(mergedAutoGroups),
       DefaultUseAutoGroup: "true",
-      ModelRatio: JSON.stringify(modelRatio),
-      CompletionRatio: JSON.stringify(completionRatio),
+      ModelRatio: JSON.stringify(mergedModelRatio),
+      CompletionRatio: JSON.stringify(mergedCompletionRatio),
     });
 
     report.options.updated = optionsResult.updated;
@@ -91,14 +105,9 @@ export async function syncToTarget(
   }
 
   // Delete stale channels (managed by sync but no longer needed)
-  const activeProviderNames = config.preserveUnlistedProviders
-    ? new Set(config.providers.map((p) => p.name))
-    : null;
   for (const channel of existingChannels) {
     if (desiredChannelNames.has(channel.name)) continue;
     if (channel.tag) {
-      // In partial sync mode, only delete channels belonging to active providers
-      if (activeProviderNames && !activeProviderNames.has(channel.tag)) continue;
       const success = await target.deleteChannel(channel.id!);
       if (success) {
         report.channels.deleted++;
@@ -176,40 +185,14 @@ export async function syncToTarget(
     }
   }
 
-  // Build sets of models owned by active vs non-managed providers
-  const modelsOwnedByOtherProviders = new Set<string>();
-  const modelsOwnedByActiveProviders = new Set<string>();
-  if (activeProviderNames) {
-    for (const channel of existingChannels) {
-      const models = (channel.models ?? "").split(",").filter(Boolean);
-      if (channel.tag && activeProviderNames.has(channel.tag)) {
-        for (const m of models) modelsOwnedByActiveProviders.add(m);
-      } else if (channel.tag && !activeProviderNames.has(channel.tag)) {
-        for (const m of models) modelsOwnedByOtherProviders.add(m);
-      }
-    }
-  }
-
   let modelsDeleted = 0;
   for (const model of existingModels) {
     if (modelsToSync.has(model.model_name)) continue;
 
-    // Always clean up sync-managed models that are no longer needed
+    // Clean up sync-managed models that are no longer needed
     if (model.sync_official === 1) {
-      if (activeProviderNames && modelsOwnedByOtherProviders.has(model.model_name)) continue;
       if (model.id && (await target.deleteModel(model.id))) {
         modelsDeleted++;
-      }
-      continue;
-    }
-
-    // In partial sync: also clean up non-sync models that belong exclusively to
-    // active providers (stale models from before sync_official was introduced)
-    if (activeProviderNames && modelsOwnedByActiveProviders.has(model.model_name)
-        && !modelsOwnedByOtherProviders.has(model.model_name)) {
-      if (model.id && (await target.deleteModel(model.id))) {
-        modelsDeleted++;
-        consola.info(`Deleted stale model from active provider: ${model.model_name}`);
       }
     }
   }
@@ -219,8 +202,6 @@ export async function syncToTarget(
     const mappingSources = new Set(Object.keys(config.modelMapping));
     for (const model of existingModels) {
       if (mappingSources.has(model.model_name)) {
-        // In partial sync mode, don't delete mapped models still used by other providers
-        if (activeProviderNames && modelsOwnedByOtherProviders.has(model.model_name)) continue;
         if (model.id && (await target.deleteModel(model.id))) {
           modelsDeleted++;
           consola.info(`Deleted mapped model: ${model.model_name}`);
@@ -230,8 +211,7 @@ export async function syncToTarget(
   }
 
   // Cleanup orphaned models directly from database (models not bound to any channel)
-  // Skip orphan cleanup in partial sync mode — other providers' models may appear orphaned
-  const orphansDeleted = activeProviderNames ? 0 : await target.cleanupOrphanedModels();
+  const orphansDeleted = await target.cleanupOrphanedModels();
 
   return { modelsCreated, modelsUpdated, modelsDeleted, orphansDeleted };
 }
