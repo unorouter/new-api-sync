@@ -107,16 +107,17 @@ export async function syncToTarget(
   // Delete stale channels (managed by sync but no longer needed)
   for (const channel of existingChannels) {
     if (desiredChannelNames.has(channel.name)) continue;
-    if (channel.tag) {
-      const success = await target.deleteChannel(channel.id!);
-      if (success) {
-        report.channels.deleted++;
-      } else {
-        report.errors.push({
-          phase: "channels",
-          message: `Failed to delete channel: ${channel.name}`,
-        });
-      }
+    if (!channel.tag) continue;
+    // In partial mode, only touch channels belonging to active providers
+    if (config.onlyProviders && !config.onlyProviders.has(channel.tag)) continue;
+    const success = await target.deleteChannel(channel.id!);
+    if (success) {
+      report.channels.deleted++;
+    } else {
+      report.errors.push({
+        phase: "channels",
+        message: `Failed to delete channel: ${channel.name}`,
+      });
     }
   }
 
@@ -185,9 +186,24 @@ export async function syncToTarget(
     }
   }
 
+  // In partial mode, protect models that belong to non-active providers' channels
+  let protectedModels: Set<string> | undefined;
+  if (config.onlyProviders) {
+    protectedModels = new Set<string>();
+    for (const channel of existingChannels) {
+      if (!channel.tag || config.onlyProviders.has(channel.tag)) continue;
+      if (channel.models) {
+        for (const model of channel.models.split(",")) {
+          protectedModels.add(model.trim());
+        }
+      }
+    }
+  }
+
   let modelsDeleted = 0;
   for (const model of existingModels) {
     if (modelsToSync.has(model.model_name)) continue;
+    if (protectedModels?.has(model.model_name)) continue;
 
     // Clean up sync-managed models that are no longer needed
     if (model.sync_official === 1) {

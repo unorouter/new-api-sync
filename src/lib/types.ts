@@ -55,6 +55,8 @@ export interface Config {
   providers: AnyProviderConfig[];
   blacklist?: string[];
   modelMapping?: Record<string, string>;
+  /** Runtime-only: set by --only flag to restrict deletion scope to these providers */
+  onlyProviders?: Set<string>;
 }
 
 // ============ Sub2API Types ============

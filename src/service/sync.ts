@@ -100,9 +100,10 @@ export class SyncService {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
     report.success = report.errors.length === 0;
 
+    const modeStr = this.config.onlyProviders ? ` (partial: ${[...this.config.onlyProviders].join(", ")})` : "";
     const orphanStr = orphansDeleted > 0 ? ` | Orphans: -${orphansDeleted}` : "";
     consola.success(
-      `Done in ${elapsed}s | Providers: ${report.providers.filter((p) => p.success).length}/${report.providers.length} | Channels: +${report.channels.created} ~${report.channels.updated} -${report.channels.deleted} | Models: +${modelsCreated} ~${modelsUpdated} -${modelsDeleted}${orphanStr}`,
+      `Done${modeStr} in ${elapsed}s | Providers: ${report.providers.filter((p) => p.success).length}/${report.providers.length} | Channels: +${report.channels.created} ~${report.channels.updated} -${report.channels.deleted} | Models: +${modelsCreated} ~${modelsUpdated} -${modelsDeleted}${orphanStr}`,
     );
 
     // Log failed providers (non-fatal)
