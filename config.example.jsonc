@@ -4,6 +4,7 @@
     "systemAccessToken": "your-system-access-token",
     "userId": 1
   },
+  "preserveUnlistedProviders": true, // Keep channels from providers not in this config
   "blacklist": ["kiro", "nsfw"],
   "modelMapping": {
     "claude-sonnet-4-5-20250929-complex-name": "claude-sonnet-4-5"
@@ -17,7 +18,15 @@
       "userId": 1,
       "enabledVendors": ["anthropic", "openai"],
       "enabledModels": ["claude-*-4-5*", "gpt-5"],
-      "priceAdjustment": 0.67 // 67% cheaper than upstream (pay 33% of upstream price)
+      // Global: 67% cheaper than upstream (pay 33% of upstream price)
+      "priceAdjustment": 0.67
+      // Per-vendor (requires "default" key):
+      // "priceAdjustment": {
+      //   "default": 0.67,
+      //   "anthropic": 0.50,
+      //   "openai": 0.75,
+      //   "google": 0.60
+      // }
     },
     {
       "type": "direct",
@@ -40,7 +49,7 @@
         { "key": "sk-...", "platform": "gemini" }
       ], // If not admin, use groups to specify API keys and platforms
       "enabledVendors": ["anthropic", "openai", "google"],
-      "priceAdjustment": 0.1
+      "priceAdjustment": 0.1 // Also supports per-vendor object format
     }
   ]
 }

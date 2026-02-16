@@ -1,4 +1,4 @@
-import type { Config, DirectProviderConfig, Sub2ApiProviderConfig } from "@/lib/types";
+import type { Config, DirectProviderConfig, PriceAdjustment, Sub2ApiProviderConfig } from "@/lib/types";
 import { VENDOR_REGISTRY } from "@/lib/constants";
 
 export async function loadConfig(path?: string): Promise<Config> {
@@ -23,6 +23,28 @@ function isValidUrl(url: string): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+function validatePriceAdjustment(value: PriceAdjustment, providerName: string, opts?: { allowNegative?: boolean }): void {
+  if (typeof value === "number") {
+    if (!opts?.allowNegative && value <= 0)
+      throw new Error(`Invalid priceAdjustment: provider "${providerName}" must be > 0`);
+    if (value >= 1)
+      throw new Error(`Invalid priceAdjustment: provider "${providerName}" must be < 1`);
+    return;
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new Error(`Invalid priceAdjustment: provider "${providerName}" must be a number or { "default": number, ... }`);
+  if (!("default" in value))
+    throw new Error(`Invalid priceAdjustment: provider "${providerName}" object format requires a "default" key`);
+  for (const [key, v] of Object.entries(value)) {
+    if (typeof v !== "number")
+      throw new Error(`Invalid priceAdjustment: provider "${providerName}" key "${key}" must be a number`);
+    if (!opts?.allowNegative && v <= 0)
+      throw new Error(`Invalid priceAdjustment: provider "${providerName}" key "${key}" must be > 0`);
+    if (v >= 1)
+      throw new Error(`Invalid priceAdjustment: provider "${providerName}" key "${key}" must be < 1`);
   }
 }
 
@@ -63,10 +85,8 @@ export function validateConfig(config: Config): void {
         throw new Error(
           `Invalid groupRatio: provider "${p.name}" must be positive`,
         );
-      if (dp.priceAdjustment !== undefined && dp.priceAdjustment >= 1)
-        throw new Error(
-          `Invalid priceAdjustment: provider "${p.name}" must be less than 1 (e.g. 0.1 = 10% cheaper, -0.1 = 10% more expensive)`,
-        );
+      if (dp.priceAdjustment !== undefined)
+        validatePriceAdjustment(dp.priceAdjustment, p.name, { allowNegative: true });
       if (dp.priceAdjustment !== undefined && dp.groupRatio !== undefined)
         throw new Error(
           `Provider "${p.name}" cannot have both groupRatio and priceAdjustment`,
@@ -82,10 +102,8 @@ export function validateConfig(config: Config): void {
       const sp = p as Sub2ApiProviderConfig;
       if (!sp.adminApiKey)
         throw new Error(`Provider "${p.name}" missing: adminApiKey`);
-      if (sp.priceAdjustment !== undefined && sp.priceAdjustment >= 1)
-        throw new Error(
-          `Invalid priceAdjustment: provider "${p.name}" must be less than 1 (e.g. 0.1 = 10% cheaper, -0.1 = 10% more expensive)`,
-        );
+      if (sp.priceAdjustment !== undefined)
+        validatePriceAdjustment(sp.priceAdjustment, p.name, { allowNegative: true });
       continue;
     }
 
@@ -96,10 +114,8 @@ export function validateConfig(config: Config): void {
     if (typeof p.userId !== "number" || p.userId <= 0)
       throw new Error(`Invalid userId: provider "${p.name}" userId must be positive number`);
 
-    if (p.priceAdjustment !== undefined && (p.priceAdjustment <= 0 || p.priceAdjustment >= 1))
-      throw new Error(
-        `Invalid priceAdjustment: provider "${p.name}" must be between 0 and 1 (e.g. 0.9 = 90% cheaper than upstream)`,
-      );
+    if (p.priceAdjustment !== undefined)
+      validatePriceAdjustment(p.priceAdjustment, p.name);
   }
 
   // Validate modelMapping

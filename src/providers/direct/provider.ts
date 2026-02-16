@@ -4,6 +4,7 @@ import {
   isTextModel,
   matchesAnyPattern,
   matchesBlacklist,
+  resolvePriceAdjustment,
   VENDOR_REGISTRY,
 } from "@/lib/constants";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
@@ -85,7 +86,8 @@ export async function processDirectProvider(
 
     // Determine group ratio: explicit groupRatio, or derive from priceAdjustment
     if (providerConfig.priceAdjustment !== undefined) {
-      const ratioToModels = buildPriceTiers(mappedModels, providerConfig.priceAdjustment, state, providerConfig.name);
+      const discount = resolvePriceAdjustment(providerConfig.priceAdjustment, vendor);
+      const ratioToModels = buildPriceTiers(mappedModels, discount, state, providerConfig.name);
       pushTieredChannels(ratioToModels, channelName, {
         type: vendorInfo.channelType,
         key: providerConfig.apiKey,

@@ -1,5 +1,7 @@
 // ============ Configuration ============
 
+export type PriceAdjustment = number | Record<string, number>;
+
 export interface NewApiConfig {
   baseUrl: string;
   systemAccessToken: string;
@@ -11,7 +13,7 @@ export interface BaseProviderConfig extends NewApiConfig {
   enabledGroups?: string[];
   enabledVendors?: string[];
   enabledModels?: string[];
-  priceAdjustment?: number;
+  priceAdjustment?: PriceAdjustment;
 }
 
 export interface ProviderConfig extends BaseProviderConfig {
@@ -32,7 +34,7 @@ export interface Sub2ApiProviderConfig {
   groups?: Sub2ApiGroupConfig[];
   enabledVendors?: string[];
   enabledModels?: string[];
-  priceAdjustment?: number;
+  priceAdjustment?: PriceAdjustment;
 }
 
 export interface DirectProviderConfig {
@@ -43,7 +45,7 @@ export interface DirectProviderConfig {
   apiKey: string;
   enabledModels?: string[];
   groupRatio?: number;
-  priceAdjustment?: number;
+  priceAdjustment?: PriceAdjustment;
 }
 
 export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig | DirectProviderConfig;

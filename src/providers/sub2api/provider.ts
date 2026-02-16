@@ -5,6 +5,7 @@ import {
   isTextModel,
   matchesAnyPattern,
   matchesBlacklist,
+  resolvePriceAdjustment,
 } from "@/lib/constants";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
 import type {
@@ -34,6 +35,12 @@ const VENDOR_TO_PLATFORMS: Record<string, string[]> = {
   anthropic: ["anthropic"],
   openai: ["openai"],
 };
+
+// Reverse lookup: sub2api platform → vendor name (for priceAdjustment resolution)
+const PLATFORM_TO_VENDOR: Record<string, string> = {};
+for (const [vendor, platforms] of Object.entries(VENDOR_TO_PLATFORMS)) {
+  for (const p of platforms) PLATFORM_TO_VENDOR[p] = vendor;
+}
 
 interface ResolvedGroup {
   name: string;
@@ -183,14 +190,16 @@ export async function processSub2ApiProvider(
       return providerReport;
     }
 
-    // Build model → cheapest newapi group ratio lookup
-    const discount = providerConfig.priceAdjustment ?? 0.1;
-
     // Process each group: test models via group API key, create channel with working models
+    const defaultDiscount = 0.1;
     let totalModels = 0;
     let groupsProcessed = 0;
 
     for (const groupInfo of resolvedGroups) {
+      const vendor = PLATFORM_TO_VENDOR[groupInfo.platform] ?? groupInfo.platform;
+      const discount = providerConfig.priceAdjustment !== undefined
+        ? resolvePriceAdjustment(providerConfig.priceAdjustment, vendor)
+        : defaultDiscount;
       const channelType = platformToChannelType(groupInfo.platform);
       const useResponsesAPI = groupInfo.platform === "openai";
       const tester = new ModelTester(providerConfig.baseUrl, groupInfo.apiKey);

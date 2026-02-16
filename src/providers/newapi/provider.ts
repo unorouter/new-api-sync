@@ -6,6 +6,7 @@ import {
   isTextModel,
   matchesAnyPattern,
   matchesBlacklist,
+  resolvePriceAdjustment,
   sanitizeGroupName,
 } from "@/lib/constants";
 import type {
@@ -96,9 +97,14 @@ export async function processNewApiProvider(
       );
     }
 
-    // Skip groups whose effective ratio after priceAdjustment exceeds 1
-    const adjustment = providerConfig.priceAdjustment ?? 0;
-    const effectiveMultiplier = 1 - adjustment;
+    // Skip groups whose effective ratio after priceAdjustment exceeds 1.
+    // With per-vendor adjustments, use the highest adjustment to decide
+    // whether the entire group is too expensive. Per-vendor filtering happens later.
+    const adj = providerConfig.priceAdjustment;
+    const maxAdjustment = adj === undefined ? 0
+      : typeof adj === "number" ? adj
+      : Math.max(...Object.values(adj));
+    const effectiveMultiplier = 1 - maxAdjustment;
     const highRatioGroups = groups.filter((g) => g.ratio * effectiveMultiplier > 1);
     if (highRatioGroups.length > 0) {
       consola.info(
@@ -121,7 +127,7 @@ export async function processNewApiProvider(
     for (const group of groups) {
       const originalName = `${group.name}-${providerConfig.name}`;
       const sanitizedName = sanitizeGroupName(originalName);
-      let groupRatio = group.ratio;
+      const groupRatio = group.ratio;
 
       // Always filter out non-text models and blacklisted models first
       let workingModels = group.models.filter(
@@ -203,39 +209,54 @@ export async function processNewApiProvider(
         );
       }
 
-      // Apply priceAdjustment to group ratio: adjustment = fraction cheaper than upstream
-      if (providerConfig.priceAdjustment) {
-        groupRatio *= (1 - providerConfig.priceAdjustment);
-      }
-
       // Calculate dynamic priority and weight: faster response = higher values
       const dynamicPriority = calculatePriorityBonus(avgResponseTime);
       const dynamicWeight = dynamicPriority > 0 ? dynamicPriority : 1;
 
-      state.mergedGroups.push({
-        name: sanitizedName,
-        ratio: groupRatio,
-        description: `${sanitizeGroupName(group.name)} via ${providerConfig.name}`,
-        provider: providerConfig.name,
-      });
-      // Infer channel type from the actual filtered models' vendor names,
-      // not the group-level type which includes ALL models (e.g. video models
-      // in "default" group cause SORA type, anthropic endpoints on GPT models
-      // cause ANTHROPIC type)
-      const channelType = inferChannelTypeFromModels(mappedModels, state.modelEndpoints);
+      // Group models by their effective ratio (per-vendor priceAdjustment may differ)
+      const ratioToModels = new Map<number, string[]>();
+      for (const model of mappedModels) {
+        const vendor = inferVendorFromModelName(model) ?? "unknown";
+        const vendorAdj = resolvePriceAdjustment(providerConfig.priceAdjustment, vendor);
+        const effectiveRatio = groupRatio * (1 - vendorAdj);
+        const key = Math.round(effectiveRatio * 1e6) / 1e6;
+        if (!ratioToModels.has(key)) ratioToModels.set(key, []);
+        ratioToModels.get(key)!.push(model);
+      }
 
-      state.channelsToCreate.push({
-        name: sanitizedName,
-        type: channelType,
-        key: tokenResult.tokens[group.name] ?? "",
-        baseUrl: providerConfig.baseUrl,
-        models: mappedModels,
-        group: sanitizedName,
-        priority: dynamicPriority,
-        weight: dynamicWeight,
-        provider: providerConfig.name,
-        remark: originalName,
-      });
+      // Create a channel per distinct ratio tier
+      let tierIdx = 0;
+      for (const [effectiveRatio, models] of ratioToModels) {
+        // Skip vendor subsets that end up > 1 after per-vendor adjustment
+        if (effectiveRatio > 1) continue;
+
+        const suffix = ratioToModels.size > 1 ? `-t${tierIdx}` : "";
+        const tierName = `${sanitizedName}${suffix}`;
+
+        state.mergedGroups.push({
+          name: tierName,
+          ratio: effectiveRatio,
+          description: `${sanitizeGroupName(group.name)} via ${providerConfig.name}`,
+          provider: providerConfig.name,
+        });
+
+        // Infer channel type from the actual filtered models' vendor names
+        const channelType = inferChannelTypeFromModels(models, state.modelEndpoints);
+
+        state.channelsToCreate.push({
+          name: tierName,
+          type: channelType,
+          key: tokenResult.tokens[group.name] ?? "",
+          baseUrl: providerConfig.baseUrl,
+          models,
+          group: tierName,
+          priority: dynamicPriority,
+          weight: dynamicWeight,
+          provider: providerConfig.name,
+          remark: originalName,
+        });
+        tierIdx++;
+      }
     }
 
     // Delete tokens for groups with no working models

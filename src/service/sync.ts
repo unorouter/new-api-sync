@@ -58,6 +58,7 @@ export class SyncService {
         this.state,
       );
       report.providers.push(providerReport);
+      console.log();
     }
 
     for (const providerConfig of directProviders) {
@@ -67,6 +68,7 @@ export class SyncService {
         this.state,
       );
       report.providers.push(providerReport);
+      console.log();
     }
 
     // Process sub2api providers last — they undercut newapi prices from state
@@ -77,6 +79,7 @@ export class SyncService {
         this.state,
       );
       report.providers.push(providerReport);
+      console.log();
     }
 
     if (this.state.mergedGroups.length === 0 && this.config.providers.length > 0) {

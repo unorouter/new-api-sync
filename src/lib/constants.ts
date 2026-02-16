@@ -1,3 +1,4 @@
+import type { PriceAdjustment } from "@/lib/types";
 import micromatch from "micromatch";
 
 // Pagination configuration
@@ -391,6 +392,18 @@ export function sanitizeGroupName(name: string): string {
     .replace(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g, "")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+/**
+ * Resolve a PriceAdjustment value for a specific vendor.
+ * - undefined → 0
+ * - number → return as-is
+ * - Record → lookup vendor key (lowercased), fallback to "default" key
+ */
+export function resolvePriceAdjustment(adjustment: PriceAdjustment | undefined, vendor: string): number {
+  if (adjustment === undefined) return 0;
+  if (typeof adjustment === "number") return adjustment;
+  return adjustment[vendor.toLowerCase()] ?? adjustment["default"] ?? 0;
 }
 
 /**
