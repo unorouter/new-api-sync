@@ -191,15 +191,15 @@ export async function processSub2ApiProvider(
     }
 
     // Process each group: test models via group API key, create channel with working models
-    const defaultDiscount = 0.1;
+    const defaultAdjustment = -0.1;
     let totalModels = 0;
     let groupsProcessed = 0;
 
     for (const groupInfo of resolvedGroups) {
       const vendor = PLATFORM_TO_VENDOR[groupInfo.platform] ?? groupInfo.platform;
-      const discount = providerConfig.priceAdjustment !== undefined
+      const adjustment = providerConfig.priceAdjustment !== undefined
         ? resolvePriceAdjustment(providerConfig.priceAdjustment, vendor)
-        : defaultDiscount;
+        : defaultAdjustment;
       const channelType = platformToChannelType(groupInfo.platform);
       const useResponsesAPI = groupInfo.platform === "openai";
       const tester = new ModelTester(providerConfig.baseUrl, groupInfo.apiKey);
@@ -222,7 +222,7 @@ export async function processSub2ApiProvider(
         applyModelMapping(m, config.modelMapping),
       );
 
-      const ratioToModels = buildPriceTiers(mappedModels, discount, state, providerConfig.name);
+      const ratioToModels = buildPriceTiers(mappedModels, adjustment, state, providerConfig.name);
       pushTieredChannels(
         ratioToModels,
         `${groupInfo.name}-${providerConfig.name}`,
@@ -242,7 +242,7 @@ export async function processSub2ApiProvider(
       groupsProcessed++;
       const ratios = [...ratioToModels.keys()].map(r => r.toFixed(4)).join(", ");
       consola.info(
-        `[${providerConfig.name}/${groupInfo.platform}] ${testResult.workingModels.length} models, ${ratioToModels.size} tier(s): ${ratios} (${(discount * 100).toFixed(0)}% below remote)`,
+        `[${providerConfig.name}/${groupInfo.platform}] ${testResult.workingModels.length} models, ${ratioToModels.size} tier(s): ${ratios} (${(adjustment * 100).toFixed(0)}% adjustment)`,
       );
     }
 

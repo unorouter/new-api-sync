@@ -99,13 +99,13 @@ export async function processNewApiProvider(
     }
 
     // Skip groups whose effective ratio after priceAdjustment exceeds 1.
-    // With per-vendor adjustments, use the highest adjustment to decide
+    // With per-vendor adjustments, use the lowest adjustment (biggest discount) to decide
     // whether the entire group is too expensive. Per-vendor filtering happens later.
     const adj = providerConfig.priceAdjustment;
-    const maxAdjustment = adj === undefined ? 0
+    const minAdjustment = adj === undefined ? 0
       : typeof adj === "number" ? adj
-      : Math.max(...Object.values(adj));
-    const effectiveMultiplier = 1 - maxAdjustment;
+      : Math.min(...Object.values(adj));
+    const effectiveMultiplier = 1 + minAdjustment;
     const highRatioGroups = groups.filter((g) => g.ratio * effectiveMultiplier > 1);
     if (highRatioGroups.length > 0) {
       consola.info(
@@ -233,7 +233,7 @@ export async function processNewApiProvider(
       for (const model of mappedModels) {
         const vendor = inferVendorFromModelName(model) ?? "unknown";
         const vendorAdj = resolvePriceAdjustment(providerConfig.priceAdjustment, vendor);
-        const effectiveRatio = groupRatio * (1 - vendorAdj);
+        const effectiveRatio = groupRatio * (1 + vendorAdj);
         const key = Math.round(effectiveRatio * 1e6) / 1e6;
         if (!ratioToModels.has(key)) ratioToModels.set(key, []);
         ratioToModels.get(key)!.push(model);

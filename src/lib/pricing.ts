@@ -3,11 +3,11 @@ import type { SyncState } from "@/lib/types";
 /**
  * Build price tiers by grouping models by their adjusted ratio.
  * For each model, finds the cheapest existing group ratio from other providers,
- * then applies the discount to get the final ratio.
+ * then applies the adjustment to get the final ratio.
  */
 export function buildPriceTiers(
   models: string[],
-  discount: number,
+  adjustment: number,
   state: SyncState,
   excludeProvider: string,
 ): Map<number, string[]> {
@@ -27,7 +27,7 @@ export function buildPriceTiers(
   const ratioToModels = new Map<number, string[]>();
   for (const model of models) {
     const cheapest = cheapestGroupForModel.get(model) ?? 1;
-    const ratio = cheapest * (1 - discount);
+    const ratio = cheapest * (1 + adjustment);
     const key = Math.round(ratio * 1e6) / 1e6;
     if (!ratioToModels.has(key)) ratioToModels.set(key, []);
     ratioToModels.get(key)!.push(model);

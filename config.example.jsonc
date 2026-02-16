@@ -19,13 +19,13 @@
       "enabledVendors": ["anthropic", "openai"],
       "enabledModels": ["claude-*-4-5*", "gpt-5"],
       // Global: 67% cheaper than upstream (pay 33% of upstream price)
-      "priceAdjustment": 0.67
+      "priceAdjustment": -0.67
       // Per-vendor (requires "default" key):
       // "priceAdjustment": {
-      //   "default": 0.67,
-      //   "anthropic": 0.50,
-      //   "openai": 0.75,
-      //   "google": 0.60
+      //   "default": -0.67,
+      //   "anthropic": -0.50,
+      //   "openai": -0.75,
+      //   "google": 0.10
       // }
     },
     {
@@ -36,7 +36,7 @@
       // "baseUrl": "https://api.moonshot.cn", // Optional, defaults from vendor registry
       "enabledModels": ["kimi-*", "moonshot-*"], // Optional glob filters
       // "groupRatio": 1, // Optional, static ratio (default 1). Cannot use with priceAdjustment
-      "priceAdjustment": 0.1 // Optional, adjusts ratio relative to cheapest upstream (0.1 = 10% cheaper)
+      "priceAdjustment": -0.1 // Optional, adjusts ratio relative to cheapest upstream (-0.1 = 10% cheaper)
     },
     {
       "type": "sub2api",
@@ -49,7 +49,7 @@
         { "key": "sk-...", "platform": "gemini" }
       ], // If not admin, use groups to specify API keys and platforms
       "enabledVendors": ["anthropic", "openai", "google"],
-      "priceAdjustment": 0.1 // Also supports per-vendor object format
+      "priceAdjustment": -0.1 // Also supports per-vendor object format
     }
   ]
 }

@@ -86,8 +86,8 @@ export async function processDirectProvider(
 
     // Determine group ratio: explicit groupRatio, or derive from priceAdjustment
     if (providerConfig.priceAdjustment !== undefined) {
-      const discount = resolvePriceAdjustment(providerConfig.priceAdjustment, vendor);
-      const ratioToModels = buildPriceTiers(mappedModels, discount, state, providerConfig.name);
+      const adjustment = resolvePriceAdjustment(providerConfig.priceAdjustment, vendor);
+      const ratioToModels = buildPriceTiers(mappedModels, adjustment, state, providerConfig.name);
       pushTieredChannels(ratioToModels, channelName, {
         type: vendorInfo.channelType,
         key: providerConfig.apiKey,

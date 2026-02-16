@@ -26,10 +26,11 @@ function isValidUrl(url: string): boolean {
   }
 }
 
-function validatePriceAdjustment(value: PriceAdjustment, providerName: string, opts?: { allowNegative?: boolean }): void {
+function validatePriceAdjustment(value: PriceAdjustment, providerName: string): void {
+  // priceAdjustment: negative = discount, positive = markup. Range: (-1, 1)
   if (typeof value === "number") {
-    if (!opts?.allowNegative && value <= 0)
-      throw new Error(`Invalid priceAdjustment: provider "${providerName}" must be > 0`);
+    if (value <= -1)
+      throw new Error(`Invalid priceAdjustment: provider "${providerName}" must be > -1`);
     if (value >= 1)
       throw new Error(`Invalid priceAdjustment: provider "${providerName}" must be < 1`);
     return;
@@ -41,8 +42,8 @@ function validatePriceAdjustment(value: PriceAdjustment, providerName: string, o
   for (const [key, v] of Object.entries(value)) {
     if (typeof v !== "number")
       throw new Error(`Invalid priceAdjustment: provider "${providerName}" key "${key}" must be a number`);
-    if (!opts?.allowNegative && v <= 0)
-      throw new Error(`Invalid priceAdjustment: provider "${providerName}" key "${key}" must be > 0`);
+    if (v <= -1)
+      throw new Error(`Invalid priceAdjustment: provider "${providerName}" key "${key}" must be > -1`);
     if (v >= 1)
       throw new Error(`Invalid priceAdjustment: provider "${providerName}" key "${key}" must be < 1`);
   }
@@ -86,7 +87,7 @@ export function validateConfig(config: Config): void {
           `Invalid groupRatio: provider "${p.name}" must be positive`,
         );
       if (dp.priceAdjustment !== undefined)
-        validatePriceAdjustment(dp.priceAdjustment, p.name, { allowNegative: true });
+        validatePriceAdjustment(dp.priceAdjustment, p.name);
       if (dp.priceAdjustment !== undefined && dp.groupRatio !== undefined)
         throw new Error(
           `Provider "${p.name}" cannot have both groupRatio and priceAdjustment`,
@@ -103,7 +104,7 @@ export function validateConfig(config: Config): void {
       if (!sp.adminApiKey)
         throw new Error(`Provider "${p.name}" missing: adminApiKey`);
       if (sp.priceAdjustment !== undefined)
-        validatePriceAdjustment(sp.priceAdjustment, p.name, { allowNegative: true });
+        validatePriceAdjustment(sp.priceAdjustment, p.name);
       continue;
     }
 

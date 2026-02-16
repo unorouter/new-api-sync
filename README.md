@@ -32,7 +32,7 @@ bun reset                             # delete all synced data
 | `enabledGroups`     |          | Specific groups to sync (omit for all)                  |
 | `enabledVendors`    |          | Filter by vendor: `anthropic`, `openai`, `google`, etc. |
 | `enabledModels`     |          | Glob patterns: `["claude-*-4-5*", "gpt-5*"]`           |
-| `priceMultiplier`   |          | Multiply group ratios (e.g. `0.5` = 50% cheaper)       |
+| `priceAdjustment`   |          | Price adjustment (e.g. `-0.5` = 50% cheaper, `0.1` = 10% more expensive) |
 
 ### sub2api Provider (`type: "sub2api"`)
 
@@ -46,7 +46,7 @@ Provide either `adminApiKey` (auto-discovers groups) or `groups` (explicit group
 | `groups`         |          | Explicit groups: `[{ "key": "sk-...", "platform": "anthropic" }]`    |
 | `enabledVendors` |          | Filter by vendor: `anthropic`, `openai`, `google`                    |
 | `enabledModels`  |          | Glob patterns: `["claude-*-4-5*", "gpt-5*"]`                        |
-| `priceAdjustment`|          | Price adjustment (e.g. `0.1` = 10% cheaper, `-0.1` = 10% more expensive) |
+| `priceAdjustment`|          | Price adjustment (e.g. `-0.1` = 10% cheaper, `0.1` = 10% more expensive) |
 
 ### Options
 
