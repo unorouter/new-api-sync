@@ -45,6 +45,30 @@ export class NewApiClient {
     return this._name ?? "target";
   }
 
+  /**
+   * Quick health check: verifies the instance is reachable and the access token is valid.
+   * Calls /api/user/self and checks for a successful authenticated response.
+   */
+  async healthCheck(): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/user/self`, {
+        headers: this.headers,
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) {
+        return { ok: false, error: `HTTP ${response.status} ${response.statusText}` };
+      }
+      const data = (await response.json()) as { success: boolean; message?: string };
+      if (!data.success) {
+        return { ok: false, error: data.message ?? "API returned success: false" };
+      }
+      return { ok: true };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: msg };
+    }
+  }
+
   // ============ Provider Methods (fetch from upstream) ============
 
   async fetchBalance(): Promise<string> {

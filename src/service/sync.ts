@@ -6,6 +6,7 @@ import type {
   SyncReport,
   SyncState,
 } from "@/lib/types";
+import { NewApiClient } from "@/providers/newapi/client";
 import { processDirectProvider } from "@/providers/direct/provider";
 import { processNewApiProvider } from "@/providers/newapi/provider";
 import { processSub2ApiProvider } from "@/providers/sub2api/provider";
@@ -33,6 +34,17 @@ export class SyncService {
       errors: [],
       timestamp: new Date(),
     };
+
+    // Verify target is reachable and access token works before doing any work
+    const targetClient = new NewApiClient(this.config.target);
+    const health = await targetClient.healthCheck();
+    if (!health.ok) {
+      consola.error(`Target health check failed: ${health.error}`);
+      report.success = false;
+      report.errors.push({ phase: "target-check", message: `Target unreachable: ${health.error}` });
+      return report;
+    }
+    consola.info("Target health check passed");
 
     // Process newapi first, then direct, then sub2api last (undercuts prices)
     const newapiProviders = this.config.providers.filter((p) => p.type !== "sub2api" && p.type !== "direct");

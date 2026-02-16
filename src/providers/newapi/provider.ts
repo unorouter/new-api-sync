@@ -145,23 +145,30 @@ export async function processNewApiProvider(
         );
       }
 
+      // Apply model mapping early and deduplicate: we need to test the final
+      // (mapped) model names since those are what actually get sent upstream.
+      // e.g. gpt-5.2-medium maps to gpt-5.2, and we must test gpt-5.2 works.
+      let mappedModels = [...new Set(
+        workingModels.map((m) => applyModelMapping(m, config.modelMapping)),
+      )];
+
       // Skip group if no models match filters
-      if (workingModels.length === 0) {
+      if (mappedModels.length === 0) {
         continue;
       }
 
-      // Test models
+      // Test models using mapped names (the actual names sent to upstream)
       let avgResponseTime: number | undefined;
       const apiKey = tokenResult.tokens[group.name] ?? "";
-      const testedCount = workingModels.length;
+      const testedCount = mappedModels.length;
       if (apiKey) {
         const testResult = await upstream.testModelsWithKey(
           apiKey,
-          workingModels,
+          mappedModels,
           group.channelType,
         );
-        const failedModels = workingModels.filter((m) => !testResult.workingModels.includes(m));
-        workingModels = testResult.workingModels;
+        const failedModels = mappedModels.filter((m) => !testResult.workingModels.includes(m));
+        mappedModels = testResult.workingModels;
         avgResponseTime = testResult.avgResponseTime;
 
         // Calculate test cost by fetching new balance
@@ -176,7 +183,7 @@ export async function processNewApiProvider(
         const bonus = calculatePriorityBonus(avgResponseTime);
         const msStr = avgResponseTime !== undefined ? `${Math.round(avgResponseTime)}ms` : "-";
 
-        if (workingModels.length === 0) {
+        if (mappedModels.length === 0) {
           consola.info(
             `[${providerConfig.name}/${group.name}] 0/${testedCount} | ${msStr} | $${testCost.toFixed(4)} | skip`,
           );
@@ -191,7 +198,7 @@ export async function processNewApiProvider(
         }
 
         consola.info(
-          `[${providerConfig.name}/${group.name}] ${workingModels.length}/${testedCount} | ${msStr} → +${bonus} | $${testCost.toFixed(4)}`,
+          `[${providerConfig.name}/${group.name}] ${mappedModels.length}/${testedCount} | ${msStr} → +${bonus} | $${testCost.toFixed(4)}`,
         );
       }
 
@@ -204,11 +211,6 @@ export async function processNewApiProvider(
       const dynamicPriority = calculatePriorityBonus(avgResponseTime);
       const dynamicWeight = dynamicPriority > 0 ? dynamicPriority : 1;
 
-      // Apply model name mapping if configured
-      const mappedModels = workingModels.map((m) =>
-        applyModelMapping(m, config.modelMapping),
-      );
-
       state.mergedGroups.push({
         name: sanitizedName,
         ratio: groupRatio,
@@ -219,7 +221,7 @@ export async function processNewApiProvider(
       // not the group-level type which includes ALL models (e.g. video models
       // in "default" group cause SORA type, anthropic endpoints on GPT models
       // cause ANTHROPIC type)
-      const channelType = inferChannelTypeFromModels(workingModels, state.modelEndpoints);
+      const channelType = inferChannelTypeFromModels(mappedModels, state.modelEndpoints);
 
       state.channelsToCreate.push({
         name: sanitizedName,
