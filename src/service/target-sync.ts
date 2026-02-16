@@ -1,5 +1,5 @@
 import { NewApiClient } from "@/providers/newapi/client";
-import { inferVendorFromModelName } from "@/lib/constants";
+import { CHANNEL_TYPES, inferVendorFromModelName } from "@/lib/constants";
 import type { Channel, Config, SyncReport, SyncState } from "@/lib/types";
 import { consola } from "consola";
 
@@ -49,6 +49,14 @@ export async function syncToTarget(
       DefaultUseAutoGroup: "true",
       ModelRatio: JSON.stringify(mergedModelRatio),
       CompletionRatio: JSON.stringify(mergedCompletionRatio),
+      // Auto-convert Chat Completions → Responses API for OpenAI-type channels.
+      // Required because sub2api only exposes /v1/responses, not /v1/chat/completions.
+      "global.chat_completions_to_responses_policy": JSON.stringify({
+        enabled: true,
+        all_channels: false,
+        channel_types: [CHANNEL_TYPES.OPENAI],
+        model_patterns: [".*"],
+      }),
     });
 
     report.options.updated = optionsResult.updated;

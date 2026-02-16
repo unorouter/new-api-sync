@@ -125,9 +125,19 @@ export async function processNewApiProvider(
     const groupsWithNoWorkingModels: string[] = [];
     let totalTestCost = 0;
 
+    // Track used sanitized names to disambiguate collisions from Chinese-only group names
+    const usedSanitizedNames = new Map<string, number>();
+
     for (const group of groups) {
       const originalName = `${group.name}-${providerConfig.name}`;
-      const sanitizedName = sanitizeGroupName(originalName);
+      let sanitizedName = sanitizeGroupName(originalName);
+
+      // Deduplicate: if this sanitized name was already used, append -2, -3, etc.
+      const count = usedSanitizedNames.get(sanitizedName) ?? 0;
+      usedSanitizedNames.set(sanitizedName, count + 1);
+      if (count > 0) {
+        sanitizedName = `${sanitizedName}-${count + 1}`;
+      }
       const groupRatio = group.ratio;
 
       // Always filter out non-text models and blacklisted models first
