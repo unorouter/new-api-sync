@@ -228,9 +228,16 @@ export interface TestResult {
   responseTime?: number;
 }
 
+export interface ModelTestDetail {
+  model: string;
+  success: boolean;
+  responseTime?: number;
+}
+
 export interface TestModelsResult {
   workingModels: string[];
   avgResponseTime?: number;
+  details: ModelTestDetail[];
 }
 
 // ============ NewAPI Responses ============

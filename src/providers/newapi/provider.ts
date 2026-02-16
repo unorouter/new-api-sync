@@ -17,6 +17,7 @@ import type {
   SyncState,
 } from "@/lib/types";
 import { consola } from "consola";
+import { colorize } from "consola/utils";
 import { NewApiClient } from "./client";
 
 function groupHasEnabledVendor(group: GroupInfo, enabledVendors: string[]): boolean {
@@ -169,30 +170,44 @@ export async function processNewApiProvider(
       const apiKey = tokenResult.tokens[group.name] ?? "";
       const testedCount = mappedModels.length;
       if (apiKey) {
+        // Track per-model cost by checking balance after each model test
+        const modelCosts = new Map<string, number>();
         const testResult = await upstream.testModelsWithKey(
           apiKey,
           mappedModels,
           group.channelType,
+          async (detail) => {
+            if (!detail.success) return;
+            const newBalanceStr = await upstream.fetchBalance();
+            const newBalance = parseFloat(newBalanceStr.replace(/[^0-9.-]/g, ""));
+            const cost = currentBalance - newBalance;
+            if (cost > 0) {
+              modelCosts.set(detail.model, (modelCosts.get(detail.model) ?? 0) + cost);
+              totalTestCost += cost;
+              currentBalance = newBalance;
+            }
+          },
         );
         const failedModels = mappedModels.filter((m) => !testResult.workingModels.includes(m));
         mappedModels = testResult.workingModels;
         avgResponseTime = testResult.avgResponseTime;
 
-        // Calculate test cost by fetching new balance
-        const newBalanceStr = await upstream.fetchBalance();
-        const newBalance = parseFloat(newBalanceStr.replace(/[^0-9.-]/g, ""));
-        const testCost = currentBalance - newBalance;
-        if (testCost > 0) {
-          totalTestCost += testCost;
-          currentBalance = newBalance;
-        }
-
+        const testCost = [...modelCosts.values()].reduce((a, b) => a + b, 0);
         const bonus = calculatePriorityBonus(avgResponseTime);
         const msStr = avgResponseTime !== undefined ? `${Math.round(avgResponseTime)}ms` : "-";
 
+        // Format per-model cost breakdown when group has cost
+        let costStr = `$${testCost.toFixed(4)}`;
+        if (testCost > 0) {
+          const parts = [...modelCosts.entries()].map(
+            ([model, cost]) => `${model} ${colorize("yellow", `$${cost.toFixed(4)}`)}`,
+          );
+          costStr = parts.join(", ");
+        }
+
         if (mappedModels.length === 0) {
           consola.info(
-            `[${providerConfig.name}/${group.name}] 0/${testedCount} | ${msStr} | $${testCost.toFixed(4)} | skip`,
+            `[${providerConfig.name}/${group.name}] 0/${testedCount} | ${msStr} | ${costStr} | skip`,
           );
           groupsWithNoWorkingModels.push(group.name);
           continue;
@@ -205,7 +220,7 @@ export async function processNewApiProvider(
         }
 
         consola.info(
-          `[${providerConfig.name}/${group.name}] ${mappedModels.length}/${testedCount} | ${msStr} → +${bonus} | $${testCost.toFixed(4)}`,
+          `[${providerConfig.name}/${group.name}] ${mappedModels.length}/${testedCount} | ${msStr} → +${bonus} | ${costStr}`,
         );
       }
 

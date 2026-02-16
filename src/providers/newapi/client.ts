@@ -10,6 +10,8 @@ import type {
   PricingResponseV2,
   TokenListResponse,
   UpstreamPricing,
+  ModelTestDetail,
+  TestModelsResult,
   UpstreamToken,
   Vendor,
 } from "@/lib/types";
@@ -283,8 +285,9 @@ export class NewApiClient {
     apiKey: string,
     models: string[],
     channelType: number,
-  ): Promise<{ workingModels: string[]; avgResponseTime?: number }> {
-    return new ModelTester(this.baseUrl, apiKey).testModels(models, channelType);
+    onModelTested?: (detail: ModelTestDetail) => void | Promise<void>,
+  ): Promise<TestModelsResult> {
+    return new ModelTester(this.baseUrl, apiKey).testModels(models, channelType, false, 5, onModelTested);
   }
 
   async ensureTokens(

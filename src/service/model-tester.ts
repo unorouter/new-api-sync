@@ -1,5 +1,5 @@
 import { CHANNEL_TYPES, TIMEOUTS } from "@/lib/constants";
-import type { TestModelsResult, TestResult } from "@/lib/types";
+import type { ModelTestDetail, TestModelsResult, TestResult } from "@/lib/types";
 
 interface RequestConfig {
   url: string;
@@ -92,8 +92,9 @@ export class ModelTester {
     channelType: number,
     useResponsesAPI = false,
     concurrency = 5,
+    onModelTested?: (detail: ModelTestDetail) => void | Promise<void>,
   ): Promise<TestModelsResult> {
-    const results: { model: string; success: boolean; responseTime?: number }[] = [];
+    const results: ModelTestDetail[] = [];
 
     for (let i = 0; i < models.length; i += concurrency) {
       const batch = models.slice(i, i + concurrency);
@@ -104,6 +105,11 @@ export class ModelTester {
         }),
       );
       results.push(...batchResults);
+      if (onModelTested) {
+        for (const detail of batchResults) {
+          await onModelTested(detail);
+        }
+      }
     }
 
     const working = results.filter((r) => r.success);
@@ -119,6 +125,7 @@ export class ModelTester {
     return {
       workingModels: working.map((r) => r.model),
       avgResponseTime,
+      details: results,
     };
   }
 }
