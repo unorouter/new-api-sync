@@ -96,9 +96,9 @@ export function validateConfig(config: Config): void {
     if (typeof p.userId !== "number" || p.userId <= 0)
       throw new Error(`Invalid userId: provider "${p.name}" userId must be positive number`);
 
-    if (p.priceMultiplier !== undefined && p.priceMultiplier <= 0)
+    if (p.priceAdjustment !== undefined && (p.priceAdjustment <= 0 || p.priceAdjustment >= 1))
       throw new Error(
-        `Invalid priceMultiplier: provider "${p.name}" must be positive`,
+        `Invalid priceAdjustment: provider "${p.name}" must be between 0 and 1 (e.g. 0.9 = 90% cheaper than upstream)`,
       );
   }
 

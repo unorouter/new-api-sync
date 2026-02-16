@@ -362,15 +362,6 @@ export class NewApiClient {
 
   // ============ Target Methods (sync to target instance) ============
 
-  async getOption(key: string): Promise<string | undefined> {
-    const response = await fetch(`${this.baseUrl}/api/option/`, {
-      headers: this.headers,
-    });
-    if (!response.ok) return undefined;
-    const data = (await response.json()) as { data?: Array<{ key: string; value: string }> };
-    return data.data?.find((o) => o.key === key)?.value;
-  }
-
   async getOptions(keys: string[]): Promise<Record<string, string>> {
     const response = await fetch(`${this.baseUrl}/api/option/`, {
       headers: this.headers,
@@ -410,28 +401,35 @@ export class NewApiClient {
     return { updated, failed };
   }
 
-  async listChannels(): Promise<Channel[]> {
-    const all: Channel[] = [];
-    let page = PAGINATION.START_PAGE_ZERO;
+  private async paginatedFetch<T>(
+    path: string,
+    extractItems: (json: unknown) => T[],
+    opts?: { startPage?: number; pageParam?: string },
+  ): Promise<T[]> {
+    const all: T[] = [];
+    let page = opts?.startPage ?? PAGINATION.START_PAGE_ZERO;
+    const pageParam = opts?.pageParam ?? "p";
     while (true) {
       const response = await fetch(
-        `${this.baseUrl}/api/channel/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
+        `${this.baseUrl}${path}?${pageParam}=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
         { headers: this.headers },
       );
-      if (!response.ok) throw new Error(`Failed to list channels: ${response.status}`);
-      const data = (await response.json()) as {
-        success: boolean;
-        data: { data?: Channel[]; items?: Channel[] } | Channel[];
-      };
-      if (!data.success) throw new Error("Channel list API returned success: false");
-      const items = Array.isArray(data.data)
-        ? data.data
-        : (data.data?.items ?? data.data?.data ?? []);
+      if (!response.ok) throw new Error(`Failed to fetch ${path}: ${response.status}`);
+      const json = await response.json();
+      const items = extractItems(json);
       all.push(...items);
       if (items.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
       page++;
     }
     return all;
+  }
+
+  async listChannels(): Promise<Channel[]> {
+    return this.paginatedFetch<Channel>("/api/channel/", (json) => {
+      const data = json as { success: boolean; data: { data?: Channel[]; items?: Channel[] } | Channel[] };
+      if (!data.success) throw new Error("Channel list API returned success: false");
+      return Array.isArray(data.data) ? data.data : (data.data?.items ?? data.data?.data ?? []);
+    });
   }
 
   async createChannel(channel: Omit<Channel, "id">): Promise<number | null> {
@@ -476,24 +474,10 @@ export class NewApiClient {
   }
 
   async listModels(): Promise<ModelMeta[]> {
-    const allModels: ModelMeta[] = [];
-    let page = PAGINATION.START_PAGE_ZERO;
-    while (true) {
-      const response = await fetch(
-        `${this.baseUrl}/api/models/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-        { headers: this.headers },
-      );
-      if (!response.ok)
-        throw new Error(`Failed to list models: ${response.status}`);
-      const data = (await response.json()) as ApiResponse<{
-        items?: ModelMeta[];
-      }>;
-      const models = data.data?.items ?? [];
-      allModels.push(...models);
-      if (models.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
-      page++;
-    }
-    return allModels;
+    return this.paginatedFetch<ModelMeta>("/api/models/", (json) => {
+      const data = json as ApiResponse<{ items?: ModelMeta[] }>;
+      return data.data?.items ?? [];
+    });
   }
 
   async createModel(model: Omit<ModelMeta, "id">): Promise<boolean> {
@@ -529,22 +513,10 @@ export class NewApiClient {
   }
 
   async listVendors(): Promise<Vendor[]> {
-    const allVendors: Vendor[] = [];
-    let page = PAGINATION.START_PAGE_ONE;
-    while (true) {
-      const response = await fetch(
-        `${this.baseUrl}/api/vendors/?page=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-        { headers: this.headers },
-      );
-      if (!response.ok)
-        throw new Error(`Failed to list vendors: ${response.status}`);
-      const data = (await response.json()) as ApiResponse<{ items?: Vendor[] }>;
-      const vendors = data.data?.items ?? [];
-      allVendors.push(...vendors);
-      if (vendors.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
-      page++;
-    }
-    return allVendors;
+    return this.paginatedFetch<Vendor>("/api/vendors/", (json) => {
+      const data = json as ApiResponse<{ items?: Vendor[] }>;
+      return data.data?.items ?? [];
+    }, { startPage: PAGINATION.START_PAGE_ONE, pageParam: "page" });
   }
 
   async cleanupOrphanedModels(): Promise<number> {

@@ -6,6 +6,7 @@ import {
   matchesAnyPattern,
   matchesBlacklist,
 } from "@/lib/constants";
+import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
 import type {
   Config,
   ProviderReport,
@@ -171,7 +172,6 @@ export async function processSub2ApiProvider(
 
   try {
     const client = new Sub2ApiClient(providerConfig);
-    const discount = providerConfig.priceAdjustment ?? 0.1;
 
     // Resolve groups: admin mode or explicit groups mode
     const resolvedGroups = providerConfig.adminApiKey
@@ -184,18 +184,7 @@ export async function processSub2ApiProvider(
     }
 
     // Build model → cheapest newapi group ratio lookup
-    const groupRatioByName = new Map(state.mergedGroups.map(g => [g.name, g.ratio]));
-    const cheapestGroupForModel = new Map<string, number>();
-    for (const ch of state.channelsToCreate) {
-      if (ch.provider === providerConfig.name) continue;
-      const gRatio = groupRatioByName.get(ch.group) ?? 1;
-      for (const model of ch.models) {
-        const existing = cheapestGroupForModel.get(model);
-        if (existing === undefined || gRatio < existing) {
-          cheapestGroupForModel.set(model, gRatio);
-        }
-      }
-    }
+    const discount = providerConfig.priceAdjustment ?? 0.1;
 
     // Process each group: test models via group API key, create channel with working models
     let totalModels = 0;
@@ -224,45 +213,21 @@ export async function processSub2ApiProvider(
         applyModelMapping(m, config.modelMapping),
       );
 
-      // Group models by their cheapest newapi group ratio so each sub-channel
-      // gets an accurate group ratio for its models
-      const ratioToModels = new Map<number, string[]>();
-      for (const model of mappedModels) {
-        const cheapest = cheapestGroupForModel.get(model) ?? 1;
-        const ratio = cheapest * (1 - discount);
-        // Round to avoid floating point grouping issues
-        const key = Math.round(ratio * 1e6) / 1e6;
-        if (!ratioToModels.has(key)) ratioToModels.set(key, []);
-        ratioToModels.get(key)!.push(model);
-      }
-
-      let tierIdx = 0;
-      for (const [groupRatio, models] of ratioToModels) {
-        const suffix = ratioToModels.size > 1 ? `-t${tierIdx}` : "";
-        const channelName = `${groupInfo.name}-${providerConfig.name}${suffix}`;
-
-        state.mergedGroups.push({
-          name: channelName,
-          ratio: groupRatio,
-          description: `${groupInfo.platform} via ${providerConfig.name}`,
-          provider: providerConfig.name,
-        });
-
-        state.channelsToCreate.push({
-          name: channelName,
+      const ratioToModels = buildPriceTiers(mappedModels, discount, state, providerConfig.name);
+      pushTieredChannels(
+        ratioToModels,
+        `${groupInfo.name}-${providerConfig.name}`,
+        {
           type: channelType,
           key: groupInfo.apiKey,
           baseUrl: providerConfig.baseUrl,
-          models,
-          group: channelName,
           priority: dynamicPriority,
           weight: dynamicWeight,
           provider: providerConfig.name,
-          remark: channelName,
-        });
-
-        tierIdx++;
-      }
+          description: `${groupInfo.platform} via ${providerConfig.name}`,
+        },
+        state,
+      );
 
       totalModels += testResult.workingModels.length;
       groupsProcessed++;

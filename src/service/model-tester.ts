@@ -1,145 +1,75 @@
 import { CHANNEL_TYPES, TIMEOUTS } from "@/lib/constants";
 import type { TestModelsResult, TestResult } from "@/lib/types";
 
+interface RequestConfig {
+  url: string;
+  headers: Record<string, string>;
+  body: unknown;
+  isSuccess: (data: unknown) => boolean;
+}
+
 export class ModelTester {
   constructor(
     private baseUrl: string,
     private apiKey: string,
   ) {}
 
-  private async testOpenAI(
+  private getRequestConfig(
     model: string,
-    timeoutMs = TIMEOUTS.MODEL_TEST_MS,
+    channelType: number,
+    useResponsesAPI: boolean,
+  ): RequestConfig {
+    if (channelType === CHANNEL_TYPES.ANTHROPIC) {
+      return {
+        url: `${this.baseUrl}/v1/messages`,
+        headers: { "Content-Type": "application/json", "x-api-key": this.apiKey, "anthropic-version": "2023-06-01" },
+        body: { model, messages: [{ role: "user", content: "hi" }], max_tokens: 1 },
+        isSuccess: (data) => (data as { type?: string }).type !== "error",
+      };
+    }
+    if (channelType === CHANNEL_TYPES.GEMINI) {
+      return {
+        url: `${this.baseUrl}/v1beta/models/${model}:generateContent?key=${this.apiKey}`,
+        headers: { "Content-Type": "application/json" },
+        body: { contents: [{ parts: [{ text: "hi" }] }], generationConfig: { maxOutputTokens: 1 } },
+        isSuccess: (data) => !(data as { error?: unknown }).error,
+      };
+    }
+    if (useResponsesAPI) {
+      return {
+        url: `${this.baseUrl}/responses`,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.apiKey}` },
+        body: { model, input: [{ role: "user", content: [{ type: "input_text", text: "hi" }] }], max_output_tokens: 1, store: false },
+        isSuccess: (data) => !(data as { error?: unknown }).error,
+      };
+    }
+    return {
+      url: `${this.baseUrl}/v1/chat/completions`,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.apiKey}` },
+      body: { model, messages: [{ role: "user", content: "hi" }], max_tokens: 1 },
+      isSuccess: (data) => !(data as { error?: unknown }).error,
+    };
+  }
+
+  private async testRequest(
+    config: RequestConfig,
+    timeoutMs: number,
   ): Promise<TestResult> {
     try {
       const startTime = Date.now();
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
       try {
-        const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+        const response = await fetch(config.url, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: "user", content: "hi" }],
-            max_tokens: 1,
-          }),
+          headers: config.headers,
+          body: JSON.stringify(config.body),
           signal: controller.signal,
         });
         const responseTime = Date.now() - startTime;
         if (!response.ok) return { success: false };
-        const data = (await response.json()) as { error?: unknown };
-        return { success: !data.error, responseTime };
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } catch {
-      return { success: false };
-    }
-  }
-
-  private async testAnthropic(
-    model: string,
-    timeoutMs = TIMEOUTS.MODEL_TEST_MS,
-  ): Promise<TestResult> {
-    try {
-      const startTime = Date.now();
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      try {
-        const response = await fetch(`${this.baseUrl}/v1/messages`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": this.apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: "user", content: "hi" }],
-            max_tokens: 1,
-          }),
-          signal: controller.signal,
-        });
-        const responseTime = Date.now() - startTime;
-        if (!response.ok) return { success: false };
-        const data = (await response.json()) as { type?: string };
-        return { success: data.type !== "error", responseTime };
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } catch {
-      return { success: false };
-    }
-  }
-
-  private async testOpenAIResponses(
-    model: string,
-    timeoutMs = TIMEOUTS.MODEL_TEST_MS,
-  ): Promise<TestResult> {
-    try {
-      const startTime = Date.now();
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      try {
-        const response = await fetch(`${this.baseUrl}/responses`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          body: JSON.stringify({
-            model,
-            input: [{ role: "user", content: [{ type: "input_text", text: "hi" }] }],
-            max_output_tokens: 1,
-            store: false,
-          }),
-          signal: controller.signal,
-        });
-        const responseTime = Date.now() - startTime;
-        if (!response.ok) return { success: false };
-        const data = (await response.json()) as { error?: unknown };
-        return { success: !data.error, responseTime };
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } catch {
-      return { success: false };
-    }
-  }
-
-  private async testGemini(
-    model: string,
-    timeoutMs = TIMEOUTS.MODEL_TEST_MS,
-  ): Promise<TestResult> {
-    try {
-      const startTime = Date.now();
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      try {
-        const response = await fetch(
-          `${this.baseUrl}/v1beta/models/${model}:generateContent?key=${this.apiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: "hi" }] }],
-              generationConfig: { maxOutputTokens: 1 },
-            }),
-            signal: controller.signal,
-          },
-        );
-        const responseTime = Date.now() - startTime;
-        if (!response.ok) return { success: false };
-        const data = (await response.json()) as { error?: unknown };
-        return { success: !data.error, responseTime };
+        const data = await response.json();
+        return { success: config.isSuccess(data), responseTime };
       } finally {
         clearTimeout(timeoutId);
       }
@@ -154,16 +84,7 @@ export class ModelTester {
     timeoutMs = TIMEOUTS.MODEL_TEST_MS,
     useResponsesAPI = false,
   ): Promise<TestResult> {
-    if (channelType === CHANNEL_TYPES.ANTHROPIC) {
-      return this.testAnthropic(model, timeoutMs);
-    }
-    if (channelType === CHANNEL_TYPES.GEMINI) {
-      return this.testGemini(model, timeoutMs);
-    }
-    if (useResponsesAPI) {
-      return this.testOpenAIResponses(model, timeoutMs);
-    }
-    return this.testOpenAI(model, timeoutMs);
+    return this.testRequest(this.getRequestConfig(model, channelType, useResponsesAPI), timeoutMs);
   }
 
   async testModels(

@@ -11,7 +11,7 @@ export interface BaseProviderConfig extends NewApiConfig {
   enabledGroups?: string[];
   enabledVendors?: string[];
   enabledModels?: string[];
-  priceMultiplier?: number;
+  priceAdjustment?: number;
 }
 
 export interface ProviderConfig extends BaseProviderConfig {
@@ -152,7 +152,6 @@ export interface ModelInfo {
 export interface Vendor {
   id: number;
   name: string;
-  icon?: string;
 }
 
 export interface UpstreamToken {
@@ -254,7 +253,7 @@ export interface PricingResponse {
   }>;
   group_ratio: Record<string, number>;
   usable_group: Record<string, string>;
-  vendors?: Array<{ id: number; name: string; icon?: string }>;
+  vendors?: Array<{ id: number; name: string }>;
 }
 
 // Newer new-api format where data is an object instead of array

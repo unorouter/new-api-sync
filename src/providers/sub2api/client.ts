@@ -77,65 +77,6 @@ export class Sub2ApiClient {
     return data;
   }
 
-  async testAccount(accountId: number): Promise<boolean> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-      try {
-        const response = await fetch(
-          `${this.baseUrl}/api/v1/admin/accounts/${accountId}/test`,
-          {
-            method: "POST",
-            headers: this.adminHeaders,
-            signal: controller.signal,
-          },
-        );
-
-        if (!response.ok) return false;
-        if (!response.body) return false;
-
-        // Parse SSE stream to determine success/failure
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let success = false;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const text = decoder.decode(value, { stream: true });
-          const lines = text.split("\n");
-
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            try {
-              const event = JSON.parse(line.slice(6)) as {
-                type?: string;
-                success?: boolean;
-                error?: string;
-              };
-              if (event.type === "test_complete") {
-                success = event.success ?? true;
-              }
-              if (event.type === "error") {
-                return false;
-              }
-            } catch {
-              // Skip non-JSON lines
-            }
-          }
-        }
-
-        return success;
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } catch {
-      return false;
-    }
-  }
-
   async listGroups(): Promise<Sub2ApiGroup[]> {
     const allGroups: Sub2ApiGroup[] = [];
     let page = 1;

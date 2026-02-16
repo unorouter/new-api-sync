@@ -6,6 +6,7 @@ import {
   matchesBlacklist,
   VENDOR_REGISTRY,
 } from "@/lib/constants";
+import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
 import type {
   Config,
   DirectProviderConfig,
@@ -84,59 +85,16 @@ export async function processDirectProvider(
 
     // Determine group ratio: explicit groupRatio, or derive from priceAdjustment
     if (providerConfig.priceAdjustment !== undefined) {
-      // Build model → cheapest existing group ratio lookup
-      const groupRatioByName = new Map(state.mergedGroups.map(g => [g.name, g.ratio]));
-      const cheapestGroupForModel = new Map<string, number>();
-      for (const ch of state.channelsToCreate) {
-        if (ch.provider === providerConfig.name) continue;
-        const gRatio = groupRatioByName.get(ch.group) ?? 1;
-        for (const model of ch.models) {
-          const existing = cheapestGroupForModel.get(model);
-          if (existing === undefined || gRatio < existing) {
-            cheapestGroupForModel.set(model, gRatio);
-          }
-        }
-      }
-
-      // Group models by their adjusted ratio so each tier gets accurate pricing
-      const discount = providerConfig.priceAdjustment;
-      const ratioToModels = new Map<number, string[]>();
-      for (const model of mappedModels) {
-        const cheapest = cheapestGroupForModel.get(model) ?? 1;
-        const ratio = cheapest * (1 - discount);
-        const key = Math.round(ratio * 1e6) / 1e6;
-        if (!ratioToModels.has(key)) ratioToModels.set(key, []);
-        ratioToModels.get(key)!.push(model);
-      }
-
-      // Create tiered channels if models have different ratios
-      let tierIdx = 0;
-      for (const [tierRatio, models] of ratioToModels) {
-        const suffix = ratioToModels.size > 1 ? `-t${tierIdx}` : "";
-        const tierName = `${channelName}${suffix}`;
-
-        state.mergedGroups.push({
-          name: tierName,
-          ratio: tierRatio,
-          description: `${vendor} via ${providerConfig.name} (direct)`,
-          provider: providerConfig.name,
-        });
-
-        state.channelsToCreate.push({
-          name: tierName,
-          type: vendorInfo.channelType,
-          key: providerConfig.apiKey,
-          baseUrl,
-          models,
-          group: tierName,
-          priority: dynamicPriority,
-          weight: dynamicWeight,
-          provider: providerConfig.name,
-          remark: tierName,
-        });
-
-        tierIdx++;
-      }
+      const ratioToModels = buildPriceTiers(mappedModels, providerConfig.priceAdjustment, state, providerConfig.name);
+      pushTieredChannels(ratioToModels, channelName, {
+        type: vendorInfo.channelType,
+        key: providerConfig.apiKey,
+        baseUrl,
+        priority: dynamicPriority,
+        weight: dynamicWeight,
+        provider: providerConfig.name,
+        description: `${vendor} via ${providerConfig.name} (direct)`,
+      }, state);
     } else {
       const groupRatio = providerConfig.groupRatio ?? 1;
       state.mergedGroups.push({

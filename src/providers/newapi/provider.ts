@@ -96,14 +96,15 @@ export async function processNewApiProvider(
       );
     }
 
-    // Skip groups whose effective ratio (ratio × priceMultiplier) exceeds 1
-    const multiplier = providerConfig.priceMultiplier ?? 1;
-    const highRatioGroups = groups.filter((g) => g.ratio * multiplier > 1);
+    // Skip groups whose effective ratio after priceAdjustment exceeds 1
+    const adjustment = providerConfig.priceAdjustment ?? 0;
+    const effectiveMultiplier = 1 - adjustment;
+    const highRatioGroups = groups.filter((g) => g.ratio * effectiveMultiplier > 1);
     if (highRatioGroups.length > 0) {
       consola.info(
-        `[${providerConfig.name}] Skipping ${highRatioGroups.length} group(s) with effective ratio > 1: ${highRatioGroups.map((g) => `${g.name} (${g.ratio} × ${multiplier} = ${(g.ratio * multiplier).toFixed(2)})`).join(", ")}`,
+        `[${providerConfig.name}] Skipping ${highRatioGroups.length} group(s) with effective ratio > 1: ${highRatioGroups.map((g) => `${g.name} (${g.ratio} × ${effectiveMultiplier.toFixed(2)} = ${(g.ratio * effectiveMultiplier).toFixed(2)})`).join(", ")}`,
       );
-      groups = groups.filter((g) => g.ratio * multiplier <= 1);
+      groups = groups.filter((g) => g.ratio * effectiveMultiplier <= 1);
     }
 
     const tokenResult = await upstream.ensureTokens(groups, providerConfig.name);
@@ -202,9 +203,9 @@ export async function processNewApiProvider(
         );
       }
 
-      // Apply priceMultiplier to group ratio for per-provider billing
-      if (providerConfig.priceMultiplier) {
-        groupRatio *= providerConfig.priceMultiplier;
+      // Apply priceAdjustment to group ratio: adjustment = fraction cheaper than upstream
+      if (providerConfig.priceAdjustment) {
+        groupRatio *= (1 - providerConfig.priceAdjustment);
       }
 
       // Calculate dynamic priority and weight: faster response = higher values
