@@ -353,11 +353,28 @@ export function calculatePriorityBonus(avgResponseTime?: number): number {
 
 /**
  * Check if a string matches any blacklist pattern (case-insensitive).
+ *
+ * Patterns containing "/" are scoped: "provider/pattern" only matches when
+ * the given `scope` equals the provider part (before the slash) and the text
+ * contains the pattern part (after the slash).  Patterns without "/" match
+ * any scope as before.
  */
-export function matchesBlacklist(text: string, blacklist?: string[]): boolean {
+export function matchesBlacklist(text: string, blacklist?: string[], scope?: string): boolean {
   if (!blacklist?.length) return false;
   const t = text.toLowerCase();
-  return blacklist.some((pattern) => t.includes(pattern.toLowerCase()));
+  const s = scope?.toLowerCase();
+  return blacklist.some((raw) => {
+    const pattern = raw.toLowerCase();
+    const slashIdx = pattern.indexOf("/");
+    if (slashIdx !== -1 && s !== undefined) {
+      const scopePart = pattern.slice(0, slashIdx);
+      const textPart = pattern.slice(slashIdx + 1);
+      return s === scopePart && t.includes(textPart);
+    }
+    // Unscoped pattern or no scope provided — skip scoped patterns
+    if (slashIdx !== -1) return false;
+    return t.includes(pattern);
+  });
 }
 
 /**

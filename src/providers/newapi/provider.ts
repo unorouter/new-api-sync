@@ -93,8 +93,8 @@ export async function processNewApiProvider(
     if (config.blacklist?.length) {
       groups = groups.filter(
         (g) =>
-          !matchesBlacklist(g.name, config.blacklist) &&
-          !matchesBlacklist(g.description, config.blacklist),
+          !matchesBlacklist(g.name, config.blacklist, providerConfig.name) &&
+          !matchesBlacklist(g.description, config.blacklist, providerConfig.name),
       );
     }
 
@@ -144,7 +144,7 @@ export async function processNewApiProvider(
       let workingModels = group.models.filter(
         (modelName) =>
           isTextModel(modelName, undefined, state.modelEndpoints) &&
-          !matchesBlacklist(modelName, config.blacklist),
+          !matchesBlacklist(modelName, config.blacklist, providerConfig.name),
       );
 
       // Then filter by enabled vendors if specified

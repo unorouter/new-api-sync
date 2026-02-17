@@ -56,7 +56,7 @@ function filterModels(
 ): string[] {
   return modelIds.filter((id) => {
     if (!isTextModel(id)) return false;
-    if (matchesBlacklist(id, config.blacklist)) return false;
+    if (matchesBlacklist(id, config.blacklist, providerConfig.name)) return false;
     if (providerConfig.enabledModels?.length) {
       if (!matchesAnyPattern(id, providerConfig.enabledModels)) return false;
     }
