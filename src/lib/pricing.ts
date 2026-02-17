@@ -13,7 +13,7 @@ export function buildPriceTiers(
 ): Map<number, string[]> {
   const groupRatioByName = new Map(state.mergedGroups.map((g) => [g.name, g.ratio]));
   const cheapestGroupForModel = new Map<string, number>();
-  const allChannels = [...state.channelsToCreate, ...(state.pricingContext ?? [])];
+  const allChannels = [...state.channelsToCreate, ...state.pricingContext];
   for (const ch of allChannels) {
     if (ch.provider === excludeProvider) continue;
     const gRatio = groupRatioByName.get(ch.group) ?? 1;
