@@ -42,3 +42,4 @@ yarn.lock
 bun.lock*
 *.png
 config copy.json*
+config.debug.jsonc
