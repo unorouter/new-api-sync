@@ -221,6 +221,8 @@ export interface SyncState {
   mergedModels: Map<string, MergedModel>;
   modelEndpoints: Map<string, string[]>;
   channelsToCreate: ChannelSpec[];
+  /** Existing target channels for pricing lookups (models + group + provider only) */
+  pricingContext: { models: string[]; group: string; provider: string }[];
 }
 
 // ============ Model Testing ============

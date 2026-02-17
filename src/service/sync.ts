@@ -19,6 +19,7 @@ export class SyncService {
     mergedModels: new Map(),
     modelEndpoints: new Map(),
     channelsToCreate: [],
+    pricingContext: [],
   };
 
   constructor(private config: Config) {}
@@ -45,6 +46,32 @@ export class SyncService {
       return report;
     }
     consola.info("Target health check passed");
+
+    // Seed pricing context from existing target channels so that later
+    // providers (especially sub2api) can find cheapest prices to undercut.
+    // Skip channels from providers that will be synced (they populate state themselves).
+    {
+      const existingChannels = await targetClient.listChannels();
+      const groupRatios: Record<string, number> = JSON.parse(
+        (await targetClient.getOptions(["GroupRatio"])).GroupRatio || "{}",
+      );
+      const syncedProviders = new Set(this.config.providers.map((p) => p.name));
+
+      for (const ch of existingChannels) {
+        if (!ch.tag || syncedProviders.has(ch.tag)) continue;
+        this.state.mergedGroups.push({
+          name: ch.group,
+          ratio: groupRatios[ch.group] ?? 1,
+          description: ch.remark ?? ch.name,
+          provider: ch.tag,
+        });
+        this.state.pricingContext.push({
+          models: ch.models ? ch.models.split(",").map((m) => m.trim()) : [],
+          group: ch.group,
+          provider: ch.tag,
+        });
+      }
+    }
 
     // Process newapi first, then direct, then sub2api last (undercuts prices)
     const newapiProviders = this.config.providers.filter((p) => p.type !== "sub2api" && p.type !== "direct");
