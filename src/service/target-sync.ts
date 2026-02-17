@@ -1,18 +1,10 @@
-import { inferVendorFromModelName } from "@/lib/constants";
+import {
+  ENDPOINT_DEFAULT_PATHS,
+  inferVendorFromModelName
+} from "@/lib/constants";
 import type { Channel, Config, SyncReport, SyncState } from "@/lib/types";
 import { NewApiClient } from "@/providers/newapi/client";
 import { consola } from "consola";
-
-const ENDPOINT_DEFAULT_PATHS: Record<string, string> = {
-  openai: "/v1/chat/completions",
-  "openai-response": "/v1/responses",
-  "openai-response-compact": "/v1/responses/compact",
-  anthropic: "/v1/messages",
-  gemini: "/v1beta/models/{model}:generateContent",
-  "jina-rerank": "/v1/rerank",
-  "image-generation": "/v1/images/generations",
-  embedding: "/v1/embeddings"
-};
 
 /**
  * Build the `endpoints` JSON string for a model from its upstream endpoint types.
