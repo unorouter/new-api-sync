@@ -1,5 +1,9 @@
 import { CHANNEL_TYPES, TIMEOUTS } from "@/lib/constants";
-import type { ModelTestDetail, TestModelsResult, TestResult } from "@/lib/types";
+import type {
+  ModelTestDetail,
+  TestModelsResult,
+  TestResult
+} from "@/lib/types";
 
 interface RequestConfig {
   url: string;
@@ -11,49 +15,77 @@ interface RequestConfig {
 export class ModelTester {
   constructor(
     private baseUrl: string,
-    private apiKey: string,
+    private apiKey: string
   ) {}
 
   private getRequestConfig(
     model: string,
     channelType: number,
-    useResponsesAPI: boolean,
+    useResponsesAPI: boolean
   ): RequestConfig {
     if (channelType === CHANNEL_TYPES.ANTHROPIC) {
       return {
         url: `${this.baseUrl}/v1/messages`,
-        headers: { "Content-Type": "application/json", "x-api-key": this.apiKey, "anthropic-version": "2023-06-01" },
-        body: { model, messages: [{ role: "user", content: "hi" }], max_tokens: 1 },
-        isSuccess: (data) => (data as { type?: string }).type !== "error",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": this.apiKey,
+          "anthropic-version": "2023-06-01"
+        },
+        body: {
+          model,
+          messages: [{ role: "user", content: "hi" }],
+          max_tokens: 1
+        },
+        isSuccess: (data) => (data as { type?: string }).type !== "error"
       };
     }
     if (channelType === CHANNEL_TYPES.GEMINI) {
       return {
         url: `${this.baseUrl}/v1beta/models/${model}:generateContent?key=${this.apiKey}`,
         headers: { "Content-Type": "application/json" },
-        body: { contents: [{ parts: [{ text: "hi" }] }], generationConfig: { maxOutputTokens: 1 } },
-        isSuccess: (data) => !(data as { error?: unknown }).error,
+        body: {
+          contents: [{ parts: [{ text: "hi" }] }],
+          generationConfig: { maxOutputTokens: 1 }
+        },
+        isSuccess: (data) => !(data as { error?: unknown }).error
       };
     }
     if (useResponsesAPI) {
       return {
-        url: `${this.baseUrl}/responses`,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.apiKey}` },
-        body: { model, input: [{ role: "user", content: [{ type: "input_text", text: "hi" }] }], max_output_tokens: 1, store: false },
-        isSuccess: (data) => !(data as { error?: unknown }).error,
+        url: `${this.baseUrl}/v1/responses`,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`
+        },
+        body: {
+          model,
+          input: [
+            { role: "user", content: [{ type: "input_text", text: "hi" }] }
+          ],
+          max_output_tokens: 1,
+          store: false
+        },
+        isSuccess: (data) => !(data as { error?: unknown }).error
       };
     }
     return {
       url: `${this.baseUrl}/v1/chat/completions`,
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.apiKey}` },
-      body: { model, messages: [{ role: "user", content: "hi" }], max_tokens: 1 },
-      isSuccess: (data) => !(data as { error?: unknown }).error,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.apiKey}`
+      },
+      body: {
+        model,
+        messages: [{ role: "user", content: "hi" }],
+        max_tokens: 1
+      },
+      isSuccess: (data) => !(data as { error?: unknown }).error
     };
   }
 
   private async testRequest(
     config: RequestConfig,
-    timeoutMs: number,
+    timeoutMs: number
   ): Promise<TestResult> {
     try {
       const startTime = Date.now();
@@ -64,7 +96,7 @@ export class ModelTester {
           method: "POST",
           headers: config.headers,
           body: JSON.stringify(config.body),
-          signal: controller.signal,
+          signal: controller.signal
         });
         const responseTime = Date.now() - startTime;
         if (!response.ok) return { success: false };
@@ -82,9 +114,12 @@ export class ModelTester {
     model: string,
     channelType: number,
     timeoutMs = TIMEOUTS.MODEL_TEST_MS,
-    useResponsesAPI = false,
+    useResponsesAPI = false
   ): Promise<TestResult> {
-    return this.testRequest(this.getRequestConfig(model, channelType, useResponsesAPI), timeoutMs);
+    return this.testRequest(
+      this.getRequestConfig(model, channelType, useResponsesAPI),
+      timeoutMs
+    );
   }
 
   async testModels(
@@ -92,7 +127,7 @@ export class ModelTester {
     channelType: number,
     useResponsesAPI = false,
     concurrency = 5,
-    onModelTested?: (detail: ModelTestDetail) => void | Promise<void>,
+    onModelTested?: (detail: ModelTestDetail) => void | Promise<void>
   ): Promise<TestModelsResult> {
     const results: ModelTestDetail[] = [];
 
@@ -100,9 +135,14 @@ export class ModelTester {
       const batch = models.slice(i, i + concurrency);
       const batchResults = await Promise.all(
         batch.map(async (model) => {
-          const result = await this.testModel(model, channelType, undefined, useResponsesAPI);
+          const result = await this.testModel(
+            model,
+            channelType,
+            undefined,
+            useResponsesAPI
+          );
           return { model, ...result };
-        }),
+        })
       );
       results.push(...batchResults);
       if (onModelTested) {
@@ -125,7 +165,7 @@ export class ModelTester {
     return {
       workingModels: working.map((r) => r.model),
       avgResponseTime,
-      details: results,
+      details: results
     };
   }
 }

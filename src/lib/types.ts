@@ -200,6 +200,7 @@ export interface ModelMeta {
   id?: number;
   model_name: string;
   vendor_id?: number;
+  endpoints?: string;
   status?: number;
   sync_official?: number;
 }

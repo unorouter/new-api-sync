@@ -92,13 +92,25 @@ export class NewApiClient {
   }
 
   async fetchPricing(): Promise<UpstreamPricing> {
+    // Try /api/pricing_new first — some instances (newer new-api forks) expose
+    // a V1-format endpoint here that includes supported_endpoint_types even when
+    // /api/pricing returns V2 format without endpoint data.
     const raw = await withRetry(async () => {
-      const response = await fetch(`${this.baseUrl}/api/pricing`);
-      if (!response.ok)
-        throw new Error(`Failed to fetch pricing: ${response.status}`);
-      const raw = (await response.json()) as { success: boolean; [key: string]: unknown };
-      if (!raw.success) throw new Error("Pricing API returned success: false");
-      return raw;
+      const urls = [`${this.baseUrl}/api/pricing_new`, `${this.baseUrl}/api/pricing`];
+      for (const url of urls) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) continue;
+          const body = (await response.json()) as { success: boolean; [key: string]: unknown };
+          if (!body.success || !body.data) continue;
+          // Only prefer pricing_new if it actually returns V1 format (with endpoint data)
+          if (url.endsWith("/pricing_new") && !Array.isArray(body.data)) continue;
+          return body;
+        } catch {
+          continue;
+        }
+      }
+      throw new Error("Failed to fetch pricing from both /api/pricing_new and /api/pricing");
     });
 
     // Detect format: V1 has data as array + top-level usable_group/group_ratio,

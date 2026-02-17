@@ -1,27 +1,63 @@
-import { NewApiClient } from "@/providers/newapi/client";
-import { CHANNEL_TYPES, inferVendorFromModelName } from "@/lib/constants";
+import { inferVendorFromModelName } from "@/lib/constants";
 import type { Channel, Config, SyncReport, SyncState } from "@/lib/types";
+import { NewApiClient } from "@/providers/newapi/client";
 import { consola } from "consola";
+
+const ENDPOINT_DEFAULT_PATHS: Record<string, string> = {
+  openai: "/v1/chat/completions",
+  "openai-response": "/v1/responses",
+  "openai-response-compact": "/v1/responses/compact",
+  anthropic: "/v1/messages",
+  gemini: "/v1beta/models/{model}:generateContent",
+  "jina-rerank": "/v1/rerank",
+  "image-generation": "/v1/images/generations",
+  embedding: "/v1/embeddings"
+};
+
+/**
+ * Build the `endpoints` JSON string for a model from its upstream endpoint types.
+ * Returns undefined when no endpoint data is available (let new-api use defaults).
+ */
+function buildModelEndpoints(endpointTypes: string[]): string | undefined {
+  const obj: Record<string, string> = {};
+  for (const ep of endpointTypes) {
+    const path = ENDPOINT_DEFAULT_PATHS[ep];
+    if (path) obj[ep] = path;
+  }
+  return Object.keys(obj).length > 0 ? JSON.stringify(obj) : undefined;
+}
 
 export async function syncToTarget(
   config: Config,
   state: SyncState,
-  report: SyncReport,
-): Promise<{ modelsCreated: number; modelsUpdated: number; modelsDeleted: number; orphansDeleted: number }> {
+  report: SyncReport
+): Promise<{
+  modelsCreated: number;
+  modelsUpdated: number;
+  modelsDeleted: number;
+  orphansDeleted: number;
+}> {
   const round = (n: number) => Math.round(n * 10000) / 10000;
-  const groupRatio = Object.fromEntries(state.mergedGroups.map((g) => [g.name, round(g.ratio)]));
-  const autoGroups = [...state.mergedGroups].sort((a, b) => a.ratio - b.ratio).map((g) => g.name);
+  const groupRatio = Object.fromEntries(
+    state.mergedGroups.map((g) => [g.name, round(g.ratio)])
+  );
+  const autoGroups = [...state.mergedGroups]
+    .sort((a, b) => a.ratio - b.ratio)
+    .map((g) => g.name);
   const usableGroups: Record<string, string> = {
-    auto: "Auto (Smart Routing with Failover)",
+    auto: "Auto (Smart Routing with Failover)"
   };
   for (const group of state.mergedGroups) {
     usableGroups[group.name] = group.description;
   }
   const modelRatio = Object.fromEntries(
-    [...state.mergedModels.entries()].map(([k, v]) => [k, round(v.ratio)]),
+    [...state.mergedModels.entries()].map(([k, v]) => [k, round(v.ratio)])
   );
   const completionRatio = Object.fromEntries(
-    [...state.mergedModels.entries()].map(([k, v]) => [k, round(v.completionRatio)]),
+    [...state.mergedModels.entries()].map(([k, v]) => [
+      k,
+      round(v.completionRatio)
+    ])
   );
 
   const target = new NewApiClient(config.target);
@@ -29,17 +65,42 @@ export async function syncToTarget(
   // Always merge options into existing target values so synced models
   // get proper pricing without overwriting unmanaged data
   const existingOptions = await target.getOptions([
-    "ModelRatio", "CompletionRatio", "GroupRatio", "UserUsableGroups", "AutoGroups",
+    "ModelRatio",
+    "CompletionRatio",
+    "GroupRatio",
+    "UserUsableGroups",
+    "AutoGroups"
   ]);
   const parse = <T>(val: string | undefined, fallback: T): T => {
-    try { return val ? JSON.parse(val) : fallback; } catch { return fallback; }
+    try {
+      return val ? JSON.parse(val) : fallback;
+    } catch {
+      return fallback;
+    }
   };
 
-  const mergedModelRatio = { ...parse<Record<string, number>>(existingOptions.ModelRatio, {}), ...modelRatio };
-  const mergedCompletionRatio = { ...parse<Record<string, number>>(existingOptions.CompletionRatio, {}), ...completionRatio };
-  const mergedGroupRatio = { ...parse<Record<string, number>>(existingOptions.GroupRatio, {}), ...groupRatio };
-  const mergedUsableGroups = { ...parse<Record<string, string>>(existingOptions.UserUsableGroups, {}), ...usableGroups };
-  const mergedAutoGroups = [...new Set([...parse<string[]>(existingOptions.AutoGroups, []), ...autoGroups])];
+  const mergedModelRatio = {
+    ...parse<Record<string, number>>(existingOptions.ModelRatio, {}),
+    ...modelRatio
+  };
+  const mergedCompletionRatio = {
+    ...parse<Record<string, number>>(existingOptions.CompletionRatio, {}),
+    ...completionRatio
+  };
+  const mergedGroupRatio = {
+    ...parse<Record<string, number>>(existingOptions.GroupRatio, {}),
+    ...groupRatio
+  };
+  const mergedUsableGroups = {
+    ...parse<Record<string, string>>(existingOptions.UserUsableGroups, {}),
+    ...usableGroups
+  };
+  const mergedAutoGroups = [
+    ...new Set([
+      ...parse<string[]>(existingOptions.AutoGroups, []),
+      ...autoGroups
+    ])
+  ];
 
   {
     const optionsResult = await target.updateOptions({
@@ -48,29 +109,23 @@ export async function syncToTarget(
       AutoGroups: JSON.stringify(mergedAutoGroups),
       DefaultUseAutoGroup: "true",
       ModelRatio: JSON.stringify(mergedModelRatio),
-      CompletionRatio: JSON.stringify(mergedCompletionRatio),
-      // Auto-convert Chat Completions → Responses API for OpenAI-type channels.
-      // Required because sub2api only exposes /v1/responses, not /v1/chat/completions.
-      "global.chat_completions_to_responses_policy": JSON.stringify({
-        enabled: true,
-        all_channels: false,
-        channel_types: [CHANNEL_TYPES.OPENAI],
-        model_patterns: [".*"],
-      }),
+      CompletionRatio: JSON.stringify(mergedCompletionRatio)
     });
 
     report.options.updated = optionsResult.updated;
     for (const key of optionsResult.failed) {
       report.errors.push({
         phase: "options",
-        message: `Failed to update option: ${key}`,
+        message: `Failed to update option: ${key}`
       });
     }
   }
 
   const existingChannels = await target.listChannels();
   const existingByName = new Map(existingChannels.map((c) => [c.name, c]));
-  const desiredChannelNames = new Set(state.channelsToCreate.map((c) => c.name));
+  const desiredChannelNames = new Set(
+    state.channelsToCreate.map((c) => c.name)
+  );
 
   for (const spec of state.channelsToCreate) {
     const existing = existingByName.get(spec.name);
@@ -85,7 +140,7 @@ export async function syncToTarget(
       weight: spec.weight,
       status: 1,
       tag: spec.provider,
-      remark: spec.remark,
+      remark: spec.remark
     };
 
     if (existing) {
@@ -96,7 +151,7 @@ export async function syncToTarget(
       } else {
         report.errors.push({
           phase: "channels",
-          message: `Failed to update channel: ${spec.name}`,
+          message: `Failed to update channel: ${spec.name}`
         });
       }
     } else {
@@ -106,7 +161,7 @@ export async function syncToTarget(
       } else {
         report.errors.push({
           phase: "channels",
-          message: `Failed to create channel: ${spec.name}`,
+          message: `Failed to create channel: ${spec.name}`
         });
       }
     }
@@ -117,20 +172,23 @@ export async function syncToTarget(
     if (desiredChannelNames.has(channel.name)) continue;
     if (!channel.tag) continue;
     // In partial mode, only touch channels belonging to active providers
-    if (config.onlyProviders && !config.onlyProviders.has(channel.tag)) continue;
+    if (config.onlyProviders && !config.onlyProviders.has(channel.tag))
+      continue;
     const success = await target.deleteChannel(channel.id!);
     if (success) {
       report.channels.deleted++;
     } else {
       report.errors.push({
         phase: "channels",
-        message: `Failed to delete channel: ${channel.name}`,
+        message: `Failed to delete channel: ${channel.name}`
       });
     }
   }
 
   const existingModels = await target.listModels();
-  const existingModelsByName = new Map(existingModels.map((m) => [m.model_name, m]));
+  const existingModelsByName = new Map(
+    existingModels.map((m) => [m.model_name, m])
+  );
   const modelsToSync = new Set<string>();
   for (const channel of state.channelsToCreate) {
     for (const model of channel.models) {
@@ -151,12 +209,14 @@ export async function syncToTarget(
     xunfei: ["讯飞", "spark"],
     alibaba: ["阿里", "通义", "qwen"],
     tencent: ["腾讯", "混元"],
-    bytedance: ["字节", "豆包", "doubao"],
+    bytedance: ["字节", "豆包", "doubao"]
   };
   for (const [canonical, aliases] of Object.entries(VENDOR_ALIASES)) {
     if (vendorNameToTargetId[canonical] !== undefined) continue;
     for (const alias of aliases) {
-      const match = targetVendors.find((v) => v.name.toLowerCase().includes(alias.toLowerCase()));
+      const match = targetVendors.find((v) =>
+        v.name.toLowerCase().includes(alias.toLowerCase())
+      );
       if (match) {
         vendorNameToTargetId[canonical] = match.id;
         break;
@@ -168,14 +228,25 @@ export async function syncToTarget(
   let modelsUpdated = 0;
   for (const modelName of modelsToSync) {
     const inferredVendor = inferVendorFromModelName(modelName);
-    const targetVendorId = inferredVendor ? vendorNameToTargetId[inferredVendor] : undefined;
+    const targetVendorId = inferredVendor
+      ? vendorNameToTargetId[inferredVendor]
+      : undefined;
 
     const existing = existingModelsByName.get(modelName);
+    const upstreamEndpoints = state.modelEndpoints.get(modelName);
+    const endpoints = upstreamEndpoints
+      ? buildModelEndpoints(upstreamEndpoints)
+      : undefined;
+
     if (existing) {
-      if (existing.vendor_id !== targetVendorId) {
+      const needsUpdate =
+        existing.vendor_id !== targetVendorId ||
+        existing.endpoints !== (endpoints ?? existing.endpoints);
+      if (needsUpdate) {
         const success = await target.updateModel({
           ...existing,
           vendor_id: targetVendorId,
+          endpoints: endpoints ?? existing.endpoints
         });
         if (success) {
           modelsUpdated++;
@@ -185,8 +256,9 @@ export async function syncToTarget(
       const success = await target.createModel({
         model_name: modelName,
         vendor_id: targetVendorId,
+        endpoints,
         status: 1,
-        sync_official: 1,
+        sync_official: 1
       });
       if (success) {
         modelsCreated++;

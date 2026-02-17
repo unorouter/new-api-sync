@@ -159,6 +159,18 @@ export const PRIORITY = {
   RESPONSE_TIME_OFFSET: 100
 } as const;
 
+// Default paths for endpoint types (mirrors new-api's endpoint_defaults.go)
+export const ENDPOINT_DEFAULT_PATHS: Record<string, string> = {
+  openai: "/v1/chat/completions",
+  "openai-response": "/v1/responses",
+  "openai-response-compact": "/v1/responses/compact",
+  anthropic: "/v1/messages",
+  gemini: "/v1beta/models/{model}:generateContent",
+  "jina-rerank": "/v1/rerank",
+  "image-generation": "/v1/images/generations",
+  embedding: "/v1/embeddings"
+};
+
 // Text endpoint types from new-api (constant/endpoint_type.go)
 // Non-text types: image-generation, embeddings, openai-video, jina-rerank
 export const TEXT_ENDPOINT_TYPES = new Set([
