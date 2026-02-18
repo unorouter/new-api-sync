@@ -87,12 +87,13 @@ export async function syncToTarget(
     ...parse<Record<string, string>>(existingOptions.UserUsableGroups, {}),
     ...usableGroups
   };
+  // Sort auto groups by group ratio (cheapest first)
   const mergedAutoGroups = [
     ...new Set([
       ...parse<string[]>(existingOptions.AutoGroups, []),
       ...autoGroups
     ])
-  ];
+  ].sort((a, b) => (mergedGroupRatio[a] ?? 1) - (mergedGroupRatio[b] ?? 1));
 
   {
     const optionsResult = await target.updateOptions({
