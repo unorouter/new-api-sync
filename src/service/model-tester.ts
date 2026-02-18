@@ -122,6 +122,32 @@ export class ModelTester {
     );
   }
 
+  // async testModels(
+  //   models: string[],
+  //   channelType: number,
+  //   useResponsesAPI = false,
+  //   concurrency = 5,
+  //   onModelTested?: (detail: ModelTestDetail) => void | Promise<void>
+  // ): Promise<TestModelsResult> {
+  //   const results: ModelTestDetail[] = models.map((model) => ({
+  //     model,
+  //     success: true,
+  //     responseTime: 100
+  //   }));
+
+  //   if (onModelTested) {
+  //     for (const detail of results) {
+  //       await onModelTested(detail);
+  //     }
+  //   }
+
+  //   return {
+  //     workingModels: models,
+  //     avgResponseTime: 100,
+  //     details: results
+  //   };
+  // }
+
   async testModels(
     models: string[],
     channelType: number,
