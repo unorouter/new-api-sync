@@ -1,6 +1,5 @@
-import type { RuntimeConfig } from "@/config/schema";
+import type { RuntimeConfig } from "@/config";
 import { NewApiClient } from "@/providers/newapi/client";
-import { TargetClient } from "@/target/client";
 
 export interface ResetResult {
   channelsDeleted: number;
@@ -11,7 +10,7 @@ export interface ResetResult {
 }
 
 export async function runReset(config: RuntimeConfig): Promise<ResetResult> {
-  const target = new TargetClient(config.target);
+  const target = new NewApiClient(config.target, "target");
   const providerNames = new Set(config.providers.map((provider) => provider.name));
 
   let channelsDeleted = 0;

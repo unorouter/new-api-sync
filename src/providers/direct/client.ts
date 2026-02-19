@@ -1,4 +1,4 @@
-import { requestJson } from "@/core/http";
+import { requestJson } from "@/lib/http";
 import type { VendorInfo } from "@/lib/constants";
 
 export class DirectApiClient {

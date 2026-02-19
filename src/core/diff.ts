@@ -1,13 +1,15 @@
-import type { RuntimeConfig } from "@/config/schema";
+import type { RuntimeConfig } from "@/config";
+import { VENDOR_MATCHERS } from "@/lib/constants";
 import type {
+  Channel,
   DesiredModelSpec,
   DesiredState,
   DiffOperation,
+  ModelMeta,
   SyncDiff,
   TargetSnapshot,
-} from "@/core/types";
-import { VENDOR_MATCHERS } from "@/lib/constants";
-import type { Channel, ModelMeta, Vendor } from "@/lib/types";
+  Vendor,
+} from "@/lib/types";
 
 const DEFAULT_AUTO_LABEL = "Auto (Smart Routing with Failover)";
 

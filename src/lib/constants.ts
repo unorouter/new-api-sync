@@ -1,6 +1,17 @@
 import type { PriceAdjustment } from "@/lib/types";
 import micromatch from "micromatch";
 
+// Managed option keys for sync
+export const MANAGED_OPTION_KEYS = [
+  "GroupRatio",
+  "UserUsableGroups",
+  "AutoGroups",
+  "DefaultUseAutoGroup",
+  "ModelRatio",
+  "CompletionRatio",
+  "global.chat_completions_to_responses_policy",
+] as const;
+
 // Pagination configuration
 export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 100,

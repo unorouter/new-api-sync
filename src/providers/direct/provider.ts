@@ -8,13 +8,13 @@ import {
   VENDOR_REGISTRY,
 } from "@/lib/constants";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
-import type { RuntimeConfig } from "@/config/schema";
+import type { RuntimeConfig } from "@/config";
 import type {
   DirectProviderConfig,
   ProviderReport,
   SyncState,
 } from "@/lib/types";
-import { ModelTester } from "@/service/model-tester";
+import { ModelTester } from "@/lib/model-tester";
 import { consola } from "consola";
 import { DirectApiClient } from "./client";
 

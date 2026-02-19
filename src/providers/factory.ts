@@ -1,13 +1,20 @@
-import type { RuntimeConfig } from "@/config/schema";
+import type { RuntimeConfig } from "@/config";
 import type {
   DirectProviderConfig,
   ProviderConfig,
+  ProviderReport,
   Sub2ApiProviderConfig,
+  SyncState,
 } from "@/lib/types";
-import type { AdapterContext, ProviderAdapter } from "@/providers/adapter";
-import { DirectProviderAdapter } from "@/providers/direct/adapter";
-import { NewApiProviderAdapter } from "@/providers/newapi/adapter";
-import { Sub2ApiProviderAdapter } from "@/providers/sub2api/adapter";
+import { processDirectProvider } from "@/providers/direct/provider";
+import { processNewApiProvider } from "@/providers/newapi/provider";
+import { processSub2ApiProvider } from "@/providers/sub2api/provider";
+
+export interface ProviderAdapter {
+  name: string;
+  type: string;
+  materialize(): Promise<ProviderReport>;
+}
 
 function providerOrder(type: RuntimeConfig["providers"][number]["type"]): number {
   if (type === "newapi") return 0;
@@ -17,29 +24,29 @@ function providerOrder(type: RuntimeConfig["providers"][number]["type"]): number
 
 export function buildAdapters(
   config: RuntimeConfig,
-  context: AdapterContext,
+  state: SyncState,
 ): ProviderAdapter[] {
   return [...config.providers]
     .sort((a, b) => providerOrder(a.type) - providerOrder(b.type))
     .map((provider) => {
       if (provider.type === "newapi") {
-        return new NewApiProviderAdapter(
-          provider.name,
-          provider as ProviderConfig,
-          context,
-        );
+        return {
+          name: provider.name,
+          type: provider.type,
+          materialize: () => processNewApiProvider(provider as ProviderConfig, config, state),
+        };
       }
       if (provider.type === "direct") {
-        return new DirectProviderAdapter(
-          provider.name,
-          provider as DirectProviderConfig,
-          context,
-        );
+        return {
+          name: provider.name,
+          type: provider.type,
+          materialize: () => processDirectProvider(provider as DirectProviderConfig, config, state),
+        };
       }
-      return new Sub2ApiProviderAdapter(
-        provider.name,
-        provider as Sub2ApiProviderConfig,
-        context,
-      );
+      return {
+        name: provider.name,
+        type: provider.type,
+        materialize: () => processSub2ApiProvider(provider as Sub2ApiProviderConfig, config, state),
+      };
     });
 }

@@ -1,4 +1,4 @@
-import { requestJson } from "@/core/http";
+import { requestJson } from "@/lib/http";
 import { CHANNEL_TYPES, inferChannelType, PAGINATION, sanitizeGroupName } from "@/lib/constants";
 import type {
   ApiResponse,
@@ -16,7 +16,7 @@ import type {
   UpstreamToken,
   Vendor,
 } from "@/lib/types";
-import { ModelTester } from "@/service/model-tester";
+import { ModelTester } from "@/lib/model-tester";
 import { consola } from "consola";
 
 export class NewApiClient {

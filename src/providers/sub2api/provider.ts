@@ -10,13 +10,13 @@ import {
   VENDOR_TO_SUB2API_PLATFORMS,
 } from "@/lib/constants";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
-import type { RuntimeConfig } from "@/config/schema";
+import type { RuntimeConfig } from "@/config";
 import type {
   ProviderReport,
   Sub2ApiProviderConfig,
   SyncState,
 } from "@/lib/types";
-import { ModelTester } from "@/service/model-tester";
+import { ModelTester } from "@/lib/model-tester";
 import { consola } from "consola";
 import { Sub2ApiClient } from "./client";
 

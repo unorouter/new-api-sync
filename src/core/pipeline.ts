@@ -1,11 +1,62 @@
-import type { RuntimeConfig } from "@/config/schema";
-import type { DesiredModelSpec, DesiredState } from "@/core/types";
+import type { RuntimeConfig } from "@/config";
 import { ENDPOINT_DEFAULT_PATHS, inferVendorFromModelName } from "@/lib/constants";
-import type { Channel, ProviderReport, SyncState } from "@/lib/types";
-import type { AdapterContext } from "@/providers/adapter";
+import type { Channel, DesiredModelSpec, DesiredState, PolicyState, ProviderReport, SyncState } from "@/lib/types";
 import { buildAdapters } from "@/providers/factory";
-import { buildResponsesPolicy } from "@/target/policy";
-import { TargetClient } from "@/target/client";
+import type { NewApiClient } from "@/providers/newapi/client";
+
+// ============ Responses Policy ============
+
+const RESPONSES_COMPATIBLE_CHANNEL_TYPES = new Set([1, 17, 39, 27, 45, 57, 48]);
+const RESPONSES_ENDPOINTS = new Set(["openai-response", "openai-response-compact"]);
+
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildResponsesPolicy(
+  channels: Channel[],
+  modelEndpoints: Map<string, string[]>,
+): PolicyState {
+  const channelTypes = [...new Set(
+    channels
+      .map((channel) => channel.type)
+      .filter((type) => RESPONSES_COMPATIBLE_CHANNEL_TYPES.has(type)),
+  )].sort((a, b) => a - b);
+
+  const models = new Set<string>();
+  for (const channel of channels) {
+    if (!RESPONSES_COMPATIBLE_CHANNEL_TYPES.has(channel.type)) continue;
+    const channelModels = channel.models
+      .split(",")
+      .map((model) => model.trim())
+      .filter(Boolean);
+    for (const model of channelModels) {
+      const endpoints = modelEndpoints.get(model);
+      if (!endpoints || endpoints.length === 0) {
+        models.add(model);
+        continue;
+      }
+      if (endpoints.some((endpoint) => RESPONSES_ENDPOINTS.has(endpoint))) {
+        models.add(model);
+      }
+    }
+  }
+
+  const modelPatterns = [...models]
+    .sort((a, b) => a.localeCompare(b))
+    .map((model) => `^${escapeRegExp(model)}$`);
+
+  const enabled = channelTypes.length > 0 && modelPatterns.length > 0;
+
+  return {
+    enabled,
+    all_channels: false,
+    channel_types: channelTypes,
+    model_patterns: modelPatterns,
+  };
+}
+
+// ============ Pipeline Helpers ============
 
 function buildModelEndpoints(endpointTypes: string[]): string | undefined {
   const endpoints: Record<string, string> = {};
@@ -41,9 +92,11 @@ function dedupeChannels(channels: Channel[]): Channel[] {
   return [...byName.values()];
 }
 
+// ============ Pipeline ============
+
 export async function seedPricingContext(
   config: RuntimeConfig,
-  target: TargetClient,
+  target: NewApiClient,
   state: SyncState,
 ): Promise<void> {
   const existingChannels = await target.listChannels();
@@ -76,7 +129,7 @@ export async function seedPricingContext(
 
 export async function runProviderPipeline(
   config: RuntimeConfig,
-  target: TargetClient,
+  target: NewApiClient,
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
   const state: SyncState = {
     mergedGroups: [],
@@ -87,17 +140,10 @@ export async function runProviderPipeline(
   };
   await seedPricingContext(config, target, state);
 
-  const context: AdapterContext = {
-    config,
-    state,
-  };
-
-  const adapters = buildAdapters(config, context);
+  const adapters = buildAdapters(config, state);
   const providerReports: ProviderReport[] = [];
 
   for (const adapter of adapters) {
-    await adapter.discover();
-    await adapter.test();
     const report = await adapter.materialize();
     providerReports.push(report);
   }

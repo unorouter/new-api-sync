@@ -9,7 +9,7 @@ import {
   resolvePriceAdjustment,
   sanitizeGroupName,
 } from "@/lib/constants";
-import type { RuntimeConfig } from "@/config/schema";
+import type { RuntimeConfig } from "@/config";
 import type {
   GroupInfo,
   ProviderConfig,

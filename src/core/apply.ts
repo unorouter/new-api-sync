@@ -1,8 +1,8 @@
-import type { ApplyReport, SyncDiff } from "@/core/types";
-import { TargetClient } from "@/target/client";
+import type { ApplyReport, SyncDiff } from "@/lib/types";
+import type { NewApiClient } from "@/providers/newapi/client";
 
 export async function applySyncDiff(
-  target: TargetClient,
+  target: NewApiClient,
   diff: SyncDiff,
   dryRun: boolean,
 ): Promise<ApplyReport> {

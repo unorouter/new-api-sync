@@ -1,4 +1,4 @@
-import { requestJson } from "@/core/http";
+import { requestJson } from "@/lib/http";
 import type { Sub2ApiAccount, Sub2ApiGroup, Sub2ApiKey, Sub2ApiModel, Sub2ApiProviderConfig } from "@/lib/types";
 import { consola } from "consola";
 
