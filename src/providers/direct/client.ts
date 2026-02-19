@@ -1,4 +1,5 @@
-import { withRetry, type VendorInfo } from "@/lib/constants";
+import { requestJson } from "@/core/http";
+import type { VendorInfo } from "@/lib/constants";
 
 export class DirectApiClient {
   private baseUrl: string;
@@ -23,38 +24,32 @@ export class DirectApiClient {
   }
 
   private async discoverOpenAIModels(): Promise<string[]> {
-    const response = await withRetry(async () => {
-      const res = await fetch(`${this.baseUrl}/v1/models`, {
+    const response = await requestJson<{ data?: Array<{ id?: string }> }>(
+      `${this.baseUrl}/v1/models`,
+      {
         headers: { Authorization: `Bearer ${this.apiKey}` },
-      });
-      if (!res.ok) throw new Error(`Failed to list models: ${res.status}`);
-      return res.json() as Promise<{ data?: Array<{ id?: string }> }>;
-    });
+      },
+    );
     return (response.data ?? []).map((m) => m.id ?? "").filter(Boolean);
   }
 
   private async discoverAnthropicModels(): Promise<string[]> {
-    const response = await withRetry(async () => {
-      const res = await fetch(`${this.baseUrl}/v1/models`, {
+    const response = await requestJson<{ data?: Array<{ id?: string }> }>(
+      `${this.baseUrl}/v1/models`,
+      {
         headers: {
           "x-api-key": this.apiKey,
           "anthropic-version": "2023-06-01",
         },
-      });
-      if (!res.ok) throw new Error(`Failed to list models: ${res.status}`);
-      return res.json() as Promise<{ data?: Array<{ id?: string }> }>;
-    });
+      },
+    );
     return (response.data ?? []).map((m) => m.id ?? "").filter(Boolean);
   }
 
   private async discoverGeminiModels(): Promise<string[]> {
-    const response = await withRetry(async () => {
-      const res = await fetch(
-        `${this.baseUrl}/v1beta/models?key=${this.apiKey}`,
-      );
-      if (!res.ok) throw new Error(`Failed to list models: ${res.status}`);
-      return res.json() as Promise<{ models?: Array<{ name?: string }> }>;
-    });
+    const response = await requestJson<{ models?: Array<{ name?: string }> }>(
+      `${this.baseUrl}/v1beta/models?key=${this.apiKey}`,
+    );
     return (response.models ?? [])
       .map((m) => (m.name ?? "").replace(/^models\//, ""))
       .filter(Boolean);

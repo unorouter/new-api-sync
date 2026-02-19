@@ -1,4 +1,4 @@
-import { withRetry } from "@/lib/constants";
+import { requestJson } from "@/core/http";
 import type { Sub2ApiAccount, Sub2ApiGroup, Sub2ApiKey, Sub2ApiModel, Sub2ApiProviderConfig } from "@/lib/types";
 import { consola } from "consola";
 
@@ -40,17 +40,14 @@ export class Sub2ApiClient {
     const pageSize = 100;
 
     while (true) {
-      const data = await withRetry(async () => {
-        const response = await fetch(
-          `${this.baseUrl}/api/v1/admin/accounts?page=${page}&page_size=${pageSize}`,
-          { headers: this.adminHeaders },
-        );
-        if (!response.ok)
-          throw new Error(`Failed to list accounts: ${response.status}`);
-        const data = (await response.json()) as Sub2ApiResponse<PaginatedData<Sub2ApiAccount>>;
-        if (data.code !== 0) throw new Error(`Account list failed: ${data.message}`);
-        return data.data!;
-      });
+      const response = await requestJson<Sub2ApiResponse<PaginatedData<Sub2ApiAccount>>>(
+        `${this.baseUrl}/api/v1/admin/accounts?page=${page}&page_size=${pageSize}`,
+        { headers: this.adminHeaders },
+      );
+      if (response.code !== 0 || !response.data) {
+        throw new Error(`Account list failed: ${response.message}`);
+      }
+      const data = response.data;
 
       allAccounts.push(...data.items);
       if (page >= data.pages) break;
@@ -62,19 +59,14 @@ export class Sub2ApiClient {
   }
 
   async getAccountModels(accountId: number): Promise<Sub2ApiModel[]> {
-    const data = await withRetry(async () => {
-      const response = await fetch(
-        `${this.baseUrl}/api/v1/admin/accounts/${accountId}/models`,
-        { headers: this.adminHeaders },
-      );
-      if (!response.ok)
-        throw new Error(`Failed to get models for account ${accountId}: ${response.status}`);
-      const data = (await response.json()) as Sub2ApiResponse<Sub2ApiModel[]>;
-      if (data.code !== 0) throw new Error(`Get models failed: ${data.message}`);
-      return data.data ?? [];
-    });
-
-    return data;
+    const response = await requestJson<Sub2ApiResponse<Sub2ApiModel[]>>(
+      `${this.baseUrl}/api/v1/admin/accounts/${accountId}/models`,
+      { headers: this.adminHeaders },
+    );
+    if (response.code !== 0) {
+      throw new Error(`Get models failed: ${response.message}`);
+    }
+    return response.data ?? [];
   }
 
   async listGroups(): Promise<Sub2ApiGroup[]> {
@@ -83,17 +75,14 @@ export class Sub2ApiClient {
     const pageSize = 100;
 
     while (true) {
-      const data = await withRetry(async () => {
-        const response = await fetch(
-          `${this.baseUrl}/api/v1/admin/groups?page=${page}&page_size=${pageSize}`,
-          { headers: this.adminHeaders },
-        );
-        if (!response.ok)
-          throw new Error(`Failed to list groups: ${response.status}`);
-        const data = (await response.json()) as Sub2ApiResponse<PaginatedData<Sub2ApiGroup>>;
-        if (data.code !== 0) throw new Error(`Group list failed: ${data.message}`);
-        return data.data!;
-      });
+      const response = await requestJson<Sub2ApiResponse<PaginatedData<Sub2ApiGroup>>>(
+        `${this.baseUrl}/api/v1/admin/groups?page=${page}&page_size=${pageSize}`,
+        { headers: this.adminHeaders },
+      );
+      if (response.code !== 0 || !response.data) {
+        throw new Error(`Group list failed: ${response.message}`);
+      }
+      const data = response.data;
 
       allGroups.push(...data.items);
       if (page >= data.pages) break;
@@ -104,17 +93,14 @@ export class Sub2ApiClient {
   }
 
   async getGroupApiKey(groupId: number): Promise<string | null> {
-    const data = await withRetry(async () => {
-      const response = await fetch(
-        `${this.baseUrl}/api/v1/admin/groups/${groupId}/api-keys?page=1&page_size=1`,
-        { headers: this.adminHeaders },
-      );
-      if (!response.ok)
-        throw new Error(`Failed to get group API keys: ${response.status}`);
-      const data = (await response.json()) as Sub2ApiResponse<PaginatedData<Sub2ApiKey>>;
-      if (data.code !== 0) throw new Error(`Get group API keys failed: ${data.message}`);
-      return data.data!;
-    });
+    const response = await requestJson<Sub2ApiResponse<PaginatedData<Sub2ApiKey>>>(
+      `${this.baseUrl}/api/v1/admin/groups/${groupId}/api-keys?page=1&page_size=1`,
+      { headers: this.adminHeaders },
+    );
+    if (response.code !== 0 || !response.data) {
+      throw new Error(`Get group API keys failed: ${response.message}`);
+    }
+    const data = response.data;
 
     const activeKey = data.items.find((k) => k.status === "active");
     return activeKey?.key ?? null;
@@ -127,11 +113,10 @@ export class Sub2ApiClient {
       Authorization: `Bearer ${apiKey}`,
     };
 
-    const response = await withRetry(async () => {
-      const res = await fetch(`${this.baseUrl}${endpoint}`, { headers });
-      if (!res.ok) throw new Error(`Failed to list models: ${res.status}`);
-      return res.json() as Promise<Record<string, unknown>>;
-    });
+    const response = await requestJson<Record<string, unknown>>(
+      `${this.baseUrl}${endpoint}`,
+      { headers },
+    );
 
     if (isGemini) {
       const models = (response.models ?? []) as Array<{ name?: string }>;

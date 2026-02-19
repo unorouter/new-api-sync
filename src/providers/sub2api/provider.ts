@@ -1,15 +1,17 @@
 import {
   applyModelMapping,
   calculatePriorityBonus,
-  CHANNEL_TYPES,
   isTextModel,
   matchesAnyPattern,
   matchesBlacklist,
+  sub2ApiPlatformToChannelType,
   resolvePriceAdjustment,
+  SUB2API_PLATFORM_TO_VENDOR,
+  VENDOR_TO_SUB2API_PLATFORMS,
 } from "@/lib/constants";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
+import type { RuntimeConfig } from "@/config/schema";
 import type {
-  Config,
   ProviderReport,
   Sub2ApiProviderConfig,
   SyncState,
@@ -17,30 +19,6 @@ import type {
 import { ModelTester } from "@/service/model-tester";
 import { consola } from "consola";
 import { Sub2ApiClient } from "./client";
-
-function platformToChannelType(platform: string): number {
-  switch (platform.toLowerCase()) {
-    case "anthropic":
-      return CHANNEL_TYPES.ANTHROPIC;
-    case "gemini":
-      return CHANNEL_TYPES.GEMINI;
-    default:
-      return CHANNEL_TYPES.OPENAI;
-  }
-}
-
-// Map new-api vendor names → sub2api platform names (one vendor can match multiple platforms)
-const VENDOR_TO_PLATFORMS: Record<string, string[]> = {
-  google: ["gemini", "antigravity"],
-  anthropic: ["anthropic"],
-  openai: ["openai"],
-};
-
-// Reverse lookup: sub2api platform → vendor name (for priceAdjustment resolution)
-const PLATFORM_TO_VENDOR: Record<string, string> = {};
-for (const [vendor, platforms] of Object.entries(VENDOR_TO_PLATFORMS)) {
-  for (const p of platforms) PLATFORM_TO_VENDOR[p] = vendor;
-}
 
 interface ResolvedGroup {
   name: string;
@@ -51,7 +29,7 @@ interface ResolvedGroup {
 
 function filterModels(
   modelIds: string[],
-  config: Config,
+  config: RuntimeConfig,
   providerConfig: Sub2ApiProviderConfig,
 ): string[] {
   return modelIds.filter((id) => {
@@ -67,7 +45,7 @@ function filterModels(
 async function resolveViaAdmin(
   client: Sub2ApiClient,
   providerConfig: Sub2ApiProviderConfig,
-  config: Config,
+  config: RuntimeConfig,
 ): Promise<ResolvedGroup[]> {
   // Fetch all active groups, filtered by enabledVendors
   const allGroups = await client.listGroups();
@@ -75,7 +53,7 @@ async function resolveViaAdmin(
 
   if (providerConfig.enabledVendors?.length) {
     const enabledPlatforms = new Set(
-      providerConfig.enabledVendors.flatMap((v) => VENDOR_TO_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()]),
+      providerConfig.enabledVendors.flatMap((v) => VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()]),
     );
     activeGroups = activeGroups.filter((g) => enabledPlatforms.has(g.platform.toLowerCase()));
   }
@@ -128,7 +106,7 @@ async function resolveViaAdmin(
 async function resolveViaGroups(
   client: Sub2ApiClient,
   providerConfig: Sub2ApiProviderConfig,
-  config: Config,
+  config: RuntimeConfig,
 ): Promise<ResolvedGroup[]> {
   const groups = providerConfig.groups ?? [];
   if (groups.length === 0) return [];
@@ -140,7 +118,7 @@ async function resolveViaGroups(
     // Filter by enabledVendors if specified
     if (providerConfig.enabledVendors?.length) {
       const enabledPlatforms = new Set(
-        providerConfig.enabledVendors.flatMap((v) => VENDOR_TO_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()]),
+        providerConfig.enabledVendors.flatMap((v) => VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()]),
       );
       if (!enabledPlatforms.has(platform)) continue;
     }
@@ -166,7 +144,7 @@ async function resolveViaGroups(
 
 export async function processSub2ApiProvider(
   providerConfig: Sub2ApiProviderConfig,
-  config: Config,
+  config: RuntimeConfig,
   state: SyncState,
 ): Promise<ProviderReport> {
   const providerReport: ProviderReport = {
@@ -196,14 +174,18 @@ export async function processSub2ApiProvider(
     let groupsProcessed = 0;
 
     for (const groupInfo of resolvedGroups) {
-      const vendor = PLATFORM_TO_VENDOR[groupInfo.platform] ?? groupInfo.platform;
+      const vendor = SUB2API_PLATFORM_TO_VENDOR[groupInfo.platform] ?? groupInfo.platform;
       const adjustment = providerConfig.priceAdjustment !== undefined
         ? resolvePriceAdjustment(providerConfig.priceAdjustment, vendor)
         : defaultAdjustment;
-      const channelType = platformToChannelType(groupInfo.platform);
+      const channelType = sub2ApiPlatformToChannelType(groupInfo.platform);
       const useResponsesAPI = groupInfo.platform === "openai";
       const tester = new ModelTester(providerConfig.baseUrl, groupInfo.apiKey);
-      const testResult = await tester.testModels([...groupInfo.models], channelType, useResponsesAPI);
+      const testResult = await tester.testModels(
+        [...groupInfo.models],
+        channelType,
+        useResponsesAPI,
+      );
 
       if (testResult.workingModels.length === 0) {
         consola.warn(`[${providerConfig.name}] No working models for group "${groupInfo.name}" (0/${groupInfo.models.size} passed)`);

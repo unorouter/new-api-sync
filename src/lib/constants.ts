@@ -13,13 +13,6 @@ export const TIMEOUTS = {
   MODEL_TEST_MS: 10000
 } as const;
 
-// Retry configuration
-export const RETRY = {
-  MAX_ATTEMPTS: 3,
-  BASE_DELAY_MS: 1000,
-  MAX_DELAY_MS: 10000
-} as const;
-
 // Channel type identifiers from new-api (constant/channel.go)
 export const CHANNEL_TYPES = {
   UNKNOWN: 0,
@@ -222,28 +215,69 @@ export const NON_TEXT_MODEL_PATTERNS = [
   "moderation"
 ];
 
-// Vendor name patterns for inferring vendor from model name
-export const VENDOR_PATTERNS: Record<string, string[]> = {
-  anthropic: ["claude"],
-  google: ["gemini", "palm"],
-  openai: ["gpt", "o1-", "o3-", "o4-", "chatgpt"],
-  deepseek: ["deepseek"],
-  xai: ["grok"],
-  mistral: ["mistral", "codestral"],
-  meta: ["llama"],
-  alibaba: ["qwen", "qwq-"],
-  cohere: ["command-", "c4ai-"],
-  minimax: ["abab", "minimax-"],
-  moonshot: ["moonshot-", "kimi-"],
-  zhipu: ["glm-", "chatglm"],
-  perplexity: ["sonar"],
-  baidu: ["ernie-"],
-  xunfei: ["sparkdesk"],
-  tencent: ["hunyuan-"],
-  bytedance: ["doubao-"],
-  yi: ["yi-"],
-  ai360: ["360gpt"]
+export const VENDOR_MATCHERS: Record<string, {
+  modelPatterns: string[];
+  nameAliases?: string[];
+}> = {
+  anthropic: { modelPatterns: ["claude"] },
+  google: { modelPatterns: ["gemini", "palm"] },
+  openai: { modelPatterns: ["gpt", "o1-", "o3-", "o4-", "chatgpt"] },
+  deepseek: { modelPatterns: ["deepseek"] },
+  xai: { modelPatterns: ["grok"] },
+  mistral: { modelPatterns: ["mistral", "codestral"] },
+  meta: { modelPatterns: ["llama"] },
+  alibaba: {
+    modelPatterns: ["qwen", "qwq-"],
+    nameAliases: ["阿里", "通义", "qwen"],
+  },
+  cohere: { modelPatterns: ["command-", "c4ai-"] },
+  minimax: { modelPatterns: ["abab", "minimax-"] },
+  moonshot: {
+    modelPatterns: ["moonshot-", "kimi-"],
+    nameAliases: ["月之暗面", "kimi"],
+  },
+  zhipu: {
+    modelPatterns: ["glm-", "chatglm"],
+    nameAliases: ["智谱", "zhipu ai", "chatglm"],
+  },
+  perplexity: { modelPatterns: ["sonar"] },
+  baidu: {
+    modelPatterns: ["ernie-"],
+    nameAliases: ["百度", "文心"],
+  },
+  xunfei: {
+    modelPatterns: ["sparkdesk"],
+    nameAliases: ["讯飞", "spark"],
+  },
+  tencent: {
+    modelPatterns: ["hunyuan-"],
+    nameAliases: ["腾讯", "混元"],
+  },
+  bytedance: {
+    modelPatterns: ["doubao-"],
+    nameAliases: ["字节", "豆包", "doubao"],
+  },
+  yi: { modelPatterns: ["yi-"] },
+  ai360: { modelPatterns: ["360gpt"] },
 };
+
+export const SUB2API_PLATFORM_CHANNEL_TYPES: Record<string, number> = {
+  anthropic: CHANNEL_TYPES.ANTHROPIC,
+  gemini: CHANNEL_TYPES.GEMINI,
+  openai: CHANNEL_TYPES.OPENAI,
+};
+
+export const VENDOR_TO_SUB2API_PLATFORMS: Record<string, string[]> = {
+  google: ["gemini", "antigravity"],
+  anthropic: ["anthropic"],
+  openai: ["openai"],
+};
+
+export const SUB2API_PLATFORM_TO_VENDOR: Record<string, string> = Object.fromEntries(
+  Object.entries(VENDOR_TO_SUB2API_PLATFORMS).flatMap(([vendor, platforms]) =>
+    platforms.map((platform) => [platform, vendor]),
+  ),
+);
 
 /**
  * Infer channel type from endpoint types.
@@ -313,12 +347,16 @@ export function inferChannelTypeFromModels(
  */
 export function inferVendorFromModelName(name: string): string | undefined {
   const n = name.toLowerCase();
-  for (const [vendor, patterns] of Object.entries(VENDOR_PATTERNS)) {
-    if (patterns.some((p) => n.includes(p) || n.startsWith(p))) {
+  for (const [vendor, matcher] of Object.entries(VENDOR_MATCHERS)) {
+    if (matcher.modelPatterns.some((p) => n.includes(p) || n.startsWith(p))) {
       return vendor;
     }
   }
   return undefined;
+}
+
+export function sub2ApiPlatformToChannelType(platform: string): number {
+  return SUB2API_PLATFORM_CHANNEL_TYPES[platform.toLowerCase()] ?? CHANNEL_TYPES.OPENAI;
 }
 
 /**
@@ -443,37 +481,4 @@ export function applyModelMapping(
   mapping?: Record<string, string>
 ): string {
   return mapping?.[modelName] ?? modelName;
-}
-
-/**
- * Retry a function with exponential backoff.
- * @param fn Function to retry
- * @param maxAttempts Maximum retry attempts (default: 3)
- * @param baseDelay Base delay in ms (default: 1000)
- */
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  maxAttempts = RETRY.MAX_ATTEMPTS,
-  baseDelay = RETRY.BASE_DELAY_MS
-): Promise<T> {
-  let lastError: Error | undefined;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-
-      if (attempt === maxAttempts) break;
-
-      // Exponential backoff: delay = baseDelay * 2^(attempt-1)
-      const delay = Math.min(
-        baseDelay * 2 ** (attempt - 1),
-        RETRY.MAX_DELAY_MS
-      );
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    }
-  }
-
-  throw lastError;
 }

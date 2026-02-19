@@ -4,8 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "sync": "bun run src/sync.ts",
-    "reset": "bun run src/reset.ts",
+    "sync": "bun run src/cli.ts",
     "build": "tsc"
   },
   "devDependencies": {
@@ -17,7 +16,12 @@
     "typescript": "5.9.3"
   },
   "dependencies": {
+    "commander": "14.0.3",
     "consola": "3.4.2",
-    "micromatch": "4.0.8"
+    "micromatch": "4.0.8",
+    "ofetch": "1.5.1",
+    "p-limit": "7.3.0",
+    "p-retry": "7.1.1",
+    "zod": "4.3.6"
   }
 }

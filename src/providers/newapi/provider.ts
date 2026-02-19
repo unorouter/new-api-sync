@@ -9,8 +9,8 @@ import {
   resolvePriceAdjustment,
   sanitizeGroupName,
 } from "@/lib/constants";
+import type { RuntimeConfig } from "@/config/schema";
 import type {
-  Config,
   GroupInfo,
   ProviderConfig,
   ProviderReport,
@@ -30,7 +30,7 @@ function groupHasEnabledVendor(group: GroupInfo, enabledVendors: string[]): bool
 
 export async function processNewApiProvider(
   providerConfig: ProviderConfig,
-  config: Config,
+  config: RuntimeConfig,
   state: SyncState,
 ): Promise<ProviderReport> {
   const providerReport: ProviderReport = {

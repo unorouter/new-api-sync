@@ -113,7 +113,7 @@ export class ModelTester {
   async testModel(
     model: string,
     channelType: number,
-    timeoutMs = TIMEOUTS.MODEL_TEST_MS,
+    timeoutMs: number = TIMEOUTS.MODEL_TEST_MS,
     useResponsesAPI = false
   ): Promise<TestResult> {
     return this.testRequest(
@@ -153,7 +153,8 @@ export class ModelTester {
     channelType: number,
     useResponsesAPI = false,
     concurrency = 5,
-    onModelTested?: (detail: ModelTestDetail) => void | Promise<void>
+    onModelTested?: (detail: ModelTestDetail) => void | Promise<void>,
+    timeoutMs: number = TIMEOUTS.MODEL_TEST_MS
   ): Promise<TestModelsResult> {
     const results: ModelTestDetail[] = [];
 
@@ -164,7 +165,7 @@ export class ModelTester {
           const result = await this.testModel(
             model,
             channelType,
-            undefined,
+            timeoutMs,
             useResponsesAPI
           );
           return { model, ...result };

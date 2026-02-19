@@ -1,4 +1,5 @@
-import { CHANNEL_TYPES, inferChannelType, PAGINATION, sanitizeGroupName, withRetry } from "@/lib/constants";
+import { requestJson } from "@/core/http";
+import { CHANNEL_TYPES, inferChannelType, PAGINATION, sanitizeGroupName } from "@/lib/constants";
 import type {
   ApiResponse,
   Channel,
@@ -95,23 +96,23 @@ export class NewApiClient {
     // Try /api/pricing_new first — some instances (newer new-api forks) expose
     // a V1-format endpoint here that includes supported_endpoint_types even when
     // /api/pricing returns V2 format without endpoint data.
-    const raw = await withRetry(async () => {
-      const urls = [`${this.baseUrl}/api/pricing_new`, `${this.baseUrl}/api/pricing`];
-      for (const url of urls) {
-        try {
-          const response = await fetch(url);
-          if (!response.ok) continue;
-          const body = (await response.json()) as { success: boolean; [key: string]: unknown };
-          if (!body.success || !body.data) continue;
-          // Only prefer pricing_new if it actually returns V1 format (with endpoint data)
-          if (url.endsWith("/pricing_new") && !Array.isArray(body.data)) continue;
-          return body;
-        } catch {
-          continue;
-        }
+    const urls = [`${this.baseUrl}/api/pricing_new`, `${this.baseUrl}/api/pricing`];
+    let raw: { success: boolean; [key: string]: unknown } | undefined;
+    for (const url of urls) {
+      try {
+        const body = await requestJson<{ success: boolean; [key: string]: unknown }>(url);
+        if (!body.success || !body.data) continue;
+        // Only prefer pricing_new if it actually returns V1 format (with endpoint data)
+        if (url.endsWith("/pricing_new") && !Array.isArray(body.data)) continue;
+        raw = body;
+        break;
+      } catch {
+        continue;
       }
+    }
+    if (!raw) {
       throw new Error("Failed to fetch pricing from both /api/pricing_new and /api/pricing");
-    });
+    }
 
     // Detect format: V1 has data as array + top-level usable_group/group_ratio,
     // V2 has data as object with model_group/model_info/model_completion_ratio
@@ -248,20 +249,16 @@ export class NewApiClient {
     const allTokens: UpstreamToken[] = [];
     let page = PAGINATION.START_PAGE_ZERO;
     while (true) {
-      const tokens = await withRetry(async () => {
-        const response = await fetch(
-          `${this.baseUrl}/api/token/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-          { headers: this.headers },
-        );
-        if (!response.ok)
-          throw new Error(`Failed to list tokens: ${response.status}`);
-        const data = (await response.json()) as TokenListResponse;
-        if (!data.success)
-          throw new Error("Token list API returned success: false");
-        return Array.isArray(data.data)
-          ? data.data
-          : (data.data?.items ?? data.data?.data ?? []);
-      });
+      const data = await requestJson<TokenListResponse>(
+        `${this.baseUrl}/api/token/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
+        { headers: this.headers },
+      );
+      if (!data.success) {
+        throw new Error("Token list API returned success: false");
+      }
+      const tokens = Array.isArray(data.data)
+        ? data.data
+        : (data.data?.items ?? data.data?.data ?? []);
       allTokens.push(...tokens);
       if (tokens.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
       page++;
@@ -270,27 +267,23 @@ export class NewApiClient {
   }
 
   async createToken(name: string, group: string): Promise<void> {
-    await withRetry(async () => {
-      const response = await fetch(`${this.baseUrl}/api/token/`, {
+    const data = await requestJson<{ success: boolean; message?: string }>(
+      `${this.baseUrl}/api/token/`,
+      {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify({
+        body: {
           name,
           group,
           expired_time: -1,
           unlimited_quota: true,
           model_limits_enabled: false,
-        }),
-      });
-      if (!response.ok)
-        throw new Error(`Failed to create token: ${response.status}`);
-      const data = (await response.json()) as {
-        success: boolean;
-        message?: string;
-      };
-      if (!data.success)
-        throw new Error(`Token create failed: ${data.message ?? "unknown"}`);
-    });
+        },
+      },
+    );
+    if (!data.success) {
+      throw new Error(`Token create failed: ${data.message ?? "unknown"}`);
+    }
   }
 
   async testModelsWithKey(
@@ -299,7 +292,13 @@ export class NewApiClient {
     channelType: number,
     onModelTested?: (detail: ModelTestDetail) => void | Promise<void>,
   ): Promise<TestModelsResult> {
-    return new ModelTester(this.baseUrl, apiKey).testModels(models, channelType, false, 5, onModelTested);
+    return new ModelTester(this.baseUrl, apiKey).testModels(
+      models,
+      channelType,
+      false,
+      5,
+      onModelTested,
+    );
   }
 
   async ensureTokens(

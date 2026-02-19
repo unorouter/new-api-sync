@@ -8,8 +8,8 @@ import {
   VENDOR_REGISTRY,
 } from "@/lib/constants";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
+import type { RuntimeConfig } from "@/config/schema";
 import type {
-  Config,
   DirectProviderConfig,
   ProviderReport,
   SyncState,
@@ -20,7 +20,7 @@ import { DirectApiClient } from "./client";
 
 export async function processDirectProvider(
   providerConfig: DirectProviderConfig,
-  config: Config,
+  config: RuntimeConfig,
   state: SyncState,
 ): Promise<ProviderReport> {
   const providerReport: ProviderReport = {
@@ -63,7 +63,11 @@ export async function processDirectProvider(
     // Test models
     const useResponsesAPI = vendor === "openai";
     const tester = new ModelTester(baseUrl, providerConfig.apiKey);
-    const testResult = await tester.testModels(filteredModels, vendorInfo.channelType, useResponsesAPI);
+    const testResult = await tester.testModels(
+      filteredModels,
+      vendorInfo.channelType,
+      useResponsesAPI,
+    );
 
     if (testResult.workingModels.length === 0) {
       providerReport.error = `No working models (0/${filteredModels.length} passed)`;

@@ -1,55 +1,37 @@
 {
   "target": {
-    "baseUrl": "https://ai-api.coding.global",
-    "systemAccessToken": "your-system-access-token",
+    "baseUrl": "https://api.unorouter.ai",
+    "systemAccessToken": "target-system-access-token",
     "userId": 1
   },
-  "preserveUnlistedProviders": true, // Keep channels from providers not in this config
-  "blacklist": ["kiro", "nsfw"],
+  "blacklist": ["kiro", "nsfw", "test/experimental"],
   "modelMapping": {
-    "claude-sonnet-4-5-20250929-complex-name": "claude-sonnet-4-5"
+    "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929"
   },
   "providers": [
     {
       "type": "newapi",
-      "name": "newapi",
+      "name": "upstream-main",
       "baseUrl": "https://www.newapi.ai",
-      "systemAccessToken": "your-system-access-token",
+      "systemAccessToken": "upstream-system-access-token",
       "userId": 1,
       "enabledVendors": ["anthropic", "openai"],
-      "enabledModels": ["claude-*-4-5*", "gpt-5"],
-      // Global: 67% cheaper than upstream (pay 33% of upstream price)
+      "enabledModels": ["claude-*-4-5*", "gpt-5*"],
       "priceAdjustment": -0.67
-      // Per-vendor (requires "default" key):
-      // "priceAdjustment": {
-      //   "default": -0.67,
-      //   "anthropic": -0.50,
-      //   "openai": -0.75,
-      //   "google": 0.10
-      // }
     },
     {
       "type": "direct",
-      "name": "kimi",
-      "vendor": "moonshot", // Maps to channel type 25 (MOONSHOT)
+      "name": "moonshot-direct",
+      "vendor": "moonshot",
       "apiKey": "sk-kimi-your-api-key",
-      // "baseUrl": "https://api.moonshot.cn", // Optional, defaults from vendor registry
-      "enabledModels": ["kimi-*", "moonshot-*"], // Optional glob filters
-      // "groupRatio": 1, // Optional, static ratio (default 1). Cannot use with priceAdjustment
-      "priceAdjustment": -0.1 // Optional, adjusts ratio relative to cheapest upstream (-0.1 = 10% cheaper)
+      "enabledModels": ["kimi-*", "moonshot-*"],
+      "priceAdjustment": -0.1
     },
     {
       "type": "sub2api",
-      "name": "sub2api",
-      "baseUrl": "https://demo.sub2api.org",
-      "adminApiKey": "admin-your-admin-api-key", // If admin use this
-      "groups": [
-        { "key": "sk-...", "platform": "anthropic" },
-        { "key": "sk-...", "platform": "openai" },
-        { "key": "sk-...", "platform": "gemini" }
-      ], // If not admin, use groups to specify API keys and platforms
-      "enabledVendors": ["anthropic", "openai", "google"],
-      "priceAdjustment": -0.1 // Also supports per-vendor object format
+      "name": "sub2api-fallback",
+      "baseUrl": "https://sub2api.unorouter.ai",
+      "adminApiKey": "admin-api-key"
     }
   ]
 }
