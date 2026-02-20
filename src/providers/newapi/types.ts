@@ -1,3 +1,5 @@
+import type { GroupInfo } from "@/lib/types";
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   message?: string;
@@ -15,7 +17,7 @@ export interface ModelInfo {
 }
 
 export interface UpstreamPricing {
-  groups: import("@/lib/types").GroupInfo[];
+  groups: GroupInfo[];
   models: ModelInfo[];
   groupRatios: Record<string, number>;
   modelRatios: Record<string, number>;

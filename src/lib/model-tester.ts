@@ -1,4 +1,5 @@
 import { CHANNEL_TYPES, TIMEOUTS } from "@/lib/constants";
+import { tryFetchJson } from "@/lib/http";
 
 interface RequestConfig {
   url: string;
@@ -78,25 +79,13 @@ async function testRequest(
   config: RequestConfig,
   timeoutMs: number,
 ): Promise<boolean> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetch(config.url, {
-        method: "POST",
-        headers: config.headers,
-        body: JSON.stringify(config.body),
-        signal: controller.signal,
-      });
-      if (!response.ok) return false;
-      const data = await response.json();
-      return config.isSuccess(data);
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  } catch {
-    return false;
-  }
+  const data = await tryFetchJson<unknown>(config.url, {
+    method: "POST",
+    headers: config.headers,
+    body: config.body,
+    timeoutMs,
+  });
+  return data !== null && config.isSuccess(data);
 }
 
 export async function testModels(
