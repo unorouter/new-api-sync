@@ -5,8 +5,8 @@ import { z, ZodError } from "zod/v4";
 const str = z.string().trim().min(1);
 
 const PriceAdjustmentSchema = z.union([
-  z.number().gt(-1).lt(1),
-  z.record(z.string(), z.number().gt(-1).lt(1)).refine((v) => "default" in v, {
+  z.number().gt(-1).lt(10),
+  z.record(z.string(), z.number().gt(-1).lt(10)).refine((v) => "default" in v, {
     message: "priceAdjustment object must contain a default key",
   }),
 ]);
