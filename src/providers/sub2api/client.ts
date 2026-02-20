@@ -1,52 +1,14 @@
 import type { Sub2ApiProviderConfig } from "@/config";
 import { fetchJson } from "@/lib/http";
 import { consola } from "consola";
-
-// ============ Client-local types ============
-
-interface Sub2ApiResponse<T = unknown> {
-  code: number;
-  message: string;
-  data?: T;
-}
-
-interface PaginatedData<T> {
-  items: T[];
-  total: number;
-  page: number;
-  page_size: number;
-  pages: number;
-}
-
-interface Sub2ApiAccount {
-  id: number;
-  name: string;
-  platform: string;
-  type: string;
-  status: string;
-  model_mapping?: Record<string, string>;
-}
-
-interface Sub2ApiModel {
-  id: string;
-  type: string;
-  display_name?: string;
-}
-
-interface Sub2ApiGroup {
-  id: number;
-  name: string;
-  platform: string;
-  status: string;
-}
-
-interface Sub2ApiKey {
-  id: number;
-  key: string;
-  name: string;
-  group_id?: number;
-  status: string;
-}
+import type {
+  PaginatedData,
+  Sub2ApiAccount,
+  Sub2ApiGroup,
+  Sub2ApiKey,
+  Sub2ApiModel,
+  Sub2ApiResponse,
+} from "./types";
 
 export class Sub2ApiClient {
   private baseUrl: string;
