@@ -39,18 +39,32 @@ function normalizeChannel(channel: Channel): Omit<Channel, "id"> {
     status: channel.status,
     tag: channel.tag,
     remark: channel.remark,
-    model_mapping: channel.model_mapping && channel.model_mapping !== "{}" ? channel.model_mapping : undefined
+    model_mapping:
+      channel.model_mapping && channel.model_mapping !== "{}"
+        ? channel.model_mapping
+        : undefined
   };
+}
+
+/** Keep existing entries whose key is in `guard`, then overlay `desired` values on top. */
+function mergeProtected<T>(
+  existing: Record<string, T>,
+  guard: Set<string>,
+  desired: Record<string, T>
+): Record<string, T> {
+  const merged: Record<string, T> = {};
+  for (const [key, value] of Object.entries(existing)) {
+    if (guard.has(key)) merged[key] = value;
+  }
+  return Object.assign(merged, desired);
 }
 
 function buildManagedOptionValues(
   desired: DesiredState,
   snapshot: TargetSnapshot
 ): Record<string, string> {
-  const managedProviders = desired.managedProviders;
-
   const unmanagedChannels = snapshot.channels.filter(
-    (channel) => !channel.tag || !managedProviders.has(channel.tag)
+    (channel) => !channel.tag || !desired.managedProviders.has(channel.tag)
   );
 
   const unmanagedGroups = new Set(
@@ -64,80 +78,50 @@ function buildManagedOptionValues(
     }
   }
 
-  const existingGroupRatio = parseJsonObject<Record<string, number>>(
-    snapshot.options.GroupRatio,
-    {}
-  );
-  const existingUserGroups = parseJsonObject<Record<string, string>>(
-    snapshot.options.UserUsableGroups,
-    {}
-  );
-  const existingAutoGroups = parseJsonObject<string[]>(
-    snapshot.options.AutoGroups,
-    []
-  );
-  const existingModelRatio = parseJsonObject<Record<string, number>>(
-    snapshot.options.ModelRatio,
-    {}
-  );
-  const existingCompletionRatio = parseJsonObject<Record<string, number>>(
-    snapshot.options.CompletionRatio,
-    {}
-  );
-  const existingModelPrice = parseJsonObject<Record<string, number>>(
-    snapshot.options.ModelPrice,
-    {}
-  );
-  const existingImageRatio = parseJsonObject<Record<string, number>>(
-    snapshot.options.ImageRatio,
-    {}
+  const parse = <T>(key: string, fallback: T): T =>
+    parseJsonObject(snapshot.options[key], fallback);
+
+  const mergedGroupRatio = mergeProtected(
+    parse<Record<string, number>>("GroupRatio", {}),
+    unmanagedGroups,
+    desired.options.groupRatio
   );
 
-  const mergedGroupRatio: Record<string, number> = {};
-  for (const [group, ratio] of Object.entries(existingGroupRatio)) {
-    if (unmanagedGroups.has(group)) mergedGroupRatio[group] = ratio;
-  }
-  Object.assign(mergedGroupRatio, desired.options.groupRatio);
-
-  const mergedUserGroups: Record<string, string> = {
-    auto: DEFAULT_AUTO_LABEL
-  };
-  for (const [group, label] of Object.entries(existingUserGroups)) {
-    if (group === "auto") continue;
-    if (unmanagedGroups.has(group)) mergedUserGroups[group] = label;
-  }
-  Object.assign(mergedUserGroups, desired.options.userUsableGroups);
+  const mergedUserGroups = mergeProtected(
+    parse<Record<string, string>>("UserUsableGroups", {}),
+    unmanagedGroups,
+    { auto: DEFAULT_AUTO_LABEL, ...desired.options.userUsableGroups }
+  );
 
   const mergedAutoGroups = [
     ...new Set([
-      ...existingAutoGroups.filter((group) => unmanagedGroups.has(group)),
+      ...parse<string[]>("AutoGroups", []).filter((g) =>
+        unmanagedGroups.has(g)
+      ),
       ...desired.options.autoGroups
     ])
   ].sort((a, b) => (mergedGroupRatio[a] ?? 1) - (mergedGroupRatio[b] ?? 1));
 
-  const mergedModelRatio: Record<string, number> = {};
-  for (const [model, ratio] of Object.entries(existingModelRatio)) {
-    if (protectedModels.has(model)) mergedModelRatio[model] = ratio;
-  }
-  Object.assign(mergedModelRatio, desired.options.modelRatio);
-
-  const mergedCompletionRatio: Record<string, number> = {};
-  for (const [model, ratio] of Object.entries(existingCompletionRatio)) {
-    if (protectedModels.has(model)) mergedCompletionRatio[model] = ratio;
-  }
-  Object.assign(mergedCompletionRatio, desired.options.completionRatio);
-
-  const mergedModelPrice: Record<string, number> = {};
-  for (const [model, price] of Object.entries(existingModelPrice)) {
-    if (protectedModels.has(model)) mergedModelPrice[model] = price;
-  }
-  Object.assign(mergedModelPrice, desired.options.modelPrice);
-
-  const mergedImageRatio: Record<string, number> = {};
-  for (const [model, ratio] of Object.entries(existingImageRatio)) {
-    if (protectedModels.has(model)) mergedImageRatio[model] = ratio;
-  }
-  Object.assign(mergedImageRatio, desired.options.imageRatio);
+  const mergedModelRatio = mergeProtected(
+    parse<Record<string, number>>("ModelRatio", {}),
+    protectedModels,
+    desired.options.modelRatio
+  );
+  const mergedCompletionRatio = mergeProtected(
+    parse<Record<string, number>>("CompletionRatio", {}),
+    protectedModels,
+    desired.options.completionRatio
+  );
+  const mergedModelPrice = mergeProtected(
+    parse<Record<string, number>>("ModelPrice", {}),
+    protectedModels,
+    desired.options.modelPrice
+  );
+  const mergedImageRatio = mergeProtected(
+    parse<Record<string, number>>("ImageRatio", {}),
+    protectedModels,
+    desired.options.imageRatio
+  );
 
   return {
     GroupRatio: JSON.stringify(stableObject(mergedGroupRatio)),
@@ -203,7 +187,10 @@ export function buildSyncDiff(
     }
 
     const normalizedDesired = { ...desiredChannel, id: existing.id };
-    if (JSON.stringify(normalizeChannel(existing)) !== JSON.stringify(normalizeChannel(normalizedDesired))) {
+    if (
+      JSON.stringify(normalizeChannel(existing)) !==
+      JSON.stringify(normalizeChannel(normalizedDesired))
+    ) {
       channelOps.push({
         type: "update",
         key: desiredChannel.name,

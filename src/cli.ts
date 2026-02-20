@@ -28,17 +28,15 @@ program
     collectOnly,
     []
   )
-  .option("--dry-run", "compute and print diff only")
   .option("--json", "print JSON output")
   .action(
     async (options: {
       config?: string;
       only: string[];
-      dryRun?: boolean;
       json?: boolean;
     }) => {
       const config = await loadRuntimeConfig(options.config, options.only);
-      const result = await runSync(config, { dryRun: options.dryRun });
+      const result = await runSync(config);
 
       if (options.json) {
         console.log(

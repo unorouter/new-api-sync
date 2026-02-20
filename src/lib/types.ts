@@ -345,7 +345,6 @@ export interface ApplyError {
 }
 
 export interface ApplyReport {
-  dryRun: boolean;
   channels: { created: number; updated: number; deleted: number };
   models: { created: number; updated: number; deleted: number; orphansDeleted: number };
   options: { updated: string[] };

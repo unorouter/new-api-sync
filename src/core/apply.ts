@@ -3,35 +3,14 @@ import type { NewApiClient } from "@/providers/newapi/client";
 
 export async function applySyncDiff(
   target: NewApiClient,
-  diff: SyncDiff,
-  dryRun: boolean
+  diff: SyncDiff
 ): Promise<ApplyReport> {
   const report: ApplyReport = {
-    dryRun,
     channels: { created: 0, updated: 0, deleted: 0 },
     models: { created: 0, updated: 0, deleted: 0, orphansDeleted: 0 },
     options: { updated: [] },
     errors: []
   };
-
-  if (dryRun) {
-    for (const op of diff.channels) {
-      if (op.type === "create") report.channels.created++;
-      if (op.type === "update") report.channels.updated++;
-      if (op.type === "delete") report.channels.deleted++;
-    }
-    for (const op of diff.models) {
-      if (op.type === "create") report.models.created++;
-      if (op.type === "update") report.models.updated++;
-      if (op.type === "delete") report.models.deleted++;
-    }
-    for (const op of diff.options) {
-      if (op.type === "create" || op.type === "update") {
-        report.options.updated.push(op.key);
-      }
-    }
-    return report;
-  }
 
   for (const op of diff.options) {
     if (op.type === "delete") continue;

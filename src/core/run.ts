@@ -8,10 +8,6 @@ import type { SyncRunResult, TargetSnapshot } from "@/lib/types";
 import { NewApiClient } from "@/providers/newapi/client";
 import { consola } from "consola";
 
-export interface RunSyncOptions {
-  dryRun?: boolean;
-}
-
 async function snapshot(client: NewApiClient): Promise<TargetSnapshot> {
   const [channels, models, vendors, options] = await Promise.all([
     client.listChannels(),
@@ -22,12 +18,8 @@ async function snapshot(client: NewApiClient): Promise<TargetSnapshot> {
   return { channels, models, vendors, options };
 }
 
-export async function runSync(
-  config: RuntimeConfig,
-  options: RunSyncOptions = {}
-): Promise<SyncRunResult> {
+export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
   const start = Date.now();
-  const dryRun = options.dryRun ?? false;
   const target = new NewApiClient(config.target, "target");
 
   const health = await target.healthCheck();
@@ -38,7 +30,7 @@ export async function runSync(
   const { desired, providerReports } = await runProviderPipeline(config);
   const snap = await snapshot(target);
   const diff = buildSyncDiff(config, desired, snap);
-  const apply = await applySyncDiff(target, diff, dryRun);
+  const apply = await applySyncDiff(target, diff);
 
   const successfulProviders = providerReports.filter(
     (provider) => provider.success
@@ -58,8 +50,6 @@ export async function runSync(
 
 export function printRunSummary(result: SyncRunResult): void {
   const elapsed = (result.elapsedMs / 1000).toFixed(2);
-  const mode = result.apply.dryRun ? "dry-run" : "apply";
-  consola.info(`Mode: ${mode}`);
   consola.info(
     `Providers: ${result.providerReports.filter((provider) => provider.success).length}/${result.providerReports.length}`
   );

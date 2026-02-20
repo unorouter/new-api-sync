@@ -1,10 +1,11 @@
 import type { RuntimeConfig } from "@/config";
 import {
+  CHANNEL_TYPES,
   isTestableModel,
   matchesAnyPattern,
   matchesBlacklist,
+  SUB2API_PLATFORM_CHANNEL_TYPES,
   SUB2API_PLATFORM_TO_VENDOR,
-  sub2ApiPlatformToChannelType,
   VENDOR_TO_SUB2API_PLATFORMS
 } from "@/lib/constants";
 import { ModelTester } from "@/lib/model-tester";
@@ -208,7 +209,7 @@ export async function processSub2ApiProvider(
         providerConfig.priceAdjustment !== undefined
           ? resolvePriceAdj(providerConfig.priceAdjustment, vendor)
           : defaultAdjustment;
-      const channelType = sub2ApiPlatformToChannelType(groupInfo.platform);
+      const channelType = SUB2API_PLATFORM_CHANNEL_TYPES[groupInfo.platform.toLowerCase()] ?? CHANNEL_TYPES.OPENAI;
       const useResponsesAPI = groupInfo.platform === "openai";
       const tester = new ModelTester(providerConfig.baseUrl, groupInfo.apiKey);
 

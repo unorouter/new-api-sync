@@ -302,42 +302,7 @@ export function inferVendorFromModelName(name: string): string | undefined {
   return undefined;
 }
 
-export function sub2ApiPlatformToChannelType(platform: string): number {
-  return SUB2API_PLATFORM_CHANNEL_TYPES[platform.toLowerCase()] ?? CHANNEL_TYPES.OPENAI;
-}
-
-/**
- * Check if a model name matches non-text patterns.
- */
-export function matchesNonTextPattern(name: string): boolean {
-  const n = name.toLowerCase();
-  return NON_TEXT_MODEL_PATTERNS.some((pattern) => n.includes(pattern));
-}
-
-/**
- * Check if a model is a text model based on name and optional endpoint info.
- */
-export function isTextModel(
-  name: string,
-  endpoints?: string[],
-  modelEndpoints?: Map<string, string[]>
-): boolean {
-  // Endpoint data is authoritative when available
-  const eps = endpoints ?? modelEndpoints?.get(name);
-  if (eps && eps.length > 0) {
-    return eps.some((ep) => TEXT_ENDPOINT_TYPES.has(ep));
-  }
-
-  // No endpoint data — fall back to pattern matching
-  if (matchesNonTextPattern(name)) return false;
-
-  // No data, no pattern match — assume text model
-  return true;
-}
-
 // Endpoint types that indicate a model should NOT be tested with chat completions.
-// If a model has any of these, skip testing even if it also has text endpoints,
-// because the response format won't match what the test harness expects.
 const NON_TESTABLE_ENDPOINT_TYPES = new Set([
   "image-generation",
   "dall-e-3",
@@ -348,10 +313,8 @@ const NON_TESTABLE_ENDPOINT_TYPES = new Set([
 
 /**
  * Check if a model can be tested with the current test harness.
- * The test harness sends chat completions (OpenAI/Gemini) or messages (Anthropic).
- * Models with non-text endpoints (image-generation, embeddings, etc.) cannot be
- * tested this way — even if they also accept the OpenAI chat format, the response
- * won't be a standard text completion.
+ * Models with non-testable endpoints are skipped even if they also have text endpoints.
+ * Without endpoint data, falls back to name pattern matching.
  */
 export function isTestableModel(
   name: string,
@@ -360,13 +323,11 @@ export function isTestableModel(
 ): boolean {
   const eps = endpoints ?? modelEndpoints?.get(name);
   if (eps && eps.length > 0) {
-    // If ANY endpoint is non-testable, skip testing entirely
     if (eps.some((ep) => NON_TESTABLE_ENDPOINT_TYPES.has(ep))) return false;
     return eps.some((ep) => TEXT_ENDPOINT_TYPES.has(ep));
   }
-
-  // No endpoint data — fall back to pattern matching
-  return !matchesNonTextPattern(name);
+  const n = name.toLowerCase();
+  return !NON_TEXT_MODEL_PATTERNS.some((p) => n.includes(p));
 }
 
 /**

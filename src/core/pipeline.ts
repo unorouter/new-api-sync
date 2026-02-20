@@ -7,10 +7,13 @@ import type {
   Channel,
   DesiredModelSpec,
   DesiredState,
+  ProviderConfig,
   ProviderReport,
+  Sub2ApiProviderConfig,
   SyncState
 } from "@/lib/types";
-import { buildAdapters } from "@/providers/factory";
+import { processNewApiProvider } from "@/providers/newapi/provider";
+import { processSub2ApiProvider } from "@/providers/sub2api/provider";
 
 export async function runProviderPipeline(
   config: RuntimeConfig
@@ -22,11 +25,20 @@ export async function runProviderPipeline(
     channelsToCreate: []
   };
 
-  const adapters = buildAdapters(config, state);
+  // Process providers (newapi first, then sub2api)
+  const sorted = [...config.providers].sort(
+    (a, b) => (a.type === "newapi" ? -1 : 0) - (b.type === "newapi" ? -1 : 0)
+  );
   const providerReports: ProviderReport[] = [];
-
-  for (const adapter of adapters) {
-    const report = await adapter.materialize();
+  for (const provider of sorted) {
+    const report =
+      provider.type === "newapi"
+        ? await processNewApiProvider(provider as ProviderConfig, config, state)
+        : await processSub2ApiProvider(
+            provider as Sub2ApiProviderConfig,
+            config,
+            state
+          );
     providerReports.push(report);
   }
 
