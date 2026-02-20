@@ -12,18 +12,10 @@ import type {
 
 const DEFAULT_AUTO_LABEL = "Auto (Smart Routing with Failover)";
 
-function stableObject<T>(input: Record<string, T>): Record<string, T> {
-  return Object.fromEntries(
-    Object.entries(input).sort(([a], [b]) => a.localeCompare(b))
+function stableJson(input: Record<string, unknown>): string {
+  return JSON.stringify(
+    Object.fromEntries(Object.entries(input).sort(([a], [b]) => a.localeCompare(b)))
   );
-}
-
-function parseJsonObject<T>(raw: string | undefined, fallback: T): T {
-  try {
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 function normalizeChannel(channel: Channel): Omit<Channel, "id"> {
@@ -78,8 +70,14 @@ function buildManagedOptionValues(
     }
   }
 
-  const parse = <T>(key: string, fallback: T): T =>
-    parseJsonObject(snapshot.options[key], fallback);
+  const parse = <T>(key: string, fallback: T): T => {
+    try {
+      const raw = snapshot.options[key];
+      return raw ? (JSON.parse(raw) as T) : fallback;
+    } catch {
+      return fallback;
+    }
+  };
 
   const mergedGroupRatio = mergeProtected(
     parse<Record<string, number>>("GroupRatio", {}),
@@ -124,14 +122,14 @@ function buildManagedOptionValues(
   );
 
   return {
-    GroupRatio: JSON.stringify(stableObject(mergedGroupRatio)),
-    UserUsableGroups: JSON.stringify(stableObject(mergedUserGroups)),
+    GroupRatio: stableJson(mergedGroupRatio),
+    UserUsableGroups: stableJson(mergedUserGroups),
     AutoGroups: JSON.stringify(mergedAutoGroups),
     DefaultUseAutoGroup: desired.options.defaultUseAutoGroup ? "true" : "false",
-    ModelRatio: JSON.stringify(stableObject(mergedModelRatio)),
-    CompletionRatio: JSON.stringify(stableObject(mergedCompletionRatio)),
-    ModelPrice: JSON.stringify(stableObject(mergedModelPrice)),
-    ImageRatio: JSON.stringify(stableObject(mergedImageRatio))
+    ModelRatio: stableJson(mergedModelRatio),
+    CompletionRatio: stableJson(mergedCompletionRatio),
+    ModelPrice: stableJson(mergedModelPrice),
+    ImageRatio: stableJson(mergedImageRatio)
   };
 }
 

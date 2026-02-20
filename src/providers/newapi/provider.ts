@@ -9,30 +9,12 @@ import {
 } from "@/lib/constants";
 import type {
   GroupInfo,
-  PriceAdjustment,
   ProviderConfig,
   ProviderReport,
   SyncState
 } from "@/lib/types";
 import { consola } from "consola";
 import { NewApiClient } from "./client";
-
-function groupHasEnabledVendor(
-  group: GroupInfo,
-  enabledVendors: string[]
-): boolean {
-  const vendorSet = new Set(enabledVendors.map((v) => v.toLowerCase()));
-  return group.models.some((modelName) => {
-    const vendor = inferVendorFromModelName(modelName);
-    return vendor && vendorSet.has(vendor);
-  });
-}
-
-function resolvePriceAdj(adjustment: PriceAdjustment | undefined, vendor: string): number {
-  if (adjustment === undefined) return 0;
-  if (typeof adjustment === "number") return adjustment;
-  return adjustment[vendor.toLowerCase()] ?? adjustment["default"] ?? 0;
-}
 
 export async function processNewApiProvider(
   providerConfig: ProviderConfig,
@@ -91,8 +73,12 @@ export async function processNewApiProvider(
 
     // Filter by enabledVendors if specified
     if (providerConfig.enabledVendors?.length) {
+      const vendorSet = new Set(providerConfig.enabledVendors.map((v) => v.toLowerCase()));
       groups = groups.filter((g) =>
-        groupHasEnabledVendor(g, providerConfig.enabledVendors!)
+        g.models.some((m) => {
+          const vendor = inferVendorFromModelName(m);
+          return vendor && vendorSet.has(vendor);
+        })
       );
     }
 
@@ -268,10 +254,10 @@ export async function processNewApiProvider(
       const ratioToModels = new Map<number, string[]>();
       for (const model of mappedModels) {
         const vendor = inferVendorFromModelName(model) ?? "unknown";
-        const vendorAdj = resolvePriceAdj(
-          providerConfig.priceAdjustment,
-          vendor
-        );
+        const adj = providerConfig.priceAdjustment;
+        const vendorAdj = adj === undefined ? 0
+          : typeof adj === "number" ? adj
+          : adj[vendor.toLowerCase()] ?? adj["default"] ?? 0;
         const effectiveRatio = groupRatio * (1 + vendorAdj);
         const key = Math.round(effectiveRatio * 1e6) / 1e6;
         if (!ratioToModels.has(key)) ratioToModels.set(key, []);

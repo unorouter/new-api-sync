@@ -1,5 +1,5 @@
 import { CHANNEL_TYPES, inferChannelType, PAGINATION } from "@/lib/constants";
-import { requestJson } from "@/lib/http";
+import { fetchJson } from "@/lib/http";
 import { ModelTester } from "@/lib/model-tester";
 import type {
   ApiResponse,
@@ -111,7 +111,7 @@ export class NewApiClient {
     let raw: { success: boolean; [key: string]: unknown } | undefined;
     for (const url of urls) {
       try {
-        const body = await requestJson<{
+        const body = await fetchJson<{
           success: boolean;
           [key: string]: unknown;
         }>(url);
@@ -273,7 +273,7 @@ export class NewApiClient {
     const allTokens: UpstreamToken[] = [];
     let page = PAGINATION.START_PAGE_ZERO;
     while (true) {
-      const data = await requestJson<TokenListResponse>(
+      const data = await fetchJson<TokenListResponse>(
         `${this.baseUrl}/api/token/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
         { headers: this.headers }
       );
@@ -291,7 +291,7 @@ export class NewApiClient {
   }
 
   async createToken(name: string, group: string): Promise<void> {
-    const data = await requestJson<{ success: boolean; message?: string }>(
+    const data = await fetchJson<{ success: boolean; message?: string }>(
       `${this.baseUrl}/api/token/`,
       {
         method: "POST",

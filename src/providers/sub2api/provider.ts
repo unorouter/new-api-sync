@@ -11,7 +11,6 @@ import {
 import { ModelTester } from "@/lib/model-tester";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
 import type {
-  PriceAdjustment,
   ProviderReport,
   Sub2ApiProviderConfig,
   SyncState
@@ -24,12 +23,6 @@ interface ResolvedGroup {
   platform: string;
   apiKey: string;
   models: Set<string>;
-}
-
-function resolvePriceAdj(adjustment: PriceAdjustment | undefined, vendor: string): number {
-  if (adjustment === undefined) return 0;
-  if (typeof adjustment === "number") return adjustment;
-  return adjustment[vendor.toLowerCase()] ?? adjustment["default"] ?? 0;
 }
 
 function filterModels(
@@ -205,10 +198,10 @@ export async function processSub2ApiProvider(
     for (const groupInfo of resolvedGroups) {
       const vendor =
         SUB2API_PLATFORM_TO_VENDOR[groupInfo.platform] ?? groupInfo.platform;
-      const adjustment =
-        providerConfig.priceAdjustment !== undefined
-          ? resolvePriceAdj(providerConfig.priceAdjustment, vendor)
-          : defaultAdjustment;
+      const adj = providerConfig.priceAdjustment;
+      const adjustment = adj === undefined ? defaultAdjustment
+        : typeof adj === "number" ? adj
+        : adj[vendor.toLowerCase()] ?? adj["default"] ?? 0;
       const channelType = SUB2API_PLATFORM_CHANNEL_TYPES[groupInfo.platform.toLowerCase()] ?? CHANNEL_TYPES.OPENAI;
       const useResponsesAPI = groupInfo.platform === "openai";
       const tester = new ModelTester(providerConfig.baseUrl, groupInfo.apiKey);

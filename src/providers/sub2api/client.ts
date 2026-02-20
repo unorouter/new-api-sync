@@ -1,4 +1,4 @@
-import { requestJson } from "@/lib/http";
+import { fetchJson } from "@/lib/http";
 import type {
   Sub2ApiAccount,
   Sub2ApiGroup,
@@ -46,7 +46,7 @@ export class Sub2ApiClient {
     const pageSize = 100;
 
     while (true) {
-      const response = await requestJson<
+      const response = await fetchJson<
         Sub2ApiResponse<PaginatedData<Sub2ApiAccount>>
       >(
         `${this.baseUrl}/api/v1/admin/accounts?page=${page}&page_size=${pageSize}`,
@@ -67,7 +67,7 @@ export class Sub2ApiClient {
   }
 
   async getAccountModels(accountId: number): Promise<Sub2ApiModel[]> {
-    const response = await requestJson<Sub2ApiResponse<Sub2ApiModel[]>>(
+    const response = await fetchJson<Sub2ApiResponse<Sub2ApiModel[]>>(
       `${this.baseUrl}/api/v1/admin/accounts/${accountId}/models`,
       { headers: this.adminHeaders }
     );
@@ -83,7 +83,7 @@ export class Sub2ApiClient {
     const pageSize = 100;
 
     while (true) {
-      const response = await requestJson<
+      const response = await fetchJson<
         Sub2ApiResponse<PaginatedData<Sub2ApiGroup>>
       >(
         `${this.baseUrl}/api/v1/admin/groups?page=${page}&page_size=${pageSize}`,
@@ -103,7 +103,7 @@ export class Sub2ApiClient {
   }
 
   async getGroupApiKey(groupId: number): Promise<string | null> {
-    const response = await requestJson<
+    const response = await fetchJson<
       Sub2ApiResponse<PaginatedData<Sub2ApiKey>>
     >(
       `${this.baseUrl}/api/v1/admin/groups/${groupId}/api-keys?page=1&page_size=1`,
@@ -125,7 +125,7 @@ export class Sub2ApiClient {
       Authorization: `Bearer ${apiKey}`
     };
 
-    const response = await requestJson<Record<string, unknown>>(
+    const response = await fetchJson<Record<string, unknown>>(
       `${this.baseUrl}${endpoint}`,
       { headers }
     );

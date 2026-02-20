@@ -3,18 +3,6 @@ import { runReset } from "@/core/reset";
 import { printResetSummary, printRunSummary, runSync } from "@/core/run";
 import { Command } from "commander";
 
-function collectOnly(value: string, previous: string[]): string[] {
-  return [...previous, value];
-}
-
-async function loadRuntimeConfig(
-  configPath: string | undefined,
-  only: string[]
-) {
-  const config = await loadConfig(configPath);
-  return applyOnlyProviders(config, only);
-}
-
 const program = new Command();
 program.name("sync").description("new-api-sync").showHelpAfterError();
 
@@ -25,54 +13,21 @@ program
   .option(
     "--only <providers>",
     "comma-separated provider names",
-    collectOnly,
-    []
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[]
   )
-  .option("--json", "print JSON output")
-  .action(
-    async (options: {
-      config?: string;
-      only: string[];
-      json?: boolean;
-    }) => {
-      const config = await loadRuntimeConfig(options.config, options.only);
-      const result = await runSync(config);
+  .action(async (options: { config?: string; only: string[] }) => {
+    const config = applyOnlyProviders(
+      await loadConfig(options.config),
+      options.only
+    );
+    const result = await runSync(config);
+    printRunSummary(result);
 
-      if (options.json) {
-        console.log(
-          JSON.stringify(
-            {
-              success: result.success,
-              elapsedMs: result.elapsedMs,
-              providers: result.providerReports,
-              diff: {
-                channels: result.diff.channels,
-                models: result.diff.models,
-                options: result.diff.options,
-                cleanupOrphans: result.diff.cleanupOrphans
-              },
-              apply: result.apply,
-              desired: {
-                channels: result.desired.channels,
-                models: [...result.desired.models.values()],
-                options: result.desired.options,
-                managedProviders: [...result.desired.managedProviders],
-                mappingSources: [...result.desired.mappingSources]
-              }
-            },
-            null,
-            2
-          )
-        );
-      } else {
-        printRunSummary(result);
-      }
-
-      if (!result.success) {
-        process.exitCode = 1;
-      }
+    if (!result.success) {
+      process.exitCode = 1;
     }
-  );
+  });
 
 program
   .command("reset")
@@ -81,23 +36,17 @@ program
   .option(
     "--only <providers>",
     "comma-separated provider names",
-    collectOnly,
-    []
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[]
   )
-  .option("--json", "print JSON output")
-  .action(
-    async (options: { config?: string; only: string[]; json?: boolean }) => {
-      const config = await loadRuntimeConfig(options.config, options.only);
-      const result = await runReset(config);
-
-      if (options.json) {
-        console.log(JSON.stringify(result, null, 2));
-        return;
-      }
-
-      printResetSummary(result);
-    }
-  );
+  .action(async (options: { config?: string; only: string[] }) => {
+    const config = applyOnlyProviders(
+      await loadConfig(options.config),
+      options.only
+    );
+    const result = await runReset(config);
+    printResetSummary(result);
+  });
 
 program.parseAsync(process.argv).catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));
