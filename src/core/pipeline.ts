@@ -1,4 +1,8 @@
-import type { RuntimeConfig } from "@/config";
+import type {
+  ProviderConfig,
+  RuntimeConfig,
+  Sub2ApiProviderConfig,
+} from "@/config";
 import {
   ENDPOINT_DEFAULT_PATHS,
   inferVendorFromModelName,
@@ -7,9 +11,7 @@ import type {
   Channel,
   DesiredModelSpec,
   DesiredState,
-  ProviderConfig,
   ProviderReport,
-  Sub2ApiProviderConfig,
   SyncState,
 } from "@/lib/types";
 import { processNewApiProvider } from "@/providers/newapi/provider";
@@ -42,25 +44,10 @@ export async function runProviderPipeline(
     providerReports.push(report);
   }
 
-  // Convert ChannelSpec[] to Channel[] and dedupe by name
+  // Dedupe channels by name (last write wins)
   const channelByName = new Map<string, Channel>();
-  for (const spec of state.channelsToCreate) {
-    channelByName.set(spec.name, {
-      name: spec.name,
-      type: spec.type,
-      key: spec.key,
-      base_url: spec.baseUrl.replace(/\/$/, ""),
-      models: spec.models.join(","),
-      group: spec.group,
-      priority: spec.priority,
-      weight: spec.weight,
-      status: 1,
-      tag: spec.provider,
-      remark: spec.remark,
-      model_mapping: spec.modelMapping
-        ? JSON.stringify(spec.modelMapping)
-        : undefined,
-    });
+  for (const ch of state.channelsToCreate) {
+    channelByName.set(ch.name, ch);
   }
   const channels = [...channelByName.values()];
 

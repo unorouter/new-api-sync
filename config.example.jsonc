@@ -4,7 +4,7 @@
     "systemAccessToken": "target-system-access-token",
     "userId": 1,
   },
-  "blacklist": ["kiro", "nsfw", "test/experimental"],
+  "blacklist": ["kiro", "nsfw", "upstream-main/experimental"],
   "modelMapping": {
     "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929",
   },
@@ -18,14 +18,6 @@
       "enabledVendors": ["anthropic", "openai"],
       "enabledModels": ["claude-*-4-5*", "gpt-5*"],
       "priceAdjustment": -0.67,
-    },
-    {
-      "type": "direct",
-      "name": "moonshot-direct",
-      "vendor": "moonshot",
-      "apiKey": "sk-kimi-your-api-key",
-      "enabledModels": ["kimi-*", "moonshot-*"],
-      "priceAdjustment": -0.1,
     },
     {
       "type": "sub2api",

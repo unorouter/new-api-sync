@@ -15,11 +15,10 @@ export function buildPriceTiers(
     state.mergedGroups.map((g) => [g.name, g.ratio]),
   );
   const cheapestGroupForModel = new Map<string, number>();
-  const allChannels = state.channelsToCreate;
-  for (const ch of allChannels) {
-    if (ch.provider === excludeProvider) continue;
+  for (const ch of state.channelsToCreate) {
+    if (ch.tag === excludeProvider) continue;
     const gRatio = groupRatioByName.get(ch.group) ?? 1;
-    for (const model of ch.models) {
+    for (const model of ch.models.split(",")) {
       const existing = cheapestGroupForModel.get(model);
       if (existing === undefined || gRatio < existing) {
         cheapestGroupForModel.set(model, gRatio);
@@ -69,12 +68,13 @@ export function pushTieredChannels(
       name: tierName,
       type: opts.type,
       key: opts.key,
-      baseUrl: opts.baseUrl,
-      models,
+      base_url: opts.baseUrl.replace(/\/$/, ""),
+      models: models.join(","),
       group: tierName,
       priority: 0,
       weight: 1,
-      provider: opts.provider,
+      status: 1,
+      tag: opts.provider,
       remark: tierName,
     });
 

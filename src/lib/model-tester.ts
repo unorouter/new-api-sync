@@ -1,9 +1,4 @@
 import { CHANNEL_TYPES, TIMEOUTS } from "@/lib/constants";
-import type {
-  ModelTestDetail,
-  TestModelsResult,
-  TestResult,
-} from "@/lib/types";
 
 interface RequestConfig {
   url: string;
@@ -12,142 +7,134 @@ interface RequestConfig {
   isSuccess: (data: unknown) => boolean;
 }
 
-export class ModelTester {
-  constructor(
-    private baseUrl: string,
-    private apiKey: string,
-  ) {}
-
-  private getRequestConfig(
-    model: string,
-    channelType: number,
-    useResponsesAPI: boolean,
-  ): RequestConfig {
-    if (channelType === CHANNEL_TYPES.ANTHROPIC) {
-      return {
-        url: `${this.baseUrl}/v1/messages`,
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": this.apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: {
-          model,
-          messages: [{ role: "user", content: "hi" }],
-          max_tokens: 1,
-        },
-        isSuccess: (data) => (data as { type?: string }).type !== "error",
-      };
-    }
-    if (channelType === CHANNEL_TYPES.GEMINI) {
-      return {
-        url: `${this.baseUrl}/v1beta/models/${model}:generateContent?key=${this.apiKey}`,
-        headers: { "Content-Type": "application/json" },
-        body: {
-          contents: [{ parts: [{ text: "hi" }] }],
-          generationConfig: { maxOutputTokens: 1 },
-        },
-        isSuccess: (data) => !(data as { error?: unknown }).error,
-      };
-    }
-    if (useResponsesAPI) {
-      return {
-        url: `${this.baseUrl}/v1/responses`,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: {
-          model,
-          input: [
-            { role: "user", content: [{ type: "input_text", text: "hi" }] },
-          ],
-          max_output_tokens: 1,
-          store: false,
-        },
-        isSuccess: (data) => !(data as { error?: unknown }).error,
-      };
-    }
+function getRequestConfig(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  channelType: number,
+  useResponsesAPI: boolean,
+): RequestConfig {
+  if (channelType === CHANNEL_TYPES.ANTHROPIC) {
     return {
-      url: `${this.baseUrl}/v1/chat/completions`,
+      url: `${baseUrl}/v1/messages`,
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
       },
       body: {
         model,
         messages: [{ role: "user", content: "hi" }],
         max_tokens: 1,
       },
+      isSuccess: (data) => (data as { type?: string }).type !== "error",
+    };
+  }
+  if (channelType === CHANNEL_TYPES.GEMINI) {
+    return {
+      url: `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      headers: { "Content-Type": "application/json" },
+      body: {
+        contents: [{ parts: [{ text: "hi" }] }],
+        generationConfig: { maxOutputTokens: 1 },
+      },
       isSuccess: (data) => !(data as { error?: unknown }).error,
     };
   }
-
-  private async testRequest(
-    config: RequestConfig,
-    timeoutMs: number,
-  ): Promise<TestResult> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const response = await fetch(config.url, {
-          method: "POST",
-          headers: config.headers,
-          body: JSON.stringify(config.body),
-          signal: controller.signal,
-        });
-        if (!response.ok) return { success: false };
-        const data = await response.json();
-        return { success: config.isSuccess(data) };
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } catch {
-      return { success: false };
-    }
-  }
-
-  async testModel(
-    model: string,
-    channelType: number,
-    timeoutMs: number = TIMEOUTS.MODEL_TEST_MS,
-    useResponsesAPI = false,
-  ): Promise<TestResult> {
-    return this.testRequest(
-      this.getRequestConfig(model, channelType, useResponsesAPI),
-      timeoutMs,
-    );
-  }
-
-  async testModels(
-    models: string[],
-    channelType: number,
-    useResponsesAPI = false,
-    concurrency = 5,
-    timeoutMs: number = TIMEOUTS.MODEL_TEST_MS,
-  ): Promise<TestModelsResult> {
-    const results: ModelTestDetail[] = [];
-
-    for (let i = 0; i < models.length; i += concurrency) {
-      const batch = models.slice(i, i + concurrency);
-      const batchResults = await Promise.all(
-        batch.map(async (model) => {
-          const result = await this.testModel(
-            model,
-            channelType,
-            timeoutMs,
-            useResponsesAPI,
-          );
-          return { model, success: result.success };
-        }),
-      );
-      results.push(...batchResults);
-    }
-
+  if (useResponsesAPI) {
     return {
-      workingModels: results.filter((r) => r.success).map((r) => r.model),
-      details: results,
+      url: `${baseUrl}/v1/responses`,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: {
+        model,
+        input: [
+          { role: "user", content: [{ type: "input_text", text: "hi" }] },
+        ],
+        max_output_tokens: 1,
+        store: false,
+      },
+      isSuccess: (data) => !(data as { error?: unknown }).error,
     };
   }
+  return {
+    url: `${baseUrl}/v1/chat/completions`,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: {
+      model,
+      messages: [{ role: "user", content: "hi" }],
+      max_tokens: 1,
+    },
+    isSuccess: (data) => !(data as { error?: unknown }).error,
+  };
+}
+
+async function testRequest(
+  config: RequestConfig,
+  timeoutMs: number,
+): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(config.url, {
+        method: "POST",
+        headers: config.headers,
+        body: JSON.stringify(config.body),
+        signal: controller.signal,
+      });
+      if (!response.ok) return false;
+      const data = await response.json();
+      return config.isSuccess(data);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  } catch {
+    return false;
+  }
+}
+
+export async function testModels(
+  baseUrl: string,
+  apiKey: string,
+  models: string[],
+  channelType: number,
+  useResponsesAPI = false,
+  concurrency = 5,
+  timeoutMs: number = TIMEOUTS.MODEL_TEST_MS,
+): Promise<{
+  workingModels: string[];
+  details: Array<{ model: string; success: boolean }>;
+}> {
+  const results: Array<{ model: string; success: boolean }> = [];
+
+  for (let i = 0; i < models.length; i += concurrency) {
+    const batch = models.slice(i, i + concurrency);
+    const batchResults = await Promise.all(
+      batch.map(async (model) => {
+        const success = await testRequest(
+          getRequestConfig(
+            baseUrl,
+            apiKey,
+            model,
+            channelType,
+            useResponsesAPI,
+          ),
+          timeoutMs,
+        );
+        return { model, success };
+      }),
+    );
+    results.push(...batchResults);
+  }
+
+  return {
+    workingModels: results.filter((r) => r.success).map((r) => r.model),
+    details: results,
+  };
 }

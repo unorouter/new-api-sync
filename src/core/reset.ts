@@ -44,7 +44,7 @@ export async function runReset(config: RuntimeConfig): Promise<ResetResult> {
     }
   }
 
-  const options = {
+  const options: Record<string, string> = {
     GroupRatio: "{}",
     UserUsableGroups: JSON.stringify({
       auto: "Auto (Smart Routing with Failover)",
@@ -57,13 +57,16 @@ export async function runReset(config: RuntimeConfig): Promise<ResetResult> {
     ImageRatio: "{}",
   };
 
-  const optionsResult = await target.updateOptions(options);
+  const optionsUpdated: string[] = [];
+  for (const [key, value] of Object.entries(options)) {
+    if (await target.updateOption(key, value)) optionsUpdated.push(key);
+  }
 
   return {
     channelsDeleted,
     modelsDeleted,
     orphanModelsDeleted,
     tokensDeleted,
-    optionsUpdated: optionsResult.updated,
+    optionsUpdated,
   };
 }

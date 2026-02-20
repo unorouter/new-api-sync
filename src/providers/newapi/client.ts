@@ -1,22 +1,96 @@
 import { CHANNEL_TYPES, inferChannelType, PAGINATION } from "@/lib/constants";
 import { fetchJson } from "@/lib/http";
-import { ModelTester } from "@/lib/model-tester";
-import type {
-  ApiResponse,
-  Channel,
-  GroupInfo,
-  ModelInfo,
-  ModelMeta,
-  NewApiConfig,
-  PricingResponse,
-  PricingResponseV2,
-  TestModelsResult,
-  TokenListResponse,
-  UpstreamPricing,
-  UpstreamToken,
-  Vendor,
-} from "@/lib/types";
+import type { Channel, GroupInfo, ModelMeta, Vendor } from "@/lib/types";
 import { consola } from "consola";
+
+// ============ Client-local types ============
+
+interface ApiResponse<T = unknown> {
+  success: boolean;
+  message?: string;
+  data?: T;
+}
+
+interface ModelInfo {
+  name: string;
+  ratio: number;
+  completionRatio: number;
+  groups: string[];
+  vendorId?: number;
+  supportedEndpoints?: string[];
+  modelPrice?: number;
+}
+
+interface UpstreamPricing {
+  groups: GroupInfo[];
+  models: ModelInfo[];
+  groupRatios: Record<string, number>;
+  modelRatios: Record<string, number>;
+  completionRatios: Record<string, number>;
+  vendorIdToName: Record<number, string>;
+}
+
+interface UpstreamToken {
+  id: number;
+  name: string;
+  key: string;
+  group: string;
+  status: number;
+}
+
+interface PricingResponse {
+  success: boolean;
+  data: Array<{
+    model_name: string;
+    vendor_id?: number;
+    quota_type: number;
+    model_ratio: number;
+    model_price: number;
+    completion_ratio: number;
+    enable_groups: string[];
+    supported_endpoint_types: string[];
+  }>;
+  group_ratio: Record<string, number>;
+  usable_group: Record<string, string>;
+  vendors?: Array<{ id: number; name: string }>;
+}
+
+interface PricingResponseV2 {
+  success: boolean;
+  data: {
+    model_group: Record<
+      string,
+      {
+        DisplayName: string;
+        GroupRatio: number;
+        ModelPrice: Record<string, { priceType: number; price: number }>;
+      }
+    >;
+    model_info: Record<
+      string,
+      {
+        key: string;
+        name: string;
+        supplier?: string;
+        tags?: string[];
+      }
+    >;
+    model_completion_ratio: Record<string, number>;
+    group_special: Record<string, string[]>;
+    owner_by: Record<string, unknown>;
+  };
+}
+
+interface TokenListResponse {
+  success: boolean;
+  data: { data?: UpstreamToken[]; items?: UpstreamToken[] } | UpstreamToken[];
+}
+
+export interface NewApiConfig {
+  baseUrl: string;
+  systemAccessToken: string;
+  userId: number;
+}
 
 export class NewApiClient {
   private config: NewApiConfig;
@@ -48,10 +122,13 @@ export class NewApiClient {
   }
 
   /**
-   * Quick health check: verifies the instance is reachable and the access token is valid.
-   * Calls /api/user/self and checks for a successful authenticated response.
+   * Health check: verifies the instance is reachable and returns the balance.
    */
-  async healthCheck(): Promise<{ ok: boolean; error?: string }> {
+  async healthCheck(): Promise<{
+    ok: boolean;
+    balance?: string;
+    error?: string;
+  }> {
     try {
       const response = await fetch(`${this.baseUrl}/api/user/self`, {
         headers: this.headers,
@@ -66,6 +143,7 @@ export class NewApiClient {
       const data = (await response.json()) as {
         success: boolean;
         message?: string;
+        data?: { quota?: number; used_quota?: number };
       };
       if (!data.success) {
         return {
@@ -73,30 +151,13 @@ export class NewApiClient {
           error: data.message ?? "API returned success: false",
         };
       }
-      return { ok: true };
+      const quota = data.data?.quota;
+      const balance =
+        quota !== undefined ? `$${(quota / 500000).toFixed(2)}` : undefined;
+      return { ok: true, balance };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return { ok: false, error: msg };
-    }
-  }
-
-  // ============ Provider Methods (fetch from upstream) ============
-
-  async fetchBalance(): Promise<string> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/user/self`, {
-        headers: this.headers,
-      });
-      if (!response.ok) return "N/A";
-      const data = (await response.json()) as {
-        success: boolean;
-        data?: { quota?: number; used_quota?: number };
-      };
-      if (!data.success || !data.data) return "N/A";
-      const quota = (data.data.quota ?? 0) / 500000;
-      return `$${quota.toFixed(2)}`;
-    } catch {
-      return "N/A";
     }
   }
 
@@ -310,17 +371,6 @@ export class NewApiClient {
     }
   }
 
-  async testModelsWithKey(
-    apiKey: string,
-    models: string[],
-    channelType: number,
-  ): Promise<TestModelsResult> {
-    return new ModelTester(this.baseUrl, apiKey).testModels(
-      models,
-      channelType,
-    );
-  }
-
   async ensureTokens(
     groups: GroupInfo[],
     prefix: string,
@@ -391,13 +441,6 @@ export class NewApiClient {
     return data.success;
   }
 
-  async deleteTokenByName(tokenName: string): Promise<boolean> {
-    const tokens = await this.listTokens();
-    const token = tokens.find((t) => t.name === tokenName);
-    if (!token) return false;
-    return this.deleteToken(token.id);
-  }
-
   // ============ Target Methods (sync to target instance) ============
 
   async getOptions(keys: string[]): Promise<Record<string, string>> {
@@ -427,18 +470,6 @@ export class NewApiClient {
     if (!response.ok) return false;
     const data = (await response.json()) as ApiResponse;
     return data.success;
-  }
-
-  async updateOptions(
-    options: Record<string, string>,
-  ): Promise<{ updated: string[]; failed: string[] }> {
-    const updated: string[] = [];
-    const failed: string[] = [];
-    for (const [key, value] of Object.entries(options)) {
-      if (await this.updateOption(key, value)) updated.push(key);
-      else failed.push(key);
-    }
-    return { updated, failed };
   }
 
   private async paginatedFetch<T>(

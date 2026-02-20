@@ -1,4 +1,4 @@
-import type { RuntimeConfig } from "@/config";
+import type { ProviderConfig, RuntimeConfig } from "@/config";
 import {
   inferChannelTypeFromModels,
   inferVendorFromModelName,
@@ -7,12 +7,8 @@ import {
   matchesBlacklist,
   sanitizeGroupName,
 } from "@/lib/constants";
-import type {
-  GroupInfo,
-  ProviderConfig,
-  ProviderReport,
-  SyncState,
-} from "@/lib/types";
+import { testModels } from "@/lib/model-tester";
+import type { GroupInfo, ProviderReport, SyncState } from "@/lib/types";
 import { consola } from "consola";
 import { NewApiClient } from "./client";
 
@@ -214,7 +210,8 @@ export async function processNewApiProvider(
       const testedCount = testableModels.length;
       let testedWorkingModels: string[] = [];
       if (apiKey && testableModels.length > 0) {
-        const testResult = await upstream.testModelsWithKey(
+        const testResult = await testModels(
+          providerConfig.baseUrl,
           apiKey,
           testableModels,
           group.channelType,
@@ -303,16 +300,17 @@ export async function processNewApiProvider(
           name: tierName,
           type: channelType,
           key: tokenResult.tokens[group.name] ?? "",
-          baseUrl: providerConfig.baseUrl,
-          models,
+          base_url: providerConfig.baseUrl.replace(/\/$/, ""),
+          models: models.join(","),
           group: tierName,
           priority: 0,
           weight: 1,
-          provider: providerConfig.name,
+          status: 1,
+          tag: providerConfig.name,
           remark: originalName,
-          modelMapping:
+          model_mapping:
             Object.keys(tierModelMapping).length > 0
-              ? tierModelMapping
+              ? JSON.stringify(tierModelMapping)
               : undefined,
         });
         tierIdx++;
@@ -320,11 +318,14 @@ export async function processNewApiProvider(
     }
 
     // Delete tokens for groups with no working models
-    for (const groupName of groupsWithNoWorkingModels) {
-      const tokenName = `${groupName}-${providerConfig.name}`;
-      const deleted = await upstream.deleteTokenByName(tokenName);
-      if (deleted) {
-        providerReport.tokens.deleted++;
+    if (groupsWithNoWorkingModels.length > 0) {
+      const allTokens = await upstream.listTokens();
+      for (const groupName of groupsWithNoWorkingModels) {
+        const tokenName = `${groupName}-${providerConfig.name}`;
+        const token = allTokens.find((t) => t.name === tokenName);
+        if (token && (await upstream.deleteToken(token.id))) {
+          providerReport.tokens.deleted++;
+        }
       }
     }
 

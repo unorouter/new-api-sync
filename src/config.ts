@@ -19,6 +19,35 @@ const ProviderCommon = z.object({
   priceAdjustment: PriceAdjustmentSchema.optional(),
 });
 
+const NewApiProviderSchema = ProviderCommon.extend({
+  type: z.literal("newapi"),
+  baseUrl: z.url(),
+  systemAccessToken: str,
+  userId: z.number().int().positive(),
+});
+
+const Sub2ApiProviderSchema = ProviderCommon.extend({
+  type: z.literal("sub2api"),
+  baseUrl: z.url(),
+  adminApiKey: str.optional(),
+  groups: z
+    .array(z.object({ key: str, platform: str, name: str.optional() }))
+    .min(1)
+    .optional(),
+}).superRefine((p, ctx) => {
+  if (!p.adminApiKey && (!p.groups || p.groups.length === 0)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["adminApiKey"],
+      message: "sub2api provider requires adminApiKey or groups",
+    });
+  }
+});
+
+export type ProviderConfig = z.output<typeof NewApiProviderSchema>;
+export type Sub2ApiProviderConfig = z.output<typeof Sub2ApiProviderSchema>;
+export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig;
+
 const ConfigSchema = z
   .object({
     target: z.object({
@@ -31,31 +60,8 @@ const ConfigSchema = z
     providers: z
       .array(
         z.discriminatedUnion("type", [
-          ProviderCommon.extend({
-            type: z.literal("newapi"),
-            baseUrl: z.url(),
-            systemAccessToken: str,
-            userId: z.number().int().positive(),
-          }),
-          ProviderCommon.extend({
-            type: z.literal("sub2api"),
-            baseUrl: z.url(),
-            adminApiKey: str.optional(),
-            groups: z
-              .array(
-                z.object({ key: str, platform: str, name: str.optional() }),
-              )
-              .min(1)
-              .optional(),
-          }).superRefine((p, ctx) => {
-            if (!p.adminApiKey && (!p.groups || p.groups.length === 0)) {
-              ctx.addIssue({
-                code: "custom",
-                path: ["adminApiKey"],
-                message: "sub2api provider requires adminApiKey or groups",
-              });
-            }
-          }),
+          NewApiProviderSchema,
+          Sub2ApiProviderSchema,
         ]),
       )
       .min(1),

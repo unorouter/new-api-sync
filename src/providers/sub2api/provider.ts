@@ -1,4 +1,4 @@
-import type { RuntimeConfig } from "@/config";
+import type { RuntimeConfig, Sub2ApiProviderConfig } from "@/config";
 import {
   CHANNEL_TYPES,
   isTestableModel,
@@ -8,13 +8,9 @@ import {
   SUB2API_PLATFORM_TO_VENDOR,
   VENDOR_TO_SUB2API_PLATFORMS,
 } from "@/lib/constants";
-import { ModelTester } from "@/lib/model-tester";
+import { testModels } from "@/lib/model-tester";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
-import type {
-  ProviderReport,
-  Sub2ApiProviderConfig,
-  SyncState,
-} from "@/lib/types";
+import type { ProviderReport, SyncState } from "@/lib/types";
 import { consola } from "consola";
 import { Sub2ApiClient } from "./client";
 
@@ -210,7 +206,6 @@ export async function processSub2ApiProvider(
         SUB2API_PLATFORM_CHANNEL_TYPES[groupInfo.platform.toLowerCase()] ??
         CHANNEL_TYPES.OPENAI;
       const useResponsesAPI = groupInfo.platform === "openai";
-      const tester = new ModelTester(providerConfig.baseUrl, groupInfo.apiKey);
 
       // Partition into testable (text endpoints) and non-testable (image-only, etc.)
       const allGroupModels = [...groupInfo.models];
@@ -222,7 +217,9 @@ export async function processSub2ApiProvider(
       let testedWorkingModels: string[] = [];
 
       if (testableModels.length > 0) {
-        const testResult = await tester.testModels(
+        const testResult = await testModels(
+          providerConfig.baseUrl,
+          groupInfo.apiKey,
           testableModels,
           channelType,
           useResponsesAPI,
