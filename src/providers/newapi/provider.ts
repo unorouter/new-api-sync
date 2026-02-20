@@ -297,7 +297,7 @@ export async function processNewApiProvider(
       }
 
       // Group models by their effective ratio (per-vendor/type priceAdjustment may differ)
-      const ratioToModels = new Map<number, string[]>();
+      const ratioToModels = new Map<number, { models: string[]; nonText: boolean }>();
       for (const model of mappedModels) {
         const vendor = inferVendorFromModelName(model) ?? "unknown";
         const modelType = inferModelType(model, undefined, state.modelEndpoints);
@@ -310,15 +310,15 @@ export async function processNewApiProvider(
               : (adj[vendor.toLowerCase()] ?? adj[modelType] ?? adj["default"] ?? 0);
         const effectiveRatio = groupRatio * (1 + vendorAdj);
         const key = Math.round(effectiveRatio * 1e6) / 1e6;
-        if (!ratioToModels.has(key)) ratioToModels.set(key, []);
-        ratioToModels.get(key)!.push(model);
+        if (!ratioToModels.has(key)) ratioToModels.set(key, { models: [], nonText: modelType !== "text" });
+        ratioToModels.get(key)!.models.push(model);
       }
 
       // Create a channel per distinct ratio tier
       let tierIdx = 0;
-      for (const [effectiveRatio, models] of ratioToModels) {
-        // Skip vendor subsets that end up > 1 after per-vendor adjustment
-        if (effectiveRatio > 1) continue;
+      for (const [effectiveRatio, { models, nonText }] of ratioToModels) {
+        // Skip text model tiers that end up > 1 after adjustment; non-text (image, video, etc.) are allowed above 1
+        if (effectiveRatio > 1 && !nonText) continue;
 
         const suffix = ratioToModels.size > 1 ? `-t${tierIdx}` : "";
         const tierName = `${sanitizedName}${suffix}`;
