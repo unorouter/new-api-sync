@@ -7,8 +7,8 @@ const str = z.string().trim().min(1);
 const PriceAdjustmentSchema = z.union([
   z.number().gt(-1).lt(1),
   z.record(z.string(), z.number().gt(-1).lt(1)).refine((v) => "default" in v, {
-    message: "priceAdjustment object must contain a default key"
-  })
+    message: "priceAdjustment object must contain a default key",
+  }),
 ]);
 
 const ProviderCommon = z.object({
@@ -16,7 +16,7 @@ const ProviderCommon = z.object({
   enabledGroups: z.array(str).optional(),
   enabledVendors: z.array(str).optional(),
   enabledModels: z.array(str).optional(),
-  priceAdjustment: PriceAdjustmentSchema.optional()
+  priceAdjustment: PriceAdjustmentSchema.optional(),
 });
 
 const ConfigSchema = z
@@ -24,7 +24,7 @@ const ConfigSchema = z
     target: z.object({
       baseUrl: z.url(),
       systemAccessToken: str,
-      userId: z.number().int().positive()
+      userId: z.number().int().positive(),
     }),
     blacklist: z.array(str).default([]),
     modelMapping: z.record(z.string(), z.string()).default({}),
@@ -35,7 +35,7 @@ const ConfigSchema = z
             type: z.literal("newapi"),
             baseUrl: z.url(),
             systemAccessToken: str,
-            userId: z.number().int().positive()
+            userId: z.number().int().positive(),
           }),
           ProviderCommon.extend({
             type: z.literal("sub2api"),
@@ -43,22 +43,22 @@ const ConfigSchema = z
             adminApiKey: str.optional(),
             groups: z
               .array(
-                z.object({ key: str, platform: str, name: str.optional() })
+                z.object({ key: str, platform: str, name: str.optional() }),
               )
               .min(1)
-              .optional()
+              .optional(),
           }).superRefine((p, ctx) => {
             if (!p.adminApiKey && (!p.groups || p.groups.length === 0)) {
               ctx.addIssue({
                 code: "custom",
                 path: ["adminApiKey"],
-                message: "sub2api provider requires adminApiKey or groups"
+                message: "sub2api provider requires adminApiKey or groups",
               });
             }
-          })
-        ])
+          }),
+        ]),
       )
-      .min(1)
+      .min(1),
   })
   .superRefine((config, ctx) => {
     const seen = new Set<string>();
@@ -67,7 +67,7 @@ const ConfigSchema = z
         ctx.addIssue({
           code: "custom",
           path: ["providers", i, "name"],
-          message: `duplicate provider name: ${p.name}`
+          message: `duplicate provider name: ${p.name}`,
         });
       }
       seen.add(p.name);
@@ -101,7 +101,7 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
     parsedRaw = Bun.JSONC.parse(await file.text());
   } catch (error) {
     throw new Error(
-      `Invalid JSONC in ${resolvedPath}: ${error instanceof Error ? error.message : String(error)}`
+      `Invalid JSONC in ${resolvedPath}: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 
@@ -111,9 +111,9 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
       `Config validation failed:\n${(parsed.error as ZodError).issues
         .map(
           (i) =>
-            `${i.path.length > 0 ? i.path.join(".") : "root"}: ${i.message}`
+            `${i.path.length > 0 ? i.path.join(".") : "root"}: ${i.message}`,
         )
-        .join("\n")}`
+        .join("\n")}`,
     );
   }
 
@@ -122,7 +122,7 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
 
 export function applyOnlyProviders(
   config: RuntimeConfig,
-  onlyNames: string[]
+  onlyNames: string[],
 ): RuntimeConfig {
   if (onlyNames.length === 0) return config;
 
@@ -137,7 +137,7 @@ export function applyOnlyProviders(
   const unknown = normalized.filter((name) => !available.has(name));
   if (unknown.length > 0) {
     throw new Error(
-      `Unknown provider(s): ${unknown.join(", ")}. Available: ${[...available].join(", ")}`
+      `Unknown provider(s): ${unknown.join(", ")}. Available: ${[...available].join(", ")}`,
     );
   }
 
@@ -145,6 +145,6 @@ export function applyOnlyProviders(
   return {
     ...config,
     providers: config.providers.filter((p) => onlySet.has(p.name)),
-    onlyProviders: onlySet
+    onlyProviders: onlySet,
   };
 }

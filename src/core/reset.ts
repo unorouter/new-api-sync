@@ -12,7 +12,7 @@ export interface ResetResult {
 export async function runReset(config: RuntimeConfig): Promise<ResetResult> {
   const target = new NewApiClient(config.target, "target");
   const providerNames = new Set(
-    config.providers.map((provider) => provider.name)
+    config.providers.map((provider) => provider.name),
   );
 
   let channelsDeleted = 0;
@@ -47,14 +47,14 @@ export async function runReset(config: RuntimeConfig): Promise<ResetResult> {
   const options = {
     GroupRatio: "{}",
     UserUsableGroups: JSON.stringify({
-      auto: "Auto (Smart Routing with Failover)"
+      auto: "Auto (Smart Routing with Failover)",
     }),
     AutoGroups: "[]",
     DefaultUseAutoGroup: "true",
     ModelRatio: "{}",
     CompletionRatio: "{}",
     ModelPrice: "{}",
-    ImageRatio: "{}"
+    ImageRatio: "{}",
   };
 
   const optionsResult = await target.updateOptions(options);
@@ -64,6 +64,6 @@ export async function runReset(config: RuntimeConfig): Promise<ResetResult> {
     modelsDeleted,
     orphanModelsDeleted,
     tokensDeleted,
-    optionsUpdated: optionsResult.updated
+    optionsUpdated: optionsResult.updated,
   };
 }

@@ -14,12 +14,12 @@ program
     "--only <providers>",
     "comma-separated provider names",
     (value: string, prev: string[]) => [...prev, value],
-    [] as string[]
+    [] as string[],
   )
   .action(async (options: { config?: string; only: string[] }) => {
     const config = applyOnlyProviders(
       await loadConfig(options.config),
-      options.only
+      options.only,
     );
     const result = await runSync(config);
     printRunSummary(result);
@@ -37,12 +37,12 @@ program
     "--only <providers>",
     "comma-separated provider names",
     (value: string, prev: string[]) => [...prev, value],
-    [] as string[]
+    [] as string[],
   )
   .action(async (options: { config?: string; only: string[] }) => {
     const config = applyOnlyProviders(
       await loadConfig(options.config),
-      options.only
+      options.only,
     );
     const result = await runReset(config);
     printResetSummary(result);

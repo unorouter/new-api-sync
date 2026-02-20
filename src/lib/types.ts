@@ -251,17 +251,23 @@ export interface PricingResponse {
 export interface PricingResponseV2 {
   success: boolean;
   data: {
-    model_group: Record<string, {
-      DisplayName: string;
-      GroupRatio: number;
-      ModelPrice: Record<string, { priceType: number; price: number }>;
-    }>;
-    model_info: Record<string, {
-      key: string;
-      name: string;
-      supplier?: string;
-      tags?: string[];
-    }>;
+    model_group: Record<
+      string,
+      {
+        DisplayName: string;
+        GroupRatio: number;
+        ModelPrice: Record<string, { priceType: number; price: number }>;
+      }
+    >;
+    model_info: Record<
+      string,
+      {
+        key: string;
+        name: string;
+        supplier?: string;
+        tags?: string[];
+      }
+    >;
     model_completion_ratio: Record<string, number>;
     group_special: Record<string, string[]>;
     owner_by: Record<string, unknown>;
@@ -346,7 +352,12 @@ export interface ApplyError {
 
 export interface ApplyReport {
   channels: { created: number; updated: number; deleted: number };
-  models: { created: number; updated: number; deleted: number; orphansDeleted: number };
+  models: {
+    created: number;
+    updated: number;
+    deleted: number;
+    orphansDeleted: number;
+  };
   options: { updated: string[] };
   errors: ApplyError[];
 }

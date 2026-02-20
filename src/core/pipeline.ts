@@ -1,7 +1,7 @@
 import type { RuntimeConfig } from "@/config";
 import {
   ENDPOINT_DEFAULT_PATHS,
-  inferVendorFromModelName
+  inferVendorFromModelName,
 } from "@/lib/constants";
 import type {
   Channel,
@@ -10,24 +10,24 @@ import type {
   ProviderConfig,
   ProviderReport,
   Sub2ApiProviderConfig,
-  SyncState
+  SyncState,
 } from "@/lib/types";
 import { processNewApiProvider } from "@/providers/newapi/provider";
 import { processSub2ApiProvider } from "@/providers/sub2api/provider";
 
 export async function runProviderPipeline(
-  config: RuntimeConfig
+  config: RuntimeConfig,
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
   const state: SyncState = {
     mergedGroups: [],
     mergedModels: new Map(),
     modelEndpoints: new Map(),
-    channelsToCreate: []
+    channelsToCreate: [],
   };
 
   // Process providers (newapi first, then sub2api)
   const sorted = [...config.providers].sort(
-    (a, b) => (a.type === "newapi" ? -1 : 0) - (b.type === "newapi" ? -1 : 0)
+    (a, b) => (a.type === "newapi" ? -1 : 0) - (b.type === "newapi" ? -1 : 0),
   );
   const providerReports: ProviderReport[] = [];
   for (const provider of sorted) {
@@ -37,7 +37,7 @@ export async function runProviderPipeline(
         : await processSub2ApiProvider(
             provider as Sub2ApiProviderConfig,
             config,
-            state
+            state,
           );
     providerReports.push(report);
   }
@@ -59,14 +59,14 @@ export async function runProviderPipeline(
       remark: spec.remark,
       model_mapping: spec.modelMapping
         ? JSON.stringify(spec.modelMapping)
-        : undefined
+        : undefined,
     });
   }
   const channels = [...channelByName.values()];
 
   const groupRatio: Record<string, number> = {};
   const userUsableGroups: Record<string, string> = {
-    auto: "Auto (Smart Routing with Failover)"
+    auto: "Auto (Smart Routing with Failover)",
   };
 
   for (const group of state.mergedGroups) {
@@ -118,7 +118,7 @@ export async function runProviderPipeline(
       models.set(modelName, {
         model_name: modelName,
         vendor,
-        endpoints
+        endpoints,
       });
     }
   }
@@ -136,12 +136,12 @@ export async function runProviderPipeline(
         completionRatio,
         modelPrice,
         imageRatio,
-        defaultUseAutoGroup: true
+        defaultUseAutoGroup: true,
       },
       managedProviders: new Set(
-        config.providers.map((provider) => provider.name)
+        config.providers.map((provider) => provider.name),
       ),
-      mappingSources: new Set(Object.keys(config.modelMapping))
-    }
+      mappingSources: new Set(Object.keys(config.modelMapping)),
+    },
   };
 }

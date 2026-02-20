@@ -3,13 +3,13 @@ import type { NewApiClient } from "@/providers/newapi/client";
 
 export async function applySyncDiff(
   target: NewApiClient,
-  diff: SyncDiff
+  diff: SyncDiff,
 ): Promise<ApplyReport> {
   const report: ApplyReport = {
     channels: { created: 0, updated: 0, deleted: 0 },
     models: { created: 0, updated: 0, deleted: 0, orphansDeleted: 0 },
     options: { updated: [] },
-    errors: []
+    errors: [],
   };
 
   for (const op of diff.options) {
@@ -22,7 +22,7 @@ export async function applySyncDiff(
     report.errors.push({
       phase: "options",
       key: op.key,
-      message: "failed to update option"
+      message: "failed to update option",
     });
   }
 
@@ -36,7 +36,7 @@ export async function applySyncDiff(
         report.errors.push({
           phase: "channels",
           key: op.key,
-          message: "failed to create channel"
+          message: "failed to create channel",
         });
       }
       continue;
@@ -50,7 +50,7 @@ export async function applySyncDiff(
         report.errors.push({
           phase: "channels",
           key: op.key,
-          message: "failed to update channel"
+          message: "failed to update channel",
         });
       }
       continue;
@@ -60,7 +60,7 @@ export async function applySyncDiff(
       report.errors.push({
         phase: "channels",
         key: op.key,
-        message: "missing channel id for delete"
+        message: "missing channel id for delete",
       });
       continue;
     }
@@ -72,7 +72,7 @@ export async function applySyncDiff(
       report.errors.push({
         phase: "channels",
         key: op.key,
-        message: "failed to delete channel"
+        message: "failed to delete channel",
       });
     }
   }
@@ -86,7 +86,7 @@ export async function applySyncDiff(
         report.errors.push({
           phase: "models",
           key: op.key,
-          message: "failed to create model"
+          message: "failed to create model",
         });
       }
       continue;
@@ -100,7 +100,7 @@ export async function applySyncDiff(
         report.errors.push({
           phase: "models",
           key: op.key,
-          message: "failed to update model"
+          message: "failed to update model",
         });
       }
       continue;
@@ -110,7 +110,7 @@ export async function applySyncDiff(
       report.errors.push({
         phase: "models",
         key: op.key,
-        message: "missing model id for delete"
+        message: "missing model id for delete",
       });
       continue;
     }
@@ -122,7 +122,7 @@ export async function applySyncDiff(
       report.errors.push({
         phase: "models",
         key: op.key,
-        message: "failed to delete model"
+        message: "failed to delete model",
       });
     }
   }
@@ -134,7 +134,7 @@ export async function applySyncDiff(
       report.errors.push({
         phase: "cleanup",
         key: "orphaned-models",
-        message: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : String(error),
       });
     }
   }

@@ -5,13 +5,13 @@ import {
   isTestableModel,
   matchesAnyPattern,
   matchesBlacklist,
-  sanitizeGroupName
+  sanitizeGroupName,
 } from "@/lib/constants";
 import type {
   GroupInfo,
   ProviderConfig,
   ProviderReport,
-  SyncState
+  SyncState,
 } from "@/lib/types";
 import { consola } from "consola";
 import { NewApiClient } from "./client";
@@ -19,14 +19,14 @@ import { NewApiClient } from "./client";
 export async function processNewApiProvider(
   providerConfig: ProviderConfig,
   config: RuntimeConfig,
-  state: SyncState
+  state: SyncState,
 ): Promise<ProviderReport> {
   const providerReport: ProviderReport = {
     name: providerConfig.name,
     success: false,
     groups: 0,
     models: 0,
-    tokens: { created: 0, existing: 0, deleted: 0 }
+    tokens: { created: 0, existing: 0, deleted: 0 },
   };
 
   try {
@@ -45,9 +45,9 @@ export async function processNewApiProvider(
     const anthropicModels = new Set(
       pricing.models
         .filter(
-          (m) => m.name.toLowerCase().includes("claude") || m.vendorId === 2
+          (m) => m.name.toLowerCase().includes("claude") || m.vendorId === 2,
         )
-        .map((m) => m.name)
+        .map((m) => m.name),
     );
     const enabledSet = new Set(providerConfig.enabledGroups ?? []);
     const suggestedGroups = pricing.groups.filter((g) => {
@@ -58,7 +58,7 @@ export async function processNewApiProvider(
 
     if (suggestedGroups.length > 0 && providerConfig.enabledGroups?.length) {
       consola.info(
-        `[${providerConfig.name}] Groups with Claude models (not in config): ${suggestedGroups.map((g) => g.name).join(", ")}`
+        `[${providerConfig.name}] Groups with Claude models (not in config): ${suggestedGroups.map((g) => g.name).join(", ")}`,
       );
     }
 
@@ -67,18 +67,20 @@ export async function processNewApiProvider(
     // Filter by enabledGroups if specified
     if (providerConfig.enabledGroups?.length) {
       groups = groups.filter((g) =>
-        providerConfig.enabledGroups!.includes(g.name)
+        providerConfig.enabledGroups!.includes(g.name),
       );
     }
 
     // Filter by enabledVendors if specified
     if (providerConfig.enabledVendors?.length) {
-      const vendorSet = new Set(providerConfig.enabledVendors.map((v) => v.toLowerCase()));
+      const vendorSet = new Set(
+        providerConfig.enabledVendors.map((v) => v.toLowerCase()),
+      );
       groups = groups.filter((g) =>
         g.models.some((m) => {
           const vendor = inferVendorFromModelName(m);
           return vendor && vendorSet.has(vendor);
-        })
+        }),
       );
     }
 
@@ -87,8 +89,8 @@ export async function processNewApiProvider(
     if (providerConfig.enabledModels?.length) {
       groups = groups.filter((g) =>
         g.models.some((m) =>
-          matchesAnyPattern(m, providerConfig.enabledModels!)
-        )
+          matchesAnyPattern(m, providerConfig.enabledModels!),
+        ),
       );
     }
 
@@ -100,8 +102,8 @@ export async function processNewApiProvider(
           !matchesBlacklist(
             g.description,
             config.blacklist,
-            providerConfig.name
-          )
+            providerConfig.name,
+          ),
       );
     }
 
@@ -117,23 +119,23 @@ export async function processNewApiProvider(
           : Math.min(...Object.values(adj));
     const effectiveMultiplier = 1 + minAdjustment;
     const highRatioGroups = groups.filter(
-      (g) => g.ratio * effectiveMultiplier > 1
+      (g) => g.ratio * effectiveMultiplier > 1,
     );
     if (highRatioGroups.length > 0) {
       consola.info(
-        `[${providerConfig.name}] Skipping ${highRatioGroups.length} group(s) with effective ratio > 1: ${highRatioGroups.map((g) => `${g.name} (${g.ratio} × ${effectiveMultiplier.toFixed(2)} = ${(g.ratio * effectiveMultiplier).toFixed(2)})`).join(", ")}`
+        `[${providerConfig.name}] Skipping ${highRatioGroups.length} group(s) with effective ratio > 1: ${highRatioGroups.map((g) => `${g.name} (${g.ratio} × ${effectiveMultiplier.toFixed(2)} = ${(g.ratio * effectiveMultiplier).toFixed(2)})`).join(", ")}`,
       );
       groups = groups.filter((g) => g.ratio * effectiveMultiplier <= 1);
     }
 
     const tokenResult = await upstream.ensureTokens(
       groups,
-      providerConfig.name
+      providerConfig.name,
     );
     providerReport.tokens = {
       created: tokenResult.created,
       existing: tokenResult.existing,
-      deleted: tokenResult.deleted
+      deleted: tokenResult.deleted,
     };
 
     // Track groups with no working models to delete their tokens later
@@ -157,13 +159,13 @@ export async function processNewApiProvider(
       // Filter out blacklisted models
       let candidateModels = group.models.filter(
         (modelName) =>
-          !matchesBlacklist(modelName, config.blacklist, providerConfig.name)
+          !matchesBlacklist(modelName, config.blacklist, providerConfig.name),
       );
 
       // Then filter by enabled vendors if specified
       if (providerConfig.enabledVendors?.length) {
         const vendorSet = new Set(
-          providerConfig.enabledVendors.map((v) => v.toLowerCase())
+          providerConfig.enabledVendors.map((v) => v.toLowerCase()),
         );
         candidateModels = candidateModels.filter((modelName) => {
           const vendor = inferVendorFromModelName(modelName);
@@ -174,7 +176,7 @@ export async function processNewApiProvider(
       // Filter by enabled models if specified (glob patterns supported)
       if (providerConfig.enabledModels?.length) {
         candidateModels = candidateModels.filter((modelName) =>
-          matchesAnyPattern(modelName, providerConfig.enabledModels!)
+          matchesAnyPattern(modelName, providerConfig.enabledModels!),
         );
       }
 
@@ -190,8 +192,8 @@ export async function processNewApiProvider(
               reverseModelMapping[mapped] = m;
             }
             return mapped;
-          })
-        )
+          }),
+        ),
       ];
 
       // Skip group if no models match filters
@@ -201,10 +203,10 @@ export async function processNewApiProvider(
 
       // Partition into testable (text endpoints) and non-testable (image-only, etc.)
       const testableModels = mappedModels.filter((m) =>
-        isTestableModel(m, undefined, state.modelEndpoints)
+        isTestableModel(m, undefined, state.modelEndpoints),
       );
       const nonTestableModels = mappedModels.filter(
-        (m) => !isTestableModel(m, undefined, state.modelEndpoints)
+        (m) => !isTestableModel(m, undefined, state.modelEndpoints),
       );
 
       // Test only models that support text endpoints
@@ -215,21 +217,21 @@ export async function processNewApiProvider(
         const testResult = await upstream.testModelsWithKey(
           apiKey,
           testableModels,
-          group.channelType
+          group.channelType,
         );
         const failedModels = testableModels.filter(
-          (m) => !testResult.workingModels.includes(m)
+          (m) => !testResult.workingModels.includes(m),
         );
         testedWorkingModels = testResult.workingModels;
 
         if (failedModels.length > 0) {
           consola.info(
-            `[${providerConfig.name}/${group.name}] Failed: ${failedModels.join(", ")}`
+            `[${providerConfig.name}/${group.name}] Failed: ${failedModels.join(", ")}`,
           );
         }
 
         consola.info(
-          `[${providerConfig.name}/${group.name}] ${testedWorkingModels.length}/${testedCount} working`
+          `[${providerConfig.name}/${group.name}] ${testedWorkingModels.length}/${testedCount} working`,
         );
       }
 
@@ -238,13 +240,13 @@ export async function processNewApiProvider(
 
       if (nonTestableModels.length > 0) {
         consola.info(
-          `[${providerConfig.name}/${group.name}] Included without test: ${nonTestableModels.join(", ")}`
+          `[${providerConfig.name}/${group.name}] Included without test: ${nonTestableModels.join(", ")}`,
         );
       }
 
       if (mappedModels.length === 0) {
         consola.info(
-          `[${providerConfig.name}/${group.name}] 0/${testedCount} | skip`
+          `[${providerConfig.name}/${group.name}] 0/${testedCount} | skip`,
         );
         groupsWithNoWorkingModels.push(group.name);
         continue;
@@ -255,9 +257,12 @@ export async function processNewApiProvider(
       for (const model of mappedModels) {
         const vendor = inferVendorFromModelName(model) ?? "unknown";
         const adj = providerConfig.priceAdjustment;
-        const vendorAdj = adj === undefined ? 0
-          : typeof adj === "number" ? adj
-          : adj[vendor.toLowerCase()] ?? adj["default"] ?? 0;
+        const vendorAdj =
+          adj === undefined
+            ? 0
+            : typeof adj === "number"
+              ? adj
+              : (adj[vendor.toLowerCase()] ?? adj["default"] ?? 0);
         const effectiveRatio = groupRatio * (1 + vendorAdj);
         const key = Math.round(effectiveRatio * 1e6) / 1e6;
         if (!ratioToModels.has(key)) ratioToModels.set(key, []);
@@ -277,13 +282,13 @@ export async function processNewApiProvider(
           name: tierName,
           ratio: effectiveRatio,
           description: `${sanitizeGroupName(group.name)} via ${providerConfig.name}`,
-          provider: providerConfig.name
+          provider: providerConfig.name,
         });
 
         // Infer channel type from the actual filtered models' vendor names
         const channelType = inferChannelTypeFromModels(
           models,
-          state.modelEndpoints
+          state.modelEndpoints,
         );
 
         // Build per-tier model_mapping: only include models in this tier that were mapped
@@ -308,7 +313,7 @@ export async function processNewApiProvider(
           modelMapping:
             Object.keys(tierModelMapping).length > 0
               ? tierModelMapping
-              : undefined
+              : undefined,
         });
         tierIdx++;
       }
@@ -329,7 +334,7 @@ export async function processNewApiProvider(
         state.mergedModels.set(model.name, {
           ratio: model.ratio,
           completionRatio: model.completionRatio,
-          modelPrice: model.modelPrice
+          modelPrice: model.modelPrice,
         });
       }
     }

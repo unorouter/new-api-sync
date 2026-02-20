@@ -6,14 +6,14 @@ import {
   matchesBlacklist,
   SUB2API_PLATFORM_CHANNEL_TYPES,
   SUB2API_PLATFORM_TO_VENDOR,
-  VENDOR_TO_SUB2API_PLATFORMS
+  VENDOR_TO_SUB2API_PLATFORMS,
 } from "@/lib/constants";
 import { ModelTester } from "@/lib/model-tester";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
 import type {
   ProviderReport,
   Sub2ApiProviderConfig,
-  SyncState
+  SyncState,
 } from "@/lib/types";
 import { consola } from "consola";
 import { Sub2ApiClient } from "./client";
@@ -28,7 +28,7 @@ interface ResolvedGroup {
 function filterModels(
   modelIds: string[],
   config: RuntimeConfig,
-  providerConfig: Sub2ApiProviderConfig
+  providerConfig: Sub2ApiProviderConfig,
 ): string[] {
   return modelIds.filter((id) => {
     if (matchesBlacklist(id, config.blacklist, providerConfig.name))
@@ -43,7 +43,7 @@ function filterModels(
 async function resolveViaAdmin(
   client: Sub2ApiClient,
   providerConfig: Sub2ApiProviderConfig,
-  config: RuntimeConfig
+  config: RuntimeConfig,
 ): Promise<ResolvedGroup[]> {
   // Fetch all active groups, filtered by enabledVendors
   const allGroups = await client.listGroups();
@@ -52,11 +52,12 @@ async function resolveViaAdmin(
   if (providerConfig.enabledVendors?.length) {
     const enabledPlatforms = new Set(
       providerConfig.enabledVendors.flatMap(
-        (v) => VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()]
-      )
+        (v) =>
+          VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()],
+      ),
     );
     activeGroups = activeGroups.filter((g) =>
-      enabledPlatforms.has(g.platform.toLowerCase())
+      enabledPlatforms.has(g.platform.toLowerCase()),
     );
   }
 
@@ -71,27 +72,27 @@ async function resolveViaAdmin(
     const apiKey = await client.getGroupApiKey(group.id);
     if (!apiKey) {
       consola.warn(
-        `[${providerConfig.name}] No API key for group "${group.name}", skipping`
+        `[${providerConfig.name}] No API key for group "${group.name}", skipping`,
       );
       continue;
     }
     groupKeys.set(group.id, {
       name: group.name,
       platform: group.platform.toLowerCase(),
-      apiKey
+      apiKey,
     });
   }
 
   if (groupKeys.size === 0) return [];
   consola.info(
-    `[${providerConfig.name}] ${groupKeys.size} groups with API keys`
+    `[${providerConfig.name}] ${groupKeys.size} groups with API keys`,
   );
 
   // Fetch models from all active accounts, grouped by platform
   const accounts = await client.listAccounts();
   const activeAccounts = accounts.filter((a) => a.status === "active");
   consola.info(
-    `[${providerConfig.name}] ${activeAccounts.length}/${accounts.length} active accounts`
+    `[${providerConfig.name}] ${activeAccounts.length}/${accounts.length} active accounts`,
   );
 
   const platformModels = new Map<string, Set<string>>();
@@ -102,7 +103,7 @@ async function resolveViaAdmin(
     for (const id of filterModels(
       accountModels.map((m) => m.id.replace(/^models\//, "")),
       config,
-      providerConfig
+      providerConfig,
     )) {
       platformModels.get(platform)!.add(id);
     }
@@ -121,7 +122,7 @@ async function resolveViaAdmin(
 async function resolveViaGroups(
   client: Sub2ApiClient,
   providerConfig: Sub2ApiProviderConfig,
-  config: RuntimeConfig
+  config: RuntimeConfig,
 ): Promise<ResolvedGroup[]> {
   const groups = providerConfig.groups ?? [];
   if (groups.length === 0) return [];
@@ -135,8 +136,8 @@ async function resolveViaGroups(
       const enabledPlatforms = new Set(
         providerConfig.enabledVendors.flatMap(
           (v) =>
-            VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()]
-        )
+            VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()],
+        ),
       );
       if (!enabledPlatforms.has(platform)) continue;
     }
@@ -145,7 +146,7 @@ async function resolveViaGroups(
     const filtered = filterModels(modelIds, config, providerConfig);
     if (filtered.length === 0) {
       consola.warn(
-        `[${providerConfig.name}] No models for group "${group.name ?? platform}"`
+        `[${providerConfig.name}] No models for group "${group.name ?? platform}"`,
       );
       continue;
     }
@@ -154,12 +155,12 @@ async function resolveViaGroups(
       name: group.name ?? platform,
       platform,
       apiKey: group.key,
-      models: new Set(filtered)
+      models: new Set(filtered),
     });
   }
 
   consola.info(
-    `[${providerConfig.name}] ${resolved.length} groups with models`
+    `[${providerConfig.name}] ${resolved.length} groups with models`,
   );
   return resolved;
 }
@@ -167,14 +168,14 @@ async function resolveViaGroups(
 export async function processSub2ApiProvider(
   providerConfig: Sub2ApiProviderConfig,
   config: RuntimeConfig,
-  state: SyncState
+  state: SyncState,
 ): Promise<ProviderReport> {
   const providerReport: ProviderReport = {
     name: providerConfig.name,
     success: false,
     groups: 0,
     models: 0,
-    tokens: { created: 0, existing: 0, deleted: 0 }
+    tokens: { created: 0, existing: 0, deleted: 0 },
   };
 
   try {
@@ -199,10 +200,15 @@ export async function processSub2ApiProvider(
       const vendor =
         SUB2API_PLATFORM_TO_VENDOR[groupInfo.platform] ?? groupInfo.platform;
       const adj = providerConfig.priceAdjustment;
-      const adjustment = adj === undefined ? defaultAdjustment
-        : typeof adj === "number" ? adj
-        : adj[vendor.toLowerCase()] ?? adj["default"] ?? 0;
-      const channelType = SUB2API_PLATFORM_CHANNEL_TYPES[groupInfo.platform.toLowerCase()] ?? CHANNEL_TYPES.OPENAI;
+      const adjustment =
+        adj === undefined
+          ? defaultAdjustment
+          : typeof adj === "number"
+            ? adj
+            : (adj[vendor.toLowerCase()] ?? adj["default"] ?? 0);
+      const channelType =
+        SUB2API_PLATFORM_CHANNEL_TYPES[groupInfo.platform.toLowerCase()] ??
+        CHANNEL_TYPES.OPENAI;
       const useResponsesAPI = groupInfo.platform === "openai";
       const tester = new ModelTester(providerConfig.baseUrl, groupInfo.apiKey);
 
@@ -210,7 +216,7 @@ export async function processSub2ApiProvider(
       const allGroupModels = [...groupInfo.models];
       const testableModels = allGroupModels.filter((id) => isTestableModel(id));
       const nonTestableModels = allGroupModels.filter(
-        (id) => !isTestableModel(id)
+        (id) => !isTestableModel(id),
       );
 
       let testedWorkingModels: string[] = [];
@@ -219,7 +225,7 @@ export async function processSub2ApiProvider(
         const testResult = await tester.testModels(
           testableModels,
           channelType,
-          useResponsesAPI
+          useResponsesAPI,
         );
         testedWorkingModels = testResult.workingModels;
       }
@@ -229,30 +235,30 @@ export async function processSub2ApiProvider(
 
       if (workingModels.length === 0) {
         consola.warn(
-          `[${providerConfig.name}] No working models for group "${groupInfo.name}" (0/${testableModels.length} passed)`
+          `[${providerConfig.name}] No working models for group "${groupInfo.name}" (0/${testableModels.length} passed)`,
         );
         continue;
       }
 
       consola.info(
-        `[${providerConfig.name}/${groupInfo.platform}] ${workingModels.length}/${groupInfo.models.size} working`
+        `[${providerConfig.name}/${groupInfo.platform}] ${workingModels.length}/${groupInfo.models.size} working`,
       );
 
       if (nonTestableModels.length > 0) {
         consola.info(
-          `[${providerConfig.name}/${groupInfo.platform}] Included without test: ${nonTestableModels.join(", ")}`
+          `[${providerConfig.name}/${groupInfo.platform}] Included without test: ${nonTestableModels.join(", ")}`,
         );
       }
 
-      const mappedModels = workingModels.map((m) =>
-        config.modelMapping?.[m] ?? m
+      const mappedModels = workingModels.map(
+        (m) => config.modelMapping?.[m] ?? m,
       );
 
       const ratioToModels = buildPriceTiers(
         mappedModels,
         adjustment,
         state,
-        providerConfig.name
+        providerConfig.name,
       );
       pushTieredChannels(
         ratioToModels,
@@ -262,9 +268,9 @@ export async function processSub2ApiProvider(
           key: groupInfo.apiKey,
           baseUrl: providerConfig.baseUrl,
           provider: providerConfig.name,
-          description: `${groupInfo.platform} via ${providerConfig.name}`
+          description: `${groupInfo.platform} via ${providerConfig.name}`,
         },
-        state
+        state,
       );
 
       totalModels += mappedModels.length;
@@ -273,7 +279,7 @@ export async function processSub2ApiProvider(
         .map((r) => r.toFixed(4))
         .join(", ");
       consola.info(
-        `[${providerConfig.name}/${groupInfo.platform}] ${mappedModels.length} models, ${ratioToModels.size} tier(s): ${ratios} (${(adjustment * 100).toFixed(0)}% adjustment)`
+        `[${providerConfig.name}/${groupInfo.platform}] ${mappedModels.length} models, ${ratioToModels.size} tier(s): ${ratios} (${(adjustment * 100).toFixed(0)}% adjustment)`,
       );
     }
 

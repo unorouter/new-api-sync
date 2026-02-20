@@ -16,12 +16,12 @@ export const MANAGED_OPTION_KEYS = [
 export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 100,
   START_PAGE_ZERO: 0,
-  START_PAGE_ONE: 1
+  START_PAGE_ONE: 1,
 } as const;
 
 // Timeout configuration (milliseconds)
 export const TIMEOUTS = {
-  MODEL_TEST_MS: 10000
+  MODEL_TEST_MS: 10000,
 } as const;
 
 // Channel type identifiers from new-api (constant/channel.go)
@@ -79,7 +79,7 @@ export const CHANNEL_TYPES = {
   DOUBAO_VIDEO: 54,
   SORA: 55,
   REPLICATE: 56,
-  CODEX: 57
+  CODEX: 57,
 } as const;
 
 // Vendor name → channel type mapping
@@ -108,7 +108,7 @@ export const ENDPOINT_DEFAULT_PATHS: Record<string, string> = {
   gemini: "/v1beta/models/{model}:generateContent",
   "jina-rerank": "/v1/rerank",
   "image-generation": "/v1/images/generations",
-  embedding: "/v1/embeddings"
+  embedding: "/v1/embeddings",
 };
 
 // Text endpoint types from new-api (constant/endpoint_type.go)
@@ -118,7 +118,7 @@ export const TEXT_ENDPOINT_TYPES = new Set([
   "anthropic",
   "gemini",
   "openai-response",
-  "openai-response-compact"
+  "openai-response-compact",
 ]);
 
 // Patterns that indicate non-text models (image, video, audio, embedding)
@@ -159,13 +159,16 @@ export const NON_TEXT_MODEL_PATTERNS = [
   "m3e-",
   // Other non-text
   "image",
-  "moderation"
+  "moderation",
 ];
 
-export const VENDOR_MATCHERS: Record<string, {
-  modelPatterns: string[];
-  nameAliases?: string[];
-}> = {
+export const VENDOR_MATCHERS: Record<
+  string,
+  {
+    modelPatterns: string[];
+    nameAliases?: string[];
+  }
+> = {
   anthropic: { modelPatterns: ["claude"] },
   google: { modelPatterns: ["gemini", "palm"] },
   openai: { modelPatterns: ["gpt", "o1-", "o3-", "o4-", "chatgpt"] },
@@ -220,11 +223,12 @@ export const VENDOR_TO_SUB2API_PLATFORMS: Record<string, string[]> = {
   openai: ["openai"],
 };
 
-export const SUB2API_PLATFORM_TO_VENDOR: Record<string, string> = Object.fromEntries(
-  Object.entries(VENDOR_TO_SUB2API_PLATFORMS).flatMap(([vendor, platforms]) =>
-    platforms.map((platform) => [platform, vendor]),
-  ),
-);
+export const SUB2API_PLATFORM_TO_VENDOR: Record<string, string> =
+  Object.fromEntries(
+    Object.entries(VENDOR_TO_SUB2API_PLATFORMS).flatMap(([vendor, platforms]) =>
+      platforms.map((platform) => [platform, vendor]),
+    ),
+  );
 
 /**
  * Infer channel type from endpoint types.
@@ -319,7 +323,7 @@ const NON_TESTABLE_ENDPOINT_TYPES = new Set([
 export function isTestableModel(
   name: string,
   endpoints?: string[],
-  modelEndpoints?: Map<string, string[]>
+  modelEndpoints?: Map<string, string[]>,
 ): boolean {
   const eps = endpoints ?? modelEndpoints?.get(name);
   if (eps && eps.length > 0) {
@@ -338,7 +342,11 @@ export function isTestableModel(
  * contains the pattern part (after the slash).  Patterns without "/" match
  * any scope as before.
  */
-export function matchesBlacklist(text: string, blacklist?: string[], scope?: string): boolean {
+export function matchesBlacklist(
+  text: string,
+  blacklist?: string[],
+  scope?: string,
+): boolean {
   if (!blacklist?.length) return false;
   const t = text.toLowerCase();
   const s = scope?.toLowerCase();

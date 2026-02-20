@@ -4,7 +4,7 @@ import type {
   Sub2ApiGroup,
   Sub2ApiKey,
   Sub2ApiModel,
-  Sub2ApiProviderConfig
+  Sub2ApiProviderConfig,
 } from "@/lib/types";
 import { consola } from "consola";
 
@@ -36,7 +36,7 @@ export class Sub2ApiClient {
   private get adminHeaders(): Record<string, string> {
     return {
       "x-api-key": this.adminApiKey ?? "",
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     };
   }
 
@@ -50,7 +50,7 @@ export class Sub2ApiClient {
         Sub2ApiResponse<PaginatedData<Sub2ApiAccount>>
       >(
         `${this.baseUrl}/api/v1/admin/accounts?page=${page}&page_size=${pageSize}`,
-        { headers: this.adminHeaders }
+        { headers: this.adminHeaders },
       );
       if (response.code !== 0 || !response.data) {
         throw new Error(`Account list failed: ${response.message}`);
@@ -69,7 +69,7 @@ export class Sub2ApiClient {
   async getAccountModels(accountId: number): Promise<Sub2ApiModel[]> {
     const response = await fetchJson<Sub2ApiResponse<Sub2ApiModel[]>>(
       `${this.baseUrl}/api/v1/admin/accounts/${accountId}/models`,
-      { headers: this.adminHeaders }
+      { headers: this.adminHeaders },
     );
     if (response.code !== 0) {
       throw new Error(`Get models failed: ${response.message}`);
@@ -87,7 +87,7 @@ export class Sub2ApiClient {
         Sub2ApiResponse<PaginatedData<Sub2ApiGroup>>
       >(
         `${this.baseUrl}/api/v1/admin/groups?page=${page}&page_size=${pageSize}`,
-        { headers: this.adminHeaders }
+        { headers: this.adminHeaders },
       );
       if (response.code !== 0 || !response.data) {
         throw new Error(`Group list failed: ${response.message}`);
@@ -107,7 +107,7 @@ export class Sub2ApiClient {
       Sub2ApiResponse<PaginatedData<Sub2ApiKey>>
     >(
       `${this.baseUrl}/api/v1/admin/groups/${groupId}/api-keys?page=1&page_size=1`,
-      { headers: this.adminHeaders }
+      { headers: this.adminHeaders },
     );
     if (response.code !== 0 || !response.data) {
       throw new Error(`Get group API keys failed: ${response.message}`);
@@ -122,12 +122,12 @@ export class Sub2ApiClient {
     const isGemini = platform === "gemini";
     const endpoint = isGemini ? "/v1beta/models" : "/v1/models";
     const headers: Record<string, string> = {
-      Authorization: `Bearer ${apiKey}`
+      Authorization: `Bearer ${apiKey}`,
     };
 
     const response = await fetchJson<Record<string, unknown>>(
       `${this.baseUrl}${endpoint}`,
-      { headers }
+      { headers },
     );
 
     if (isGemini) {
