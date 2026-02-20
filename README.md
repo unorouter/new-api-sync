@@ -80,4 +80,4 @@ Provide either `adminApiKey` (auto-discovers groups) or `groups` (explicit group
 Channels are named `{group}-{provider}`. Priority is dynamic: cheapest groups first, faster response times get higher priority.
 
 <!-- bun sync run --only sub2api -->
-<!-- bun sync run config.debug.jsonc --only yun -->
+<!-- bun sync run --config config.debug.jsonc --only yun -->

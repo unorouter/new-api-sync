@@ -8,6 +8,7 @@ import {
   inferVendorFromModelName,
   normalizeEndpointType,
 } from "@/lib/constants";
+import { tryFetchJson } from "@/lib/http";
 import type {
   Channel,
   DesiredModelSpec,
@@ -17,6 +18,102 @@ import type {
 } from "@/lib/types";
 import { processNewApiProvider } from "@/providers/newapi/provider";
 import { processSub2ApiProvider } from "@/providers/sub2api/provider";
+import { consola } from "consola";
+
+const UPSTREAM_MODELS_URL =
+  "https://basellm.github.io/llm-metadata/api/newapi/models.json";
+
+interface UpstreamModelEntry {
+  model_name: string;
+  ratio_model: number;
+  ratio_completion: number;
+}
+
+type UpstreamResponse =
+  | UpstreamModelEntry[]
+  | { success: boolean; data: UpstreamModelEntry[] };
+
+/**
+ * Fetch model ratios from the basellm upstream library and fill in any models
+ * present in channels but missing from state.mergedModels.
+ */
+async function backfillModelRatios(
+  state: SyncState,
+  channels: Channel[],
+  modelMapping: Record<string, string>,
+): Promise<void> {
+  // Collect all model names used in channels
+  const channelModels = new Set<string>();
+  for (const ch of channels) {
+    for (const m of ch.models.split(",")) {
+      const trimmed = m.trim();
+      if (trimmed) channelModels.add(trimmed);
+    }
+  }
+
+  // Find models missing ratio data
+  const missing = [...channelModels].filter((m) => !state.mergedModels.has(m));
+  if (missing.length === 0) return;
+
+  const raw = await tryFetchJson<UpstreamResponse>(UPSTREAM_MODELS_URL, {
+    timeoutMs: 15_000,
+  });
+  if (!raw) {
+    consola.warn("Failed to fetch upstream model library for ratio backfill");
+    return;
+  }
+
+  const entries = Array.isArray(raw) ? raw : raw.data;
+  if (!Array.isArray(entries)) return;
+
+  // Build a map of model_name → cheapest ratios (lowest ratio_model wins)
+  const upstreamRatios = new Map<
+    string,
+    { ratio: number; completionRatio: number }
+  >();
+  for (const entry of entries) {
+    if (!entry.model_name || entry.ratio_model == null) continue;
+    const existing = upstreamRatios.get(entry.model_name);
+    if (!existing || entry.ratio_model < existing.ratio) {
+      upstreamRatios.set(entry.model_name, {
+        ratio: entry.ratio_model,
+        completionRatio: entry.ratio_completion ?? 1,
+      });
+    }
+  }
+
+  // Build reverse mapping to look up upstream names for mapped models
+  const reverseMapping = new Map<string, string>();
+  for (const [original, mapped] of Object.entries(modelMapping)) {
+    reverseMapping.set(mapped, original);
+  }
+
+  let filled = 0;
+  for (const model of missing) {
+    // Try mapped name first, then original
+    const lookupName = reverseMapping.get(model) ?? model;
+    const upstream = upstreamRatios.get(lookupName) ?? upstreamRatios.get(model);
+    if (upstream) {
+      state.mergedModels.set(model, {
+        ratio: upstream.ratio,
+        completionRatio: upstream.completionRatio,
+      });
+      filled++;
+    }
+  }
+
+  if (filled > 0) {
+    consola.info(
+      `Backfilled ${filled}/${missing.length} model ratios from upstream library`,
+    );
+  }
+  if (filled < missing.length) {
+    const unfilled = missing.filter((m) => !state.mergedModels.has(m));
+    consola.warn(
+      `No upstream ratios for: ${unfilled.join(", ")}`,
+    );
+  }
+}
 
 export async function runProviderPipeline(
   config: RuntimeConfig,
@@ -54,6 +151,10 @@ export async function runProviderPipeline(
     channelByName.set(ch.name, ch);
   }
   const channels = [...channelByName.values()];
+
+  // Backfill model ratios from upstream library for models without ratio data
+  // (e.g. sub2api-only models where no newapi provider supplied pricing)
+  await backfillModelRatios(state, channels, config.modelMapping);
 
   const groupRatio: Record<string, number> = {};
   const userUsableGroups: Record<string, string> = {

@@ -72,6 +72,22 @@ function buildManagedOptionValues(
     }
   }
 
+  // Models in desired channels that don't have explicit ratio data from the
+  // sync (e.g. sub2api models — sub2api has no pricing info).  We preserve
+  // their existing target values so pricing isn't wiped.
+  const desiredModelsWithoutRatio = new Set<string>();
+  for (const channel of desired.channels) {
+    for (const model of channel.models.split(",").map((m) => m.trim())) {
+      if (model && !desired.options.modelRatio[model] && !desired.options.modelPrice[model]) {
+        desiredModelsWithoutRatio.add(model);
+      }
+    }
+  }
+
+  // Guard set for model-level options: protect models from unmanaged channels
+  // AND models in managed channels that the sync didn't set pricing for.
+  const modelRatioGuard = new Set([...protectedModels, ...desiredModelsWithoutRatio]);
+
   const parse = <T>(key: string, fallback: T): T => {
     try {
       const raw = snapshot.options[key];
@@ -104,22 +120,22 @@ function buildManagedOptionValues(
 
   const mergedModelRatio = mergeProtected(
     parse<Record<string, number>>("ModelRatio", {}),
-    protectedModels,
+    modelRatioGuard,
     desired.options.modelRatio,
   );
   const mergedCompletionRatio = mergeProtected(
     parse<Record<string, number>>("CompletionRatio", {}),
-    protectedModels,
+    modelRatioGuard,
     desired.options.completionRatio,
   );
   const mergedModelPrice = mergeProtected(
     parse<Record<string, number>>("ModelPrice", {}),
-    protectedModels,
+    modelRatioGuard,
     desired.options.modelPrice,
   );
   const mergedImageRatio = mergeProtected(
     parse<Record<string, number>>("ImageRatio", {}),
-    protectedModels,
+    modelRatioGuard,
     desired.options.imageRatio,
   );
 

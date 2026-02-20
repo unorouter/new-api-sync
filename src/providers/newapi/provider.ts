@@ -10,6 +10,7 @@ import {
   sanitizeGroupName,
 } from "@/lib/constants";
 import { testModels } from "@/lib/model-tester";
+import { resolvePriceAdjustment } from "@/lib/pricing";
 import type { GroupInfo, ProviderReport, SyncState } from "@/lib/types";
 import { consola } from "consola";
 import { colorize } from "consola/utils";
@@ -296,18 +297,14 @@ export async function processNewApiProvider(
         continue;
       }
 
-      // Group models by their effective ratio (per-vendor/type priceAdjustment may differ)
+      // Group models by their effective ratio (per-model/vendor/type priceAdjustment may differ)
       const ratioToModels = new Map<number, { models: string[]; nonText: boolean }>();
       for (const model of mappedModels) {
         const vendor = inferVendorFromModelName(model) ?? "unknown";
         const modelType = inferModelType(model, undefined, state.modelEndpoints);
-        const adj = providerConfig.priceAdjustment;
-        const vendorAdj =
-          adj === undefined
-            ? 0
-            : typeof adj === "number"
-              ? adj
-              : (adj[vendor.toLowerCase()] ?? adj[modelType] ?? adj["default"] ?? 0);
+        const vendorAdj = resolvePriceAdjustment(
+          providerConfig.priceAdjustment, model, vendor, modelType, 0, config.modelMapping,
+        );
         const effectiveRatio = groupRatio * (1 + vendorAdj);
         const key = Math.round(effectiveRatio * 1e6) / 1e6;
         if (!ratioToModels.has(key)) ratioToModels.set(key, { models: [], nonText: modelType !== "text" });

@@ -195,13 +195,6 @@ export async function processSub2ApiProvider(
     for (const groupInfo of resolvedGroups) {
       const vendor =
         SUB2API_PLATFORM_TO_VENDOR[groupInfo.platform] ?? groupInfo.platform;
-      const adj = providerConfig.priceAdjustment;
-      const adjustment =
-        adj === undefined
-          ? defaultAdjustment
-          : typeof adj === "number"
-            ? adj
-            : (adj[vendor.toLowerCase()] ?? adj["default"] ?? 0);
       const channelType =
         SUB2API_PLATFORM_CHANNEL_TYPES[groupInfo.platform.toLowerCase()] ??
         CHANNEL_TYPES.OPENAI;
@@ -253,9 +246,12 @@ export async function processSub2ApiProvider(
 
       const ratioToModels = buildPriceTiers(
         mappedModels,
-        adjustment,
+        providerConfig.priceAdjustment,
+        defaultAdjustment,
+        vendor,
         state,
         providerConfig.name,
+        config.modelMapping,
       );
       pushTieredChannels(
         ratioToModels,
@@ -276,7 +272,7 @@ export async function processSub2ApiProvider(
         .map((r) => r.toFixed(4))
         .join(", ");
       consola.info(
-        `[${providerConfig.name}/${groupInfo.platform}] ${mappedModels.length} models, ${ratioToModels.size} tier(s): ${ratios} (${(adjustment * 100).toFixed(0)}% adjustment)`,
+        `[${providerConfig.name}/${groupInfo.platform}] ${mappedModels.length} models, ${ratioToModels.size} tier(s): ${ratios}`,
       );
     }
 
