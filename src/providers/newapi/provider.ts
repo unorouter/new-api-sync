@@ -124,10 +124,10 @@ export async function processNewApiProvider(
       groups = groups.filter((g) => g.ratio * effectiveMultiplier <= 1);
     }
 
-    const tokenResult = await upstream.ensureTokens(
-      groups,
-      providerConfig.name,
-    );
+    const tokenPrefix = config.target.targetPrefix
+      ? `${providerConfig.name}-${config.target.targetPrefix}`
+      : providerConfig.name;
+    const tokenResult = await upstream.ensureTokens(groups, tokenPrefix);
     providerReport.tokens = {
       created: tokenResult.created,
       existing: tokenResult.existing,
@@ -321,7 +321,7 @@ export async function processNewApiProvider(
     if (groupsWithNoWorkingModels.length > 0) {
       const allTokens = await upstream.listTokens();
       for (const groupName of groupsWithNoWorkingModels) {
-        const tokenName = `${groupName}-${providerConfig.name}`;
+        const tokenName = `${groupName}-${tokenPrefix}`;
         const token = allTokens.find((t) => t.name === tokenName);
         if (token && (await upstream.deleteToken(token.id))) {
           providerReport.tokens.deleted++;

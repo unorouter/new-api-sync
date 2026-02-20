@@ -54,6 +54,7 @@ const ConfigSchema = z
       baseUrl: z.url(),
       systemAccessToken: str,
       userId: z.number().int().positive(),
+      targetPrefix: str.optional(),
     }),
     blacklist: z.array(str).default([]),
     modelMapping: z.record(z.string(), z.string()).default({}),

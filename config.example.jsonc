@@ -3,10 +3,11 @@
     "baseUrl": "https://api.unorouter.ai",
     "systemAccessToken": "target-system-access-token",
     "userId": 1,
+    "targetPrefix": "prod"
   },
   "blacklist": ["kiro", "nsfw", "upstream-main/experimental"],
   "modelMapping": {
-    "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929",
+    "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929"
   },
   "providers": [
     {
@@ -17,13 +18,13 @@
       "userId": 1,
       "enabledVendors": ["anthropic", "openai"],
       "enabledModels": ["claude-*-4-5*", "gpt-5*"],
-      "priceAdjustment": -0.67,
+      "priceAdjustment": -0.67
     },
     {
       "type": "sub2api",
       "name": "sub2api-fallback",
       "baseUrl": "https://sub2api.unorouter.ai",
-      "adminApiKey": "admin-api-key",
-    },
-  ],
+      "adminApiKey": "admin-api-key"
+    }
+  ]
 }

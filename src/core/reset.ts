@@ -37,7 +37,9 @@ export async function runReset(config: RuntimeConfig): Promise<ResetResult> {
     if (provider.type !== "newapi") continue;
     const client = new NewApiClient(provider, provider.name);
     const tokens = await client.listTokens();
-    const suffix = `-${provider.name}`;
+    const suffix = config.target.targetPrefix
+      ? `-${provider.name}-${config.target.targetPrefix}`
+      : `-${provider.name}`;
     for (const token of tokens) {
       if (!token.name.endsWith(suffix)) continue;
       if (await client.deleteToken(token.id)) tokensDeleted++;
