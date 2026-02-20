@@ -88,6 +88,11 @@ async function testRequest(
   return data !== null && config.isSuccess(data);
 }
 
+export interface ModelTestDetail {
+  model: string;
+  success: boolean;
+}
+
 export async function testModels(
   baseUrl: string,
   apiKey: string,
@@ -96,11 +101,12 @@ export async function testModels(
   useResponsesAPI = false,
   concurrency = 5,
   timeoutMs: number = TIMEOUTS.MODEL_TEST_MS,
+  onModelTested?: (detail: ModelTestDetail) => void | Promise<void>,
 ): Promise<{
   workingModels: string[];
-  details: Array<{ model: string; success: boolean }>;
+  details: ModelTestDetail[];
 }> {
-  const results: Array<{ model: string; success: boolean }> = [];
+  const results: ModelTestDetail[] = [];
 
   for (let i = 0; i < models.length; i += concurrency) {
     const batch = models.slice(i, i + concurrency);
@@ -120,6 +126,11 @@ export async function testModels(
       }),
     );
     results.push(...batchResults);
+    if (onModelTested) {
+      for (const detail of batchResults) {
+        await onModelTested(detail);
+      }
+    }
   }
 
   return {

@@ -64,6 +64,16 @@ export class NewApiClient {
     return { ok: true, balance };
   }
 
+  /** Returns the numeric balance in dollars, or null on failure. */
+  async fetchBalance(): Promise<number | null> {
+    const data = await tryFetchJson<{
+      success: boolean;
+      data?: { quota?: number };
+    }>(`${this.baseUrl}/api/user/self`, { headers: this.headers });
+    if (!data?.success || data.data?.quota === undefined) return null;
+    return data.data.quota / 500000;
+  }
+
   async fetchPricing(): Promise<UpstreamPricing> {
     // Try /api/pricing_new first — some instances (newer new-api forks) expose
     // a V1-format endpoint here that includes supported_endpoint_types even when

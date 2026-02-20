@@ -32,7 +32,8 @@ export async function runProviderPipeline(
     (a, b) => (a.type === "newapi" ? -1 : 0) - (b.type === "newapi" ? -1 : 0),
   );
   const providerReports: ProviderReport[] = [];
-  for (const provider of sorted) {
+  for (const [i, provider] of sorted.entries()) {
+    if (i > 0) console.log();
     const report =
       provider.type === "newapi"
         ? await processNewApiProvider(provider as ProviderConfig, config, state)

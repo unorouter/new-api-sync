@@ -10,6 +10,7 @@ import {
 import { testModels } from "@/lib/model-tester";
 import type { GroupInfo, ProviderReport, SyncState } from "@/lib/types";
 import { consola } from "consola";
+import { colorize } from "consola/utils";
 import { NewApiClient } from "./client";
 
 export async function processNewApiProvider(
@@ -134,6 +135,16 @@ export async function processNewApiProvider(
       deleted: tokenResult.deleted,
     };
 
+    // Fetch balance before testing for cost tracking
+    let currentBalance = await upstream.fetchBalance();
+    const startBalance = currentBalance;
+    if (currentBalance !== null) {
+      consola.info(
+        `[${providerConfig.name}] Balance: $${currentBalance.toFixed(4)}`,
+      );
+    }
+    let totalTestCost = 0;
+
     // Track groups with no working models to delete their tokens later
     const groupsWithNoWorkingModels: string[] = [];
 
@@ -210,11 +221,30 @@ export async function processNewApiProvider(
       const testedCount = testableModels.length;
       let testedWorkingModels: string[] = [];
       if (apiKey && testableModels.length > 0) {
+        // Track per-model cost by checking balance after each model test
+        const modelCosts = new Map<string, number>();
         const testResult = await testModels(
           providerConfig.baseUrl,
           apiKey,
           testableModels,
           group.channelType,
+          false,
+          5,
+          undefined,
+          async (detail) => {
+            if (!detail.success || currentBalance === null) return;
+            const newBalance = await upstream.fetchBalance();
+            if (newBalance === null) return;
+            const cost = currentBalance - newBalance;
+            if (cost > 0) {
+              modelCosts.set(
+                detail.model,
+                (modelCosts.get(detail.model) ?? 0) + cost,
+              );
+              totalTestCost += cost;
+              currentBalance = newBalance;
+            }
+          },
         );
         const failedModels = testableModels.filter(
           (m) => !testResult.workingModels.includes(m),
@@ -227,8 +257,19 @@ export async function processNewApiProvider(
           );
         }
 
+        // Format per-model cost breakdown with yellow coloring
+        const groupCost = [...modelCosts.values()].reduce((a, b) => a + b, 0);
+        let costStr = "";
+        if (groupCost > 0) {
+          const parts = [...modelCosts.entries()].map(
+            ([model, cost]) =>
+              `${model} ${colorize("yellow", `$${cost.toFixed(4)}`)}`,
+          );
+          costStr = ` | ${parts.join(", ")}`;
+        }
+
         consola.info(
-          `[${providerConfig.name}/${group.name}] ${testedWorkingModels.length}/${testedCount} working`,
+          `[${providerConfig.name}/${group.name}] ${testedWorkingModels.length}/${testedCount} working${costStr}`,
         );
       }
 
@@ -337,6 +378,16 @@ export async function processNewApiProvider(
           completionRatio: model.completionRatio,
           modelPrice: model.modelPrice,
         });
+      }
+    }
+
+    // Log final balance and total test cost
+    if (startBalance !== null && totalTestCost > 0) {
+      const finalBalance = await upstream.fetchBalance();
+      if (finalBalance !== null) {
+        consola.info(
+          `[${providerConfig.name}] Balance: $${finalBalance.toFixed(4)} | Test cost: ${colorize("yellow", `$${totalTestCost.toFixed(4)}`)}`,
+        );
       }
     }
 
