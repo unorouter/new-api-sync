@@ -15,7 +15,7 @@ export function buildPriceTiers(
     state.mergedGroups.map((g) => [g.name, g.ratio])
   );
   const cheapestGroupForModel = new Map<string, number>();
-  const allChannels = [...state.channelsToCreate, ...state.pricingContext];
+  const allChannels = state.channelsToCreate;
   for (const ch of allChannels) {
     if (ch.provider === excludeProvider) continue;
     const gRatio = groupRatioByName.get(ch.group) ?? 1;
@@ -48,8 +48,6 @@ export function pushTieredChannels(
     type: number;
     key: string;
     baseUrl: string;
-    priority: number;
-    weight: number;
     provider: string;
     description: string;
   },
@@ -74,8 +72,8 @@ export function pushTieredChannels(
       baseUrl: opts.baseUrl,
       models,
       group: tierName,
-      priority: opts.priority,
-      weight: opts.weight,
+      priority: 0,
+      weight: 1,
       provider: opts.provider,
       remark: tierName
     });

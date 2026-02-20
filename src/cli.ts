@@ -58,7 +58,6 @@ program
                 channels: result.desired.channels,
                 models: [...result.desired.models.values()],
                 options: result.desired.options,
-                policy: result.desired.policy,
                 managedProviders: [...result.desired.managedProviders],
                 mappingSources: [...result.desired.mappingSources]
               }

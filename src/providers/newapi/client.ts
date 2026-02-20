@@ -7,7 +7,6 @@ import type {
   GroupInfo,
   ModelInfo,
   ModelMeta,
-  ModelTestDetail,
   NewApiConfig,
   PricingResponse,
   PricingResponseV2,
@@ -314,15 +313,11 @@ export class NewApiClient {
   async testModelsWithKey(
     apiKey: string,
     models: string[],
-    channelType: number,
-    onModelTested?: (detail: ModelTestDetail) => void | Promise<void>
+    channelType: number
   ): Promise<TestModelsResult> {
     return new ModelTester(this.baseUrl, apiKey).testModels(
       models,
-      channelType,
-      false,
-      5,
-      onModelTested
+      channelType
     );
   }
 

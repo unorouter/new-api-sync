@@ -54,13 +54,7 @@ export async function runReset(config: RuntimeConfig): Promise<ResetResult> {
     ModelRatio: "{}",
     CompletionRatio: "{}",
     ModelPrice: "{}",
-    ImageRatio: "{}",
-    "global.chat_completions_to_responses_policy": JSON.stringify({
-      enabled: false,
-      all_channels: false,
-      channel_types: [],
-      model_patterns: []
-    })
+    ImageRatio: "{}"
   };
 
   const optionsResult = await target.updateOptions(options);

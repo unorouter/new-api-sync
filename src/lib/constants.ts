@@ -1,4 +1,3 @@
-import type { PriceAdjustment } from "@/lib/types";
 import micromatch from "micromatch";
 
 // Managed option keys for sync
@@ -11,7 +10,6 @@ export const MANAGED_OPTION_KEYS = [
   "CompletionRatio",
   "ModelPrice",
   "ImageRatio",
-  "global.chat_completions_to_responses_policy",
 ] as const;
 
 // Pagination configuration
@@ -84,86 +82,22 @@ export const CHANNEL_TYPES = {
   CODEX: 57
 } as const;
 
-// Vendor registry: maps vendor name to channel type, default base URL, and model discovery method
-export interface VendorInfo {
-  channelType: number;
-  defaultBaseUrl: string;
-  modelDiscovery: "openai" | "anthropic" | "gemini";
-}
-
-export const VENDOR_REGISTRY: Record<string, VendorInfo> = {
-  openai: {
-    channelType: CHANNEL_TYPES.OPENAI,
-    defaultBaseUrl: "https://api.openai.com",
-    modelDiscovery: "openai"
-  },
-  anthropic: {
-    channelType: CHANNEL_TYPES.ANTHROPIC,
-    defaultBaseUrl: "https://api.anthropic.com",
-    modelDiscovery: "anthropic"
-  },
-  google: {
-    channelType: CHANNEL_TYPES.GEMINI,
-    defaultBaseUrl: "https://generativelanguage.googleapis.com",
-    modelDiscovery: "gemini"
-  },
-  deepseek: {
-    channelType: CHANNEL_TYPES.DEEPSEEK,
-    defaultBaseUrl: "https://api.deepseek.com",
-    modelDiscovery: "openai"
-  },
-  moonshot: {
-    channelType: CHANNEL_TYPES.MOONSHOT,
-    defaultBaseUrl: "https://api.moonshot.cn",
-    modelDiscovery: "openai"
-  },
-  mistral: {
-    channelType: CHANNEL_TYPES.MISTRAL,
-    defaultBaseUrl: "https://api.mistral.ai",
-    modelDiscovery: "openai"
-  },
-  xai: {
-    channelType: CHANNEL_TYPES.XAI,
-    defaultBaseUrl: "https://api.x.ai",
-    modelDiscovery: "openai"
-  },
-  siliconflow: {
-    channelType: CHANNEL_TYPES.SILICONFLOW,
-    defaultBaseUrl: "https://api.siliconflow.cn",
-    modelDiscovery: "openai"
-  },
-  cohere: {
-    channelType: CHANNEL_TYPES.COHERE,
-    defaultBaseUrl: "https://api.cohere.ai",
-    modelDiscovery: "openai"
-  },
-  zhipu: {
-    channelType: CHANNEL_TYPES.ZHIPU_V4,
-    defaultBaseUrl: "https://open.bigmodel.cn",
-    modelDiscovery: "openai"
-  },
-  volcengine: {
-    channelType: CHANNEL_TYPES.VOLCENGINE,
-    defaultBaseUrl: "https://ark.cn-beijing.volces.com",
-    modelDiscovery: "openai"
-  },
-  minimax: {
-    channelType: CHANNEL_TYPES.MINIMAX,
-    defaultBaseUrl: "https://api.minimax.chat",
-    modelDiscovery: "openai"
-  },
-  perplexity: {
-    channelType: CHANNEL_TYPES.PERPLEXITY,
-    defaultBaseUrl: "https://api.perplexity.ai",
-    modelDiscovery: "openai"
-  }
+// Vendor name → channel type mapping
+export const VENDOR_CHANNEL_TYPES: Record<string, number> = {
+  openai: CHANNEL_TYPES.OPENAI,
+  anthropic: CHANNEL_TYPES.ANTHROPIC,
+  google: CHANNEL_TYPES.GEMINI,
+  deepseek: CHANNEL_TYPES.DEEPSEEK,
+  moonshot: CHANNEL_TYPES.MOONSHOT,
+  mistral: CHANNEL_TYPES.MISTRAL,
+  xai: CHANNEL_TYPES.XAI,
+  siliconflow: CHANNEL_TYPES.SILICONFLOW,
+  cohere: CHANNEL_TYPES.COHERE,
+  zhipu: CHANNEL_TYPES.ZHIPU_V4,
+  volcengine: CHANNEL_TYPES.VOLCENGINE,
+  minimax: CHANNEL_TYPES.MINIMAX,
+  perplexity: CHANNEL_TYPES.PERPLEXITY,
 };
-
-// Priority calculation constants
-export const PRIORITY = {
-  RESPONSE_TIME_DIVISOR: 10000,
-  RESPONSE_TIME_OFFSET: 100
-} as const;
 
 // Default paths for endpoint types (mirrors new-api's endpoint_defaults.go)
 export const ENDPOINT_DEFAULT_PATHS: Record<string, string> = {
@@ -334,9 +268,9 @@ export function inferChannelTypeFromModels(
 
   // Map vendor to channel type via registry
   if (topVendor) {
-    const vendorInfo = VENDOR_REGISTRY[topVendor];
-    if (vendorInfo) {
-      return vendorInfo.channelType;
+    const channelType = VENDOR_CHANNEL_TYPES[topVendor];
+    if (channelType !== undefined) {
+      return channelType;
     }
   }
 
@@ -436,19 +370,6 @@ export function isTestableModel(
 }
 
 /**
- * Calculate priority bonus from response time.
- * Formula: 10000 / (avgResponseTime + 100)
- * ~100ms → +50, ~400ms → +20, ~900ms → +10
- */
-export function calculatePriorityBonus(avgResponseTime?: number): number {
-  if (avgResponseTime === undefined) return 0;
-  return Math.round(
-    PRIORITY.RESPONSE_TIME_DIVISOR /
-      (avgResponseTime + PRIORITY.RESPONSE_TIME_OFFSET)
-  );
-}
-
-/**
  * Check if a string matches any blacklist pattern (case-insensitive).
  *
  * Patterns containing "/" are scoped: "provider/pattern" only matches when
@@ -475,26 +396,15 @@ export function matchesBlacklist(text: string, blacklist?: string[], scope?: str
 }
 
 /**
- * Check if a model name matches a glob pattern (supports * wildcard).
- * Examples: "claude-*-4-5*" matches "claude-sonnet-4-5-20251101", "gpt-*" matches "gpt-4o"
- */
-export function matchesGlobPattern(name: string, pattern: string): boolean {
-  const n = name.toLowerCase();
-  const p = pattern.toLowerCase();
-
-  // If no wildcard, do substring match (backward compatible)
-  if (!p.includes("*")) {
-    return n.includes(p);
-  }
-
-  return micromatch.isMatch(n, p);
-}
-
-/**
  * Check if a model name matches any of the given patterns (glob or substring).
  */
 export function matchesAnyPattern(name: string, patterns: string[]): boolean {
-  return patterns.some((p) => matchesGlobPattern(name, p));
+  const n = name.toLowerCase();
+  return patterns.some((raw) => {
+    const p = raw.toLowerCase();
+    if (!p.includes("*")) return n.includes(p);
+    return micromatch.isMatch(n, p);
+  });
 }
 
 /**
@@ -506,26 +416,4 @@ export function sanitizeGroupName(name: string): string {
     .replace(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g, "")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
-}
-
-/**
- * Resolve a PriceAdjustment value for a specific vendor.
- * - undefined → 0
- * - number → return as-is
- * - Record → lookup vendor key (lowercased), fallback to "default" key
- */
-export function resolvePriceAdjustment(adjustment: PriceAdjustment | undefined, vendor: string): number {
-  if (adjustment === undefined) return 0;
-  if (typeof adjustment === "number") return adjustment;
-  return adjustment[vendor.toLowerCase()] ?? adjustment["default"] ?? 0;
-}
-
-/**
- * Apply model name mapping. Returns mapped name if exists, otherwise original.
- */
-export function applyModelMapping(
-  modelName: string,
-  mapping?: Record<string, string>
-): string {
-  return mapping?.[modelName] ?? modelName;
 }

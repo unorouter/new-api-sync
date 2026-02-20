@@ -1,11 +1,8 @@
 import type { RuntimeConfig } from "@/config";
 import {
-  applyModelMapping,
-  calculatePriorityBonus,
   isTestableModel,
   matchesAnyPattern,
   matchesBlacklist,
-  resolvePriceAdjustment,
   SUB2API_PLATFORM_TO_VENDOR,
   sub2ApiPlatformToChannelType,
   VENDOR_TO_SUB2API_PLATFORMS
@@ -13,6 +10,7 @@ import {
 import { ModelTester } from "@/lib/model-tester";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
 import type {
+  PriceAdjustment,
   ProviderReport,
   Sub2ApiProviderConfig,
   SyncState
@@ -25,6 +23,12 @@ interface ResolvedGroup {
   platform: string;
   apiKey: string;
   models: Set<string>;
+}
+
+function resolvePriceAdj(adjustment: PriceAdjustment | undefined, vendor: string): number {
+  if (adjustment === undefined) return 0;
+  if (typeof adjustment === "number") return adjustment;
+  return adjustment[vendor.toLowerCase()] ?? adjustment["default"] ?? 0;
 }
 
 function filterModels(
@@ -202,7 +206,7 @@ export async function processSub2ApiProvider(
         SUB2API_PLATFORM_TO_VENDOR[groupInfo.platform] ?? groupInfo.platform;
       const adjustment =
         providerConfig.priceAdjustment !== undefined
-          ? resolvePriceAdjustment(providerConfig.priceAdjustment, vendor)
+          ? resolvePriceAdj(providerConfig.priceAdjustment, vendor)
           : defaultAdjustment;
       const channelType = sub2ApiPlatformToChannelType(groupInfo.platform);
       const useResponsesAPI = groupInfo.platform === "openai";
@@ -216,7 +220,6 @@ export async function processSub2ApiProvider(
       );
 
       let testedWorkingModels: string[] = [];
-      let avgResponseTime: number | undefined;
 
       if (testableModels.length > 0) {
         const testResult = await tester.testModels(
@@ -225,7 +228,6 @@ export async function processSub2ApiProvider(
           useResponsesAPI
         );
         testedWorkingModels = testResult.workingModels;
-        avgResponseTime = testResult.avgResponseTime;
       }
 
       // Combine tested working models with non-testable models
@@ -238,14 +240,8 @@ export async function processSub2ApiProvider(
         continue;
       }
 
-      const dynamicPriority = calculatePriorityBonus(avgResponseTime);
-      const dynamicWeight = dynamicPriority > 0 ? dynamicPriority : 1;
-      const msStr = avgResponseTime
-        ? `${Math.round(avgResponseTime)}ms`
-        : "N/A";
-
       consola.info(
-        `[${providerConfig.name}/${groupInfo.platform}] ${workingModels.length}/${groupInfo.models.size} | ${msStr} → +${dynamicPriority}`
+        `[${providerConfig.name}/${groupInfo.platform}] ${workingModels.length}/${groupInfo.models.size} working`
       );
 
       if (nonTestableModels.length > 0) {
@@ -255,7 +251,7 @@ export async function processSub2ApiProvider(
       }
 
       const mappedModels = workingModels.map((m) =>
-        applyModelMapping(m, config.modelMapping)
+        config.modelMapping?.[m] ?? m
       );
 
       const ratioToModels = buildPriceTiers(
@@ -271,8 +267,6 @@ export async function processSub2ApiProvider(
           type: channelType,
           key: groupInfo.apiKey,
           baseUrl: providerConfig.baseUrl,
-          priority: dynamicPriority,
-          weight: dynamicWeight,
           provider: providerConfig.name,
           description: `${groupInfo.platform} via ${providerConfig.name}`
         },

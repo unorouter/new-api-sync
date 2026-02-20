@@ -35,10 +35,7 @@ export async function runSync(
     throw new Error(`Target health check failed: ${health.error ?? "unknown"}`);
   }
 
-  const { desired, providerReports } = await runProviderPipeline(
-    config,
-    target
-  );
+  const { desired, providerReports } = await runProviderPipeline(config);
   const snap = await snapshot(target);
   const diff = buildSyncDiff(config, desired, snap);
   const apply = await applySyncDiff(target, diff, dryRun);

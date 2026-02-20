@@ -37,18 +37,7 @@ export interface Sub2ApiProviderConfig {
   priceAdjustment?: PriceAdjustment;
 }
 
-export interface DirectProviderConfig {
-  type: "direct";
-  name: string;
-  vendor: string;
-  baseUrl?: string;
-  apiKey: string;
-  enabledModels?: string[];
-  groupRatio?: number;
-  priceAdjustment?: PriceAdjustment;
-}
-
-export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig | DirectProviderConfig;
+export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig;
 
 export interface Config {
   target: NewApiConfig;
@@ -93,15 +82,6 @@ export interface Sub2ApiKey {
 
 // ============ Reports ============
 
-export interface SyncReport {
-  success: boolean;
-  providers: ProviderReport[];
-  channels: { created: number; updated: number; deleted: number };
-  options: { updated: string[] };
-  errors: SyncError[];
-  timestamp: Date;
-}
-
 export interface ProviderReport {
   name: string;
   success: boolean;
@@ -109,12 +89,6 @@ export interface ProviderReport {
   models: number;
   tokens: { created: number; existing: number; deleted: number };
   error?: string;
-}
-
-export interface SyncError {
-  provider?: string;
-  phase: string;
-  message: string;
 }
 
 export interface ResetReport {
@@ -230,26 +204,21 @@ export interface SyncState {
   mergedModels: Map<string, MergedModel>;
   modelEndpoints: Map<string, string[]>;
   channelsToCreate: ChannelSpec[];
-  /** Existing target channels for pricing lookups (models + group + provider only) */
-  pricingContext: { models: string[]; group: string; provider: string }[];
 }
 
 // ============ Model Testing ============
 
 export interface TestResult {
   success: boolean;
-  responseTime?: number;
 }
 
 export interface ModelTestDetail {
   model: string;
   success: boolean;
-  responseTime?: number;
 }
 
 export interface TestModelsResult {
   workingModels: string[];
-  avgResponseTime?: number;
   details: ModelTestDetail[];
 }
 
@@ -306,13 +275,6 @@ export interface TokenListResponse {
 
 // ============ Sync Core Types ============
 
-export interface PolicyState {
-  enabled: boolean;
-  all_channels: boolean;
-  channel_types: number[];
-  model_patterns: string[];
-}
-
 export interface DesiredModelSpec {
   model_name: string;
   vendor?: string;
@@ -334,7 +296,6 @@ export interface DesiredState {
   channels: Channel[];
   models: Map<string, DesiredModelSpec>;
   options: ManagedOptionMaps;
-  policy: PolicyState;
   managedProviders: Set<string>;
   mappingSources: Set<string>;
 }

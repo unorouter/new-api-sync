@@ -1,23 +1,20 @@
 import type { RuntimeConfig } from "@/config";
 import {
-  applyModelMapping,
-  calculatePriorityBonus,
   inferChannelTypeFromModels,
   inferVendorFromModelName,
   isTestableModel,
   matchesAnyPattern,
   matchesBlacklist,
-  resolvePriceAdjustment,
   sanitizeGroupName
 } from "@/lib/constants";
 import type {
   GroupInfo,
+  PriceAdjustment,
   ProviderConfig,
   ProviderReport,
   SyncState
 } from "@/lib/types";
 import { consola } from "consola";
-import { colorize } from "consola/utils";
 import { NewApiClient } from "./client";
 
 function groupHasEnabledVendor(
@@ -29,6 +26,12 @@ function groupHasEnabledVendor(
     const vendor = inferVendorFromModelName(modelName);
     return vendor && vendorSet.has(vendor);
   });
+}
+
+function resolvePriceAdj(adjustment: PriceAdjustment | undefined, vendor: string): number {
+  if (adjustment === undefined) return 0;
+  if (typeof adjustment === "number") return adjustment;
+  return adjustment[vendor.toLowerCase()] ?? adjustment["default"] ?? 0;
 }
 
 export async function processNewApiProvider(
@@ -47,10 +50,7 @@ export async function processNewApiProvider(
   try {
     const upstream = new NewApiClient(providerConfig);
 
-    const startBalance = await upstream.fetchBalance();
     const pricing = await upstream.fetchPricing();
-    consola.info(`[${providerConfig.name}] Balance: ${startBalance}`);
-    let currentBalance = parseFloat(startBalance.replace(/[^0-9.-]/g, ""));
 
     // Populate model endpoints map for text model detection
     for (const model of pricing.models) {
@@ -152,7 +152,6 @@ export async function processNewApiProvider(
 
     // Track groups with no working models to delete their tokens later
     const groupsWithNoWorkingModels: string[] = [];
-    let totalTestCost = 0;
 
     // Track used sanitized names to disambiguate collisions from Chinese-only group names
     const usedSanitizedNames = new Map<string, number>();
@@ -200,7 +199,7 @@ export async function processNewApiProvider(
       let mappedModels = [
         ...new Set(
           candidateModels.map((m) => {
-            const mapped = applyModelMapping(m, config.modelMapping);
+            const mapped = config.modelMapping?.[m] ?? m;
             if (mapped !== m) {
               reverseModelMapping[mapped] = m;
             }
@@ -223,56 +222,19 @@ export async function processNewApiProvider(
       );
 
       // Test only models that support text endpoints
-      let avgResponseTime: number | undefined;
       const apiKey = tokenResult.tokens[group.name] ?? "";
       const testedCount = testableModels.length;
       let testedWorkingModels: string[] = [];
       if (apiKey && testableModels.length > 0) {
-        // Track per-model cost by checking balance after each model test
-        const modelCosts = new Map<string, number>();
         const testResult = await upstream.testModelsWithKey(
           apiKey,
           testableModels,
-          group.channelType,
-          async (detail) => {
-            if (!detail.success) return;
-            const newBalanceStr = await upstream.fetchBalance();
-            const newBalance = parseFloat(
-              newBalanceStr.replace(/[^0-9.-]/g, "")
-            );
-            const cost = currentBalance - newBalance;
-            if (cost > 0) {
-              modelCosts.set(
-                detail.model,
-                (modelCosts.get(detail.model) ?? 0) + cost
-              );
-              totalTestCost += cost;
-              currentBalance = newBalance;
-            }
-          }
+          group.channelType
         );
         const failedModels = testableModels.filter(
           (m) => !testResult.workingModels.includes(m)
         );
         testedWorkingModels = testResult.workingModels;
-        avgResponseTime = testResult.avgResponseTime;
-
-        const testCost = [...modelCosts.values()].reduce((a, b) => a + b, 0);
-        const bonus = calculatePriorityBonus(avgResponseTime);
-        const msStr =
-          avgResponseTime !== undefined
-            ? `${Math.round(avgResponseTime)}ms`
-            : "-";
-
-        // Format per-model cost breakdown when group has cost
-        let costStr = `$${testCost.toFixed(4)}`;
-        if (testCost > 0) {
-          const parts = [...modelCosts.entries()].map(
-            ([model, cost]) =>
-              `${model} ${colorize("yellow", `$${cost.toFixed(4)}`)}`
-          );
-          costStr = parts.join(", ");
-        }
 
         if (failedModels.length > 0) {
           consola.info(
@@ -281,7 +243,7 @@ export async function processNewApiProvider(
         }
 
         consola.info(
-          `[${providerConfig.name}/${group.name}] ${testedWorkingModels.length}/${testedCount} | ${msStr} → +${bonus} | ${costStr}`
+          `[${providerConfig.name}/${group.name}] ${testedWorkingModels.length}/${testedCount} working`
         );
       }
 
@@ -302,15 +264,11 @@ export async function processNewApiProvider(
         continue;
       }
 
-      // Calculate dynamic priority and weight: faster response = higher values
-      const dynamicPriority = calculatePriorityBonus(avgResponseTime);
-      const dynamicWeight = dynamicPriority > 0 ? dynamicPriority : 1;
-
       // Group models by their effective ratio (per-vendor priceAdjustment may differ)
       const ratioToModels = new Map<number, string[]>();
       for (const model of mappedModels) {
         const vendor = inferVendorFromModelName(model) ?? "unknown";
-        const vendorAdj = resolvePriceAdjustment(
+        const vendorAdj = resolvePriceAdj(
           providerConfig.priceAdjustment,
           vendor
         );
@@ -357,8 +315,8 @@ export async function processNewApiProvider(
           baseUrl: providerConfig.baseUrl,
           models,
           group: tierName,
-          priority: dynamicPriority,
-          weight: dynamicWeight,
+          priority: 0,
+          weight: 1,
           provider: providerConfig.name,
           remark: originalName,
           modelMapping:
@@ -393,14 +351,6 @@ export async function processNewApiProvider(
     providerReport.groups = groups.length;
     providerReport.models = pricing.models.length;
     providerReport.success = true;
-
-    // Log final balance and total test cost
-    if (totalTestCost > 0) {
-      const finalBalance = await upstream.fetchBalance();
-      consola.info(
-        `[${providerConfig.name}] Final balance: ${finalBalance} | Total test cost: $${totalTestCost.toFixed(4)}`
-      );
-    }
   } catch (error) {
     providerReport.error =
       error instanceof Error ? error.message : String(error);

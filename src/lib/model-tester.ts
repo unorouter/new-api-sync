@@ -88,7 +88,6 @@ export class ModelTester {
     timeoutMs: number
   ): Promise<TestResult> {
     try {
-      const startTime = Date.now();
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -98,10 +97,9 @@ export class ModelTester {
           body: JSON.stringify(config.body),
           signal: controller.signal
         });
-        const responseTime = Date.now() - startTime;
         if (!response.ok) return { success: false };
         const data = await response.json();
-        return { success: config.isSuccess(data), responseTime };
+        return { success: config.isSuccess(data) };
       } finally {
         clearTimeout(timeoutId);
       }
@@ -127,7 +125,6 @@ export class ModelTester {
     channelType: number,
     useResponsesAPI = false,
     concurrency = 5,
-    onModelTested?: (detail: ModelTestDetail) => void | Promise<void>,
     timeoutMs: number = TIMEOUTS.MODEL_TEST_MS
   ): Promise<TestModelsResult> {
     const results: ModelTestDetail[] = [];
@@ -142,30 +139,14 @@ export class ModelTester {
             timeoutMs,
             useResponsesAPI
           );
-          return { model, ...result };
+          return { model, success: result.success };
         })
       );
       results.push(...batchResults);
-      if (onModelTested) {
-        for (const detail of batchResults) {
-          await onModelTested(detail);
-        }
-      }
     }
 
-    const working = results.filter((r) => r.success);
-    const responseTimes = working
-      .map((r) => r.responseTime)
-      .filter((t): t is number => t !== undefined);
-
-    const avgResponseTime =
-      responseTimes.length > 0
-        ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
-        : undefined;
-
     return {
-      workingModels: working.map((r) => r.model),
-      avgResponseTime,
+      workingModels: results.filter((r) => r.success).map((r) => r.model),
       details: results
     };
   }

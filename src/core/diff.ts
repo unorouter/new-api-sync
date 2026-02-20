@@ -2,7 +2,6 @@ import type { RuntimeConfig } from "@/config";
 import { VENDOR_MATCHERS } from "@/lib/constants";
 import type {
   Channel,
-  DesiredModelSpec,
   DesiredState,
   DiffOperation,
   ModelMeta,
@@ -27,7 +26,7 @@ function parseJsonObject<T>(raw: string | undefined, fallback: T): T {
   }
 }
 
-function normalizeChannelForCompare(channel: Channel): Omit<Channel, "id"> {
+function normalizeChannel(channel: Channel): Omit<Channel, "id"> {
   return {
     name: channel.name,
     type: channel.type,
@@ -41,53 +40,6 @@ function normalizeChannelForCompare(channel: Channel): Omit<Channel, "id"> {
     tag: channel.tag,
     remark: channel.remark,
     model_mapping: channel.model_mapping && channel.model_mapping !== "{}" ? channel.model_mapping : undefined
-  };
-}
-
-function channelChanged(existing: Channel, desired: Channel): boolean {
-  const a = normalizeChannelForCompare(existing);
-  const b = normalizeChannelForCompare(desired);
-  return JSON.stringify(a) !== JSON.stringify(b);
-}
-
-function mapVendorIds(vendors: Vendor[]): Record<string, number> {
-  const map: Record<string, number> = {};
-  for (const vendor of vendors) {
-    map[vendor.name.toLowerCase()] = vendor.id;
-  }
-
-  for (const [canonical, matcher] of Object.entries(VENDOR_MATCHERS)) {
-    const names = matcher.nameAliases;
-    if (!names || names.length === 0) continue;
-    if (map[canonical] !== undefined) continue;
-    for (const name of names) {
-      const match = vendors.find((vendor) =>
-        vendor.name.toLowerCase().includes(name.toLowerCase())
-      );
-      if (match) {
-        map[canonical] = match.id;
-        break;
-      }
-    }
-  }
-
-  return map;
-}
-
-function toTargetModel(
-  desiredModel: DesiredModelSpec,
-  vendorNameToId: Record<string, number>
-): Omit<ModelMeta, "id"> {
-  const vendorId = desiredModel.vendor
-    ? vendorNameToId[desiredModel.vendor.toLowerCase()]
-    : undefined;
-
-  return {
-    model_name: desiredModel.model_name,
-    vendor_id: vendorId,
-    endpoints: desiredModel.endpoints,
-    status: 1,
-    sync_official: 1
   };
 }
 
@@ -195,11 +147,32 @@ function buildManagedOptionValues(
     ModelRatio: JSON.stringify(stableObject(mergedModelRatio)),
     CompletionRatio: JSON.stringify(stableObject(mergedCompletionRatio)),
     ModelPrice: JSON.stringify(stableObject(mergedModelPrice)),
-    ImageRatio: JSON.stringify(stableObject(mergedImageRatio)),
-    "global.chat_completions_to_responses_policy": JSON.stringify(
-      desired.policy
-    )
+    ImageRatio: JSON.stringify(stableObject(mergedImageRatio))
   };
+}
+
+function buildVendorIdMap(vendors: Vendor[]): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const vendor of vendors) {
+    map[vendor.name.toLowerCase()] = vendor.id;
+  }
+
+  for (const [canonical, matcher] of Object.entries(VENDOR_MATCHERS)) {
+    const names = matcher.nameAliases;
+    if (!names || names.length === 0) continue;
+    if (map[canonical] !== undefined) continue;
+    for (const name of names) {
+      const match = vendors.find((v) =>
+        v.name.toLowerCase().includes(name.toLowerCase())
+      );
+      if (match) {
+        map[canonical] = match.id;
+        break;
+      }
+    }
+  }
+
+  return map;
 }
 
 export function buildSyncDiff(
@@ -209,6 +182,7 @@ export function buildSyncDiff(
 ): SyncDiff {
   const managedProviders = config.onlyProviders ?? desired.managedProviders;
 
+  // ---- Channels ----
   const channelOps: DiffOperation<Channel>[] = [];
   const existingByName = new Map(
     snapshot.channels.map((channel) => [channel.name, channel])
@@ -228,12 +202,8 @@ export function buildSyncDiff(
       continue;
     }
 
-    const normalizedDesired = {
-      ...desiredChannel,
-      id: existing.id
-    };
-
-    if (channelChanged(existing, normalizedDesired)) {
+    const normalizedDesired = { ...desiredChannel, id: existing.id };
+    if (JSON.stringify(normalizeChannel(existing)) !== JSON.stringify(normalizeChannel(normalizedDesired))) {
       channelOps.push({
         type: "update",
         key: desiredChannel.name,
@@ -254,7 +224,8 @@ export function buildSyncDiff(
     });
   }
 
-  const vendorNameToId = mapVendorIds(snapshot.vendors);
+  // ---- Models ----
+  const vendorNameToId = buildVendorIdMap(snapshot.vendors);
   const modelOps: DiffOperation<ModelMeta>[] = [];
   const existingModelsByName = new Map(
     snapshot.models.map((model) => [model.model_name, model])
@@ -270,7 +241,16 @@ export function buildSyncDiff(
 
   for (const [modelName, desiredModel] of desired.models.entries()) {
     const existing = existingModelsByName.get(modelName);
-    const targetModel = toTargetModel(desiredModel, vendorNameToId);
+    const vendorId = desiredModel.vendor
+      ? vendorNameToId[desiredModel.vendor.toLowerCase()]
+      : undefined;
+    const targetModel: Omit<ModelMeta, "id"> = {
+      model_name: desiredModel.model_name,
+      vendor_id: vendorId,
+      endpoints: desiredModel.endpoints,
+      status: 1,
+      sync_official: 1
+    };
 
     if (!existing) {
       modelOps.push({
@@ -316,6 +296,7 @@ export function buildSyncDiff(
     });
   }
 
+  // ---- Options ----
   const desiredOptionValues = buildManagedOptionValues(desired, snapshot);
   const optionOps: DiffOperation<string>[] = [];
   for (const [key, value] of Object.entries(desiredOptionValues)) {

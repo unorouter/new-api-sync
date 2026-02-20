@@ -42,25 +42,6 @@ const NewApiProviderSchema = ProviderCommonSchema.extend({
   userId: z.number().int().positive()
 });
 
-const DirectProviderSchema = ProviderCommonSchema.extend({
-  type: z.literal("direct"),
-  vendor: NonEmptyString,
-  baseUrl: UrlSchema.optional(),
-  apiKey: NonEmptyString,
-  groupRatio: z.number().positive().optional()
-}).superRefine((provider, ctx) => {
-  if (
-    provider.groupRatio !== undefined &&
-    provider.priceAdjustment !== undefined
-  ) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["groupRatio"],
-      message: "groupRatio and priceAdjustment cannot be used together"
-    });
-  }
-});
-
 const Sub2ApiGroupSchema = z.object({
   key: NonEmptyString,
   platform: NonEmptyString,
@@ -87,7 +68,6 @@ const Sub2ApiProviderSchema = ProviderCommonSchema.extend({
 
 export const ProviderSchema = z.discriminatedUnion("type", [
   NewApiProviderSchema,
-  DirectProviderSchema,
   Sub2ApiProviderSchema
 ]);
 
