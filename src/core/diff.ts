@@ -39,7 +39,8 @@ function normalizeChannelForCompare(channel: Channel): Omit<Channel, "id"> {
     weight: channel.weight,
     status: channel.status,
     tag: channel.tag,
-    remark: channel.remark
+    remark: channel.remark,
+    model_mapping: channel.model_mapping && channel.model_mapping !== "{}" ? channel.model_mapping : undefined
   };
 }
 

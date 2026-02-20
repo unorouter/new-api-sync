@@ -98,7 +98,10 @@ function createChannelSpec(
     weight: channel.weight,
     status: 1,
     tag: channel.provider,
-    remark: channel.remark
+    remark: channel.remark,
+    model_mapping: channel.modelMapping
+      ? JSON.stringify(channel.modelMapping)
+      : undefined
   };
 }
 

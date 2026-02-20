@@ -96,6 +96,16 @@ export async function processNewApiProvider(
       );
     }
 
+    // Filter by enabledModels if specified — skip groups that don't contain
+    // any model matching the patterns, so we don't create unnecessary tokens.
+    if (providerConfig.enabledModels?.length) {
+      groups = groups.filter((g) =>
+        g.models.some((m) =>
+          matchesAnyPattern(m, providerConfig.enabledModels!)
+        )
+      );
+    }
+
     // Apply global blacklist to groups (by name or description)
     if (config.blacklist?.length) {
       groups = groups.filter(
@@ -183,12 +193,19 @@ export async function processNewApiProvider(
         );
       }
 
-      // Apply model mapping early and deduplicate: we need to test the final
-      // (mapped) model names since those are what actually get sent upstream.
-      // e.g. gpt-5.2-medium maps to gpt-5.2, and we must test gpt-5.2 works.
+      // Apply model mapping and build reverse map for the channel.
+      // The channel's model_mapping tells the upstream to translate the mapped
+      // (target-facing) name back to the original (upstream-facing) name.
+      const reverseModelMapping: Record<string, string> = {};
       let mappedModels = [
         ...new Set(
-          candidateModels.map((m) => applyModelMapping(m, config.modelMapping))
+          candidateModels.map((m) => {
+            const mapped = applyModelMapping(m, config.modelMapping);
+            if (mapped !== m) {
+              reverseModelMapping[mapped] = m;
+            }
+            return mapped;
+          })
         )
       ];
 
@@ -325,6 +342,14 @@ export async function processNewApiProvider(
           state.modelEndpoints
         );
 
+        // Build per-tier model_mapping: only include models in this tier that were mapped
+        const tierModelMapping: Record<string, string> = {};
+        for (const model of models) {
+          if (reverseModelMapping[model]) {
+            tierModelMapping[model] = reverseModelMapping[model];
+          }
+        }
+
         state.channelsToCreate.push({
           name: tierName,
           type: channelType,
@@ -335,7 +360,11 @@ export async function processNewApiProvider(
           priority: dynamicPriority,
           weight: dynamicWeight,
           provider: providerConfig.name,
-          remark: originalName
+          remark: originalName,
+          modelMapping:
+            Object.keys(tierModelMapping).length > 0
+              ? tierModelMapping
+              : undefined
         });
         tierIdx++;
       }

@@ -183,6 +183,7 @@ export interface Channel {
   status: number;
   tag?: string;
   remark?: string;
+  model_mapping?: string;
 }
 
 export interface ChannelSpec {
@@ -196,6 +197,7 @@ export interface ChannelSpec {
   weight: number;
   provider: string;
   remark: string;
+  modelMapping?: Record<string, string>;
 }
 
 export interface ModelMeta {
