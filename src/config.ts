@@ -13,18 +13,18 @@ const PriceAdjustmentNumberSchema = z
 const PriceAdjustmentRecordSchema = z
   .record(z.string(), PriceAdjustmentNumberSchema)
   .refine((value) => "default" in value, {
-    message: "priceAdjustment object must contain a default key",
+    message: "priceAdjustment object must contain a default key"
   });
 
 export const PriceAdjustmentSchema = z.union([
   PriceAdjustmentNumberSchema,
-  PriceAdjustmentRecordSchema,
+  PriceAdjustmentRecordSchema
 ]);
 
 const TargetSchema = z.object({
   baseUrl: UrlSchema,
   systemAccessToken: NonEmptyString,
-  userId: z.number().int().positive(),
+  userId: z.number().int().positive()
 });
 
 const ProviderCommonSchema = z.object({
@@ -32,14 +32,14 @@ const ProviderCommonSchema = z.object({
   enabledGroups: z.array(NonEmptyString).optional(),
   enabledVendors: z.array(NonEmptyString).optional(),
   enabledModels: z.array(NonEmptyString).optional(),
-  priceAdjustment: PriceAdjustmentSchema.optional(),
+  priceAdjustment: PriceAdjustmentSchema.optional()
 });
 
 const NewApiProviderSchema = ProviderCommonSchema.extend({
   type: z.literal("newapi"),
   baseUrl: UrlSchema,
   systemAccessToken: NonEmptyString,
-  userId: z.number().int().positive(),
+  userId: z.number().int().positive()
 });
 
 const DirectProviderSchema = ProviderCommonSchema.extend({
@@ -47,13 +47,16 @@ const DirectProviderSchema = ProviderCommonSchema.extend({
   vendor: NonEmptyString,
   baseUrl: UrlSchema.optional(),
   apiKey: NonEmptyString,
-  groupRatio: z.number().positive().optional(),
+  groupRatio: z.number().positive().optional()
 }).superRefine((provider, ctx) => {
-  if (provider.groupRatio !== undefined && provider.priceAdjustment !== undefined) {
+  if (
+    provider.groupRatio !== undefined &&
+    provider.priceAdjustment !== undefined
+  ) {
     ctx.addIssue({
       code: "custom",
       path: ["groupRatio"],
-      message: "groupRatio and priceAdjustment cannot be used together",
+      message: "groupRatio and priceAdjustment cannot be used together"
     });
   }
 });
@@ -61,20 +64,23 @@ const DirectProviderSchema = ProviderCommonSchema.extend({
 const Sub2ApiGroupSchema = z.object({
   key: NonEmptyString,
   platform: NonEmptyString,
-  name: NonEmptyString.optional(),
+  name: NonEmptyString.optional()
 });
 
 const Sub2ApiProviderSchema = ProviderCommonSchema.extend({
   type: z.literal("sub2api"),
   baseUrl: UrlSchema,
   adminApiKey: NonEmptyString.optional(),
-  groups: z.array(Sub2ApiGroupSchema).min(1).optional(),
+  groups: z.array(Sub2ApiGroupSchema).min(1).optional()
 }).superRefine((provider, ctx) => {
-  if (!provider.adminApiKey && (!provider.groups || provider.groups.length === 0)) {
+  if (
+    !provider.adminApiKey &&
+    (!provider.groups || provider.groups.length === 0)
+  ) {
     ctx.addIssue({
       code: "custom",
       path: ["adminApiKey"],
-      message: "sub2api provider requires adminApiKey or groups",
+      message: "sub2api provider requires adminApiKey or groups"
     });
   }
 });
@@ -82,7 +88,7 @@ const Sub2ApiProviderSchema = ProviderCommonSchema.extend({
 export const ProviderSchema = z.discriminatedUnion("type", [
   NewApiProviderSchema,
   DirectProviderSchema,
-  Sub2ApiProviderSchema,
+  Sub2ApiProviderSchema
 ]);
 
 export const ConfigSchema = z
@@ -90,7 +96,7 @@ export const ConfigSchema = z
     target: TargetSchema,
     blacklist: z.array(NonEmptyString).default([]),
     modelMapping: z.record(z.string(), z.string()).default({}),
-    providers: z.array(ProviderSchema).min(1),
+    providers: z.array(ProviderSchema).min(1)
   })
   .superRefine((config, ctx) => {
     const seen = new Set<string>();
@@ -99,7 +105,7 @@ export const ConfigSchema = z
         ctx.addIssue({
           code: "custom",
           path: ["providers", index, "name"],
-          message: `duplicate provider name: ${provider.name}`,
+          message: `duplicate provider name: ${provider.name}`
         });
       }
       seen.add(provider.name);
@@ -144,18 +150,25 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
   try {
     parsedRaw = Bun.JSONC.parse(rawText);
   } catch (error) {
-    throw new Error(`Invalid JSONC in ${resolvedPath}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Invalid JSONC in ${resolvedPath}: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 
   const parsed = ConfigSchema.safeParse(parsedRaw);
   if (!parsed.success) {
-    throw new Error(`Config validation failed:\n${formatZodError(parsed.error)}`);
+    throw new Error(
+      `Config validation failed:\n${formatZodError(parsed.error)}`
+    );
   }
 
   return parsed.data;
 }
 
-export function applyOnlyProviders(config: RuntimeConfig, onlyNames: string[]): RuntimeConfig {
+export function applyOnlyProviders(
+  config: RuntimeConfig,
+  onlyNames: string[]
+): RuntimeConfig {
   if (onlyNames.length === 0) return config;
 
   const normalized = onlyNames
@@ -168,13 +181,17 @@ export function applyOnlyProviders(config: RuntimeConfig, onlyNames: string[]): 
   const available = new Set(config.providers.map((provider) => provider.name));
   const unknown = normalized.filter((name) => !available.has(name));
   if (unknown.length > 0) {
-    throw new Error(`Unknown provider(s): ${unknown.join(", ")}. Available: ${[...available].join(", ")}`);
+    throw new Error(
+      `Unknown provider(s): ${unknown.join(", ")}. Available: ${[...available].join(", ")}`
+    );
   }
 
   const onlySet = new Set(normalized);
   return {
     ...config,
-    providers: config.providers.filter((provider) => onlySet.has(provider.name)),
-    onlyProviders: onlySet,
+    providers: config.providers.filter((provider) =>
+      onlySet.has(provider.name)
+    ),
+    onlyProviders: onlySet
   };
 }

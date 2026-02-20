@@ -17,14 +17,14 @@ async function snapshot(client: NewApiClient): Promise<TargetSnapshot> {
     client.listChannels(),
     client.listModels(),
     client.listVendors(),
-    client.getOptions([...MANAGED_OPTION_KEYS]),
+    client.getOptions([...MANAGED_OPTION_KEYS])
   ]);
   return { channels, models, vendors, options };
 }
 
 export async function runSync(
   config: RuntimeConfig,
-  options: RunSyncOptions = {},
+  options: RunSyncOptions = {}
 ): Promise<SyncRunResult> {
   const start = Date.now();
   const dryRun = options.dryRun ?? false;
@@ -35,13 +35,19 @@ export async function runSync(
     throw new Error(`Target health check failed: ${health.error ?? "unknown"}`);
   }
 
-  const { desired, providerReports } = await runProviderPipeline(config, target);
+  const { desired, providerReports } = await runProviderPipeline(
+    config,
+    target
+  );
   const snap = await snapshot(target);
   const diff = buildSyncDiff(config, desired, snap);
   const apply = await applySyncDiff(target, diff, dryRun);
 
-  const successfulProviders = providerReports.filter((provider) => provider.success).length;
-  const hasProviderSuccess = successfulProviders > 0 || config.providers.length === 0;
+  const successfulProviders = providerReports.filter(
+    (provider) => provider.success
+  ).length;
+  const hasProviderSuccess =
+    successfulProviders > 0 || config.providers.length === 0;
 
   return {
     success: hasProviderSuccess && apply.errors.length === 0,
@@ -49,7 +55,7 @@ export async function runSync(
     desired,
     diff,
     apply,
-    elapsedMs: Date.now() - start,
+    elapsedMs: Date.now() - start
   };
 }
 
@@ -58,13 +64,13 @@ export function printRunSummary(result: SyncRunResult): void {
   const mode = result.apply.dryRun ? "dry-run" : "apply";
   consola.info(`Mode: ${mode}`);
   consola.info(
-    `Providers: ${result.providerReports.filter((provider) => provider.success).length}/${result.providerReports.length}`,
+    `Providers: ${result.providerReports.filter((provider) => provider.success).length}/${result.providerReports.length}`
   );
   consola.info(
-    `Channels: +${result.apply.channels.created} ~${result.apply.channels.updated} -${result.apply.channels.deleted}`,
+    `Channels: +${result.apply.channels.created} ~${result.apply.channels.updated} -${result.apply.channels.deleted}`
   );
   consola.info(
-    `Models: +${result.apply.models.created} ~${result.apply.models.updated} -${result.apply.models.deleted} | Orphans: -${result.apply.models.orphansDeleted}`,
+    `Models: +${result.apply.models.created} ~${result.apply.models.updated} -${result.apply.models.deleted} | Orphans: -${result.apply.models.orphansDeleted}`
   );
   consola.info(`Options updated: ${result.apply.options.updated.length}`);
 
@@ -86,6 +92,6 @@ export function printRunSummary(result: SyncRunResult): void {
 
 export function printResetSummary(result: ResetResult): void {
   consola.info(
-    `Reset complete | Channels: -${result.channelsDeleted} | Models: -${result.modelsDeleted} | Orphans: -${result.orphanModelsDeleted} | Tokens: -${result.tokensDeleted} | Options: ${result.optionsUpdated.length}`,
+    `Reset complete | Channels: -${result.channelsDeleted} | Models: -${result.modelsDeleted} | Orphans: -${result.orphanModelsDeleted} | Tokens: -${result.tokensDeleted} | Options: ${result.optionsUpdated.length}`
   );
 }

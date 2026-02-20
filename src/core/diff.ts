@@ -8,14 +8,14 @@ import type {
   ModelMeta,
   SyncDiff,
   TargetSnapshot,
-  Vendor,
+  Vendor
 } from "@/lib/types";
 
 const DEFAULT_AUTO_LABEL = "Auto (Smart Routing with Failover)";
 
 function stableObject<T>(input: Record<string, T>): Record<string, T> {
   return Object.fromEntries(
-    Object.entries(input).sort(([a], [b]) => a.localeCompare(b)),
+    Object.entries(input).sort(([a], [b]) => a.localeCompare(b))
   );
 }
 
@@ -39,7 +39,7 @@ function normalizeChannelForCompare(channel: Channel): Omit<Channel, "id"> {
     weight: channel.weight,
     status: channel.status,
     tag: channel.tag,
-    remark: channel.remark,
+    remark: channel.remark
   };
 }
 
@@ -61,7 +61,7 @@ function mapVendorIds(vendors: Vendor[]): Record<string, number> {
     if (map[canonical] !== undefined) continue;
     for (const name of names) {
       const match = vendors.find((vendor) =>
-        vendor.name.toLowerCase().includes(name.toLowerCase()),
+        vendor.name.toLowerCase().includes(name.toLowerCase())
       );
       if (match) {
         map[canonical] = match.id;
@@ -75,7 +75,7 @@ function mapVendorIds(vendors: Vendor[]): Record<string, number> {
 
 function toTargetModel(
   desiredModel: DesiredModelSpec,
-  vendorNameToId: Record<string, number>,
+  vendorNameToId: Record<string, number>
 ): Omit<ModelMeta, "id"> {
   const vendorId = desiredModel.vendor
     ? vendorNameToId[desiredModel.vendor.toLowerCase()]
@@ -86,21 +86,23 @@ function toTargetModel(
     vendor_id: vendorId,
     endpoints: desiredModel.endpoints,
     status: 1,
-    sync_official: 1,
+    sync_official: 1
   };
 }
 
 function buildManagedOptionValues(
   desired: DesiredState,
-  snapshot: TargetSnapshot,
+  snapshot: TargetSnapshot
 ): Record<string, string> {
   const managedProviders = desired.managedProviders;
 
   const unmanagedChannels = snapshot.channels.filter(
-    (channel) => !channel.tag || !managedProviders.has(channel.tag),
+    (channel) => !channel.tag || !managedProviders.has(channel.tag)
   );
 
-  const unmanagedGroups = new Set(unmanagedChannels.map((channel) => channel.group));
+  const unmanagedGroups = new Set(
+    unmanagedChannels.map((channel) => channel.group)
+  );
 
   const protectedModels = new Set<string>();
   for (const channel of unmanagedChannels) {
@@ -111,23 +113,31 @@ function buildManagedOptionValues(
 
   const existingGroupRatio = parseJsonObject<Record<string, number>>(
     snapshot.options.GroupRatio,
-    {},
+    {}
   );
   const existingUserGroups = parseJsonObject<Record<string, string>>(
     snapshot.options.UserUsableGroups,
-    {},
+    {}
   );
   const existingAutoGroups = parseJsonObject<string[]>(
     snapshot.options.AutoGroups,
-    [],
+    []
   );
   const existingModelRatio = parseJsonObject<Record<string, number>>(
     snapshot.options.ModelRatio,
-    {},
+    {}
   );
   const existingCompletionRatio = parseJsonObject<Record<string, number>>(
     snapshot.options.CompletionRatio,
-    {},
+    {}
+  );
+  const existingModelPrice = parseJsonObject<Record<string, number>>(
+    snapshot.options.ModelPrice,
+    {}
+  );
+  const existingImageRatio = parseJsonObject<Record<string, number>>(
+    snapshot.options.ImageRatio,
+    {}
   );
 
   const mergedGroupRatio: Record<string, number> = {};
@@ -137,7 +147,7 @@ function buildManagedOptionValues(
   Object.assign(mergedGroupRatio, desired.options.groupRatio);
 
   const mergedUserGroups: Record<string, string> = {
-    auto: DEFAULT_AUTO_LABEL,
+    auto: DEFAULT_AUTO_LABEL
   };
   for (const [group, label] of Object.entries(existingUserGroups)) {
     if (group === "auto") continue;
@@ -148,8 +158,8 @@ function buildManagedOptionValues(
   const mergedAutoGroups = [
     ...new Set([
       ...existingAutoGroups.filter((group) => unmanagedGroups.has(group)),
-      ...desired.options.autoGroups,
-    ]),
+      ...desired.options.autoGroups
+    ])
   ].sort((a, b) => (mergedGroupRatio[a] ?? 1) - (mergedGroupRatio[b] ?? 1));
 
   const mergedModelRatio: Record<string, number> = {};
@@ -164,6 +174,18 @@ function buildManagedOptionValues(
   }
   Object.assign(mergedCompletionRatio, desired.options.completionRatio);
 
+  const mergedModelPrice: Record<string, number> = {};
+  for (const [model, price] of Object.entries(existingModelPrice)) {
+    if (protectedModels.has(model)) mergedModelPrice[model] = price;
+  }
+  Object.assign(mergedModelPrice, desired.options.modelPrice);
+
+  const mergedImageRatio: Record<string, number> = {};
+  for (const [model, ratio] of Object.entries(existingImageRatio)) {
+    if (protectedModels.has(model)) mergedImageRatio[model] = ratio;
+  }
+  Object.assign(mergedImageRatio, desired.options.imageRatio);
+
   return {
     GroupRatio: JSON.stringify(stableObject(mergedGroupRatio)),
     UserUsableGroups: JSON.stringify(stableObject(mergedUserGroups)),
@@ -171,20 +193,28 @@ function buildManagedOptionValues(
     DefaultUseAutoGroup: desired.options.defaultUseAutoGroup ? "true" : "false",
     ModelRatio: JSON.stringify(stableObject(mergedModelRatio)),
     CompletionRatio: JSON.stringify(stableObject(mergedCompletionRatio)),
-    "global.chat_completions_to_responses_policy": JSON.stringify(desired.policy),
+    ModelPrice: JSON.stringify(stableObject(mergedModelPrice)),
+    ImageRatio: JSON.stringify(stableObject(mergedImageRatio)),
+    "global.chat_completions_to_responses_policy": JSON.stringify(
+      desired.policy
+    )
   };
 }
 
 export function buildSyncDiff(
   config: RuntimeConfig,
   desired: DesiredState,
-  snapshot: TargetSnapshot,
+  snapshot: TargetSnapshot
 ): SyncDiff {
   const managedProviders = config.onlyProviders ?? desired.managedProviders;
 
   const channelOps: DiffOperation<Channel>[] = [];
-  const existingByName = new Map(snapshot.channels.map((channel) => [channel.name, channel]));
-  const desiredByName = new Map(desired.channels.map((channel) => [channel.name, channel]));
+  const existingByName = new Map(
+    snapshot.channels.map((channel) => [channel.name, channel])
+  );
+  const desiredByName = new Map(
+    desired.channels.map((channel) => [channel.name, channel])
+  );
 
   for (const desiredChannel of desired.channels) {
     const existing = existingByName.get(desiredChannel.name);
@@ -192,14 +222,14 @@ export function buildSyncDiff(
       channelOps.push({
         type: "create",
         key: desiredChannel.name,
-        value: desiredChannel,
+        value: desiredChannel
       });
       continue;
     }
 
     const normalizedDesired = {
       ...desiredChannel,
-      id: existing.id,
+      id: existing.id
     };
 
     if (channelChanged(existing, normalizedDesired)) {
@@ -207,7 +237,7 @@ export function buildSyncDiff(
         type: "update",
         key: desiredChannel.name,
         existing,
-        value: normalizedDesired,
+        value: normalizedDesired
       });
     }
   }
@@ -219,14 +249,14 @@ export function buildSyncDiff(
     channelOps.push({
       type: "delete",
       key: existing.name,
-      existing,
+      existing
     });
   }
 
   const vendorNameToId = mapVendorIds(snapshot.vendors);
   const modelOps: DiffOperation<ModelMeta>[] = [];
   const existingModelsByName = new Map(
-    snapshot.models.map((model) => [model.model_name, model]),
+    snapshot.models.map((model) => [model.model_name, model])
   );
 
   const protectedModels = new Set<string>();
@@ -245,7 +275,7 @@ export function buildSyncDiff(
       modelOps.push({
         type: "create",
         key: modelName,
-        value: targetModel,
+        value: targetModel
       });
       continue;
     }
@@ -263,8 +293,8 @@ export function buildSyncDiff(
         existing,
         value: {
           ...targetModel,
-          id: existing.id,
-        },
+          id: existing.id
+        }
       });
     }
   }
@@ -281,7 +311,7 @@ export function buildSyncDiff(
     modelOps.push({
       type: "delete",
       key: modelName,
-      existing,
+      existing
     });
   }
 
@@ -293,7 +323,7 @@ export function buildSyncDiff(
       optionOps.push({
         type: "create",
         key,
-        value,
+        value
       });
       continue;
     }
@@ -303,7 +333,7 @@ export function buildSyncDiff(
         type: "update",
         key,
         existing,
-        value,
+        value
       });
     }
   }
@@ -312,6 +342,6 @@ export function buildSyncDiff(
     channels: channelOps,
     models: modelOps,
     options: optionOps,
-    cleanupOrphans: true,
+    cleanupOrphans: true
   };
 }

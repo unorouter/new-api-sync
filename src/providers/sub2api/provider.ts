@@ -1,22 +1,22 @@
+import type { RuntimeConfig } from "@/config";
 import {
   applyModelMapping,
   calculatePriorityBonus,
-  isTextModel,
+  isTestableModel,
   matchesAnyPattern,
   matchesBlacklist,
-  sub2ApiPlatformToChannelType,
   resolvePriceAdjustment,
   SUB2API_PLATFORM_TO_VENDOR,
-  VENDOR_TO_SUB2API_PLATFORMS,
+  sub2ApiPlatformToChannelType,
+  VENDOR_TO_SUB2API_PLATFORMS
 } from "@/lib/constants";
+import { ModelTester } from "@/lib/model-tester";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
-import type { RuntimeConfig } from "@/config";
 import type {
   ProviderReport,
   Sub2ApiProviderConfig,
-  SyncState,
+  SyncState
 } from "@/lib/types";
-import { ModelTester } from "@/lib/model-tester";
 import { consola } from "consola";
 import { Sub2ApiClient } from "./client";
 
@@ -30,11 +30,11 @@ interface ResolvedGroup {
 function filterModels(
   modelIds: string[],
   config: RuntimeConfig,
-  providerConfig: Sub2ApiProviderConfig,
+  providerConfig: Sub2ApiProviderConfig
 ): string[] {
   return modelIds.filter((id) => {
-    if (!isTextModel(id)) return false;
-    if (matchesBlacklist(id, config.blacklist, providerConfig.name)) return false;
+    if (matchesBlacklist(id, config.blacklist, providerConfig.name))
+      return false;
     if (providerConfig.enabledModels?.length) {
       if (!matchesAnyPattern(id, providerConfig.enabledModels)) return false;
     }
@@ -45,7 +45,7 @@ function filterModels(
 async function resolveViaAdmin(
   client: Sub2ApiClient,
   providerConfig: Sub2ApiProviderConfig,
-  config: RuntimeConfig,
+  config: RuntimeConfig
 ): Promise<ResolvedGroup[]> {
   // Fetch all active groups, filtered by enabledVendors
   const allGroups = await client.listGroups();
@@ -53,42 +53,59 @@ async function resolveViaAdmin(
 
   if (providerConfig.enabledVendors?.length) {
     const enabledPlatforms = new Set(
-      providerConfig.enabledVendors.flatMap((v) => VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()]),
+      providerConfig.enabledVendors.flatMap(
+        (v) => VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()]
+      )
     );
-    activeGroups = activeGroups.filter((g) => enabledPlatforms.has(g.platform.toLowerCase()));
+    activeGroups = activeGroups.filter((g) =>
+      enabledPlatforms.has(g.platform.toLowerCase())
+    );
   }
 
   if (activeGroups.length === 0) return [];
 
   // Resolve API key for each group
-  const groupKeys = new Map<number, { name: string; platform: string; apiKey: string }>();
+  const groupKeys = new Map<
+    number,
+    { name: string; platform: string; apiKey: string }
+  >();
   for (const group of activeGroups) {
     const apiKey = await client.getGroupApiKey(group.id);
     if (!apiKey) {
-      consola.warn(`[${providerConfig.name}] No API key for group "${group.name}", skipping`);
+      consola.warn(
+        `[${providerConfig.name}] No API key for group "${group.name}", skipping`
+      );
       continue;
     }
     groupKeys.set(group.id, {
       name: group.name,
       platform: group.platform.toLowerCase(),
-      apiKey,
+      apiKey
     });
   }
 
   if (groupKeys.size === 0) return [];
-  consola.info(`[${providerConfig.name}] ${groupKeys.size} groups with API keys`);
+  consola.info(
+    `[${providerConfig.name}] ${groupKeys.size} groups with API keys`
+  );
 
   // Fetch models from all active accounts, grouped by platform
   const accounts = await client.listAccounts();
   const activeAccounts = accounts.filter((a) => a.status === "active");
-  consola.info(`[${providerConfig.name}] ${activeAccounts.length}/${accounts.length} active accounts`);
+  consola.info(
+    `[${providerConfig.name}] ${activeAccounts.length}/${accounts.length} active accounts`
+  );
 
   const platformModels = new Map<string, Set<string>>();
   for (const account of activeAccounts) {
     const platform = account.platform.toLowerCase();
     if (!platformModels.has(platform)) platformModels.set(platform, new Set());
     const accountModels = await client.getAccountModels(account.id);
-    for (const id of filterModels(accountModels.map((m) => m.id.replace(/^models\//, "")), config, providerConfig)) {
+    for (const id of filterModels(
+      accountModels.map((m) => m.id.replace(/^models\//, "")),
+      config,
+      providerConfig
+    )) {
       platformModels.get(platform)!.add(id);
     }
   }
@@ -106,7 +123,7 @@ async function resolveViaAdmin(
 async function resolveViaGroups(
   client: Sub2ApiClient,
   providerConfig: Sub2ApiProviderConfig,
-  config: RuntimeConfig,
+  config: RuntimeConfig
 ): Promise<ResolvedGroup[]> {
   const groups = providerConfig.groups ?? [];
   if (groups.length === 0) return [];
@@ -118,7 +135,10 @@ async function resolveViaGroups(
     // Filter by enabledVendors if specified
     if (providerConfig.enabledVendors?.length) {
       const enabledPlatforms = new Set(
-        providerConfig.enabledVendors.flatMap((v) => VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()]),
+        providerConfig.enabledVendors.flatMap(
+          (v) =>
+            VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()]
+        )
       );
       if (!enabledPlatforms.has(platform)) continue;
     }
@@ -126,7 +146,9 @@ async function resolveViaGroups(
     const modelIds = await client.listGatewayModels(group.key, platform);
     const filtered = filterModels(modelIds, config, providerConfig);
     if (filtered.length === 0) {
-      consola.warn(`[${providerConfig.name}] No models for group "${group.name ?? platform}"`);
+      consola.warn(
+        `[${providerConfig.name}] No models for group "${group.name ?? platform}"`
+      );
       continue;
     }
 
@@ -134,25 +156,27 @@ async function resolveViaGroups(
       name: group.name ?? platform,
       platform,
       apiKey: group.key,
-      models: new Set(filtered),
+      models: new Set(filtered)
     });
   }
 
-  consola.info(`[${providerConfig.name}] ${resolved.length} groups with models`);
+  consola.info(
+    `[${providerConfig.name}] ${resolved.length} groups with models`
+  );
   return resolved;
 }
 
 export async function processSub2ApiProvider(
   providerConfig: Sub2ApiProviderConfig,
   config: RuntimeConfig,
-  state: SyncState,
+  state: SyncState
 ): Promise<ProviderReport> {
   const providerReport: ProviderReport = {
     name: providerConfig.name,
     success: false,
     groups: 0,
     models: 0,
-    tokens: { created: 0, existing: 0, deleted: 0 },
+    tokens: { created: 0, existing: 0, deleted: 0 }
   };
 
   try {
@@ -174,37 +198,72 @@ export async function processSub2ApiProvider(
     let groupsProcessed = 0;
 
     for (const groupInfo of resolvedGroups) {
-      const vendor = SUB2API_PLATFORM_TO_VENDOR[groupInfo.platform] ?? groupInfo.platform;
-      const adjustment = providerConfig.priceAdjustment !== undefined
-        ? resolvePriceAdjustment(providerConfig.priceAdjustment, vendor)
-        : defaultAdjustment;
+      const vendor =
+        SUB2API_PLATFORM_TO_VENDOR[groupInfo.platform] ?? groupInfo.platform;
+      const adjustment =
+        providerConfig.priceAdjustment !== undefined
+          ? resolvePriceAdjustment(providerConfig.priceAdjustment, vendor)
+          : defaultAdjustment;
       const channelType = sub2ApiPlatformToChannelType(groupInfo.platform);
       const useResponsesAPI = groupInfo.platform === "openai";
       const tester = new ModelTester(providerConfig.baseUrl, groupInfo.apiKey);
-      const testResult = await tester.testModels(
-        [...groupInfo.models],
-        channelType,
-        useResponsesAPI,
+
+      // Partition into testable (text endpoints) and non-testable (image-only, etc.)
+      const allGroupModels = [...groupInfo.models];
+      const testableModels = allGroupModels.filter((id) => isTestableModel(id));
+      const nonTestableModels = allGroupModels.filter(
+        (id) => !isTestableModel(id)
       );
 
-      if (testResult.workingModels.length === 0) {
-        consola.warn(`[${providerConfig.name}] No working models for group "${groupInfo.name}" (0/${groupInfo.models.size} passed)`);
+      let testedWorkingModels: string[] = [];
+      let avgResponseTime: number | undefined;
+
+      if (testableModels.length > 0) {
+        const testResult = await tester.testModels(
+          testableModels,
+          channelType,
+          useResponsesAPI
+        );
+        testedWorkingModels = testResult.workingModels;
+        avgResponseTime = testResult.avgResponseTime;
+      }
+
+      // Combine tested working models with non-testable models
+      const workingModels = [...testedWorkingModels, ...nonTestableModels];
+
+      if (workingModels.length === 0) {
+        consola.warn(
+          `[${providerConfig.name}] No working models for group "${groupInfo.name}" (0/${testableModels.length} passed)`
+        );
         continue;
       }
 
-      const dynamicPriority = calculatePriorityBonus(testResult.avgResponseTime);
+      const dynamicPriority = calculatePriorityBonus(avgResponseTime);
       const dynamicWeight = dynamicPriority > 0 ? dynamicPriority : 1;
-      const msStr = testResult.avgResponseTime ? `${Math.round(testResult.avgResponseTime)}ms` : "N/A";
+      const msStr = avgResponseTime
+        ? `${Math.round(avgResponseTime)}ms`
+        : "N/A";
 
       consola.info(
-        `[${providerConfig.name}/${groupInfo.platform}] ${testResult.workingModels.length}/${groupInfo.models.size} | ${msStr} → +${dynamicPriority}`,
+        `[${providerConfig.name}/${groupInfo.platform}] ${workingModels.length}/${groupInfo.models.size} | ${msStr} → +${dynamicPriority}`
       );
 
-      const mappedModels = testResult.workingModels.map((m) =>
-        applyModelMapping(m, config.modelMapping),
+      if (nonTestableModels.length > 0) {
+        consola.info(
+          `[${providerConfig.name}/${groupInfo.platform}] Included without test: ${nonTestableModels.join(", ")}`
+        );
+      }
+
+      const mappedModels = workingModels.map((m) =>
+        applyModelMapping(m, config.modelMapping)
       );
 
-      const ratioToModels = buildPriceTiers(mappedModels, adjustment, state, providerConfig.name);
+      const ratioToModels = buildPriceTiers(
+        mappedModels,
+        adjustment,
+        state,
+        providerConfig.name
+      );
       pushTieredChannels(
         ratioToModels,
         `${groupInfo.name}-${providerConfig.name}`,
@@ -215,16 +274,18 @@ export async function processSub2ApiProvider(
           priority: dynamicPriority,
           weight: dynamicWeight,
           provider: providerConfig.name,
-          description: `${groupInfo.platform} via ${providerConfig.name}`,
+          description: `${groupInfo.platform} via ${providerConfig.name}`
         },
-        state,
+        state
       );
 
-      totalModels += testResult.workingModels.length;
+      totalModels += mappedModels.length;
       groupsProcessed++;
-      const ratios = [...ratioToModels.keys()].map(r => r.toFixed(4)).join(", ");
+      const ratios = [...ratioToModels.keys()]
+        .map((r) => r.toFixed(4))
+        .join(", ");
       consola.info(
-        `[${providerConfig.name}/${groupInfo.platform}] ${testResult.workingModels.length} models, ${ratioToModels.size} tier(s): ${ratios} (${(adjustment * 100).toFixed(0)}% adjustment)`,
+        `[${providerConfig.name}/${groupInfo.platform}] ${mappedModels.length} models, ${ratioToModels.size} tier(s): ${ratios} (${(adjustment * 100).toFixed(0)}% adjustment)`
       );
     }
 
@@ -235,7 +296,8 @@ export async function processSub2ApiProvider(
       providerReport.error = "No groups produced working channels";
     }
   } catch (error) {
-    providerReport.error = error instanceof Error ? error.message : String(error);
+    providerReport.error =
+      error instanceof Error ? error.message : String(error);
   }
 
   return providerReport;

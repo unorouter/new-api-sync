@@ -9,6 +9,8 @@ export const MANAGED_OPTION_KEYS = [
   "DefaultUseAutoGroup",
   "ModelRatio",
   "CompletionRatio",
+  "ModelPrice",
+  "ImageRatio",
   "global.chat_completions_to_responses_policy",
 ] as const;
 
@@ -386,17 +388,51 @@ export function isTextModel(
   endpoints?: string[],
   modelEndpoints?: Map<string, string[]>
 ): boolean {
-  // Always check pattern matching first - catches misclassified models
-  if (matchesNonTextPattern(name)) return false;
-
-  // If we have endpoint info, verify it has text endpoints
+  // Endpoint data is authoritative when available
   const eps = endpoints ?? modelEndpoints?.get(name);
   if (eps && eps.length > 0) {
     return eps.some((ep) => TEXT_ENDPOINT_TYPES.has(ep));
   }
 
-  // No endpoint info and no pattern match - assume text model
+  // No endpoint data — fall back to pattern matching
+  if (matchesNonTextPattern(name)) return false;
+
+  // No data, no pattern match — assume text model
   return true;
+}
+
+// Endpoint types that indicate a model should NOT be tested with chat completions.
+// If a model has any of these, skip testing even if it also has text endpoints,
+// because the response format won't match what the test harness expects.
+const NON_TESTABLE_ENDPOINT_TYPES = new Set([
+  "image-generation",
+  "dall-e-3",
+  "embeddings",
+  "openai-video",
+  "jina-rerank",
+]);
+
+/**
+ * Check if a model can be tested with the current test harness.
+ * The test harness sends chat completions (OpenAI/Gemini) or messages (Anthropic).
+ * Models with non-text endpoints (image-generation, embeddings, etc.) cannot be
+ * tested this way — even if they also accept the OpenAI chat format, the response
+ * won't be a standard text completion.
+ */
+export function isTestableModel(
+  name: string,
+  endpoints?: string[],
+  modelEndpoints?: Map<string, string[]>
+): boolean {
+  const eps = endpoints ?? modelEndpoints?.get(name);
+  if (eps && eps.length > 0) {
+    // If ANY endpoint is non-testable, skip testing entirely
+    if (eps.some((ep) => NON_TESTABLE_ENDPOINT_TYPES.has(ep))) return false;
+    return eps.some((ep) => TEXT_ENDPOINT_TYPES.has(ep));
+  }
+
+  // No endpoint data — fall back to pattern matching
+  return !matchesNonTextPattern(name);
 }
 
 /**

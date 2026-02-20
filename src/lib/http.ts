@@ -19,7 +19,7 @@ function isRetriable(error: unknown): boolean {
 
 export async function requestJson<T>(
   url: string,
-  options: HttpRequestOptions = {},
+  options: HttpRequestOptions = {}
 ): Promise<T> {
   const { timeoutMs = 10_000, retries = 3, ...fetchOptions } = options;
 
@@ -29,11 +29,13 @@ export async function requestJson<T>(
         return await ofetch<T>(url, {
           ...(fetchOptions as FetchOptions<"json">),
           responseType: "json",
-          timeout: timeoutMs,
+          timeout: timeoutMs
         });
       } catch (error) {
         if (!isRetriable(error)) {
-          throw new AbortError(error instanceof Error ? error.message : String(error));
+          throw new AbortError(
+            error instanceof Error ? error.message : String(error)
+          );
         }
         throw error;
       }
@@ -43,7 +45,7 @@ export async function requestJson<T>(
       factor: 2,
       minTimeout: 500,
       maxTimeout: 10_000,
-      randomize: false,
-    },
+      randomize: false
+    }
   );
 }

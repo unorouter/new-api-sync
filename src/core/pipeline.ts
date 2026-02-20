@@ -1,13 +1,27 @@
 import type { RuntimeConfig } from "@/config";
-import { ENDPOINT_DEFAULT_PATHS, inferVendorFromModelName } from "@/lib/constants";
-import type { Channel, DesiredModelSpec, DesiredState, PolicyState, ProviderReport, SyncState } from "@/lib/types";
+import {
+  applyModelMapping,
+  ENDPOINT_DEFAULT_PATHS,
+  inferVendorFromModelName
+} from "@/lib/constants";
+import type {
+  Channel,
+  DesiredModelSpec,
+  DesiredState,
+  PolicyState,
+  ProviderReport,
+  SyncState
+} from "@/lib/types";
 import { buildAdapters } from "@/providers/factory";
 import type { NewApiClient } from "@/providers/newapi/client";
 
 // ============ Responses Policy ============
 
 const RESPONSES_COMPATIBLE_CHANNEL_TYPES = new Set([1, 17, 39, 27, 45, 57, 48]);
-const RESPONSES_ENDPOINTS = new Set(["openai-response", "openai-response-compact"]);
+const RESPONSES_ENDPOINTS = new Set([
+  "openai-response",
+  "openai-response-compact"
+]);
 
 function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -15,13 +29,15 @@ function escapeRegExp(input: string): string {
 
 function buildResponsesPolicy(
   channels: Channel[],
-  modelEndpoints: Map<string, string[]>,
+  modelEndpoints: Map<string, string[]>
 ): PolicyState {
-  const channelTypes = [...new Set(
-    channels
-      .map((channel) => channel.type)
-      .filter((type) => RESPONSES_COMPATIBLE_CHANNEL_TYPES.has(type)),
-  )].sort((a, b) => a - b);
+  const channelTypes = [
+    ...new Set(
+      channels
+        .map((channel) => channel.type)
+        .filter((type) => RESPONSES_COMPATIBLE_CHANNEL_TYPES.has(type))
+    )
+  ].sort((a, b) => a - b);
 
   const models = new Set<string>();
   for (const channel of channels) {
@@ -52,7 +68,7 @@ function buildResponsesPolicy(
     enabled,
     all_channels: false,
     channel_types: channelTypes,
-    model_patterns: modelPatterns,
+    model_patterns: modelPatterns
   };
 }
 
@@ -68,7 +84,9 @@ function buildModelEndpoints(endpointTypes: string[]): string | undefined {
   return JSON.stringify(endpoints);
 }
 
-function createChannelSpec(channel: SyncState["channelsToCreate"][number]): Channel {
+function createChannelSpec(
+  channel: SyncState["channelsToCreate"][number]
+): Channel {
   return {
     name: channel.name,
     type: channel.type,
@@ -80,7 +98,7 @@ function createChannelSpec(channel: SyncState["channelsToCreate"][number]): Chan
     weight: channel.weight,
     status: 1,
     tag: channel.provider,
-    remark: channel.remark,
+    remark: channel.remark
   };
 }
 
@@ -97,17 +115,21 @@ function dedupeChannels(channels: Channel[]): Channel[] {
 export async function seedPricingContext(
   config: RuntimeConfig,
   target: NewApiClient,
-  state: SyncState,
+  state: SyncState
 ): Promise<void> {
   const existingChannels = await target.listChannels();
-  const groupRatioJson = (await target.getOptions(["GroupRatio"]))["GroupRatio"];
+  const groupRatioJson = (await target.getOptions(["GroupRatio"]))[
+    "GroupRatio"
+  ];
   let groupRatios: Record<string, number> = {};
   try {
     groupRatios = groupRatioJson ? JSON.parse(groupRatioJson) : {};
   } catch {
     groupRatios = {};
   }
-  const activeProviders = new Set(config.providers.map((provider) => provider.name));
+  const activeProviders = new Set(
+    config.providers.map((provider) => provider.name)
+  );
 
   for (const channel of existingChannels) {
     if (!channel.tag || activeProviders.has(channel.tag)) continue;
@@ -116,27 +138,30 @@ export async function seedPricingContext(
       name: channel.group,
       ratio: groupRatios[channel.group] ?? 1,
       description: channel.remark ?? channel.name,
-      provider: channel.tag,
+      provider: channel.tag
     });
 
     state.pricingContext.push({
-      models: channel.models.split(",").map((model) => model.trim()).filter(Boolean),
+      models: channel.models
+        .split(",")
+        .map((model) => model.trim())
+        .filter(Boolean),
       group: channel.group,
-      provider: channel.tag,
+      provider: channel.tag
     });
   }
 }
 
 export async function runProviderPipeline(
   config: RuntimeConfig,
-  target: NewApiClient,
+  target: NewApiClient
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
   const state: SyncState = {
     mergedGroups: [],
     mergedModels: new Map(),
     modelEndpoints: new Map(),
     channelsToCreate: [],
-    pricingContext: [],
+    pricingContext: []
   };
   await seedPricingContext(config, target, state);
 
@@ -148,11 +173,13 @@ export async function runProviderPipeline(
     providerReports.push(report);
   }
 
-  const channels = dedupeChannels(state.channelsToCreate.map(createChannelSpec));
+  const channels = dedupeChannels(
+    state.channelsToCreate.map(createChannelSpec)
+  );
 
   const groupRatio: Record<string, number> = {};
   const userUsableGroups: Record<string, string> = {
-    auto: "Auto (Smart Routing with Failover)",
+    auto: "Auto (Smart Routing with Failover)"
   };
 
   for (const group of state.mergedGroups) {
@@ -166,22 +193,41 @@ export async function runProviderPipeline(
 
   const modelRatio: Record<string, number> = {};
   const completionRatio: Record<string, number> = {};
+  const modelPrice: Record<string, number> = {};
+  const imageRatio: Record<string, number> = {};
   for (const [name, ratios] of state.mergedModels) {
-    modelRatio[name] = Math.round(ratios.ratio * 10000) / 10000;
-    completionRatio[name] = Math.round(ratios.completionRatio * 10000) / 10000;
+    // Apply model mapping so pricing keys match the mapped model names on the target
+    const mappedName = applyModelMapping(name, config.modelMapping);
+    if (ratios.modelPrice !== undefined && ratios.modelPrice > 0) {
+      // Fixed-price model (quota_type 1)
+      modelPrice[mappedName] = Math.round(ratios.modelPrice * 10000) / 10000;
+    } else {
+      // Ratio-based model (quota_type 0)
+      modelRatio[mappedName] = Math.round(ratios.ratio * 10000) / 10000;
+      completionRatio[mappedName] =
+        Math.round(ratios.completionRatio * 10000) / 10000;
+    }
+    if (ratios.imageRatio !== undefined && ratios.imageRatio > 0) {
+      imageRatio[mappedName] = Math.round(ratios.imageRatio * 10000) / 10000;
+    }
   }
 
   const models = new Map<string, DesiredModelSpec>();
 
   for (const channel of channels) {
-    const channelModels = channel.models.split(",").map((model) => model.trim()).filter(Boolean);
+    const channelModels = channel.models
+      .split(",")
+      .map((model) => model.trim())
+      .filter(Boolean);
     for (const modelName of channelModels) {
       const vendor = inferVendorFromModelName(modelName);
       const endpointTypes = state.modelEndpoints.get(modelName);
       models.set(modelName, {
         model_name: modelName,
         vendor,
-        endpoints: endpointTypes ? buildModelEndpoints(endpointTypes) : undefined,
+        endpoints: endpointTypes
+          ? buildModelEndpoints(endpointTypes)
+          : undefined
       });
     }
   }
@@ -199,11 +245,15 @@ export async function runProviderPipeline(
         autoGroups,
         modelRatio,
         completionRatio,
-        defaultUseAutoGroup: true,
+        modelPrice,
+        imageRatio,
+        defaultUseAutoGroup: true
       },
       policy,
-      managedProviders: new Set(config.providers.map((provider) => provider.name)),
-      mappingSources: new Set(Object.keys(config.modelMapping)),
-    },
+      managedProviders: new Set(
+        config.providers.map((provider) => provider.name)
+      ),
+      mappingSources: new Set(Object.keys(config.modelMapping))
+    }
   };
 }

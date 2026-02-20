@@ -1,52 +1,61 @@
+import type { RuntimeConfig } from "@/config";
 import {
   applyModelMapping,
   calculatePriorityBonus,
-  isTextModel,
+  isTestableModel,
   matchesAnyPattern,
   matchesBlacklist,
   resolvePriceAdjustment,
-  VENDOR_REGISTRY,
+  VENDOR_REGISTRY
 } from "@/lib/constants";
+import { ModelTester } from "@/lib/model-tester";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
-import type { RuntimeConfig } from "@/config";
 import type {
   DirectProviderConfig,
   ProviderReport,
-  SyncState,
+  SyncState
 } from "@/lib/types";
-import { ModelTester } from "@/lib/model-tester";
 import { consola } from "consola";
 import { DirectApiClient } from "./client";
 
 export async function processDirectProvider(
   providerConfig: DirectProviderConfig,
   config: RuntimeConfig,
-  state: SyncState,
+  state: SyncState
 ): Promise<ProviderReport> {
   const providerReport: ProviderReport = {
     name: providerConfig.name,
     success: false,
     groups: 0,
     models: 0,
-    tokens: { created: 0, existing: 0, deleted: 0 },
+    tokens: { created: 0, existing: 0, deleted: 0 }
   };
 
   try {
     const vendor = providerConfig.vendor.toLowerCase();
     const vendorInfo = VENDOR_REGISTRY[vendor];
-    if (!vendorInfo) throw new Error(`Unknown vendor: ${providerConfig.vendor}`);
+    if (!vendorInfo)
+      throw new Error(`Unknown vendor: ${providerConfig.vendor}`);
 
-    const baseUrl = (providerConfig.baseUrl ?? vendorInfo.defaultBaseUrl).replace(/\/$/, "");
-    const client = new DirectApiClient(baseUrl, providerConfig.apiKey, vendorInfo);
+    const baseUrl = (
+      providerConfig.baseUrl ?? vendorInfo.defaultBaseUrl
+    ).replace(/\/$/, "");
+    const client = new DirectApiClient(
+      baseUrl,
+      providerConfig.apiKey,
+      vendorInfo
+    );
 
     // Discover models from vendor API
     const allModels = await client.discoverModels();
-    consola.info(`[${providerConfig.name}] Discovered ${allModels.length} models from ${vendor}`);
+    consola.info(
+      `[${providerConfig.name}] Discovered ${allModels.length} models from ${vendor}`
+    );
 
-    // Filter: text models, blacklist, enabledModels patterns
+    // Filter: blacklist, enabledModels patterns
     const filteredModels = allModels.filter((id) => {
-      if (!isTextModel(id)) return false;
-      if (matchesBlacklist(id, config.blacklist, providerConfig.name)) return false;
+      if (matchesBlacklist(id, config.blacklist, providerConfig.name))
+        return false;
       if (providerConfig.enabledModels?.length) {
         if (!matchesAnyPattern(id, providerConfig.enabledModels)) return false;
       }
@@ -58,56 +67,93 @@ export async function processDirectProvider(
       return providerReport;
     }
 
-    consola.info(`[${providerConfig.name}] ${filteredModels.length} models after filtering`);
-
-    // Test models
-    const useResponsesAPI = vendor === "openai";
-    const tester = new ModelTester(baseUrl, providerConfig.apiKey);
-    const testResult = await tester.testModels(
-      filteredModels,
-      vendorInfo.channelType,
-      useResponsesAPI,
+    consola.info(
+      `[${providerConfig.name}] ${filteredModels.length} models after filtering`
     );
 
-    if (testResult.workingModels.length === 0) {
-      providerReport.error = `No working models (0/${filteredModels.length} passed)`;
+    // Partition into testable (text endpoints) and non-testable (image-only, etc.)
+    const testableModels = filteredModels.filter((id) => isTestableModel(id));
+    const nonTestableModels = filteredModels.filter(
+      (id) => !isTestableModel(id)
+    );
+
+    // Test only models that support text endpoints
+    const useResponsesAPI = vendor === "openai";
+    const tester = new ModelTester(baseUrl, providerConfig.apiKey);
+    let workingModels: string[] = [];
+    let avgResponseTime: number | undefined;
+
+    if (testableModels.length > 0) {
+      const testResult = await tester.testModels(
+        testableModels,
+        vendorInfo.channelType,
+        useResponsesAPI
+      );
+      workingModels = testResult.workingModels;
+      avgResponseTime = testResult.avgResponseTime;
+    }
+
+    // Combine tested working models with non-testable models
+    workingModels = [...workingModels, ...nonTestableModels];
+
+    if (workingModels.length === 0) {
+      providerReport.error = `No working models (0/${testableModels.length} passed)`;
       return providerReport;
     }
 
-    const dynamicPriority = calculatePriorityBonus(testResult.avgResponseTime);
+    const dynamicPriority = calculatePriorityBonus(avgResponseTime);
     const dynamicWeight = dynamicPriority > 0 ? dynamicPriority : 1;
-    const msStr = testResult.avgResponseTime ? `${Math.round(testResult.avgResponseTime)}ms` : "N/A";
+    const msStr = avgResponseTime ? `${Math.round(avgResponseTime)}ms` : "N/A";
 
     consola.info(
-      `[${providerConfig.name}] ${testResult.workingModels.length}/${filteredModels.length} working | ${msStr} → +${dynamicPriority}`,
+      `[${providerConfig.name}] ${workingModels.length}/${filteredModels.length} working | ${msStr} → +${dynamicPriority}`
     );
 
-    const mappedModels = testResult.workingModels.map((m) =>
-      applyModelMapping(m, config.modelMapping),
+    if (nonTestableModels.length > 0) {
+      consola.info(
+        `[${providerConfig.name}] Included without test: ${nonTestableModels.join(", ")}`
+      );
+    }
+
+    const mappedModels = workingModels.map((m) =>
+      applyModelMapping(m, config.modelMapping)
     );
 
     const channelName = `${vendor}-${providerConfig.name}`;
 
     // Determine group ratio: explicit groupRatio, or derive from priceAdjustment
     if (providerConfig.priceAdjustment !== undefined) {
-      const adjustment = resolvePriceAdjustment(providerConfig.priceAdjustment, vendor);
-      const ratioToModels = buildPriceTiers(mappedModels, adjustment, state, providerConfig.name);
-      pushTieredChannels(ratioToModels, channelName, {
-        type: vendorInfo.channelType,
-        key: providerConfig.apiKey,
-        baseUrl,
-        priority: dynamicPriority,
-        weight: dynamicWeight,
-        provider: providerConfig.name,
-        description: `${vendor} via ${providerConfig.name} (direct)`,
-      }, state);
+      const adjustment = resolvePriceAdjustment(
+        providerConfig.priceAdjustment,
+        vendor
+      );
+      const ratioToModels = buildPriceTiers(
+        mappedModels,
+        adjustment,
+        state,
+        providerConfig.name
+      );
+      pushTieredChannels(
+        ratioToModels,
+        channelName,
+        {
+          type: vendorInfo.channelType,
+          key: providerConfig.apiKey,
+          baseUrl,
+          priority: dynamicPriority,
+          weight: dynamicWeight,
+          provider: providerConfig.name,
+          description: `${vendor} via ${providerConfig.name} (direct)`
+        },
+        state
+      );
     } else {
       const groupRatio = providerConfig.groupRatio ?? 1;
       state.mergedGroups.push({
         name: channelName,
         ratio: groupRatio,
         description: `${vendor} via ${providerConfig.name} (direct)`,
-        provider: providerConfig.name,
+        provider: providerConfig.name
       });
 
       state.channelsToCreate.push({
@@ -120,7 +166,7 @@ export async function processDirectProvider(
         priority: dynamicPriority,
         weight: dynamicWeight,
         provider: providerConfig.name,
-        remark: channelName,
+        remark: channelName
       });
     }
 
@@ -132,10 +178,11 @@ export async function processDirectProvider(
     }
 
     providerReport.groups = 1;
-    providerReport.models = testResult.workingModels.length;
+    providerReport.models = mappedModels.length;
     providerReport.success = true;
   } catch (error) {
-    providerReport.error = error instanceof Error ? error.message : String(error);
+    providerReport.error =
+      error instanceof Error ? error.message : String(error);
   }
 
   return providerReport;

@@ -9,9 +9,11 @@ export function buildPriceTiers(
   models: string[],
   adjustment: number,
   state: SyncState,
-  excludeProvider: string,
+  excludeProvider: string
 ): Map<number, string[]> {
-  const groupRatioByName = new Map(state.mergedGroups.map((g) => [g.name, g.ratio]));
+  const groupRatioByName = new Map(
+    state.mergedGroups.map((g) => [g.name, g.ratio])
+  );
   const cheapestGroupForModel = new Map<string, number>();
   const allChannels = [...state.channelsToCreate, ...state.pricingContext];
   for (const ch of allChannels) {
@@ -51,7 +53,7 @@ export function pushTieredChannels(
     provider: string;
     description: string;
   },
-  state: SyncState,
+  state: SyncState
 ): void {
   let tierIdx = 0;
   for (const [groupRatio, models] of ratioToModels) {
@@ -62,7 +64,7 @@ export function pushTieredChannels(
       name: tierName,
       ratio: groupRatio,
       description: opts.description,
-      provider: opts.provider,
+      provider: opts.provider
     });
 
     state.channelsToCreate.push({
@@ -75,7 +77,7 @@ export function pushTieredChannels(
       priority: opts.priority,
       weight: opts.weight,
       provider: opts.provider,
-      remark: tierName,
+      remark: tierName
     });
 
     tierIdx++;

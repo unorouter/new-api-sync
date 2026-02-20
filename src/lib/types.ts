@@ -151,6 +151,8 @@ export interface ModelInfo {
   groups: string[];
   vendorId?: number;
   supportedEndpoints?: string[];
+  /** Fixed price per request (quota_type 1). 0 or undefined means ratio-based. */
+  modelPrice?: number;
 }
 
 export interface Vendor {
@@ -215,6 +217,10 @@ export interface MergedGroup {
 export interface MergedModel {
   ratio: number;
   completionRatio: number;
+  /** Fixed price per request (quota_type 1). Undefined means ratio-based. */
+  modelPrice?: number;
+  /** Image ratio multiplier for image generation tokens. */
+  imageRatio?: number;
 }
 
 export interface SyncState {
@@ -317,6 +323,8 @@ export interface ManagedOptionMaps {
   autoGroups: string[];
   modelRatio: Record<string, number>;
   completionRatio: Record<string, number>;
+  modelPrice: Record<string, number>;
+  imageRatio: Record<string, number>;
   defaultUseAutoGroup: boolean;
 }
 

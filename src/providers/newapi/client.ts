@@ -1,22 +1,22 @@
+import { CHANNEL_TYPES, inferChannelType, PAGINATION } from "@/lib/constants";
 import { requestJson } from "@/lib/http";
-import { CHANNEL_TYPES, inferChannelType, PAGINATION, sanitizeGroupName } from "@/lib/constants";
+import { ModelTester } from "@/lib/model-tester";
 import type {
   ApiResponse,
   Channel,
   GroupInfo,
   ModelInfo,
   ModelMeta,
+  ModelTestDetail,
   NewApiConfig,
   PricingResponse,
   PricingResponseV2,
+  TestModelsResult,
   TokenListResponse,
   UpstreamPricing,
-  ModelTestDetail,
-  TestModelsResult,
   UpstreamToken,
-  Vendor,
+  Vendor
 } from "@/lib/types";
-import { ModelTester } from "@/lib/model-tester";
 import { consola } from "consola";
 
 export class NewApiClient {
@@ -27,7 +27,7 @@ export class NewApiClient {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/$/, ""),
       systemAccessToken: config.systemAccessToken,
-      userId: config.userId,
+      userId: config.userId
     };
     this._name = name;
   }
@@ -36,7 +36,7 @@ export class NewApiClient {
     return {
       Authorization: `Bearer ${this.config.systemAccessToken}`,
       "New-Api-User": String(this.config.userId),
-      "Content-Type": "application/json",
+      "Content-Type": "application/json"
     };
   }
 
@@ -56,14 +56,23 @@ export class NewApiClient {
     try {
       const response = await fetch(`${this.baseUrl}/api/user/self`, {
         headers: this.headers,
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(10_000)
       });
       if (!response.ok) {
-        return { ok: false, error: `HTTP ${response.status} ${response.statusText}` };
+        return {
+          ok: false,
+          error: `HTTP ${response.status} ${response.statusText}`
+        };
       }
-      const data = (await response.json()) as { success: boolean; message?: string };
+      const data = (await response.json()) as {
+        success: boolean;
+        message?: string;
+      };
       if (!data.success) {
-        return { ok: false, error: data.message ?? "API returned success: false" };
+        return {
+          ok: false,
+          error: data.message ?? "API returned success: false"
+        };
       }
       return { ok: true };
     } catch (err) {
@@ -77,7 +86,7 @@ export class NewApiClient {
   async fetchBalance(): Promise<string> {
     try {
       const response = await fetch(`${this.baseUrl}/api/user/self`, {
-        headers: this.headers,
+        headers: this.headers
       });
       if (!response.ok) return "N/A";
       const data = (await response.json()) as {
@@ -96,11 +105,17 @@ export class NewApiClient {
     // Try /api/pricing_new first — some instances (newer new-api forks) expose
     // a V1-format endpoint here that includes supported_endpoint_types even when
     // /api/pricing returns V2 format without endpoint data.
-    const urls = [`${this.baseUrl}/api/pricing_new`, `${this.baseUrl}/api/pricing`];
+    const urls = [
+      `${this.baseUrl}/api/pricing_new`,
+      `${this.baseUrl}/api/pricing`
+    ];
     let raw: { success: boolean; [key: string]: unknown } | undefined;
     for (const url of urls) {
       try {
-        const body = await requestJson<{ success: boolean; [key: string]: unknown }>(url);
+        const body = await requestJson<{
+          success: boolean;
+          [key: string]: unknown;
+        }>(url);
         if (!body.success || !body.data) continue;
         // Only prefer pricing_new if it actually returns V1 format (with endpoint data)
         if (url.endsWith("/pricing_new") && !Array.isArray(body.data)) continue;
@@ -111,7 +126,9 @@ export class NewApiClient {
       }
     }
     if (!raw) {
-      throw new Error("Failed to fetch pricing from both /api/pricing_new and /api/pricing");
+      throw new Error(
+        "Failed to fetch pricing from both /api/pricing_new and /api/pricing"
+      );
     }
 
     // Detect format: V1 has data as array + top-level usable_group/group_ratio,
@@ -148,8 +165,8 @@ export class NewApiClient {
         ratio: data.group_ratio[name] ?? 1,
         models: Array.from(groupModels.get(name) ?? []),
         channelType: inferChannelType(
-          Array.from(groupEndpoints.get(name) ?? []),
-        ),
+          Array.from(groupEndpoints.get(name) ?? [])
+        )
       }));
 
     const models: ModelInfo[] = data.data.map((m) => ({
@@ -159,6 +176,8 @@ export class NewApiClient {
       groups: m.enable_groups,
       vendorId: m.vendor_id,
       supportedEndpoints: m.supported_endpoint_types,
+      modelPrice:
+        m.quota_type === 1 && m.model_price > 0 ? m.model_price : undefined
     }));
 
     const modelRatios: Record<string, number> = {};
@@ -176,7 +195,9 @@ export class NewApiClient {
       }
     }
 
-    consola.info(`[${this.name}] V1 format: ${groups.length} groups, ${models.length} models`);
+    consola.info(
+      `[${this.name}] V1 format: ${groups.length} groups, ${models.length} models`
+    );
 
     return {
       groups,
@@ -184,7 +205,7 @@ export class NewApiClient {
       groupRatios: data.group_ratio,
       modelRatios,
       completionRatios,
-      vendorIdToName,
+      vendorIdToName
     };
   }
 
@@ -192,7 +213,9 @@ export class NewApiClient {
     const d = raw.data;
     const groupRatios: Record<string, number> = {};
     const modelRatios: Record<string, number> = {};
-    const completionRatios: Record<string, number> = { ...d.model_completion_ratio };
+    const completionRatios: Record<string, number> = {
+      ...d.model_completion_ratio
+    };
 
     const groups: GroupInfo[] = Object.entries(d.model_group)
       .filter(([name]) => name !== "")
@@ -212,7 +235,7 @@ export class NewApiClient {
           description: group.DisplayName || name,
           ratio: group.GroupRatio,
           models: modelNames,
-          channelType: CHANNEL_TYPES.OPENAI, // V2 doesn't expose endpoint types; default to OpenAI
+          channelType: CHANNEL_TYPES.OPENAI // V2 doesn't expose endpoint types; default to OpenAI
         };
       });
 
@@ -225,7 +248,7 @@ export class NewApiClient {
             name: modelName,
             ratio: pricing.price || 1,
             completionRatio: d.model_completion_ratio[modelName] ?? 1,
-            groups: [],
+            groups: []
           });
         }
         allModels.get(modelName)!.groups.push(groupName);
@@ -233,7 +256,9 @@ export class NewApiClient {
     }
     const models = Array.from(allModels.values());
 
-    consola.info(`[${this.name}] V2 format: ${groups.length} groups, ${models.length} models`);
+    consola.info(
+      `[${this.name}] V2 format: ${groups.length} groups, ${models.length} models`
+    );
 
     return {
       groups,
@@ -241,7 +266,7 @@ export class NewApiClient {
       groupRatios,
       modelRatios,
       completionRatios,
-      vendorIdToName: {},
+      vendorIdToName: {}
     };
   }
 
@@ -251,7 +276,7 @@ export class NewApiClient {
     while (true) {
       const data = await requestJson<TokenListResponse>(
         `${this.baseUrl}/api/token/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-        { headers: this.headers },
+        { headers: this.headers }
       );
       if (!data.success) {
         throw new Error("Token list API returned success: false");
@@ -277,9 +302,9 @@ export class NewApiClient {
           group,
           expired_time: -1,
           unlimited_quota: true,
-          model_limits_enabled: false,
-        },
-      },
+          model_limits_enabled: false
+        }
+      }
     );
     if (!data.success) {
       throw new Error(`Token create failed: ${data.message ?? "unknown"}`);
@@ -290,20 +315,20 @@ export class NewApiClient {
     apiKey: string,
     models: string[],
     channelType: number,
-    onModelTested?: (detail: ModelTestDetail) => void | Promise<void>,
+    onModelTested?: (detail: ModelTestDetail) => void | Promise<void>
   ): Promise<TestModelsResult> {
     return new ModelTester(this.baseUrl, apiKey).testModels(
       models,
       channelType,
       false,
       5,
-      onModelTested,
+      onModelTested
     );
   }
 
   async ensureTokens(
     groups: GroupInfo[],
-    prefix: string,
+    prefix: string
   ): Promise<{
     tokens: Record<string, string>;
     created: number;
@@ -318,13 +343,17 @@ export class NewApiClient {
     const existingTokens = await this.listTokens();
     const tokensByName = new Map(existingTokens.map((t) => [t.name, t]));
 
-    const tokenNameForGroup = (groupName: string) =>
-      sanitizeGroupName(`${groupName}-${prefix}`) || `group-${prefix}`;
-    const desiredTokenNames = new Set(groups.map((g) => tokenNameForGroup(g.name)));
+    const tokenNameForGroup = (groupName: string) => `${groupName}-${prefix}`;
+    const desiredTokenNames = new Set(
+      groups.map((g) => tokenNameForGroup(g.name))
+    );
 
     // Delete tokens that are managed by us but no longer needed
     for (const token of existingTokens) {
-      if (token.name.endsWith(`-${prefix}`) && !desiredTokenNames.has(token.name)) {
+      if (
+        token.name.endsWith(`-${prefix}`) &&
+        !desiredTokenNames.has(token.name)
+      ) {
         if (await this.deleteToken(token.id)) {
           consola.info(`[${this.name}] Deleted stale token: ${token.name}`);
           deleted++;
@@ -360,7 +389,7 @@ export class NewApiClient {
   async deleteToken(id: number): Promise<boolean> {
     const response = await fetch(`${this.baseUrl}/api/token/${id}`, {
       method: "DELETE",
-      headers: this.headers,
+      headers: this.headers
     });
     if (!response.ok) return false;
     const data = (await response.json()) as { success: boolean };
@@ -378,10 +407,12 @@ export class NewApiClient {
 
   async getOptions(keys: string[]): Promise<Record<string, string>> {
     const response = await fetch(`${this.baseUrl}/api/option/`, {
-      headers: this.headers,
+      headers: this.headers
     });
     if (!response.ok) return {};
-    const data = (await response.json()) as { data?: Array<{ key: string; value: string }> };
+    const data = (await response.json()) as {
+      data?: Array<{ key: string; value: string }>;
+    };
     const keySet = new Set(keys);
     const result: Record<string, string> = {};
     for (const opt of data.data ?? []) {
@@ -396,7 +427,7 @@ export class NewApiClient {
     const response = await fetch(`${this.baseUrl}/api/option/`, {
       method: "PUT",
       headers: this.headers,
-      body: JSON.stringify({ key, value }),
+      body: JSON.stringify({ key, value })
     });
     if (!response.ok) return false;
     const data = (await response.json()) as ApiResponse;
@@ -404,7 +435,7 @@ export class NewApiClient {
   }
 
   async updateOptions(
-    options: Record<string, string>,
+    options: Record<string, string>
   ): Promise<{ updated: string[]; failed: string[] }> {
     const updated: string[] = [];
     const failed: string[] = [];
@@ -418,7 +449,7 @@ export class NewApiClient {
   private async paginatedFetch<T>(
     path: string,
     extractItems: (json: unknown) => T[],
-    opts?: { startPage?: number; pageParam?: string },
+    opts?: { startPage?: number; pageParam?: string }
   ): Promise<T[]> {
     const all: T[] = [];
     let page = opts?.startPage ?? PAGINATION.START_PAGE_ZERO;
@@ -426,9 +457,10 @@ export class NewApiClient {
     while (true) {
       const response = await fetch(
         `${this.baseUrl}${path}?${pageParam}=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-        { headers: this.headers },
+        { headers: this.headers }
       );
-      if (!response.ok) throw new Error(`Failed to fetch ${path}: ${response.status}`);
+      if (!response.ok)
+        throw new Error(`Failed to fetch ${path}: ${response.status}`);
       const json = await response.json();
       const items = extractItems(json);
       all.push(...items);
@@ -440,9 +472,15 @@ export class NewApiClient {
 
   async listChannels(): Promise<Channel[]> {
     return this.paginatedFetch<Channel>("/api/channel/", (json) => {
-      const data = json as { success: boolean; data: { data?: Channel[]; items?: Channel[] } | Channel[] };
-      if (!data.success) throw new Error("Channel list API returned success: false");
-      return Array.isArray(data.data) ? data.data : (data.data?.items ?? data.data?.data ?? []);
+      const data = json as {
+        success: boolean;
+        data: { data?: Channel[]; items?: Channel[] } | Channel[];
+      };
+      if (!data.success)
+        throw new Error("Channel list API returned success: false");
+      return Array.isArray(data.data)
+        ? data.data
+        : (data.data?.items ?? data.data?.data ?? []);
     });
   }
 
@@ -450,13 +488,13 @@ export class NewApiClient {
     let response = await fetch(`${this.baseUrl}/api/channel/`, {
       method: "POST",
       headers: this.headers,
-      body: JSON.stringify({ mode: "single", channel }),
+      body: JSON.stringify({ mode: "single", channel })
     });
     if (response.status === 400 || response.status === 422) {
       response = await fetch(`${this.baseUrl}/api/channel/`, {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(channel),
+        body: JSON.stringify(channel)
       });
     }
     if (!response.ok) return null;
@@ -470,7 +508,7 @@ export class NewApiClient {
     const response = await fetch(`${this.baseUrl}/api/channel/`, {
       method: "PUT",
       headers: this.headers,
-      body: JSON.stringify(channel),
+      body: JSON.stringify(channel)
     });
     if (!response.ok) return false;
     const data = (await response.json()) as ApiResponse;
@@ -480,7 +518,7 @@ export class NewApiClient {
   async deleteChannel(id: number): Promise<boolean> {
     const response = await fetch(`${this.baseUrl}/api/channel/${id}`, {
       method: "DELETE",
-      headers: this.headers,
+      headers: this.headers
     });
     if (!response.ok) return false;
     const data = (await response.json()) as ApiResponse;
@@ -498,7 +536,7 @@ export class NewApiClient {
     const response = await fetch(`${this.baseUrl}/api/models/`, {
       method: "POST",
       headers: this.headers,
-      body: JSON.stringify(model),
+      body: JSON.stringify(model)
     });
     if (!response.ok) return false;
     const data = (await response.json()) as ApiResponse;
@@ -509,7 +547,7 @@ export class NewApiClient {
     const response = await fetch(`${this.baseUrl}/api/models/`, {
       method: "PUT",
       headers: this.headers,
-      body: JSON.stringify(model),
+      body: JSON.stringify(model)
     });
     if (!response.ok) return false;
     const data = (await response.json()) as ApiResponse;
@@ -519,7 +557,7 @@ export class NewApiClient {
   async deleteModel(id: number): Promise<boolean> {
     const response = await fetch(`${this.baseUrl}/api/models/${id}`, {
       method: "DELETE",
-      headers: this.headers,
+      headers: this.headers
     });
     if (!response.ok) return false;
     const data = (await response.json()) as ApiResponse;
@@ -527,23 +565,31 @@ export class NewApiClient {
   }
 
   async listVendors(): Promise<Vendor[]> {
-    return this.paginatedFetch<Vendor>("/api/vendors/", (json) => {
-      const data = json as ApiResponse<{ items?: Vendor[] }>;
-      return data.data?.items ?? [];
-    }, { startPage: PAGINATION.START_PAGE_ONE, pageParam: "page" });
+    return this.paginatedFetch<Vendor>(
+      "/api/vendors/",
+      (json) => {
+        const data = json as ApiResponse<{ items?: Vendor[] }>;
+        return data.data?.items ?? [];
+      },
+      { startPage: PAGINATION.START_PAGE_ONE, pageParam: "page" }
+    );
   }
 
   async cleanupOrphanedModels(): Promise<number> {
     try {
       const response = await fetch(`${this.baseUrl}/api/models/orphaned`, {
         method: "DELETE",
-        headers: this.headers,
+        headers: this.headers
       });
       if (!response.ok) {
         if (response.status === 404) {
-          consola.warn(`[${this.name}] Orphan cleanup endpoint not supported (404)`);
+          consola.warn(
+            `[${this.name}] Orphan cleanup endpoint not supported (404)`
+          );
         } else {
-          consola.warn(`[${this.name}] Orphan cleanup failed: ${response.status}`);
+          consola.warn(
+            `[${this.name}] Orphan cleanup failed: ${response.status}`
+          );
         }
         return 0;
       }
