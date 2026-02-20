@@ -260,8 +260,8 @@ export class NewApiClient {
     return allTokens;
   }
 
-  async createToken(name: string, group: string): Promise<void> {
-    const data = await fetchJson<{ success: boolean; message?: string }>(
+  async createToken(name: string, group: string): Promise<boolean> {
+    const data = await tryFetchJson<{ success: boolean; message?: string }>(
       `${this.baseUrl}/api/token/`,
       {
         method: "POST",
@@ -275,9 +275,13 @@ export class NewApiClient {
         },
       },
     );
-    if (!data.success) {
-      throw new Error(`Token create failed: ${data.message ?? "unknown"}`);
+    if (!data?.success) {
+      consola.warn(
+        `[${this.name}] Token create failed for "${group}": ${data?.message ?? "unknown"}`,
+      );
+      return false;
     }
+    return true;
   }
 
   async ensureTokens(
@@ -297,7 +301,14 @@ export class NewApiClient {
     const existingTokens = await this.listTokens();
     const tokensByName = new Map(existingTokens.map((t) => [t.name, t]));
 
-    const tokenNameForGroup = (groupName: string) => `${groupName}-${prefix}`;
+    const TOKEN_NAME_MAX = 30;
+    const suffix = `-${prefix}`;
+    const tokenNameForGroup = (groupName: string) => {
+      const maxLen = TOKEN_NAME_MAX - suffix.length;
+      const truncated =
+        groupName.length > maxLen ? groupName.slice(0, maxLen) : groupName;
+      return `${truncated}${suffix}`;
+    };
     const desiredTokenNames = new Set(
       groups.map((g) => tokenNameForGroup(g.name)),
     );
@@ -325,12 +336,16 @@ export class NewApiClient {
           : `sk-${existingToken.key}`;
         existing++;
       } else {
-        await this.createToken(tokenName, group.name);
+        if (!(await this.createToken(tokenName, group.name))) continue;
         created++;
         const updatedTokens = await this.listTokens();
         const newToken = updatedTokens.find((t) => t.name === tokenName);
-        if (!newToken)
-          throw new Error(`Token ${tokenName} created but not found`);
+        if (!newToken) {
+          consola.warn(
+            `[${this.name}] Token "${tokenName}" created but not found`,
+          );
+          continue;
+        }
         result[group.name] = newToken.key.startsWith("sk-")
           ? newToken.key
           : `sk-${newToken.key}`;

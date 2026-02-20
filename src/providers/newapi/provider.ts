@@ -27,7 +27,7 @@ export async function processNewApiProvider(
   };
 
   try {
-    const upstream = new NewApiClient(providerConfig);
+    const upstream = new NewApiClient(providerConfig, providerConfig.name);
 
     const pricing = await upstream.fetchPricing();
 
@@ -125,9 +125,7 @@ export async function processNewApiProvider(
       groups = groups.filter((g) => g.ratio * effectiveMultiplier <= 1);
     }
 
-    const tokenPrefix = config.target.targetPrefix
-      ? `${providerConfig.name}-${config.target.targetPrefix}`
-      : providerConfig.name;
+    const tokenPrefix = config.target.targetPrefix ?? providerConfig.name;
     const tokenResult = await upstream.ensureTokens(groups, tokenPrefix);
     providerReport.tokens = {
       created: tokenResult.created,
