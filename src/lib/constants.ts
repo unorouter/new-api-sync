@@ -109,7 +109,40 @@ export const ENDPOINT_DEFAULT_PATHS: Record<string, string> = {
   "jina-rerank": "/v1/rerank",
   "image-generation": "/v1/images/generations",
   embedding: "/v1/embeddings",
+  "openai-video": "/v1/videos",
 };
+
+// Canonical endpoint type for each model type (used for normalization)
+const MODEL_TYPE_CANONICAL_ENDPOINT: Partial<Record<ModelType, string>> = {
+  image: "image-generation",
+  video: "openai-video",
+};
+
+/**
+ * Normalize a non-standard endpoint type string to a canonical one.
+ * Returns the original string if it's already standard.
+ */
+export function normalizeEndpointType(ep: string): string {
+  if (ep in ENDPOINT_DEFAULT_PATHS) return ep;
+  // Check exact map first
+  const exact = ENDPOINT_TO_MODEL_TYPE[ep];
+  if (exact) return ep; // already known, just not in paths
+  // Keyword-based: infer model type, then map to canonical endpoint
+  const lower = ep.toLowerCase();
+  for (const [keyword, type] of ENDPOINT_KEYWORD_TYPES) {
+    if (lower.includes(keyword)) {
+      return MODEL_TYPE_CANONICAL_ENDPOINT[type] ?? ep;
+    }
+  }
+  return ep;
+}
+
+/**
+ * Normalize an array of endpoint types, deduplicating after normalization.
+ */
+export function normalizeEndpointTypes(eps: string[]): string[] {
+  return [...new Set(eps.map(normalizeEndpointType))];
+}
 
 // Text endpoint types from new-api (constant/endpoint_type.go)
 // Non-text types: image-generation, embeddings, openai-video, jina-rerank
@@ -162,6 +195,57 @@ export const NON_TEXT_MODEL_PATTERNS = [
   "moderation",
 ];
 
+export type ModelType = "image" | "video" | "audio" | "embedding" | "text";
+
+// Exact endpoint type → model type mapping
+const ENDPOINT_TO_MODEL_TYPE: Record<string, ModelType> = {
+  "image-generation": "image",
+  "dall-e-3": "image",
+  "aigc-image": "image",
+  "openai-video": "video",
+  "aigc-video": "video",
+  embeddings: "embedding",
+  embedding: "embedding",
+  rerank: "embedding",
+  "jina-rerank": "embedding",
+  geminitts: "audio",
+};
+
+// Keyword patterns for non-standard endpoint types (e.g. Chinese names from upstream)
+const ENDPOINT_KEYWORD_TYPES: [string, ModelType][] = [
+  ["视频", "video"],    // video (Chinese)
+  ["video", "video"],
+  ["生图", "image"],    // text-to-image (Chinese)
+  ["image", "image"],
+  ["音", "audio"],      // audio/sound (Chinese)
+  ["tts", "audio"],
+];
+
+/**
+ * Classify a model by its media type from endpoint data.
+ */
+export function inferModelType(
+  name: string,
+  endpoints?: string[],
+  modelEndpoints?: Map<string, string[]>,
+): ModelType {
+  const eps = endpoints ?? modelEndpoints?.get(name);
+  if (eps) {
+    for (const ep of eps) {
+      const exact = ENDPOINT_TO_MODEL_TYPE[ep];
+      if (exact) return exact;
+    }
+    // Keyword fallback for non-standard endpoint type names
+    for (const ep of eps) {
+      const lower = ep.toLowerCase();
+      for (const [keyword, type] of ENDPOINT_KEYWORD_TYPES) {
+        if (lower.includes(keyword)) return type;
+      }
+    }
+  }
+  return "text";
+}
+
 export const VENDOR_MATCHERS: Record<
   string,
   {
@@ -170,7 +254,7 @@ export const VENDOR_MATCHERS: Record<
   }
 > = {
   anthropic: { modelPatterns: ["claude"] },
-  google: { modelPatterns: ["gemini", "palm"] },
+  google: { modelPatterns: ["gemini", "palm", "veo"] },
   openai: { modelPatterns: ["gpt", "o1-", "o3-", "o4-", "chatgpt"] },
   deepseek: { modelPatterns: ["deepseek"] },
   xai: { modelPatterns: ["grok"] },

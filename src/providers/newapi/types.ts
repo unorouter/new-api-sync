@@ -23,6 +23,7 @@ export interface UpstreamPricing {
   modelRatios: Record<string, number>;
   completionRatios: Record<string, number>;
   vendorIdToName: Record<number, string>;
+  endpointPaths: Record<string, EndpointInfo>;
 }
 
 export interface UpstreamToken {
@@ -31,6 +32,11 @@ export interface UpstreamToken {
   key: string;
   group: string;
   status: number;
+}
+
+export interface EndpointInfo {
+  path: string;
+  method: string;
 }
 
 export interface PricingResponse {
@@ -48,6 +54,7 @@ export interface PricingResponse {
   group_ratio: Record<string, number>;
   usable_group: Record<string, string>;
   vendors?: Array<{ id: number; name: string }>;
+  supported_endpoint?: Record<string, EndpointInfo>;
 }
 
 export interface PricingResponseV2 {

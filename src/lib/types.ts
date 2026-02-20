@@ -70,7 +70,12 @@ export interface MergedModel {
 export interface SyncState {
   mergedGroups: MergedGroup[];
   mergedModels: Map<string, MergedModel>;
+  /** Model → normalized endpoint types (for classification / testability) */
   modelEndpoints: Map<string, string[]>;
+  /** Model → original endpoint types as returned by upstream (for path lookup) */
+  modelOriginalEndpoints: Map<string, string[]>;
+  /** Endpoint type → {path, method} from upstream's supported_endpoint map (original keys) */
+  endpointPaths: Map<string, { path: string; method: string }>;
   channelsToCreate: Channel[];
 }
 

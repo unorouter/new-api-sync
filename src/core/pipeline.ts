@@ -6,6 +6,7 @@ import type {
 import {
   ENDPOINT_DEFAULT_PATHS,
   inferVendorFromModelName,
+  normalizeEndpointType,
 } from "@/lib/constants";
 import type {
   Channel,
@@ -24,6 +25,8 @@ export async function runProviderPipeline(
     mergedGroups: [],
     mergedModels: new Map(),
     modelEndpoints: new Map(),
+    modelOriginalEndpoints: new Map(),
+    endpointPaths: new Map(),
     channelsToCreate: [],
   };
 
@@ -86,6 +89,13 @@ export async function runProviderPipeline(
 
   const models = new Map<string, DesiredModelSpec>();
 
+  // Build reverse mapping (mapped name → original name) so we can look up
+  // endpoint data that was stored under the original upstream name.
+  const reverseMapping = new Map<string, string>();
+  for (const [original, mapped] of Object.entries(config.modelMapping)) {
+    reverseMapping.set(mapped, original);
+  }
+
   for (const channel of channels) {
     const channelModels = channel.models
       .split(",")
@@ -93,13 +103,17 @@ export async function runProviderPipeline(
       .filter(Boolean);
     for (const modelName of channelModels) {
       const vendor = inferVendorFromModelName(modelName);
-      const endpointTypes = state.modelEndpoints.get(modelName);
+      // Use original endpoint types for path lookup, normalized types for output keys
+      const originalEps = state.modelOriginalEndpoints.get(modelName)
+        ?? state.modelOriginalEndpoints.get(reverseMapping.get(modelName) ?? "");
       let endpoints: string | undefined;
-      if (endpointTypes) {
+      if (originalEps) {
         const epMap: Record<string, string> = {};
-        for (const ep of endpointTypes) {
-          const path = ENDPOINT_DEFAULT_PATHS[ep];
-          if (path) epMap[ep] = path;
+        for (const origEp of originalEps) {
+          const normalized = normalizeEndpointType(origEp);
+          const info = state.endpointPaths.get(origEp);
+          const path = info?.path ?? ENDPOINT_DEFAULT_PATHS[normalized];
+          if (path) epMap[normalized] = path;
         }
         if (Object.keys(epMap).length > 0) endpoints = JSON.stringify(epMap);
       }

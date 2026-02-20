@@ -100,6 +100,12 @@ export class NewApiClient {
       );
     }
 
+    // Extract supported_endpoint before format dispatch (both V1 and V2 may have it)
+    const supportedEndpoint = (raw.supported_endpoint ?? {}) as Record<
+      string,
+      { path: string; method: string }
+    >;
+
     // Detect format: V1 has data as array + top-level usable_group/group_ratio,
     // V2 has data as object with model_group/model_info/model_completion_ratio
     const isV1 = Array.isArray(raw.data);
@@ -107,7 +113,9 @@ export class NewApiClient {
     if (isV1) {
       return this.parsePricingV1(raw as unknown as PricingResponse);
     }
-    return this.parsePricingV2(raw as unknown as PricingResponseV2);
+    const result = this.parsePricingV2(raw as unknown as PricingResponseV2);
+    result.endpointPaths = supportedEndpoint;
+    return result;
   }
 
   private parsePricingV1(data: PricingResponse): UpstreamPricing {
@@ -175,6 +183,7 @@ export class NewApiClient {
       modelRatios,
       completionRatios,
       vendorIdToName,
+      endpointPaths: data.supported_endpoint ?? {},
     };
   }
 
@@ -236,6 +245,7 @@ export class NewApiClient {
       modelRatios,
       completionRatios,
       vendorIdToName: {},
+      endpointPaths: {},
     };
   }
 

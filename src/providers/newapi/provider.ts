@@ -1,10 +1,12 @@
 import type { ProviderConfig, RuntimeConfig } from "@/config";
 import {
   inferChannelTypeFromModels,
+  inferModelType,
   inferVendorFromModelName,
   isTestableModel,
   matchesAnyPattern,
   matchesBlacklist,
+  normalizeEndpointTypes,
   sanitizeGroupName,
 } from "@/lib/constants";
 import { testModels } from "@/lib/model-tester";
@@ -31,11 +33,17 @@ export async function processNewApiProvider(
 
     const pricing = await upstream.fetchPricing();
 
-    // Populate model endpoints map for text model detection
+    // Populate model endpoints maps
     for (const model of pricing.models) {
       if (model.supportedEndpoints?.length) {
-        state.modelEndpoints.set(model.name, model.supportedEndpoints);
+        state.modelEndpoints.set(model.name, normalizeEndpointTypes(model.supportedEndpoints));
+        state.modelOriginalEndpoints.set(model.name, model.supportedEndpoints);
       }
+    }
+
+    // Store real endpoint paths from the upstream's supported_endpoint map (original keys only)
+    for (const [ep, info] of Object.entries(pricing.endpointPaths)) {
+      state.endpointPaths.set(ep, info);
     }
 
     // Find groups with Anthropic models that aren't in config
@@ -288,17 +296,18 @@ export async function processNewApiProvider(
         continue;
       }
 
-      // Group models by their effective ratio (per-vendor priceAdjustment may differ)
+      // Group models by their effective ratio (per-vendor/type priceAdjustment may differ)
       const ratioToModels = new Map<number, string[]>();
       for (const model of mappedModels) {
         const vendor = inferVendorFromModelName(model) ?? "unknown";
+        const modelType = inferModelType(model, undefined, state.modelEndpoints);
         const adj = providerConfig.priceAdjustment;
         const vendorAdj =
           adj === undefined
             ? 0
             : typeof adj === "number"
               ? adj
-              : (adj[vendor.toLowerCase()] ?? adj["default"] ?? 0);
+              : (adj[vendor.toLowerCase()] ?? adj[modelType] ?? adj["default"] ?? 0);
         const effectiveRatio = groupRatio * (1 + vendorAdj);
         const key = Math.round(effectiveRatio * 1e6) / 1e6;
         if (!ratioToModels.has(key)) ratioToModels.set(key, []);
