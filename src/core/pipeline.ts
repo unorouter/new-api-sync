@@ -15,6 +15,7 @@ import type {
   DesiredState,
   ProviderReport,
   SyncState,
+  TargetSnapshot,
 } from "@/lib/types";
 import { processNewApiProvider } from "@/providers/newapi/provider";
 import { processSub2ApiProvider } from "@/providers/sub2api/provider";
@@ -117,6 +118,7 @@ async function backfillModelRatios(
 
 export async function runProviderPipeline(
   config: RuntimeConfig,
+  targetSnapshot?: TargetSnapshot,
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
   const state: SyncState = {
     mergedGroups: [],
@@ -126,6 +128,32 @@ export async function runProviderPipeline(
     endpointPaths: new Map(),
     channelsToCreate: [],
   };
+
+  // Seed state with baseline channels/groups from the target so that
+  // providers like sub2api can see prices from providers not in this run
+  // (critical for --only partial syncs).
+  const managedProviders = new Set(config.providers.map((p) => p.name));
+  if (targetSnapshot) {
+    let existingGroupRatio: Record<string, number> = {};
+    try {
+      const raw = targetSnapshot.options["GroupRatio"];
+      if (raw) existingGroupRatio = JSON.parse(raw);
+    } catch {}
+
+    for (const ch of targetSnapshot.channels) {
+      if (ch.tag && managedProviders.has(ch.tag)) continue;
+      state.channelsToCreate.push(ch);
+      state.mergedGroups.push({
+        name: ch.group,
+        ratio: existingGroupRatio[ch.group] ?? 1,
+        description: `baseline: ${ch.group}`,
+        provider: ch.tag ?? "__baseline__",
+      });
+    }
+
+  }
+  const baselineChannelCount = state.channelsToCreate.length;
+  const baselineGroupCount = state.mergedGroups.length;
 
   // Process providers (newapi first, then sub2api)
   const sorted = [...config.providers].sort(
@@ -144,6 +172,10 @@ export async function runProviderPipeline(
           );
     providerReports.push(report);
   }
+
+  // Strip baseline entries — they were only needed for buildPriceTiers()
+  state.channelsToCreate = state.channelsToCreate.slice(baselineChannelCount);
+  state.mergedGroups = state.mergedGroups.slice(baselineGroupCount);
 
   // Dedupe channels by name (last write wins)
   const channelByName = new Map<string, Channel>();
