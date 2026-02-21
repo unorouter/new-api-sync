@@ -110,8 +110,9 @@ export function pushTieredChannels(
   },
   state: SyncState,
 ): void {
+  const sortedTiers = [...ratioToModels.entries()].sort(([a], [b]) => a - b);
   let tierIdx = 0;
-  for (const [groupRatio, models] of ratioToModels) {
+  for (const [groupRatio, models] of sortedTiers) {
     const suffix = ratioToModels.size > 1 ? `-t${tierIdx}` : "";
     const tierName = `${baseName}${suffix}`;
 

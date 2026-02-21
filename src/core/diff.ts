@@ -40,7 +40,7 @@ function normalizeChannel(channel: Channel): Omit<Channel, "id"> {
   };
 }
 
-/** Keep existing entries whose key is in `guard`, then overlay `desired` values on top. */
+/** Keep existing entries whose key is in `guard`, then add `desired` entries that aren't guarded. */
 function mergeProtected<T>(
   existing: Record<string, T>,
   guard: Set<string>,
@@ -50,12 +50,16 @@ function mergeProtected<T>(
   for (const [key, value] of Object.entries(existing)) {
     if (guard.has(key)) merged[key] = value;
   }
-  return Object.assign(merged, desired);
+  for (const [key, value] of Object.entries(desired)) {
+    if (!(key in merged)) merged[key] = value;
+  }
+  return merged;
 }
 
 function buildManagedOptionValues(
   desired: DesiredState,
   snapshot: TargetSnapshot,
+  isPartialSync: boolean,
 ): Record<string, string> {
   const unmanagedChannels = snapshot.channels.filter(
     (channel) => !channel.tag || !desired.managedProviders.has(channel.tag),
@@ -97,22 +101,37 @@ function buildManagedOptionValues(
     }
   };
 
+  // During partial syncs (--only), guard ALL existing option keys so that
+  // data from providers not in this run is preserved unchanged.
+  const groupGuard = isPartialSync
+    ? new Set([...unmanagedGroups, ...Object.keys(parse<Record<string, unknown>>("GroupRatio", {}))])
+    : unmanagedGroups;
+  const modelGuard = isPartialSync
+    ? new Set([
+        ...modelRatioGuard,
+        ...Object.keys(parse<Record<string, unknown>>("ModelRatio", {})),
+        ...Object.keys(parse<Record<string, unknown>>("ModelPrice", {})),
+        ...Object.keys(parse<Record<string, unknown>>("CompletionRatio", {})),
+        ...Object.keys(parse<Record<string, unknown>>("ImageRatio", {})),
+      ])
+    : modelRatioGuard;
+
   const mergedGroupRatio = mergeProtected(
     parse<Record<string, number>>("GroupRatio", {}),
-    unmanagedGroups,
+    groupGuard,
     desired.options.groupRatio,
   );
 
   const mergedUserGroups = mergeProtected(
     parse<Record<string, string>>("UserUsableGroups", {}),
-    unmanagedGroups,
+    groupGuard,
     { auto: DEFAULT_AUTO_LABEL, ...desired.options.userUsableGroups },
   );
 
   const mergedAutoGroups = [
     ...new Set([
       ...parse<string[]>("AutoGroups", []).filter((g) =>
-        unmanagedGroups.has(g),
+        groupGuard.has(g),
       ),
       ...desired.options.autoGroups,
     ]),
@@ -120,22 +139,22 @@ function buildManagedOptionValues(
 
   const mergedModelRatio = mergeProtected(
     parse<Record<string, number>>("ModelRatio", {}),
-    modelRatioGuard,
+    modelGuard,
     desired.options.modelRatio,
   );
   const mergedCompletionRatio = mergeProtected(
     parse<Record<string, number>>("CompletionRatio", {}),
-    modelRatioGuard,
+    modelGuard,
     desired.options.completionRatio,
   );
   const mergedModelPrice = mergeProtected(
     parse<Record<string, number>>("ModelPrice", {}),
-    modelRatioGuard,
+    modelGuard,
     desired.options.modelPrice,
   );
   const mergedImageRatio = mergeProtected(
     parse<Record<string, number>>("ImageRatio", {}),
-    modelRatioGuard,
+    modelGuard,
     desired.options.imageRatio,
   );
 
@@ -300,7 +319,8 @@ export function buildSyncDiff(
   }
 
   // ---- Options ----
-  const desiredOptionValues = buildManagedOptionValues(desired, snapshot);
+  const isPartialSync = config.onlyProviders !== undefined;
+  const desiredOptionValues = buildManagedOptionValues(desired, snapshot, isPartialSync);
   const optionOps: DiffOperation<string>[] = [];
   for (const [key, value] of Object.entries(desiredOptionValues)) {
     const existing = snapshot.options[key];
