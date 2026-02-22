@@ -2,6 +2,7 @@ import { applyOnlyProviders, loadConfig } from "@/config";
 import { runReset } from "@/core/reset";
 import { printResetSummary, printRunSummary, runSync } from "@/core/run";
 import { Command } from "commander";
+import { consola } from "consola";
 
 const program = new Command();
 program.name("sync").description("new-api-sync").showHelpAfterError();
@@ -16,7 +17,9 @@ program
     (value: string, prev: string[]) => [...prev, value],
     [] as string[],
   )
-  .action(async (options: { config?: string; only: string[] }) => {
+  .option("-v, --verbose", "enable debug logging")
+  .action(async (options: { config?: string; only: string[]; verbose?: boolean }) => {
+    if (options.verbose) consola.level = 4;
     const config = applyOnlyProviders(
       await loadConfig(options.config),
       options.only,

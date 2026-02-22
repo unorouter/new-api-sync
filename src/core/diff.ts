@@ -101,10 +101,19 @@ function buildManagedOptionValues(
     }
   };
 
-  // During partial syncs (--only), guard ALL existing option keys so that
-  // data from providers not in this run is preserved unchanged.
+  // During partial syncs (--only), guard existing option keys from providers
+  // NOT in this run. Groups belonging to managed providers must be updatable.
+  const managedGroups = new Set(
+    snapshot.channels
+      .filter((ch) => ch.tag && desired.managedProviders.has(ch.tag))
+      .map((ch) => ch.group),
+  );
   const groupGuard = isPartialSync
-    ? new Set([...unmanagedGroups, ...Object.keys(parse<Record<string, unknown>>("GroupRatio", {}))])
+    ? new Set([
+        ...unmanagedGroups,
+        ...Object.keys(parse<Record<string, unknown>>("GroupRatio", {}))
+          .filter((g) => !managedGroups.has(g)),
+      ])
     : unmanagedGroups;
   const modelGuard = isPartialSync
     ? new Set([

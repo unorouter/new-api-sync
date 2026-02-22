@@ -1,6 +1,7 @@
 import { matchesAnyPattern } from "@/lib/constants";
 import type { SyncState } from "@/lib/types";
 import type { AnyProviderConfig } from "@/config";
+import { consola } from "consola";
 
 /**
  * Resolve the priceAdjustment value for a specific model.
@@ -73,13 +74,18 @@ export function buildPriceTiers(
   for (const ch of state.channelsToCreate) {
     if (ch.tag === excludeProvider) continue;
     const gRatio = groupRatioByName.get(ch.group) ?? 1;
-    for (const model of ch.models.split(",")) {
+    for (const model of ch.models.split(",").map(m => m.trim()).filter(Boolean)) {
       const existing = cheapestGroupForModel.get(model);
       if (existing === undefined || gRatio < existing) {
         cheapestGroupForModel.set(model, gRatio);
       }
     }
   }
+
+  consola.debug(
+    `[buildPriceTiers] ${models.length} models, ${state.channelsToCreate.length} baseline channels, ` +
+    `${state.mergedGroups.length} groups, excluding="${excludeProvider}"`,
+  );
 
   const ratioToModels = new Map<number, string[]>();
   for (const model of models) {
@@ -88,6 +94,9 @@ export function buildPriceTiers(
       adj, model, vendor, "text", defaultAdjustment, modelMapping,
     );
     const ratio = cheapest * (1 + adjustment);
+    consola.debug(
+      `[buildPriceTiers]   ${model}: cheapest=${cheapest.toFixed(4)} × (1+${adjustment}) = ${ratio.toFixed(6)}`,
+    );
     const key = Math.round(ratio * 1e6) / 1e6;
     if (!ratioToModels.has(key)) ratioToModels.set(key, []);
     ratioToModels.get(key)!.push(model);

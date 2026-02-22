@@ -17,6 +17,7 @@ import type {
   SyncState,
   TargetSnapshot,
 } from "@/lib/types";
+import { NewApiClient } from "@/providers/newapi/client";
 import { processNewApiProvider } from "@/providers/newapi/provider";
 import { processSub2ApiProvider } from "@/providers/sub2api/provider";
 import { consola } from "consola";
@@ -134,23 +135,70 @@ export async function runProviderPipeline(
   // (critical for --only partial syncs).
   const managedProviders = new Set(config.providers.map((p) => p.name));
   if (targetSnapshot) {
-    let existingGroupRatio: Record<string, number> = {};
+    // For partial sync, fetch the pricing API for accurate ratios and model data.
+    // For full sync, fall back to GroupRatio from the snapshot.
+    let pricingGroupRatio = new Map<string, number>();
+    let snapshotGroupRatio: Record<string, number> = {};
+    let targetPricing: Awaited<ReturnType<NewApiClient["fetchPricing"]>> | undefined;
+
+    if (config.onlyProviders) {
+      const targetClient = new NewApiClient(config.target, "target");
+      targetPricing = await targetClient.fetchPricing();
+      pricingGroupRatio = new Map(targetPricing.groups.map((g) => [g.name, g.ratio]));
+    }
     try {
       const raw = targetSnapshot.options["GroupRatio"];
-      if (raw) existingGroupRatio = JSON.parse(raw);
+      if (raw) snapshotGroupRatio = JSON.parse(raw);
     } catch {}
 
+    // Seed ALL non-managed channels so buildPriceTiers can find
+    // the cheapest existing group ratio for every model.
+    const seededGroups = new Set<string>();
     for (const ch of targetSnapshot.channels) {
       if (ch.tag && managedProviders.has(ch.tag)) continue;
       state.channelsToCreate.push(ch);
-      state.mergedGroups.push({
-        name: ch.group,
-        ratio: existingGroupRatio[ch.group] ?? 1,
-        description: `baseline: ${ch.group}`,
-        provider: ch.tag ?? "__baseline__",
-      });
+
+      if (!seededGroups.has(ch.group)) {
+        seededGroups.add(ch.group);
+        const ratio = pricingGroupRatio.get(ch.group) ?? snapshotGroupRatio[ch.group] ?? 1;
+        state.mergedGroups.push({
+          name: ch.group,
+          ratio,
+          description: `baseline: ${ch.group}`,
+          provider: ch.tag ?? "__baseline__",
+        });
+      }
     }
 
+    // Partial sync: also add pricing-only groups and seed model ratios
+    if (targetPricing) {
+      for (const group of targetPricing.groups) {
+        if (seededGroups.has(group.name)) continue;
+        state.mergedGroups.push({
+          name: group.name,
+          ratio: group.ratio,
+          description: group.description,
+          provider: "__baseline__",
+        });
+      }
+
+      for (const model of targetPricing.models) {
+        if (!state.mergedModels.has(model.name)) {
+          state.mergedModels.set(model.name, {
+            ratio: model.ratio,
+            completionRatio: model.completionRatio ?? 1,
+            modelPrice: model.modelPrice,
+          });
+        }
+      }
+    }
+
+    consola.debug(
+      `[baseline] Seeded ${state.channelsToCreate.length} channels, ${state.mergedGroups.length} groups from target`,
+    );
+    for (const g of state.mergedGroups) {
+      consola.debug(`[baseline]   "${g.name}" ratio=${g.ratio.toFixed(4)} provider=${g.provider}`);
+    }
   }
   const baselineChannelCount = state.channelsToCreate.length;
   const baselineGroupCount = state.mergedGroups.length;
