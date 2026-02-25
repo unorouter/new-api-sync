@@ -306,6 +306,23 @@ export async function runProviderPipeline(
     }
   }
 
+  // Collect models that require chat/completions → /v1/responses conversion.
+  // A model needs this when its upstream endpoint type is "openai-response".
+  // Models with no endpoint data (sub2api/direct) are excluded — they speak
+  // chat/completions natively and don't need conversion.
+  const responsesApiModels: string[] = [];
+  for (const channel of channels) {
+    for (const modelName of channel.models.split(",").map((m) => m.trim()).filter(Boolean)) {
+      const mappedName = config.modelMapping?.[modelName] ?? modelName;
+      const originalName = reverseMapping.get(mappedName) ?? mappedName;
+      const eps = state.modelEndpoints.get(modelName)
+        ?? state.modelEndpoints.get(originalName);
+      if (eps?.includes("openai-response")) {
+        responsesApiModels.push(mappedName);
+      }
+    }
+  }
+
   return {
     providerReports,
     desired: {
@@ -320,6 +337,7 @@ export async function runProviderPipeline(
         modelPrice,
         imageRatio,
         defaultUseAutoGroup: true,
+        responsesApiModels: [...new Set(responsesApiModels)],
       },
       managedProviders: new Set(
         config.providers.map((provider) => provider.name),

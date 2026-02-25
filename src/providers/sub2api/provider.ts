@@ -240,6 +240,16 @@ export async function processSub2ApiProvider(
         );
       }
 
+      // Register endpoint type for sub2api openai models so pipeline.ts can
+      // include them in the chat_completions_to_responses_policy.
+      if (useResponsesAPI) {
+        for (const m of workingModels) {
+          if (!state.modelEndpoints.has(m)) {
+            state.modelEndpoints.set(m, ["openai-response"]);
+          }
+        }
+      }
+
       const mappedModels = workingModels.map(
         (m) => config.modelMapping?.[m] ?? m,
       );

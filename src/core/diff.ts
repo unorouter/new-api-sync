@@ -167,6 +167,19 @@ function buildManagedOptionValues(
     desired.options.imageRatio,
   );
 
+  // Build model_patterns for chat/completions → /v1/responses policy.
+  // Each model name is escaped and anchored as an exact match.
+  const responsesModels = desired.options.responsesApiModels;
+  const modelPatterns = responsesModels.map(
+    (m) => `^${m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+  );
+  const responsesPolicy = JSON.stringify({
+    enabled: modelPatterns.length > 0,
+    all_channels: false,
+    channel_types: [1],
+    model_patterns: modelPatterns,
+  });
+
   return {
     GroupRatio: stableJson(mergedGroupRatio),
     UserUsableGroups: stableJson(mergedUserGroups),
@@ -176,6 +189,7 @@ function buildManagedOptionValues(
     CompletionRatio: stableJson(mergedCompletionRatio),
     ModelPrice: stableJson(mergedModelPrice),
     ImageRatio: stableJson(mergedImageRatio),
+    "global.chat_completions_to_responses_policy": responsesPolicy,
   };
 }
 

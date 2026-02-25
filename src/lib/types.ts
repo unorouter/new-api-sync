@@ -96,6 +96,8 @@ export interface ManagedOptionMaps {
   modelPrice: Record<string, number>;
   imageRatio: Record<string, number>;
   defaultUseAutoGroup: boolean;
+  /** Models that require chat/completions → /v1/responses conversion */
+  responsesApiModels: string[];
 }
 
 export interface DesiredState {
