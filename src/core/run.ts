@@ -32,6 +32,10 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
   const diff = buildSyncDiff(config, desired, snap);
   const apply = await applySyncDiff(target, diff);
 
+  if (apply.options.updated.length > 0) {
+    await target.updateCache();
+  }
+
   const successfulProviders = providerReports.filter(
     (provider) => provider.success,
   ).length;
