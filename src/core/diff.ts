@@ -293,6 +293,8 @@ export function buildSyncDiff(
       model_name: desiredModel.model_name,
       vendor_id: vendorId,
       endpoints: desiredModel.endpoints,
+      description: desiredModel.description,
+      tags: desiredModel.tags,
       status: 1,
       sync_official: 1,
     };
@@ -309,6 +311,8 @@ export function buildSyncDiff(
     const needsUpdate =
       existing.vendor_id !== targetModel.vendor_id ||
       existing.endpoints !== targetModel.endpoints ||
+      (existing.description ?? "") !== (targetModel.description ?? "") ||
+      (existing.tags ?? "") !== (targetModel.tags ?? "") ||
       existing.sync_official !== 1 ||
       existing.status !== 1;
 

@@ -8,7 +8,12 @@ import {
   inferVendorFromModelName,
   normalizeEndpointType,
 } from "@/lib/constants";
-import { tryFetchJson } from "@/lib/http";
+import {
+  type BasellmEntry,
+  buildMetadataMap,
+  fetchBasellmEntries,
+  fetchOpenRouterDescriptions,
+} from "@/lib/metadata";
 import type {
   Channel,
   DesiredModelSpec,
@@ -22,28 +27,16 @@ import { processNewApiProvider } from "@/providers/newapi/provider";
 import { processSub2ApiProvider } from "@/providers/sub2api/provider";
 import { consola } from "consola";
 
-const UPSTREAM_MODELS_URL =
-  "https://basellm.github.io/llm-metadata/api/newapi/models.json";
-
-interface UpstreamModelEntry {
-  model_name: string;
-  ratio_model: number;
-  ratio_completion: number;
-}
-
-type UpstreamResponse =
-  | UpstreamModelEntry[]
-  | { success: boolean; data: UpstreamModelEntry[] };
-
 /**
- * Fetch model ratios from the basellm upstream library and fill in any models
+ * Backfill model ratios from pre-fetched basellm entries for models
  * present in channels but missing from state.mergedModels.
  */
-async function backfillModelRatios(
+function backfillModelRatios(
   state: SyncState,
   channels: Channel[],
   modelMapping: Record<string, string>,
-): Promise<void> {
+  basellmEntries: BasellmEntry[],
+): void {
   // Collect all model names used in channels
   const channelModels = new Set<string>();
   for (const ch of channels) {
@@ -57,23 +50,17 @@ async function backfillModelRatios(
   const missing = [...channelModels].filter((m) => !state.mergedModels.has(m));
   if (missing.length === 0) return;
 
-  const raw = await tryFetchJson<UpstreamResponse>(UPSTREAM_MODELS_URL, {
-    timeoutMs: 15_000,
-  });
-  if (!raw) {
-    consola.warn("Failed to fetch upstream model library for ratio backfill");
+  if (basellmEntries.length === 0) {
+    consola.warn("No basellm entries available for ratio backfill");
     return;
   }
-
-  const entries = Array.isArray(raw) ? raw : raw.data;
-  if (!Array.isArray(entries)) return;
 
   // Build a map of model_name → cheapest ratios (lowest ratio_model wins)
   const upstreamRatios = new Map<
     string,
     { ratio: number; completionRatio: number }
   >();
-  for (const entry of entries) {
+  for (const entry of basellmEntries) {
     if (!entry.model_name || entry.ratio_model == null) continue;
     const existing = upstreamRatios.get(entry.model_name);
     if (!existing || entry.ratio_model < existing.ratio) {
@@ -203,6 +190,12 @@ export async function runProviderPipeline(
   const baselineChannelCount = state.channelsToCreate.length;
   const baselineGroupCount = state.mergedGroups.length;
 
+  // Start metadata fetches in parallel (run while providers process)
+  const metadataPromise = Promise.all([
+    fetchBasellmEntries(),
+    fetchOpenRouterDescriptions(),
+  ]);
+
   // Process providers (newapi first, then sub2api)
   const sorted = [...config.providers].sort(
     (a, b) => (a.type === "newapi" ? -1 : 0) - (b.type === "newapi" ? -1 : 0),
@@ -232,9 +225,12 @@ export async function runProviderPipeline(
   }
   const channels = [...channelByName.values()];
 
-  // Backfill model ratios from upstream library for models without ratio data
+  // Resolve metadata fetches (started in parallel with provider processing)
+  const [basellmEntries, openRouterDescriptions] = await metadataPromise;
+
+  // Backfill model ratios from basellm for models without ratio data
   // (e.g. sub2api-only models where no newapi provider supplied pricing)
-  await backfillModelRatios(state, channels, config.modelMapping);
+  backfillModelRatios(state, channels, config.modelMapping, basellmEntries);
 
   const groupRatio: Record<string, number> = {};
   const userUsableGroups: Record<string, string> = {
@@ -303,6 +299,21 @@ export async function runProviderPipeline(
         vendor,
         endpoints,
       });
+    }
+  }
+
+  // Enrich models with descriptions (OpenRouter) and tags (basellm)
+  const metadataMap = buildMetadataMap(
+    models.keys(),
+    basellmEntries,
+    openRouterDescriptions,
+    config.modelMapping,
+  );
+  for (const [modelName, meta] of metadataMap) {
+    const existing = models.get(modelName);
+    if (existing) {
+      if (meta.description) existing.description = meta.description;
+      if (meta.tags) existing.tags = meta.tags;
     }
   }
 

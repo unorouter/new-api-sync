@@ -47,6 +47,8 @@ export interface ModelMeta {
   model_name: string;
   vendor_id?: number;
   endpoints?: string;
+  description?: string;
+  tags?: string;
   status?: number;
   sync_official?: number;
 }
@@ -85,6 +87,8 @@ export interface DesiredModelSpec {
   model_name: string;
   vendor?: string;
   endpoints?: string;
+  description?: string;
+  tags?: string;
 }
 
 export interface ManagedOptionMaps {
