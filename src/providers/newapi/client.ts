@@ -467,11 +467,33 @@ export class NewApiClient {
   }
 
   async listModels(): Promise<ModelMeta[]> {
-    const all: ModelMeta[] = [];
-    let page = PAGINATION.START_PAGE_ZERO;
+    // Race both endpoints: /api/models/list (newer) vs /api/models/ (older).
+    // Some target instances may not have the /list route yet.
+    const endpoints = [
+      `${this.baseUrl}/api/models/list`,
+      `${this.baseUrl}/api/models/`,
+    ];
+    const tryEndpoint = async (base: string): Promise<{ base: string; items: ModelMeta[] } | null> => {
+      const data = await tryFetchJson<ApiResponse<{ items?: ModelMeta[] }>>(
+        `${base}?p=0&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
+        { headers: this.headers },
+      );
+      const items = data?.data?.items;
+      if (!Array.isArray(items)) return null;
+      return { base, items };
+    };
+
+    const results = await Promise.all(endpoints.map(tryEndpoint));
+    const winner = results.find((r) => r !== null);
+    if (!winner) return [];
+
+    const all: ModelMeta[] = [...winner.items];
+    if (winner.items.length < PAGINATION.DEFAULT_PAGE_SIZE) return all;
+
+    let page = 1;
     while (true) {
       const data = await fetchJson<ApiResponse<{ items?: ModelMeta[] }>>(
-        `${this.baseUrl}/api/models/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
+        `${winner.base}?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
         { headers: this.headers },
       );
       const items = data.data?.items ?? [];

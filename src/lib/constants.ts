@@ -421,9 +421,11 @@ export function isTestableModel(
 /**
  * Check if a string matches any blacklist pattern (case-insensitive).
  *
+ * Supports glob wildcards (e.g. "*-openai-compact", "gpt-5.*-codex").
+ *
  * Patterns containing "/" are scoped: "provider/pattern" only matches when
  * the given `scope` equals the provider part (before the slash) and the text
- * contains the pattern part (after the slash).  Patterns without "/" match
+ * matches the pattern part (after the slash).  Patterns without "/" match
  * any scope as before.
  */
 export function matchesBlacklist(
@@ -440,12 +442,18 @@ export function matchesBlacklist(
     if (slashIdx !== -1 && s !== undefined) {
       const scopePart = pattern.slice(0, slashIdx);
       const textPart = pattern.slice(slashIdx + 1);
-      return s === scopePart && t.includes(textPart);
+      return s === scopePart && matchPattern(t, textPart);
     }
     // Unscoped pattern or no scope provided — skip scoped patterns
     if (slashIdx !== -1) return false;
-    return t.includes(pattern);
+    return matchPattern(t, pattern);
   });
+}
+
+/** Substring match, or glob match when the pattern contains "*". */
+function matchPattern(text: string, pattern: string): boolean {
+  if (!pattern.includes("*")) return text.includes(pattern);
+  return micromatch.isMatch(text, pattern);
 }
 
 /**
