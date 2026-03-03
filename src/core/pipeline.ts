@@ -5,6 +5,7 @@ import type {
 } from "@/config";
 import {
   ENDPOINT_DEFAULT_PATHS,
+  inferModelType,
   inferVendorFromModelName,
   normalizeEndpointType,
 } from "@/lib/constants";
@@ -315,6 +316,31 @@ export async function runProviderPipeline(
       if (meta.description) existing.description = meta.description;
       if (meta.tags) existing.tags = meta.tags;
     }
+  }
+
+  // Add model type tag and deduplicate
+  for (const [modelName, spec] of models) {
+    const originalName = reverseMapping.get(modelName) ?? modelName;
+    const eps = state.modelEndpoints.get(modelName)
+      ?? state.modelEndpoints.get(originalName);
+    const modelType = inferModelType(modelName, eps);
+    const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
+    const rawTags = spec.tags ? `${typeTag},${spec.tags}` : typeTag;
+    const seen = new Set<string>();
+    const deduped = rawTags
+      .split(",")
+      .map((t) => t.trim())
+      .filter((t) => {
+        if (!t) return false;
+        const lower = t.toLowerCase();
+        if (seen.has(lower)) return false;
+        seen.add(lower);
+        return true;
+      })
+      .join(",");
+    spec.tags = deduped.length > 255
+      ? deduped.slice(0, deduped.lastIndexOf(",", 255) || 255)
+      : deduped;
   }
 
   // Collect models that require chat/completions → /v1/responses conversion.

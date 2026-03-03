@@ -272,9 +272,27 @@ export function buildSyncDiff(
   // ---- Models ----
   const vendorNameToId = buildVendorIdMap(snapshot.vendors);
   const modelOps: DiffOperation<ModelMeta>[] = [];
-  const existingModelsByName = new Map(
-    snapshot.models.map((model) => [model.model_name, model]),
-  );
+
+  // Deduplicate existing models: keep the entry with the highest ID, delete the rest.
+  const existingModelsByName = new Map<string, ModelMeta>();
+  const duplicateModels: ModelMeta[] = [];
+  for (const model of snapshot.models) {
+    const prev = existingModelsByName.get(model.model_name);
+    if (!prev) {
+      existingModelsByName.set(model.model_name, model);
+    } else {
+      // Keep the one with the higher ID (newer), schedule the other for deletion
+      const [keep, discard] = (prev.id ?? 0) >= (model.id ?? 0)
+        ? [prev, model]
+        : [model, prev];
+      existingModelsByName.set(model.model_name, keep);
+      duplicateModels.push(discard);
+    }
+  }
+  for (const dup of duplicateModels) {
+    if (!dup.id) continue;
+    modelOps.push({ type: "delete", key: `${dup.model_name} (dup #${dup.id})`, existing: dup });
+  }
 
   const protectedModels = new Set<string>();
   for (const channel of snapshot.channels) {

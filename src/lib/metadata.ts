@@ -48,10 +48,7 @@ export async function fetchOpenRouterDescriptions(): Promise<Map<string, string>
     if (!model.id || !model.description) continue;
     const slashIdx = model.id.indexOf("/");
     const bareName = slashIdx >= 0 ? model.id.slice(slashIdx + 1) : model.id;
-    // Keep first occurrence (duplicates from different providers)
-    if (!map.has(bareName)) {
-      map.set(bareName, model.description);
-    }
+    if (!map.has(bareName)) map.set(bareName, model.description);
   }
 
   consola.info(`Fetched ${map.size} model descriptions from OpenRouter`);
@@ -73,51 +70,193 @@ export async function fetchBasellmEntries(): Promise<BasellmEntry[]> {
   return entries;
 }
 
-// ---- Matching helpers ----
+// ---- Fuzzy matching ----
+
+const STRIPPABLE_SUFFIXES = [
+  "-latest", "-preview", "-instruct", "-thinking", "-free",
+  "-online", "-nightly", "-beta", "-exp", "-experimental",
+];
+
+const DATE_SUFFIX_PATTERNS = [
+  /-\d{8}$/,           // -20250929
+  /-\d{4}-\d{2}-\d{2}$/, // -2025-12-11
+  /-\d{2}-\d{4}$/,     // -11-2025
+  /-\d{2}-\d{2}$/,     // -05-06
+  /-\d{4}-\d{2}$/,     // -2025-03
+];
 
 /**
- * Normalize a model name for fuzzy matching:
+ * Normalize a model name for matching:
  * - lowercase
- * - version dots to dashes (4.5 → 4-5)
- * - strip YYYYMMDD date suffixes
+ * - insert dash at letter-digit boundaries (qwen2 -> qwen-2)
+ * - version dots to dashes (2.5 -> 2-5)
+ * - strip all date suffix formats
+ * - collapse multiple dashes
  */
-function normalizeForMatching(name: string): string {
+function normalize(name: string): string {
   return name
     .toLowerCase()
+    .replace(/([a-z])(\d)/g, "$1-$2")
     .replace(/(\d+)\.(\d+)/g, "$1-$2")
-    .replace(/-\d{8}$/, "");
+    .replace(/-\d{8}$/, "")
+    .replace(/-\d{4}-\d{2}-\d{2}$/, "")
+    .replace(/-\d{2}-\d{4}$/, "")
+    .replace(/-\d{2}-\d{2}$/, "")
+    .replace(/-\d{4}-\d{2}$/, "")
+    .replace(/-+/g, "-")
+    .replace(/-$/, "");
 }
 
-/**
- * Look up an OpenRouter description for a given model name.
- * Tries exact match, then normalized match, then reverse model mapping.
- */
-function lookupDescription(
-  modelName: string,
-  orMap: Map<string, string>,
-  reverseMapping: Map<string, string>,
-): string | undefined {
-  // Exact match
-  const direct = orMap.get(modelName);
-  if (direct) return direct;
+/** Generate progressively stripped variants of a normalized name. */
+function strippedVariants(name: string): string[] {
+  const variants: string[] = [];
+  let current = name;
 
-  // Normalized match
-  const normalized = normalizeForMatching(modelName);
-  for (const [orName, desc] of orMap) {
-    if (normalizeForMatching(orName) === normalized) return desc;
-  }
-
-  // Try original name via reverse mapping
-  const originalName = reverseMapping.get(modelName);
-  if (originalName) {
-    const mapped = orMap.get(originalName);
-    if (mapped) return mapped;
-    const origNorm = normalizeForMatching(originalName);
-    for (const [orName, desc] of orMap) {
-      if (normalizeForMatching(orName) === origNorm) return desc;
+  for (const suffix of STRIPPABLE_SUFFIXES) {
+    if (current.endsWith(suffix)) {
+      current = current.slice(0, -suffix.length).replace(/-$/, "");
+      variants.push(current);
     }
   }
 
+  for (const pattern of DATE_SUFFIX_PATTERNS) {
+    const match = current.match(pattern);
+    if (match) {
+      current = current.slice(0, -match[0].length).replace(/-$/, "");
+      variants.push(current);
+      break;
+    }
+  }
+
+  const originalTokens = name.split("-");
+  const minTokens = Math.max(2, Math.ceil(originalTokens.length * 0.6));
+  const tokens = current.split("-");
+  while (tokens.length > minTokens) {
+    tokens.pop();
+    variants.push(tokens.join("-"));
+  }
+
+  return variants;
+}
+
+/** Dice coefficient on normalized tokens with size penalty. */
+function similarity(a: string, b: string): number {
+  const aTokens = new Set(normalize(a).split("-").filter(Boolean));
+  const bTokens = new Set(normalize(b).split("-").filter(Boolean));
+  if (aTokens.size === 0 || bTokens.size === 0) return 0;
+
+  let intersection = 0;
+  for (const t of aTokens) {
+    if (bTokens.has(t)) intersection++;
+  }
+  const dice = (2 * intersection) / (aTokens.size + bTokens.size);
+  const sizePenalty =
+    Math.abs(aTokens.size - bTokens.size) / Math.max(aTokens.size, bTokens.size);
+  return dice * (1 - sizePenalty * 0.3);
+}
+
+interface FuzzyIndex<T> {
+  candidates: Map<string, T>;
+  normalized: Map<string, string[]>; // normalize(key) -> original keys
+}
+
+function buildFuzzyIndex<T>(candidates: Map<string, T>): FuzzyIndex<T> {
+  const normalized = new Map<string, string[]>();
+  for (const key of candidates.keys()) {
+    const norm = normalize(key);
+    const bucket = normalized.get(norm);
+    if (bucket) bucket.push(key);
+    else normalized.set(norm, [key]);
+  }
+  return { candidates, normalized };
+}
+
+/**
+ * Find the best matching candidate for a model name.
+ * Chain: normalized exact -> stripped query -> stripped candidates -> prefix containment.
+ * All non-exact matches verified with similarity >= threshold.
+ */
+function fuzzyLookup<T>(
+  name: string,
+  index: FuzzyIndex<T>,
+  threshold = 0.75,
+): { key: string; value: T; score: number } | undefined {
+  const norm = normalize(name);
+
+  const resolve = (keys: string[]): { key: string; value: T } | undefined => {
+    const k = keys[0];
+    if (!k) return undefined;
+    const v = index.candidates.get(k);
+    if (v === undefined) return undefined;
+    return { key: k, value: v };
+  };
+
+  // Normalized exact match
+  const exact = index.normalized.get(norm);
+  if (exact) {
+    const r = resolve(exact);
+    if (r) return { ...r, score: 1.0 };
+  }
+
+  // Stripped variants of query
+  for (const variant of strippedVariants(norm)) {
+    const hit = index.normalized.get(variant);
+    if (hit) {
+      const r = resolve(hit);
+      if (r) {
+        const score = similarity(name, r.key);
+        if (score >= threshold) return { ...r, score };
+      }
+    }
+  }
+
+  // Stripped variants of candidates
+  let best: { key: string; value: T; score: number } | undefined;
+  for (const [cNorm, originalKeys] of index.normalized) {
+    for (const variant of strippedVariants(cNorm)) {
+      if (variant === norm) {
+        const r = resolve(originalKeys);
+        if (r) {
+          const score = similarity(name, r.key);
+          if (score >= threshold && (!best || score > best.score)) {
+            best = { ...r, score };
+          }
+        }
+        break;
+      }
+    }
+  }
+  if (best) return best;
+
+  // Prefix containment
+  for (const [cNorm, originalKeys] of index.normalized) {
+    if (cNorm.startsWith(norm + "-") || norm.startsWith(cNorm + "-")) {
+      const r = resolve(originalKeys);
+      if (r) {
+        const score = similarity(name, r.key);
+        if (score >= threshold && (!best || score > best.score)) {
+          best = { ...r, score };
+        }
+      }
+    }
+  }
+
+  return best;
+}
+
+/**
+ * Lookup a value from a fuzzy index, trying the model name and optionally
+ * the original (reverse-mapped) name.
+ */
+function lookup<T>(
+  modelName: string,
+  index: FuzzyIndex<T>,
+  reverseMapping: Map<string, string>,
+): { key: string; value: T; score: number } | undefined {
+  const result = fuzzyLookup(modelName, index);
+  if (result) return result;
+  const originalName = reverseMapping.get(modelName);
+  if (originalName) return fuzzyLookup(originalName, index);
   return undefined;
 }
 
@@ -134,82 +273,89 @@ export function buildMetadataMap(
   openRouterDescriptions: Map<string, string>,
   modelMapping: Record<string, string>,
 ): Map<string, ModelMetadata> {
-  // Build basellm lookup: model_name → { description, tags }
-  // For duplicates, keep the entry with the best description and merge tags
+  // Build basellm lookup, storing under both full and bare names
   const basellmMap = new Map<string, { description?: string; tags?: string }>();
+  const addToBasellm = (key: string, entry: BasellmEntry) => {
+    const existing = basellmMap.get(key);
+    if (!existing) {
+      basellmMap.set(key, { description: entry.description, tags: entry.tags });
+    } else {
+      if (
+        existing.description &&
+        TEMPLATE_DESCRIPTION_RE.test(existing.description) &&
+        entry.description &&
+        !TEMPLATE_DESCRIPTION_RE.test(entry.description)
+      ) {
+        existing.description = entry.description;
+      }
+      if (!existing.tags && entry.tags) existing.tags = entry.tags;
+    }
+  };
   for (const entry of basellmEntries) {
     if (!entry.model_name) continue;
-    const existing = basellmMap.get(entry.model_name);
-    if (!existing) {
-      basellmMap.set(entry.model_name, {
-        description: entry.description,
-        tags: entry.tags,
-      });
-    } else if (
-      // Prefer non-template description over template
-      existing.description &&
-      TEMPLATE_DESCRIPTION_RE.test(existing.description) &&
-      entry.description &&
-      !TEMPLATE_DESCRIPTION_RE.test(entry.description)
-    ) {
-      existing.description = entry.description;
-    }
-    // Keep first tags (they're the same across vendors for the same model)
-    if (!existing?.tags && entry.tags) {
-      const e = basellmMap.get(entry.model_name);
-      if (e) e.tags = entry.tags;
-    }
+    addToBasellm(entry.model_name, entry);
+    const slashIdx = entry.model_name.indexOf("/");
+    if (slashIdx >= 0) addToBasellm(entry.model_name.slice(slashIdx + 1), entry);
   }
 
-  // Build reverse mapping (mapped name → original name)
   const reverseMapping = new Map<string, string>();
   for (const [original, mapped] of Object.entries(modelMapping)) {
     reverseMapping.set(mapped, original);
   }
 
+  // Build fuzzy indices once
+  const orIndex = buildFuzzyIndex(openRouterDescriptions);
+  const blmIndex = buildFuzzyIndex(basellmMap);
+
   const result = new Map<string, ModelMetadata>();
   let orHits = 0;
+  let orFuzzyHits = 0;
   let blmHits = 0;
+  let blmFuzzyHits = 0;
 
   for (const modelName of modelNames) {
     const meta: ModelMetadata = {};
 
-    // Description: try OpenRouter first
-    const orDesc = lookupDescription(modelName, openRouterDescriptions, reverseMapping);
-    if (orDesc) {
-      meta.description = orDesc;
+    // Description: OpenRouter first, basellm fallback
+    const orResult = lookup(modelName, orIndex, reverseMapping);
+    if (orResult) {
+      meta.description = orResult.value;
       orHits++;
+      if (orResult.score < 1.0) {
+        orFuzzyHits++;
+        consola.debug(`Fuzzy OR: "${modelName}" -> "${orResult.key}" (${orResult.score.toFixed(2)})`);
+      }
     } else {
-      // Fallback to basellm, skip template descriptions
-      const blmName = reverseMapping.get(modelName) ?? modelName;
-      const blm = basellmMap.get(blmName) ?? basellmMap.get(modelName);
-      if (blm?.description && !TEMPLATE_DESCRIPTION_RE.test(blm.description)) {
-        meta.description = blm.description;
+      const blmResult = lookup(modelName, blmIndex, reverseMapping);
+      if (blmResult?.value.description && !TEMPLATE_DESCRIPTION_RE.test(blmResult.value.description)) {
+        meta.description = blmResult.value.description;
         blmHits++;
+        if (blmResult.score < 1.0) {
+          blmFuzzyHits++;
+          consola.debug(`Fuzzy BLM desc: "${modelName}" -> "${blmResult.key}" (${blmResult.score.toFixed(2)})`);
+        }
       }
     }
 
     // Tags: always from basellm
-    const blmName = reverseMapping.get(modelName) ?? modelName;
-    const blm = basellmMap.get(blmName) ?? basellmMap.get(modelName);
-    if (blm?.tags) {
-      // Truncate to 255 chars at the last comma boundary
-      let tags = blm.tags;
+    const blmResult = lookup(modelName, blmIndex, reverseMapping);
+    if (blmResult?.value.tags) {
+      if (blmResult.score < 1.0) {
+        consola.debug(`Fuzzy BLM tags: "${modelName}" -> "${blmResult.key}" (${blmResult.score.toFixed(2)})`);
+      }
+      let tags = blmResult.value.tags;
       if (tags.length > 255) {
-        const truncated = tags.slice(0, 255);
-        const lastComma = truncated.lastIndexOf(",");
-        tags = lastComma > 0 ? truncated.slice(0, lastComma) : truncated;
+        const lastComma = tags.slice(0, 255).lastIndexOf(",");
+        tags = lastComma > 0 ? tags.slice(0, lastComma) : tags.slice(0, 255);
       }
       meta.tags = tags;
     }
 
-    if (meta.description || meta.tags) {
-      result.set(modelName, meta);
-    }
+    if (meta.description || meta.tags) result.set(modelName, meta);
   }
 
   consola.info(
-    `Metadata: ${orHits} descriptions from OpenRouter, ${blmHits} from basellm fallback, ${result.size} models enriched total`,
+    `Metadata: ${orHits} from OpenRouter (${orFuzzyHits} fuzzy), ${blmHits} from basellm (${blmFuzzyHits} fuzzy), ${result.size} enriched total`,
   );
   return result;
 }
