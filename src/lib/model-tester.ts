@@ -25,7 +25,7 @@ function getRequestConfig(
       },
       body: {
         model,
-        messages: [{ role: "user", content: "hi" }],
+        messages: [{ role: "user", content: "1" }],
         max_tokens: 1,
       },
       isSuccess: (data) => (data as { type?: string }).type !== "error",
@@ -36,7 +36,7 @@ function getRequestConfig(
       url: `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`,
       headers: { "Content-Type": "application/json" },
       body: {
-        contents: [{ parts: [{ text: "hi" }] }],
+        contents: [{ parts: [{ text: "1" }] }],
         generationConfig: { maxOutputTokens: 1 },
       },
       isSuccess: (data) => !(data as { error?: unknown }).error,
@@ -52,7 +52,7 @@ function getRequestConfig(
       body: {
         model,
         input: [
-          { role: "user", content: [{ type: "input_text", text: "hi" }] },
+          { role: "user", content: [{ type: "input_text", text: "1" }] },
         ],
         max_output_tokens: 1,
         store: false,
@@ -68,7 +68,7 @@ function getRequestConfig(
     },
     body: {
       model,
-      messages: [{ role: "user", content: "hi" }],
+      messages: [{ role: "user", content: "1" }],
       max_tokens: 1,
     },
     isSuccess: (data) => !(data as { error?: unknown }).error,
