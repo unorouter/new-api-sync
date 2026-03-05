@@ -392,6 +392,6 @@ export function buildSyncDiff(
     channels: channelOps,
     models: modelOps,
     options: optionOps,
-    cleanupOrphans: true,
+    cleanupOrphans: config.onlyProviders === undefined,
   };
 }

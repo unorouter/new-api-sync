@@ -376,9 +376,17 @@ export async function runProviderPipeline(
         defaultUseAutoGroup: true,
         responsesApiModels: [...new Set(responsesApiModels)],
       },
-      managedProviders: new Set(
-        config.providers.map((provider) => provider.name),
-      ),
+      managedProviders: new Set([
+        ...config.providers.map((provider) => provider.name),
+        // During full syncs, also claim ownership of channels tagged by
+        // providers that were previously synced but are no longer in config,
+        // so their channels/models get cleaned up.
+        ...(targetSnapshot && !config.onlyProviders
+          ? targetSnapshot.channels
+              .filter((ch) => ch.tag)
+              .map((ch) => ch.tag!)
+          : []),
+      ]),
       mappingSources: new Set(Object.keys(config.modelMapping)),
     },
   };

@@ -1,4 +1,4 @@
-import type { ProviderConfig, RuntimeConfig } from "@/config";
+import { shouldSkipTesting, type ProviderConfig, type RuntimeConfig } from "@/config";
 import {
   inferChannelTypeFromModels,
   inferModelType,
@@ -227,7 +227,12 @@ export async function processNewApiProvider(
       const apiKey = tokenResult.tokens[group.name] ?? "";
       const testedCount = testableModels.length;
       let testedWorkingModels: string[] = [];
-      if (apiKey && testableModels.length > 0) {
+      if (shouldSkipTesting(config, providerConfig)) {
+        testedWorkingModels = testableModels;
+        consola.info(
+          `[${providerConfig.name}/${group.name}] ${testedWorkingModels.length} models (testing skipped)`,
+        );
+      } else if (apiKey && testableModels.length > 0) {
         // Track per-model cost by checking balance after each model test
         const modelCosts = new Map<string, number>();
         const testResult = await testModels(

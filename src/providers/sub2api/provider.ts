@@ -1,4 +1,4 @@
-import type { RuntimeConfig, Sub2ApiProviderConfig } from "@/config";
+import { shouldSkipTesting, type RuntimeConfig, type Sub2ApiProviderConfig } from "@/config";
 import {
   CHANNEL_TYPES,
   isTestableModel,
@@ -209,7 +209,12 @@ export async function processSub2ApiProvider(
 
       let testedWorkingModels: string[] = [];
 
-      if (testableModels.length > 0) {
+      if (shouldSkipTesting(config, providerConfig)) {
+        testedWorkingModels = testableModels;
+        consola.info(
+          `[${providerConfig.name}/${groupInfo.platform}] ${testableModels.length} models (testing skipped)`,
+        );
+      } else if (testableModels.length > 0) {
         const testResult = await testModels(
           providerConfig.baseUrl,
           groupInfo.apiKey,

@@ -23,6 +23,7 @@ const PriceAdjustmentSchema = z.union([
 
 const ProviderCommon = z.object({
   name: str,
+  skipTesting: z.boolean().optional(),
   enabledGroups: z.array(str).optional(),
   enabledVendors: z.array(str).optional(),
   enabledModels: z.array(str).optional(),
@@ -66,6 +67,7 @@ const ConfigSchema = z
       userId: z.number().int().positive(),
       targetPrefix: str.optional(),
     }),
+    skipTesting: z.boolean().default(false),
     blacklist: z.array(str).default([]),
     modelMapping: z.record(z.string(), z.string()).default({}),
     providers: z
@@ -135,6 +137,14 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
   }
 
   return parsed.data;
+}
+
+/** Provider-level skipTesting overrides global; defaults to false. */
+export function shouldSkipTesting(
+  config: RuntimeConfig,
+  provider: AnyProviderConfig,
+): boolean {
+  return provider.skipTesting ?? config.skipTesting;
 }
 
 export function applyOnlyProviders(
