@@ -8,6 +8,14 @@ interface RequestConfig {
   isSuccess: (data: unknown) => boolean;
 }
 
+interface StreamRequestConfig {
+  url: string;
+  headers: Record<string, string>;
+  body: unknown;
+  /** The marker that signals the stream completed successfully */
+  completionMarker: string;
+}
+
 function getRequestConfig(
   baseUrl: string,
   apiKey: string,
@@ -75,6 +83,57 @@ function getRequestConfig(
   };
 }
 
+function getStreamRequestConfig(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  channelType: number,
+  useResponsesAPI: boolean,
+): StreamRequestConfig | null {
+  if (channelType === CHANNEL_TYPES.ANTHROPIC) {
+    return {
+      url: `${baseUrl}/v1/messages`,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: {
+        model,
+        messages: [{ role: "user", content: "hi" }],
+        max_tokens: 5,
+        stream: true,
+      },
+      completionMarker: "event: message_stop",
+    };
+  }
+  if (channelType === CHANNEL_TYPES.GEMINI) {
+    // Gemini uses a different streaming mechanism (streamGenerateContent)
+    // with finishReason in the last chunk rather than SSE markers.
+    // Skip streaming test for Gemini as it requires special handling.
+    return null;
+  }
+  if (useResponsesAPI) {
+    // Responses API streaming uses a different event format; skip for now
+    return null;
+  }
+  // OpenAI-compatible format (OpenAI, DeepSeek, Kimi, GLM, Grok, Qwen, etc.)
+  return {
+    url: `${baseUrl}/v1/chat/completions`,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: {
+      model,
+      messages: [{ role: "user", content: "hi" }],
+      max_tokens: 5,
+      stream: true,
+    },
+    completionMarker: "data: [DONE]",
+  };
+}
+
 async function testRequest(
   config: RequestConfig,
   timeoutMs: number,
@@ -88,9 +147,59 @@ async function testRequest(
   return data !== null && config.isSuccess(data);
 }
 
+/**
+ * Test that a model's streaming response terminates correctly.
+ * Reads the SSE stream and checks for the expected completion marker.
+ */
+async function testStreamRequest(
+  config: StreamRequestConfig,
+  timeoutMs: number,
+): Promise<boolean> {
+  try {
+    const response = await fetch(config.url, {
+      method: "POST",
+      headers: config.headers,
+      body: JSON.stringify(config.body),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!response.ok || !response.body) return false;
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let foundMarker = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      if (buffer.includes(config.completionMarker)) {
+        foundMarker = true;
+        // Cancel the rest of the stream, we found what we need
+        reader.cancel();
+        break;
+      }
+
+      // Check for error response (non-SSE JSON error)
+      if (buffer.startsWith("{") && buffer.includes('"error"')) {
+        reader.cancel();
+        return false;
+      }
+    }
+
+    return foundMarker;
+  } catch {
+    return false;
+  }
+}
+
 export interface ModelTestDetail {
   model: string;
   success: boolean;
+  /** Whether streaming test passed. null if streaming was not tested. */
+  streamSuccess: boolean | null;
 }
 
 export async function testModels(
@@ -112,17 +221,26 @@ export async function testModels(
     const batch = models.slice(i, i + concurrency);
     const batchResults = await Promise.all(
       batch.map(async (model) => {
-        const success = await testRequest(
-          getRequestConfig(
-            baseUrl,
-            apiKey,
-            model,
-            channelType,
-            useResponsesAPI,
-          ),
-          timeoutMs,
+        const streamConfig = getStreamRequestConfig(
+          baseUrl,
+          apiKey,
+          model,
+          channelType,
+          useResponsesAPI,
         );
-        return { model, success };
+
+        // Run both tests in parallel
+        const [success, streamSuccess] = await Promise.all([
+          testRequest(
+            getRequestConfig(baseUrl, apiKey, model, channelType, useResponsesAPI),
+            timeoutMs,
+          ),
+          streamConfig
+            ? testStreamRequest(streamConfig, timeoutMs)
+            : Promise.resolve(null as boolean | null),
+        ]);
+
+        return { model, success, streamSuccess };
       }),
     );
     results.push(...batchResults);
@@ -134,7 +252,9 @@ export async function testModels(
   }
 
   return {
-    workingModels: results.filter((r) => r.success).map((r) => r.model),
+    workingModels: results
+      .filter((r) => r.success && r.streamSuccess !== false)
+      .map((r) => r.model),
     details: results,
   };
 }

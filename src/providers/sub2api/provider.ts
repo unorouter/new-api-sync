@@ -223,6 +223,20 @@ export async function processSub2ApiProvider(
           useResponsesAPI,
         );
         testedWorkingModels = testResult.workingModels;
+
+        const failedDetails = testResult.details.filter(
+          (d) => !d.success || d.streamSuccess === false,
+        );
+        if (failedDetails.length > 0) {
+          const labeled = failedDetails.map((d) => {
+            const h = d.success ? "✓" : "✗";
+            const s = d.streamSuccess === false ? "✗" : d.streamSuccess === null ? "·" : "✓";
+            return `${d.model} ${h}H ${s}S`;
+          });
+          consola.info(
+            `[${providerConfig.name}/${groupInfo.platform}] Failed: ${labeled.join(", ")}`,
+          );
+        }
       }
 
       // Combine tested working models with non-testable models

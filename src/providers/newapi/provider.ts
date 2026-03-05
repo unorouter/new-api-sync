@@ -143,14 +143,12 @@ export async function processNewApiProvider(
     };
 
     // Fetch balance before testing for cost tracking
-    let currentBalance = await upstream.fetchBalance();
-    const startBalance = currentBalance;
-    if (currentBalance !== null) {
+    const startBalance = await upstream.fetchBalance();
+    if (startBalance !== null) {
       consola.info(
-        `[${providerConfig.name}] Balance: $${currentBalance.toFixed(4)}`,
+        `[${providerConfig.name}] Balance: $${startBalance.toFixed(4)}`,
       );
     }
-    let totalTestCost = 0;
 
     // Track groups with no working models to delete their tokens later
     const groupsWithNoWorkingModels: string[] = [];
@@ -233,8 +231,8 @@ export async function processNewApiProvider(
           `[${providerConfig.name}/${group.name}] ${testedWorkingModels.length} models (testing skipped)`,
         );
       } else if (apiKey && testableModels.length > 0) {
-        // Track per-model cost by checking balance after each model test
         const modelCosts = new Map<string, number>();
+        let groupBalanceBefore = startBalance;
         const testResult = await testModels(
           providerConfig.baseUrl,
           apiKey,
@@ -244,35 +242,34 @@ export async function processNewApiProvider(
           5,
           undefined,
           async (detail) => {
-            if (!detail.success || currentBalance === null) return;
-            const newBalance = await upstream.fetchBalance();
-            if (newBalance === null) return;
-            const cost = currentBalance - newBalance;
+            if ((!detail.success && detail.streamSuccess !== true) || groupBalanceBefore === null) return;
+            const bal = await upstream.fetchBalance();
+            if (bal === null) return;
+            const cost = groupBalanceBefore - bal;
             if (cost > 0) {
-              modelCosts.set(
-                detail.model,
-                (modelCosts.get(detail.model) ?? 0) + cost,
-              );
-              totalTestCost += cost;
-              currentBalance = newBalance;
+              modelCosts.set(detail.model, (modelCosts.get(detail.model) ?? 0) + cost);
+              groupBalanceBefore = bal;
             }
           },
         );
-        const failedModels = testableModels.filter(
-          (m) => !testResult.workingModels.includes(m),
-        );
         testedWorkingModels = testResult.workingModels;
 
-        if (failedModels.length > 0) {
+        const failedDetails = testResult.details.filter(
+          (d) => !d.success || d.streamSuccess === false,
+        );
+        if (failedDetails.length > 0) {
+          const labeled = failedDetails.map((d) => {
+            const h = d.success ? "✓" : "✗";
+            const s = d.streamSuccess === false ? "✗" : d.streamSuccess === null ? "·" : "✓";
+            return `${d.model} ${h}H ${s}S`;
+          });
           consola.info(
-            `[${providerConfig.name}/${group.name}] Failed: ${failedModels.join(", ")}`,
+            `[${providerConfig.name}/${group.name}] Failed: ${labeled.join(", ")}`,
           );
         }
 
-        // Format per-model cost breakdown with yellow coloring
-        const groupCost = [...modelCosts.values()].reduce((a, b) => a + b, 0);
         let costStr = "";
-        if (groupCost > 0) {
+        if (modelCosts.size > 0) {
           const parts = [...modelCosts.entries()].map(
             ([model, cost]) =>
               `${model} ${colorize("yellow", `$${cost.toFixed(4)}`)}`,
@@ -390,12 +387,14 @@ export async function processNewApiProvider(
       }
     }
 
-    // Log final balance and total test cost
-    if (startBalance !== null && totalTestCost > 0) {
+    // Log final balance and test cost
+    if (startBalance !== null) {
       const finalBalance = await upstream.fetchBalance();
       if (finalBalance !== null) {
+        const cost = startBalance - finalBalance;
+        const costStr = cost > 0 ? ` | Test cost: ${colorize("yellow", `$${cost.toFixed(4)}`)}` : "";
         consola.info(
-          `[${providerConfig.name}] Balance: $${finalBalance.toFixed(4)} | Test cost: ${colorize("yellow", `$${totalTestCost.toFixed(4)}`)}`,
+          `[${providerConfig.name}] Balance: $${finalBalance.toFixed(4)}${costStr}`,
         );
       }
     }
