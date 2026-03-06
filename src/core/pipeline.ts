@@ -1,4 +1,5 @@
 import type {
+  DirectProviderConfig,
   ProviderConfig,
   RuntimeConfig,
   Sub2ApiProviderConfig,
@@ -27,6 +28,7 @@ import type {
   TargetSnapshot,
 } from "@/lib/types";
 import { NewApiClient } from "@/providers/newapi/client";
+import { processDirectProvider } from "@/providers/direct/provider";
 import { processNewApiProvider } from "@/providers/newapi/provider";
 import { processSub2ApiProvider } from "@/providers/sub2api/provider";
 import { consola } from "consola";
@@ -351,9 +353,10 @@ export async function runProviderPipeline(
     fetchOpenRouterDescriptions(),
   ]);
 
-  // Process providers (newapi first, then sub2api)
+  // Process providers (newapi first, then direct, then sub2api last)
+  const typeOrder: Record<string, number> = { newapi: 0, direct: 1, sub2api: 2 };
   const sorted = [...config.providers].sort(
-    (a, b) => (a.type === "newapi" ? -1 : 0) - (b.type === "newapi" ? -1 : 0),
+    (a, b) => (typeOrder[a.type] ?? 1) - (typeOrder[b.type] ?? 1),
   );
   const providerReports: ProviderReport[] = [];
   for (const [i, provider] of sorted.entries()) {
@@ -361,11 +364,17 @@ export async function runProviderPipeline(
     const report =
       provider.type === "newapi"
         ? await processNewApiProvider(provider as ProviderConfig, config, state)
-        : await processSub2ApiProvider(
-            provider as Sub2ApiProviderConfig,
-            config,
-            state,
-          );
+        : provider.type === "direct"
+          ? await processDirectProvider(
+              provider as DirectProviderConfig,
+              config,
+              state,
+            )
+          : await processSub2ApiProvider(
+              provider as Sub2ApiProviderConfig,
+              config,
+              state,
+            );
     providerReports.push(report);
   }
 

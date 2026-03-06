@@ -62,9 +62,24 @@ const Sub2ApiProviderSchema = ProviderCommon.extend({
   }
 });
 
+const DirectProviderSchema = ProviderCommon.extend({
+  type: z.literal("direct"),
+  baseUrl: z.url(),
+  apiKey: str,
+  vendor: str,
+  models: z.array(str).min(1).optional(),
+  channelType: z.number().int().positive().optional(),
+  ratio: z.number().positive().default(1),
+  discoverEndpoint: str.optional(),
+});
+
 export type ProviderConfig = z.output<typeof NewApiProviderSchema>;
 export type Sub2ApiProviderConfig = z.output<typeof Sub2ApiProviderSchema>;
-export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig;
+export type DirectProviderConfig = z.output<typeof DirectProviderSchema>;
+export type AnyProviderConfig =
+  | ProviderConfig
+  | Sub2ApiProviderConfig
+  | DirectProviderConfig;
 
 const ConfigSchema = z
   .object({
@@ -82,6 +97,7 @@ const ConfigSchema = z
         z.discriminatedUnion("type", [
           NewApiProviderSchema,
           Sub2ApiProviderSchema,
+          DirectProviderSchema,
         ]),
       )
       .min(1),

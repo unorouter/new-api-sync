@@ -103,7 +103,7 @@ function getStreamRequestConfig(
         max_tokens: 5,
         stream: true,
       },
-      completionMarker: "event: message_stop",
+      completionMarker: "message_stop",
     };
   }
   if (channelType === CHANNEL_TYPES.GEMINI) {
