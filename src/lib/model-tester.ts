@@ -1,5 +1,6 @@
-import { CHANNEL_TYPES, TIMEOUTS } from "@/lib/constants";
+import { CHANNEL_TYPES, isTestableModel, TIMEOUTS } from "@/lib/constants";
 import { tryFetchJson } from "@/lib/http";
+import { consola } from "consola";
 
 interface RequestConfig {
   url: string;
@@ -16,13 +17,16 @@ interface StreamRequestConfig {
   completionMarker: string;
 }
 
-function getRequestConfig(
-  baseUrl: string,
-  apiKey: string,
-  model: string,
-  channelType: number,
-  useResponsesAPI: boolean,
-): RequestConfig {
+interface ModelRequestOpts {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  channelType: number;
+  useResponsesAPI: boolean;
+}
+
+function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
+  const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
   if (channelType === CHANNEL_TYPES.ANTHROPIC) {
     return {
       url: `${baseUrl}/v1/messages`,
@@ -59,9 +63,7 @@ function getRequestConfig(
       },
       body: {
         model,
-        input: [
-          { role: "user", content: [{ type: "input_text", text: "1" }] },
-        ],
+        input: [{ role: "user", content: [{ type: "input_text", text: "1" }] }],
         max_output_tokens: 1,
         store: false,
       },
@@ -84,12 +86,9 @@ function getRequestConfig(
 }
 
 function getStreamRequestConfig(
-  baseUrl: string,
-  apiKey: string,
-  model: string,
-  channelType: number,
-  useResponsesAPI: boolean,
+  opts: ModelRequestOpts,
 ): StreamRequestConfig | null {
+  const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
   if (channelType === CHANNEL_TYPES.ANTHROPIC) {
     return {
       url: `${baseUrl}/v1/messages`,
@@ -202,39 +201,46 @@ export interface ModelTestDetail {
   streamSuccess: boolean | null;
 }
 
-export async function testModels(
-  baseUrl: string,
-  apiKey: string,
-  models: string[],
-  channelType: number,
-  useResponsesAPI = false,
-  concurrency = 5,
-  timeoutMs: number = TIMEOUTS.MODEL_TEST_MS,
-  onModelTested?: (detail: ModelTestDetail) => void | Promise<void>,
-): Promise<{
+export async function testModels(opts: {
+  baseUrl: string;
+  apiKey: string;
+  models: string[];
+  channelType: number;
+  useResponsesAPI?: boolean;
+  concurrency?: number;
+  timeoutMs?: number;
+  onModelTested?: (detail: ModelTestDetail) => void | Promise<void>;
+}): Promise<{
   workingModels: string[];
   details: ModelTestDetail[];
 }> {
+  const baseUrl = opts.baseUrl;
+  const apiKey = opts.apiKey;
+  const models = opts.models;
+  const channelType = opts.channelType;
+  const useResponsesAPI = opts.useResponsesAPI ?? false;
+  const concurrency = opts.concurrency ?? 5;
+  const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
+  const onModelTested = opts.onModelTested;
+
   const results: ModelTestDetail[] = [];
 
   for (let i = 0; i < models.length; i += concurrency) {
     const batch = models.slice(i, i + concurrency);
     const batchResults = await Promise.all(
       batch.map(async (model) => {
-        const streamConfig = getStreamRequestConfig(
+        const reqOpts: ModelRequestOpts = {
           baseUrl,
           apiKey,
           model,
           channelType,
           useResponsesAPI,
-        );
+        };
+        const streamConfig = getStreamRequestConfig(reqOpts);
 
         // Run both tests in parallel
         const [success, streamSuccess] = await Promise.all([
-          testRequest(
-            getRequestConfig(baseUrl, apiKey, model, channelType, useResponsesAPI),
-            timeoutMs,
-          ),
+          testRequest(getRequestConfig(reqOpts), timeoutMs),
           streamConfig
             ? testStreamRequest(streamConfig, timeoutMs)
             : Promise.resolve(null as boolean | null),
@@ -256,5 +262,84 @@ export async function testModels(
       .filter((r) => r.success && r.streamSuccess !== false)
       .map((r) => r.model),
     details: results,
+  };
+}
+
+/**
+ * Partition models into testable/non-testable, run tests, log failures,
+ * and return the combined list of working models.
+ */
+export async function testAndFilterModels(opts: {
+  allModels: string[];
+  baseUrl: string;
+  apiKey: string;
+  channelType: number;
+  providerLabel: string;
+  skipTesting: boolean;
+  modelEndpoints?: Map<string, string[]>;
+  useResponsesAPI?: boolean;
+  onModelTested?: (detail: ModelTestDetail) => void | Promise<void>;
+}): Promise<{
+  workingModels: string[];
+  testedCount: number;
+  details?: ModelTestDetail[];
+}> {
+  const testableModels = opts.allModels.filter((m) =>
+    isTestableModel(m, undefined, opts.modelEndpoints),
+  );
+  const nonTestableModels = opts.allModels.filter(
+    (m) => !isTestableModel(m, undefined, opts.modelEndpoints),
+  );
+
+  let testedWorkingModels: string[] = [];
+  let details: ModelTestDetail[] | undefined;
+
+  if (opts.skipTesting) {
+    testedWorkingModels = testableModels;
+    consola.info(
+      `[${opts.providerLabel}] ${testableModels.length} models (testing skipped)`,
+    );
+  } else if (opts.apiKey && testableModels.length > 0) {
+    const testResult = await testModels({
+      baseUrl: opts.baseUrl,
+      apiKey: opts.apiKey,
+      models: testableModels,
+      channelType: opts.channelType,
+      useResponsesAPI: opts.useResponsesAPI,
+      onModelTested: opts.onModelTested,
+    });
+    testedWorkingModels = testResult.workingModels;
+    details = testResult.details;
+
+    const failedDetails = testResult.details.filter(
+      (d) => !d.success || d.streamSuccess === false,
+    );
+    if (failedDetails.length > 0) {
+      const labeled = failedDetails.map((d) => {
+        const h = d.success ? "✓" : "✗";
+        const s =
+          d.streamSuccess === false
+            ? "✗"
+            : d.streamSuccess === null
+              ? "·"
+              : "✓";
+        return `${d.model} ${h}H ${s}S`;
+      });
+      consola.info(`[${opts.providerLabel}] Failed: ${labeled.join(", ")}`);
+    }
+  }
+
+  const workingModels = [...testedWorkingModels, ...nonTestableModels];
+
+  if (nonTestableModels.length > 0) {
+    consola.info(
+      `[${opts.providerLabel}] Included without test: ${nonTestableModels.join(", ")}`,
+    );
+  }
+
+  return {
+    workingModels,
+    testedCount: testableModels.length,
+    details,
   };
 }

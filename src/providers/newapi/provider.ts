@@ -1,20 +1,158 @@
-import { shouldSkipTesting, type ProviderConfig, type RuntimeConfig } from "@/config";
+import {
+  shouldSkipTesting,
+  type ProviderConfig,
+  type RuntimeConfig,
+} from "@/config";
 import {
   inferChannelTypeFromModels,
   inferModelType,
   inferVendorFromModelName,
-  isTestableModel,
   matchesAnyPattern,
   matchesBlacklist,
   normalizeEndpointTypes,
   sanitizeGroupName,
 } from "@/lib/constants";
-import { testModels } from "@/lib/model-tester";
+import { testAndFilterModels } from "@/lib/model-tester";
 import { resolvePriceAdjustment } from "@/lib/pricing";
 import type { GroupInfo, ProviderReport, SyncState } from "@/lib/types";
 import { consola } from "consola";
 import { colorize } from "consola/utils";
 import { NewApiClient } from "./client";
+
+function filterGroupModels(
+  models: string[],
+  config: RuntimeConfig,
+  providerConfig: ProviderConfig,
+): string[] {
+  let result = models.filter(
+    (modelName) =>
+      !matchesBlacklist(modelName, config.blacklist, providerConfig.name),
+  );
+
+  if (providerConfig.enabledVendors?.length) {
+    const vendorSet = new Set(
+      providerConfig.enabledVendors.map((v) => v.toLowerCase()),
+    );
+    result = result.filter((modelName) => {
+      const vendor = inferVendorFromModelName(modelName);
+      return vendor && vendorSet.has(vendor);
+    });
+  }
+
+  if (providerConfig.enabledModels?.length) {
+    result = result.filter((modelName) =>
+      matchesAnyPattern(modelName, providerConfig.enabledModels!),
+    );
+  }
+
+  return result;
+}
+
+function buildGroupChannels(opts: {
+  mappedModels: string[];
+  reverseModelMapping: Record<string, string>;
+  groupRatio: number;
+  groupName: string;
+  sanitizedName: string;
+  channelRemark: string;
+  providerConfig: ProviderConfig;
+  config: RuntimeConfig;
+  state: SyncState;
+  apiKey: string;
+}): void {
+  // Group models by their effective ratio (per-model/vendor/type priceAdjustment may differ)
+  const ratioToModels = new Map<
+    number,
+    { models: string[]; nonText: boolean }
+  >();
+  for (const model of opts.mappedModels) {
+    const vendor = inferVendorFromModelName(model) ?? "unknown";
+    const modelType = inferModelType(
+      model,
+      undefined,
+      opts.state.modelEndpoints,
+    );
+    const vendorAdj = resolvePriceAdjustment({
+      adj: opts.providerConfig.priceAdjustment,
+      model,
+      vendor,
+      modelType,
+      fallback: 0,
+      modelMapping: opts.config.modelMapping,
+    });
+    const effectiveRatio = opts.groupRatio * (1 + vendorAdj);
+    const key = Math.round(effectiveRatio * 1e6) / 1e6;
+    if (!ratioToModels.has(key))
+      ratioToModels.set(key, { models: [], nonText: modelType !== "text" });
+    ratioToModels.get(key)!.models.push(model);
+  }
+
+  // Create a channel per distinct ratio tier
+  let tierIdx = 0;
+  for (const [effectiveRatio, { models, nonText }] of ratioToModels) {
+    // Skip text model tiers that end up > 1 after adjustment; non-text (image, video, etc.) are allowed above 1
+    if (effectiveRatio > 1 && !nonText) continue;
+
+    const suffix = ratioToModels.size > 1 ? `-t${tierIdx}` : "";
+    const tierName = `${opts.sanitizedName}${suffix}`;
+
+    opts.state.mergedGroups.push({
+      name: tierName,
+      ratio: effectiveRatio,
+      description: `${sanitizeGroupName(opts.groupName)} via ${opts.providerConfig.name}`,
+      provider: opts.providerConfig.name,
+    });
+
+    const channelType = inferChannelTypeFromModels(
+      models,
+      opts.state.modelEndpoints,
+    );
+
+    // Build per-tier model_mapping: only include models in this tier that were mapped
+    const tierModelMapping: Record<string, string> = {};
+    for (const model of models) {
+      if (opts.reverseModelMapping[model]) {
+        tierModelMapping[model] = opts.reverseModelMapping[model];
+      }
+    }
+
+    opts.state.channelsToCreate.push({
+      name: tierName,
+      type: channelType,
+      key: opts.apiKey,
+      base_url: opts.providerConfig.baseUrl.replace(/\/$/, ""),
+      models: models.join(","),
+      group: tierName,
+      priority: 0,
+      weight: 1,
+      status: 1,
+      tag: opts.providerConfig.name,
+      remark: opts.channelRemark,
+      model_mapping:
+        Object.keys(tierModelMapping).length > 0
+          ? JSON.stringify(tierModelMapping)
+          : undefined,
+    });
+    tierIdx++;
+  }
+}
+
+async function cleanupEmptyGroupTokens(
+  upstream: NewApiClient,
+  groupNames: string[],
+  tokenPrefix: string,
+  report: ProviderReport,
+): Promise<void> {
+  if (groupNames.length === 0) return;
+  const allTokens = await upstream.listTokens();
+  for (const groupName of groupNames) {
+    const tokenName = `${groupName}-${tokenPrefix}`;
+    const token = allTokens.find((t) => t.name === tokenName);
+    if (token && (await upstream.deleteToken(token.id))) {
+      report.tokens.deleted++;
+    }
+  }
+}
 
 export async function processNewApiProvider(
   providerConfig: ProviderConfig,
@@ -37,7 +175,10 @@ export async function processNewApiProvider(
     // Populate model endpoints maps
     for (const model of pricing.models) {
       if (model.supportedEndpoints?.length) {
-        state.modelEndpoints.set(model.name, normalizeEndpointTypes(model.supportedEndpoints));
+        state.modelEndpoints.set(
+          model.name,
+          normalizeEndpointTypes(model.supportedEndpoints),
+        );
         state.modelOriginalEndpoints.set(model.name, model.supportedEndpoints);
       }
     }
@@ -168,29 +309,11 @@ export async function processNewApiProvider(
       }
       const groupRatio = group.ratio;
 
-      // Filter out blacklisted models
-      let candidateModels = group.models.filter(
-        (modelName) =>
-          !matchesBlacklist(modelName, config.blacklist, providerConfig.name),
+      const candidateModels = filterGroupModels(
+        group.models,
+        config,
+        providerConfig,
       );
-
-      // Then filter by enabled vendors if specified
-      if (providerConfig.enabledVendors?.length) {
-        const vendorSet = new Set(
-          providerConfig.enabledVendors.map((v) => v.toLowerCase()),
-        );
-        candidateModels = candidateModels.filter((modelName) => {
-          const vendor = inferVendorFromModelName(modelName);
-          return vendor && vendorSet.has(vendor);
-        });
-      }
-
-      // Filter by enabled models if specified (glob patterns supported)
-      if (providerConfig.enabledModels?.length) {
-        candidateModels = candidateModels.filter((modelName) =>
-          matchesAnyPattern(modelName, providerConfig.enabledModels!),
-        );
-      }
 
       // Apply model mapping and build reverse map for the channel.
       // The channel's model_mapping tells the upstream to translate the mapped
@@ -213,168 +336,78 @@ export async function processNewApiProvider(
         continue;
       }
 
-      // Partition into testable (text endpoints) and non-testable (image-only, etc.)
-      const testableModels = mappedModels.filter((m) =>
-        isTestableModel(m, undefined, state.modelEndpoints),
-      );
-      const nonTestableModels = mappedModels.filter(
-        (m) => !isTestableModel(m, undefined, state.modelEndpoints),
-      );
-
-      // Test only models that support text endpoints
       const apiKey = tokenResult.tokens[group.name] ?? "";
-      const testedCount = testableModels.length;
-      let testedWorkingModels: string[] = [];
-      if (shouldSkipTesting(config, providerConfig)) {
-        testedWorkingModels = testableModels;
+      const modelCosts = new Map<string, number>();
+      let groupBalanceBefore = startBalance;
+      const filterResult = await testAndFilterModels({
+        allModels: mappedModels,
+        baseUrl: providerConfig.baseUrl,
+        apiKey,
+        channelType: group.channelType,
+        providerLabel: `${providerConfig.name}/${group.name}`,
+        skipTesting: shouldSkipTesting(config, providerConfig),
+        modelEndpoints: state.modelEndpoints,
+        onModelTested: async (detail) => {
+          if (
+            (!detail.success && detail.streamSuccess !== true) ||
+            groupBalanceBefore === null
+          )
+            return;
+          const bal = await upstream.fetchBalance();
+          if (bal === null) return;
+          const cost = groupBalanceBefore - bal;
+          if (cost > 0) {
+            modelCosts.set(
+              detail.model,
+              (modelCosts.get(detail.model) ?? 0) + cost,
+            );
+            groupBalanceBefore = bal;
+          }
+        },
+      });
+
+      // Log cost summary for this group
+      let costStr = "";
+      if (modelCosts.size > 0) {
+        const parts = [...modelCosts.entries()].map(
+          ([model, cost]) =>
+            `${model} ${colorize("yellow", `$${cost.toFixed(4)}`)}`,
+        );
+        costStr = ` | ${parts.join(", ")}`;
+      }
+      if (filterResult.testedCount > 0) {
         consola.info(
-          `[${providerConfig.name}/${group.name}] ${testedWorkingModels.length} models (testing skipped)`,
-        );
-      } else if (apiKey && testableModels.length > 0) {
-        const modelCosts = new Map<string, number>();
-        let groupBalanceBefore = startBalance;
-        const testResult = await testModels(
-          providerConfig.baseUrl,
-          apiKey,
-          testableModels,
-          group.channelType,
-          false,
-          5,
-          undefined,
-          async (detail) => {
-            if ((!detail.success && detail.streamSuccess !== true) || groupBalanceBefore === null) return;
-            const bal = await upstream.fetchBalance();
-            if (bal === null) return;
-            const cost = groupBalanceBefore - bal;
-            if (cost > 0) {
-              modelCosts.set(detail.model, (modelCosts.get(detail.model) ?? 0) + cost);
-              groupBalanceBefore = bal;
-            }
-          },
-        );
-        testedWorkingModels = testResult.workingModels;
-
-        const failedDetails = testResult.details.filter(
-          (d) => !d.success || d.streamSuccess === false,
-        );
-        if (failedDetails.length > 0) {
-          const labeled = failedDetails.map((d) => {
-            const h = d.success ? "✓" : "✗";
-            const s = d.streamSuccess === false ? "✗" : d.streamSuccess === null ? "·" : "✓";
-            return `${d.model} ${h}H ${s}S`;
-          });
-          consola.info(
-            `[${providerConfig.name}/${group.name}] Failed: ${labeled.join(", ")}`,
-          );
-        }
-
-        let costStr = "";
-        if (modelCosts.size > 0) {
-          const parts = [...modelCosts.entries()].map(
-            ([model, cost]) =>
-              `${model} ${colorize("yellow", `$${cost.toFixed(4)}`)}`,
-          );
-          costStr = ` | ${parts.join(", ")}`;
-        }
-
-        consola.info(
-          `[${providerConfig.name}/${group.name}] ${testedWorkingModels.length}/${testedCount} working${costStr}`,
+          `[${providerConfig.name}/${group.name}] ${filterResult.workingModels.length}/${filterResult.testedCount} working${costStr}`,
         );
       }
 
-      // Combine tested working models with non-testable models (included without testing)
-      mappedModels = [...testedWorkingModels, ...nonTestableModels];
-
-      if (nonTestableModels.length > 0) {
-        consola.info(
-          `[${providerConfig.name}/${group.name}] Included without test: ${nonTestableModels.join(", ")}`,
-        );
-      }
+      mappedModels = filterResult.workingModels;
 
       if (mappedModels.length === 0) {
-        consola.info(
-          `[${providerConfig.name}/${group.name}] 0/${testedCount} | skip`,
-        );
         groupsWithNoWorkingModels.push(group.name);
         continue;
       }
 
-      // Group models by their effective ratio (per-model/vendor/type priceAdjustment may differ)
-      const ratioToModels = new Map<number, { models: string[]; nonText: boolean }>();
-      for (const model of mappedModels) {
-        const vendor = inferVendorFromModelName(model) ?? "unknown";
-        const modelType = inferModelType(model, undefined, state.modelEndpoints);
-        const vendorAdj = resolvePriceAdjustment(
-          providerConfig.priceAdjustment, model, vendor, modelType, 0, config.modelMapping,
-        );
-        const effectiveRatio = groupRatio * (1 + vendorAdj);
-        const key = Math.round(effectiveRatio * 1e6) / 1e6;
-        if (!ratioToModels.has(key)) ratioToModels.set(key, { models: [], nonText: modelType !== "text" });
-        ratioToModels.get(key)!.models.push(model);
-      }
-
-      // Create a channel per distinct ratio tier
-      let tierIdx = 0;
-      for (const [effectiveRatio, { models, nonText }] of ratioToModels) {
-        // Skip text model tiers that end up > 1 after adjustment; non-text (image, video, etc.) are allowed above 1
-        if (effectiveRatio > 1 && !nonText) continue;
-
-        const suffix = ratioToModels.size > 1 ? `-t${tierIdx}` : "";
-        const tierName = `${sanitizedName}${suffix}`;
-
-        state.mergedGroups.push({
-          name: tierName,
-          ratio: effectiveRatio,
-          description: `${sanitizeGroupName(group.name)} via ${providerConfig.name}`,
-          provider: providerConfig.name,
-        });
-
-        // Infer channel type from the actual filtered models' vendor names
-        const channelType = inferChannelTypeFromModels(
-          models,
-          state.modelEndpoints,
-        );
-
-        // Build per-tier model_mapping: only include models in this tier that were mapped
-        const tierModelMapping: Record<string, string> = {};
-        for (const model of models) {
-          if (reverseModelMapping[model]) {
-            tierModelMapping[model] = reverseModelMapping[model];
-          }
-        }
-
-        state.channelsToCreate.push({
-          name: tierName,
-          type: channelType,
-          key: tokenResult.tokens[group.name] ?? "",
-          base_url: providerConfig.baseUrl.replace(/\/$/, ""),
-          models: models.join(","),
-          group: tierName,
-          priority: 0,
-          weight: 1,
-          status: 1,
-          tag: providerConfig.name,
-          remark: originalName,
-          model_mapping:
-            Object.keys(tierModelMapping).length > 0
-              ? JSON.stringify(tierModelMapping)
-              : undefined,
-        });
-        tierIdx++;
-      }
+      buildGroupChannels({
+        mappedModels,
+        reverseModelMapping,
+        groupRatio,
+        groupName: group.name,
+        sanitizedName,
+        channelRemark: originalName,
+        providerConfig,
+        config,
+        state,
+        apiKey,
+      });
     }
 
-    // Delete tokens for groups with no working models
-    if (groupsWithNoWorkingModels.length > 0) {
-      const allTokens = await upstream.listTokens();
-      for (const groupName of groupsWithNoWorkingModels) {
-        const tokenName = `${groupName}-${tokenPrefix}`;
-        const token = allTokens.find((t) => t.name === tokenName);
-        if (token && (await upstream.deleteToken(token.id))) {
-          providerReport.tokens.deleted++;
-        }
-      }
-    }
+    await cleanupEmptyGroupTokens(
+      upstream,
+      groupsWithNoWorkingModels,
+      tokenPrefix,
+      providerReport,
+    );
 
     for (const model of pricing.models) {
       const existing = state.mergedModels.get(model.name);
@@ -392,7 +425,10 @@ export async function processNewApiProvider(
       const finalBalance = await upstream.fetchBalance();
       if (finalBalance !== null) {
         const cost = startBalance - finalBalance;
-        const costStr = cost > 0 ? ` | Test cost: ${colorize("yellow", `$${cost.toFixed(4)}`)}` : "";
+        const costStr =
+          cost > 0
+            ? ` | Test cost: ${colorize("yellow", `$${cost.toFixed(4)}`)}`
+            : "";
         consola.info(
           `[${providerConfig.name}] Balance: $${finalBalance.toFixed(4)}${costStr}`,
         );

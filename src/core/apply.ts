@@ -1,5 +1,69 @@
-import type { ApplyReport, SyncDiff } from "@/lib/types";
+import type {
+  ApplyError,
+  ApplyReport,
+  DiffOperation,
+  SyncDiff,
+} from "@/lib/types";
 import type { NewApiClient } from "@/providers/newapi/client";
+
+async function applyEntityOps<T extends { id?: number }>(
+  ops: DiffOperation<T>[],
+  handlers: {
+    create: (value: T) => Promise<boolean>;
+    update: (value: T) => Promise<boolean>;
+    delete: (id: number) => Promise<boolean>;
+  },
+  phase: ApplyError["phase"],
+  report: { created: number; updated: number; deleted: number },
+  errors: ApplyError[],
+): Promise<void> {
+  for (const op of ops) {
+    if (op.type === "create") {
+      if (await handlers.create(op.value)) {
+        report.created++;
+      } else {
+        errors.push({
+          phase,
+          key: op.key,
+          message: `failed to create ${phase.slice(0, -1)}`,
+        });
+      }
+      continue;
+    }
+
+    if (op.type === "update") {
+      if (await handlers.update(op.value)) {
+        report.updated++;
+      } else {
+        errors.push({
+          phase,
+          key: op.key,
+          message: `failed to update ${phase.slice(0, -1)}`,
+        });
+      }
+      continue;
+    }
+
+    if (!op.existing.id) {
+      errors.push({
+        phase,
+        key: op.key,
+        message: `missing ${phase.slice(0, -1)} id for delete`,
+      });
+      continue;
+    }
+
+    if (await handlers.delete(op.existing.id)) {
+      report.deleted++;
+    } else {
+      errors.push({
+        phase,
+        key: op.key,
+        message: `failed to delete ${phase.slice(0, -1)}`,
+      });
+    }
+  }
+}
 
 export async function applySyncDiff(
   target: NewApiClient,
@@ -14,118 +78,43 @@ export async function applySyncDiff(
 
   for (const op of diff.options) {
     if (op.type === "delete") continue;
-    const success = await target.updateOption(op.key, op.value);
-    if (success) {
+    if (await target.updateOption(op.key, op.value)) {
       report.options.updated.push(op.key);
-      continue;
-    }
-    report.errors.push({
-      phase: "options",
-      key: op.key,
-      message: "failed to update option",
-    });
-  }
-
-  for (const op of diff.channels) {
-    if (op.type === "create") {
-      const { id, ...channelPayload } = op.value;
-      const createdId = await target.createChannel(channelPayload);
-      if (createdId !== null) {
-        report.channels.created++;
-      } else {
-        report.errors.push({
-          phase: "channels",
-          key: op.key,
-          message: "failed to create channel",
-        });
-      }
-      continue;
-    }
-
-    if (op.type === "update") {
-      const success = await target.updateChannel(op.value);
-      if (success) {
-        report.channels.updated++;
-      } else {
-        report.errors.push({
-          phase: "channels",
-          key: op.key,
-          message: "failed to update channel",
-        });
-      }
-      continue;
-    }
-
-    if (!op.existing.id) {
-      report.errors.push({
-        phase: "channels",
-        key: op.key,
-        message: "missing channel id for delete",
-      });
-      continue;
-    }
-
-    const success = await target.deleteChannel(op.existing.id);
-    if (success) {
-      report.channels.deleted++;
     } else {
       report.errors.push({
-        phase: "channels",
+        phase: "options",
         key: op.key,
-        message: "failed to delete channel",
+        message: "failed to update option",
       });
     }
   }
 
-  for (const op of diff.models) {
-    if (op.type === "create") {
-      const success = await target.createModel(op.value);
-      if (success) {
-        report.models.created++;
-      } else {
-        report.errors.push({
-          phase: "models",
-          key: op.key,
-          message: "failed to create model",
-        });
-      }
-      continue;
-    }
+  await applyEntityOps(
+    diff.channels,
+    {
+      create: async (ch) => {
+        const { id, ...payload } = ch;
+        return (await target.createChannel(payload)) !== null;
+      },
+      update: (ch) => target.updateChannel(ch),
+      delete: (id) => target.deleteChannel(id),
+    },
+    "channels",
+    report.channels,
+    report.errors,
+  );
 
-    if (op.type === "update") {
-      const success = await target.updateModel(op.value);
-      if (success) {
-        report.models.updated++;
-      } else {
-        report.errors.push({
-          phase: "models",
-          key: op.key,
-          message: "failed to update model",
-        });
-      }
-      continue;
-    }
-
-    if (!op.existing.id) {
-      report.errors.push({
-        phase: "models",
-        key: op.key,
-        message: "missing model id for delete",
-      });
-      continue;
-    }
-
-    const success = await target.deleteModel(op.existing.id);
-    if (success) {
-      report.models.deleted++;
-    } else {
-      report.errors.push({
-        phase: "models",
-        key: op.key,
-        message: "failed to delete model",
-      });
-    }
-  }
+  await applyEntityOps(
+    diff.models,
+    {
+      create: (model) => target.createModel(model),
+      update: (model) => target.updateModel(model),
+      delete: (id) => target.deleteModel(id),
+    },
+    "models",
+    report.models,
+    report.errors,
+  );
 
   if (diff.cleanupOrphans) {
     try {

@@ -4,10 +4,12 @@ import type {
   Sub2ApiProviderConfig,
 } from "@/config";
 import {
+  buildReverseMapping,
   ENDPOINT_DEFAULT_PATHS,
   inferModelType,
   inferVendorFromModelName,
   normalizeEndpointType,
+  parseModelList,
 } from "@/lib/constants";
 import {
   type BasellmEntry,
@@ -19,6 +21,7 @@ import type {
   Channel,
   DesiredModelSpec,
   DesiredState,
+  ManagedOptionMaps,
   ProviderReport,
   SyncState,
   TargetSnapshot,
@@ -41,10 +44,7 @@ function backfillModelRatios(
   // Collect all model names used in channels
   const channelModels = new Set<string>();
   for (const ch of channels) {
-    for (const m of ch.models.split(",")) {
-      const trimmed = m.trim();
-      if (trimmed) channelModels.add(trimmed);
-    }
+    for (const m of parseModelList(ch.models)) channelModels.add(m);
   }
 
   // Find models missing ratio data
@@ -72,17 +72,14 @@ function backfillModelRatios(
     }
   }
 
-  // Build reverse mapping to look up upstream names for mapped models
-  const reverseMapping = new Map<string, string>();
-  for (const [original, mapped] of Object.entries(modelMapping)) {
-    reverseMapping.set(mapped, original);
-  }
+  const reverseMapping = buildReverseMapping(modelMapping);
 
   let filled = 0;
   for (const model of missing) {
     // Try mapped name first, then original
     const lookupName = reverseMapping.get(model) ?? model;
-    const upstream = upstreamRatios.get(lookupName) ?? upstreamRatios.get(model);
+    const upstream =
+      upstreamRatios.get(lookupName) ?? upstreamRatios.get(model);
     if (upstream) {
       state.mergedModels.set(model, {
         ratio: upstream.ratio,
@@ -99,10 +96,160 @@ function backfillModelRatios(
   }
   if (filled < missing.length) {
     const unfilled = missing.filter((m) => !state.mergedModels.has(m));
-    consola.warn(
-      `No upstream ratios for: ${unfilled.join(", ")}`,
-    );
+    consola.warn(`No upstream ratios for: ${unfilled.join(", ")}`);
   }
+}
+
+function buildOptionMaps(
+  state: SyncState,
+  modelMapping: Record<string, string>,
+): Omit<ManagedOptionMaps, "responsesApiModels" | "defaultUseAutoGroup"> {
+  const groupRatio: Record<string, number> = {};
+  const userUsableGroups: Record<string, string> = {
+    auto: "Auto (Smart Routing with Failover)",
+  };
+
+  for (const group of state.mergedGroups) {
+    groupRatio[group.name] = Math.round(group.ratio * 10000) / 10000;
+    userUsableGroups[group.name] = group.description;
+  }
+
+  const autoGroups = [...state.mergedGroups]
+    .sort((a, b) => a.ratio - b.ratio)
+    .map((group) => group.name);
+
+  const modelRatio: Record<string, number> = {};
+  const completionRatio: Record<string, number> = {};
+  const modelPrice: Record<string, number> = {};
+  const imageRatio: Record<string, number> = {};
+  for (const [name, ratios] of state.mergedModels) {
+    const mappedName = modelMapping?.[name] ?? name;
+    if (ratios.modelPrice !== undefined && ratios.modelPrice > 0) {
+      modelPrice[mappedName] = Math.round(ratios.modelPrice * 10000) / 10000;
+    } else {
+      modelRatio[mappedName] = Math.round(ratios.ratio * 10000) / 10000;
+      completionRatio[mappedName] =
+        Math.round(ratios.completionRatio * 10000) / 10000;
+    }
+    if (ratios.imageRatio !== undefined && ratios.imageRatio > 0) {
+      imageRatio[mappedName] = Math.round(ratios.imageRatio * 10000) / 10000;
+    }
+  }
+
+  return {
+    groupRatio,
+    userUsableGroups,
+    autoGroups,
+    modelRatio,
+    completionRatio,
+    modelPrice,
+    imageRatio,
+  };
+}
+
+function buildDesiredModels(opts: {
+  channels: Channel[];
+  state: SyncState;
+  reverseMapping: Map<string, string>;
+  basellmEntries: BasellmEntry[];
+  openRouterDescriptions: Map<string, string>;
+  modelMapping: Record<string, string>;
+}): Map<string, DesiredModelSpec> {
+  const models = new Map<string, DesiredModelSpec>();
+
+  for (const channel of opts.channels) {
+    const channelModels = parseModelList(channel.models);
+    for (const modelName of channelModels) {
+      const vendor = inferVendorFromModelName(modelName);
+      const originalEps =
+        opts.state.modelOriginalEndpoints.get(modelName) ??
+        opts.state.modelOriginalEndpoints.get(
+          opts.reverseMapping.get(modelName) ?? "",
+        );
+      let endpoints: string | undefined;
+      if (originalEps) {
+        const epMap: Record<string, string> = {};
+        for (const origEp of originalEps) {
+          const normalized = normalizeEndpointType(origEp);
+          const info = opts.state.endpointPaths.get(origEp);
+          const path = info?.path ?? ENDPOINT_DEFAULT_PATHS[normalized];
+          if (path) epMap[normalized] = path;
+        }
+        if (Object.keys(epMap).length > 0) endpoints = JSON.stringify(epMap);
+      }
+      models.set(modelName, {
+        model_name: modelName,
+        vendor,
+        endpoints,
+      });
+    }
+  }
+
+  // Enrich models with descriptions (OpenRouter) and tags (basellm)
+  const metadataMap = buildMetadataMap({
+    modelNames: models.keys(),
+    basellmEntries: opts.basellmEntries,
+    openRouterDescriptions: opts.openRouterDescriptions,
+    modelMapping: opts.modelMapping,
+  });
+  for (const [modelName, meta] of metadataMap) {
+    const existing = models.get(modelName);
+    if (existing) {
+      if (meta.description) existing.description = meta.description;
+      if (meta.tags) existing.tags = meta.tags;
+    }
+  }
+
+  // Add model type tag and deduplicate
+  for (const [modelName, spec] of models) {
+    const originalName = opts.reverseMapping.get(modelName) ?? modelName;
+    const eps =
+      opts.state.modelEndpoints.get(modelName) ??
+      opts.state.modelEndpoints.get(originalName);
+    const modelType = inferModelType(modelName, eps);
+    const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
+    const rawTags = spec.tags ? `${typeTag},${spec.tags}` : typeTag;
+    const seen = new Set<string>();
+    const deduped = rawTags
+      .split(",")
+      .map((t) => t.trim())
+      .filter((t) => {
+        if (!t) return false;
+        const lower = t.toLowerCase();
+        if (seen.has(lower)) return false;
+        seen.add(lower);
+        return true;
+      })
+      .join(",");
+    spec.tags =
+      deduped.length > 255
+        ? deduped.slice(0, deduped.lastIndexOf(",", 255) || 255)
+        : deduped;
+  }
+
+  return models;
+}
+
+function collectResponsesApiModels(
+  channels: Channel[],
+  state: SyncState,
+  reverseMapping: Map<string, string>,
+  modelMapping: Record<string, string>,
+): string[] {
+  const result: string[] = [];
+  for (const channel of channels) {
+    for (const modelName of parseModelList(channel.models)) {
+      const mappedName = modelMapping?.[modelName] ?? modelName;
+      const originalName = reverseMapping.get(mappedName) ?? mappedName;
+      const eps =
+        state.modelEndpoints.get(modelName) ??
+        state.modelEndpoints.get(originalName);
+      if (eps?.includes("openai-response")) {
+        result.push(mappedName);
+      }
+    }
+  }
+  return result;
 }
 
 export async function runProviderPipeline(
@@ -127,12 +274,16 @@ export async function runProviderPipeline(
     // For full sync, fall back to GroupRatio from the snapshot.
     let pricingGroupRatio = new Map<string, number>();
     let snapshotGroupRatio: Record<string, number> = {};
-    let targetPricing: Awaited<ReturnType<NewApiClient["fetchPricing"]>> | undefined;
+    let targetPricing:
+      | Awaited<ReturnType<NewApiClient["fetchPricing"]>>
+      | undefined;
 
     if (config.onlyProviders) {
       const targetClient = new NewApiClient(config.target, "target");
       targetPricing = await targetClient.fetchPricing();
-      pricingGroupRatio = new Map(targetPricing.groups.map((g) => [g.name, g.ratio]));
+      pricingGroupRatio = new Map(
+        targetPricing.groups.map((g) => [g.name, g.ratio]),
+      );
     }
     try {
       const raw = targetSnapshot.options["GroupRatio"];
@@ -148,7 +299,8 @@ export async function runProviderPipeline(
 
       if (!seededGroups.has(ch.group)) {
         seededGroups.add(ch.group);
-        const ratio = pricingGroupRatio.get(ch.group) ?? snapshotGroupRatio[ch.group] ?? 1;
+        const ratio =
+          pricingGroupRatio.get(ch.group) ?? snapshotGroupRatio[ch.group] ?? 1;
         state.mergedGroups.push({
           name: ch.group,
           ratio,
@@ -185,7 +337,9 @@ export async function runProviderPipeline(
       `[baseline] Seeded ${state.channelsToCreate.length} channels, ${state.mergedGroups.length} groups from target`,
     );
     for (const g of state.mergedGroups) {
-      consola.debug(`[baseline]   "${g.name}" ratio=${g.ratio.toFixed(4)} provider=${g.provider}`);
+      consola.debug(
+        `[baseline]   "${g.name}" ratio=${g.ratio.toFixed(4)} provider=${g.provider}`,
+      );
     }
   }
   const baselineChannelCount = state.channelsToCreate.length;
@@ -233,132 +387,25 @@ export async function runProviderPipeline(
   // (e.g. sub2api-only models where no newapi provider supplied pricing)
   backfillModelRatios(state, channels, config.modelMapping, basellmEntries);
 
-  const groupRatio: Record<string, number> = {};
-  const userUsableGroups: Record<string, string> = {
-    auto: "Auto (Smart Routing with Failover)",
-  };
+  const optionMaps = buildOptionMaps(state, config.modelMapping);
 
-  for (const group of state.mergedGroups) {
-    groupRatio[group.name] = Math.round(group.ratio * 10000) / 10000;
-    userUsableGroups[group.name] = group.description;
-  }
+  const reverseMapping = buildReverseMapping(config.modelMapping);
 
-  const autoGroups = [...state.mergedGroups]
-    .sort((a, b) => a.ratio - b.ratio)
-    .map((group) => group.name);
-
-  const modelRatio: Record<string, number> = {};
-  const completionRatio: Record<string, number> = {};
-  const modelPrice: Record<string, number> = {};
-  const imageRatio: Record<string, number> = {};
-  for (const [name, ratios] of state.mergedModels) {
-    const mappedName = config.modelMapping?.[name] ?? name;
-    if (ratios.modelPrice !== undefined && ratios.modelPrice > 0) {
-      modelPrice[mappedName] = Math.round(ratios.modelPrice * 10000) / 10000;
-    } else {
-      modelRatio[mappedName] = Math.round(ratios.ratio * 10000) / 10000;
-      completionRatio[mappedName] =
-        Math.round(ratios.completionRatio * 10000) / 10000;
-    }
-    if (ratios.imageRatio !== undefined && ratios.imageRatio > 0) {
-      imageRatio[mappedName] = Math.round(ratios.imageRatio * 10000) / 10000;
-    }
-  }
-
-  const models = new Map<string, DesiredModelSpec>();
-
-  // Build reverse mapping (mapped name → original name) so we can look up
-  // endpoint data that was stored under the original upstream name.
-  const reverseMapping = new Map<string, string>();
-  for (const [original, mapped] of Object.entries(config.modelMapping)) {
-    reverseMapping.set(mapped, original);
-  }
-
-  for (const channel of channels) {
-    const channelModels = channel.models
-      .split(",")
-      .map((model) => model.trim())
-      .filter(Boolean);
-    for (const modelName of channelModels) {
-      const vendor = inferVendorFromModelName(modelName);
-      // Use original endpoint types for path lookup, normalized types for output keys
-      const originalEps = state.modelOriginalEndpoints.get(modelName)
-        ?? state.modelOriginalEndpoints.get(reverseMapping.get(modelName) ?? "");
-      let endpoints: string | undefined;
-      if (originalEps) {
-        const epMap: Record<string, string> = {};
-        for (const origEp of originalEps) {
-          const normalized = normalizeEndpointType(origEp);
-          const info = state.endpointPaths.get(origEp);
-          const path = info?.path ?? ENDPOINT_DEFAULT_PATHS[normalized];
-          if (path) epMap[normalized] = path;
-        }
-        if (Object.keys(epMap).length > 0) endpoints = JSON.stringify(epMap);
-      }
-      models.set(modelName, {
-        model_name: modelName,
-        vendor,
-        endpoints,
-      });
-    }
-  }
-
-  // Enrich models with descriptions (OpenRouter) and tags (basellm)
-  const metadataMap = buildMetadataMap(
-    models.keys(),
+  const models = buildDesiredModels({
+    channels,
+    state,
+    reverseMapping,
     basellmEntries,
     openRouterDescriptions,
+    modelMapping: config.modelMapping,
+  });
+
+  const responsesApiModels = collectResponsesApiModels(
+    channels,
+    state,
+    reverseMapping,
     config.modelMapping,
   );
-  for (const [modelName, meta] of metadataMap) {
-    const existing = models.get(modelName);
-    if (existing) {
-      if (meta.description) existing.description = meta.description;
-      if (meta.tags) existing.tags = meta.tags;
-    }
-  }
-
-  // Add model type tag and deduplicate
-  for (const [modelName, spec] of models) {
-    const originalName = reverseMapping.get(modelName) ?? modelName;
-    const eps = state.modelEndpoints.get(modelName)
-      ?? state.modelEndpoints.get(originalName);
-    const modelType = inferModelType(modelName, eps);
-    const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
-    const rawTags = spec.tags ? `${typeTag},${spec.tags}` : typeTag;
-    const seen = new Set<string>();
-    const deduped = rawTags
-      .split(",")
-      .map((t) => t.trim())
-      .filter((t) => {
-        if (!t) return false;
-        const lower = t.toLowerCase();
-        if (seen.has(lower)) return false;
-        seen.add(lower);
-        return true;
-      })
-      .join(",");
-    spec.tags = deduped.length > 255
-      ? deduped.slice(0, deduped.lastIndexOf(",", 255) || 255)
-      : deduped;
-  }
-
-  // Collect models that require chat/completions → /v1/responses conversion.
-  // A model needs this when its upstream endpoint type is "openai-response".
-  // Models with no endpoint data (sub2api/direct) are excluded — they speak
-  // chat/completions natively and don't need conversion.
-  const responsesApiModels: string[] = [];
-  for (const channel of channels) {
-    for (const modelName of channel.models.split(",").map((m) => m.trim()).filter(Boolean)) {
-      const mappedName = config.modelMapping?.[modelName] ?? modelName;
-      const originalName = reverseMapping.get(mappedName) ?? mappedName;
-      const eps = state.modelEndpoints.get(modelName)
-        ?? state.modelEndpoints.get(originalName);
-      if (eps?.includes("openai-response")) {
-        responsesApiModels.push(mappedName);
-      }
-    }
-  }
 
   return {
     providerReports,
@@ -366,13 +413,7 @@ export async function runProviderPipeline(
       channels,
       models,
       options: {
-        groupRatio,
-        userUsableGroups,
-        autoGroups,
-        modelRatio,
-        completionRatio,
-        modelPrice,
-        imageRatio,
+        ...optionMaps,
         defaultUseAutoGroup: true,
         responsesApiModels: [...new Set(responsesApiModels)],
       },
@@ -382,9 +423,7 @@ export async function runProviderPipeline(
         // providers that were previously synced but are no longer in config,
         // so their channels/models get cleaned up.
         ...(targetSnapshot && !config.onlyProviders
-          ? targetSnapshot.channels
-              .filter((ch) => ch.tag)
-              .map((ch) => ch.tag!)
+          ? targetSnapshot.channels.filter((ch) => ch.tag).map((ch) => ch.tag!)
           : []),
       ]),
       mappingSources: new Set(Object.keys(config.modelMapping)),

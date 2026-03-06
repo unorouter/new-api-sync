@@ -213,11 +213,11 @@ const ENDPOINT_TO_MODEL_TYPE: Record<string, ModelType> = {
 
 // Keyword patterns for non-standard endpoint types (e.g. Chinese names from upstream)
 const ENDPOINT_KEYWORD_TYPES: [string, ModelType][] = [
-  ["视频", "video"],    // video (Chinese)
+  ["视频", "video"], // video (Chinese)
   ["video", "video"],
-  ["生图", "image"],    // text-to-image (Chinese)
+  ["生图", "image"], // text-to-image (Chinese)
   ["image", "image"],
-  ["音", "audio"],      // audio/sound (Chinese)
+  ["音", "audio"], // audio/sound (Chinese)
   ["tts", "audio"],
 ];
 
@@ -466,6 +466,29 @@ export function matchesAnyPattern(name: string, patterns: string[]): boolean {
     if (!p.includes("*")) return n.includes(p);
     return micromatch.isMatch(n, p);
   });
+}
+
+/**
+ * Parse a comma-separated model list into a trimmed, non-empty array.
+ */
+export function parseModelList(csv: string): string[] {
+  return csv
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Build a reverse mapping (mapped name -> original name) from a model mapping.
+ */
+export function buildReverseMapping(
+  mapping: Record<string, string>,
+): Map<string, string> {
+  const reverse = new Map<string, string>();
+  for (const [original, mapped] of Object.entries(mapping)) {
+    reverse.set(mapped, original);
+  }
+  return reverse;
 }
 
 /**

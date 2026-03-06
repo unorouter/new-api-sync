@@ -1,14 +1,17 @@
-import { shouldSkipTesting, type RuntimeConfig, type Sub2ApiProviderConfig } from "@/config";
+import {
+  shouldSkipTesting,
+  type RuntimeConfig,
+  type Sub2ApiProviderConfig,
+} from "@/config";
 import {
   CHANNEL_TYPES,
-  isTestableModel,
   matchesAnyPattern,
   matchesBlacklist,
   SUB2API_PLATFORM_CHANNEL_TYPES,
   SUB2API_PLATFORM_TO_VENDOR,
   VENDOR_TO_SUB2API_PLATFORMS,
 } from "@/lib/constants";
-import { testModels } from "@/lib/model-tester";
+import { testAndFilterModels } from "@/lib/model-tester";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
 import type { ProviderReport, SyncState } from "@/lib/types";
 import { consola } from "consola";
@@ -19,6 +22,15 @@ interface ResolvedGroup {
   platform: string;
   apiKey: string;
   models: Set<string>;
+}
+
+function getEnabledPlatforms(enabledVendors?: string[]): Set<string> | null {
+  if (!enabledVendors?.length) return null;
+  return new Set(
+    enabledVendors.flatMap(
+      (v) => VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()],
+    ),
+  );
 }
 
 function filterModels(
@@ -45,13 +57,8 @@ async function resolveViaAdmin(
   const allGroups = await client.listGroups();
   let activeGroups = allGroups.filter((g) => g.status === "active");
 
-  if (providerConfig.enabledVendors?.length) {
-    const enabledPlatforms = new Set(
-      providerConfig.enabledVendors.flatMap(
-        (v) =>
-          VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()],
-      ),
-    );
+  const enabledPlatforms = getEnabledPlatforms(providerConfig.enabledVendors);
+  if (enabledPlatforms) {
     activeGroups = activeGroups.filter((g) =>
       enabledPlatforms.has(g.platform.toLowerCase()),
     );
@@ -127,16 +134,8 @@ async function resolveViaGroups(
   for (const group of groups) {
     const platform = group.platform.toLowerCase();
 
-    // Filter by enabledVendors if specified
-    if (providerConfig.enabledVendors?.length) {
-      const enabledPlatforms = new Set(
-        providerConfig.enabledVendors.flatMap(
-          (v) =>
-            VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()],
-        ),
-      );
-      if (!enabledPlatforms.has(platform)) continue;
-    }
+    const enabledPlatforms = getEnabledPlatforms(providerConfig.enabledVendors);
+    if (enabledPlatforms && !enabledPlatforms.has(platform)) continue;
 
     const modelIds = await client.listGatewayModels(group.key, platform);
     const filtered = filterModels(modelIds, config, providerConfig);
@@ -200,51 +199,20 @@ export async function processSub2ApiProvider(
         CHANNEL_TYPES.OPENAI;
       const useResponsesAPI = groupInfo.platform === "openai";
 
-      // Partition into testable (text endpoints) and non-testable (image-only, etc.)
-      const allGroupModels = [...groupInfo.models];
-      const testableModels = allGroupModels.filter((id) => isTestableModel(id));
-      const nonTestableModels = allGroupModels.filter(
-        (id) => !isTestableModel(id),
-      );
-
-      let testedWorkingModels: string[] = [];
-
-      if (shouldSkipTesting(config, providerConfig)) {
-        testedWorkingModels = testableModels;
-        consola.info(
-          `[${providerConfig.name}/${groupInfo.platform}] ${testableModels.length} models (testing skipped)`,
-        );
-      } else if (testableModels.length > 0) {
-        const testResult = await testModels(
-          providerConfig.baseUrl,
-          groupInfo.apiKey,
-          testableModels,
-          channelType,
-          useResponsesAPI,
-        );
-        testedWorkingModels = testResult.workingModels;
-
-        const failedDetails = testResult.details.filter(
-          (d) => !d.success || d.streamSuccess === false,
-        );
-        if (failedDetails.length > 0) {
-          const labeled = failedDetails.map((d) => {
-            const h = d.success ? "✓" : "✗";
-            const s = d.streamSuccess === false ? "✗" : d.streamSuccess === null ? "·" : "✓";
-            return `${d.model} ${h}H ${s}S`;
-          });
-          consola.info(
-            `[${providerConfig.name}/${groupInfo.platform}] Failed: ${labeled.join(", ")}`,
-          );
-        }
-      }
-
-      // Combine tested working models with non-testable models
-      const workingModels = [...testedWorkingModels, ...nonTestableModels];
+      const filterResult = await testAndFilterModels({
+        allModels: [...groupInfo.models],
+        baseUrl: providerConfig.baseUrl,
+        apiKey: groupInfo.apiKey,
+        channelType,
+        providerLabel: `${providerConfig.name}/${groupInfo.platform}`,
+        skipTesting: shouldSkipTesting(config, providerConfig),
+        useResponsesAPI,
+      });
+      const workingModels = filterResult.workingModels;
 
       if (workingModels.length === 0) {
         consola.warn(
-          `[${providerConfig.name}] No working models for group "${groupInfo.name}" (0/${testableModels.length} passed)`,
+          `[${providerConfig.name}] No working models for group "${groupInfo.name}" (0/${filterResult.testedCount} passed)`,
         );
         continue;
       }
@@ -252,12 +220,6 @@ export async function processSub2ApiProvider(
       consola.info(
         `[${providerConfig.name}/${groupInfo.platform}] ${workingModels.length}/${groupInfo.models.size} working`,
       );
-
-      if (nonTestableModels.length > 0) {
-        consola.info(
-          `[${providerConfig.name}/${groupInfo.platform}] Included without test: ${nonTestableModels.join(", ")}`,
-        );
-      }
 
       // Register endpoint type for sub2api openai models so pipeline.ts can
       // include them in the chat_completions_to_responses_policy.
@@ -273,15 +235,15 @@ export async function processSub2ApiProvider(
         (m) => config.modelMapping?.[m] ?? m,
       );
 
-      const ratioToModels = buildPriceTiers(
-        mappedModels,
-        providerConfig.priceAdjustment,
+      const ratioToModels = buildPriceTiers({
+        models: mappedModels,
+        adj: providerConfig.priceAdjustment,
         defaultAdjustment,
         vendor,
         state,
-        providerConfig.name,
-        config.modelMapping,
-      );
+        excludeProvider: providerConfig.name,
+        modelMapping: config.modelMapping,
+      });
       pushTieredChannels(
         ratioToModels,
         `${groupInfo.name}-${providerConfig.name}`,

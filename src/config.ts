@@ -8,17 +8,24 @@ const NON_TEXT_TYPES = new Set(["image", "video", "audio", "embedding"]);
 const PriceAdjustmentValue = z.number().gt(-1).lte(1);
 const PriceAdjustmentSchema = z.union([
   z.number().gt(-1).lt(1),
-  z.record(z.string(), PriceAdjustmentValue).refine((v) => "default" in v, {
-    message: "priceAdjustment object must contain a default key",
-  }).refine((v) => {
-    // Text-type keys (vendors + default) must stay below 1
-    for (const [key, val] of Object.entries(v)) {
-      if (!NON_TEXT_TYPES.has(key) && val >= 1) return false;
-    }
-    return true;
-  }, {
-    message: "priceAdjustment values for text types (vendors/default) must be < 1; only non-text types (image, video, audio, embedding) can be >= 1",
-  }),
+  z
+    .record(z.string(), PriceAdjustmentValue)
+    .refine((v) => "default" in v, {
+      message: "priceAdjustment object must contain a default key",
+    })
+    .refine(
+      (v) => {
+        // Text-type keys (vendors + default) must stay below 1
+        for (const [key, val] of Object.entries(v)) {
+          if (!NON_TEXT_TYPES.has(key) && val >= 1) return false;
+        }
+        return true;
+      },
+      {
+        message:
+          "priceAdjustment values for text types (vendors/default) must be < 1; only non-text types (image, video, audio, embedding) can be >= 1",
+      },
+    ),
 ]);
 
 const ProviderCommon = z.object({

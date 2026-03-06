@@ -1,4 +1,4 @@
-import { matchesAnyPattern } from "@/lib/constants";
+import { matchesAnyPattern, parseModelList } from "@/lib/constants";
 import type { SyncState } from "@/lib/types";
 import type { AnyProviderConfig } from "@/config";
 import { consola } from "consola";
@@ -15,26 +15,28 @@ import { consola } from "consola";
  * When `modelMapping` is provided, both the mapped name and any original
  * (pre-mapping) name are checked against model-name keys.
  */
-export function resolvePriceAdjustment(
-  adj: AnyProviderConfig["priceAdjustment"],
-  model: string,
-  vendor: string,
-  modelType: string,
-  fallback: number,
-  modelMapping?: Record<string, string>,
-): number {
-  if (adj === undefined) return fallback;
-  if (typeof adj === "number") return adj;
+export function resolvePriceAdjustment(opts: {
+  adj: AnyProviderConfig["priceAdjustment"];
+  model: string;
+  vendor: string;
+  modelType: string;
+  fallback: number;
+  modelMapping?: Record<string, string>;
+}): number {
+  if (opts.adj === undefined) return opts.fallback;
+  if (typeof opts.adj === "number") return opts.adj;
+
+  const adj = opts.adj;
 
   // 1. Try every key as a glob pattern against the model name
   const keys = Object.keys(adj);
-  const match = keys.find((k) => matchesAnyPattern(model, [k]));
+  const match = keys.find((k) => matchesAnyPattern(opts.model, [k]));
   if (match) return adj[match]!;
 
   // Also check original (pre-mapping) names
-  if (modelMapping) {
-    for (const [original, mapped] of Object.entries(modelMapping)) {
-      if (mapped === model) {
+  if (opts.modelMapping) {
+    for (const [original, mapped] of Object.entries(opts.modelMapping)) {
+      if (mapped === opts.model) {
         const origMatch = keys.find((k) => matchesAnyPattern(original, [k]));
         if (origMatch) return adj[origMatch]!;
       }
@@ -42,15 +44,15 @@ export function resolvePriceAdjustment(
   }
 
   // 2. Vendor key
-  const vendorVal = adj[vendor.toLowerCase()];
+  const vendorVal = adj[opts.vendor.toLowerCase()];
   if (vendorVal !== undefined) return vendorVal;
 
   // 3. Model type key
-  const typeVal = adj[modelType];
+  const typeVal = adj[opts.modelType];
   if (typeVal !== undefined) return typeVal;
 
   // 4. Default
-  return adj["default"] ?? fallback;
+  return adj["default"] ?? opts.fallback;
 }
 
 /**
@@ -58,23 +60,23 @@ export function resolvePriceAdjustment(
  * For each model, finds the cheapest existing group ratio from other providers,
  * then applies the per-model adjustment to get the final ratio.
  */
-export function buildPriceTiers(
-  models: string[],
-  adj: AnyProviderConfig["priceAdjustment"],
-  defaultAdjustment: number,
-  vendor: string,
-  state: SyncState,
-  excludeProvider: string,
-  modelMapping?: Record<string, string>,
-): Map<number, string[]> {
+export function buildPriceTiers(opts: {
+  models: string[];
+  adj: AnyProviderConfig["priceAdjustment"];
+  defaultAdjustment: number;
+  vendor: string;
+  state: SyncState;
+  excludeProvider: string;
+  modelMapping?: Record<string, string>;
+}): Map<number, string[]> {
   const groupRatioByName = new Map(
-    state.mergedGroups.map((g) => [g.name, g.ratio]),
+    opts.state.mergedGroups.map((g) => [g.name, g.ratio]),
   );
   const cheapestGroupForModel = new Map<string, number>();
-  for (const ch of state.channelsToCreate) {
-    if (ch.tag === excludeProvider) continue;
+  for (const ch of opts.state.channelsToCreate) {
+    if (ch.tag === opts.excludeProvider) continue;
     const gRatio = groupRatioByName.get(ch.group) ?? 1;
-    for (const model of ch.models.split(",").map(m => m.trim()).filter(Boolean)) {
+    for (const model of parseModelList(ch.models)) {
       const existing = cheapestGroupForModel.get(model);
       if (existing === undefined || gRatio < existing) {
         cheapestGroupForModel.set(model, gRatio);
@@ -83,16 +85,21 @@ export function buildPriceTiers(
   }
 
   consola.debug(
-    `[buildPriceTiers] ${models.length} models, ${state.channelsToCreate.length} baseline channels, ` +
-    `${state.mergedGroups.length} groups, excluding="${excludeProvider}"`,
+    `[buildPriceTiers] ${opts.models.length} models, ${opts.state.channelsToCreate.length} baseline channels, ` +
+      `${opts.state.mergedGroups.length} groups, excluding="${opts.excludeProvider}"`,
   );
 
   const ratioToModels = new Map<number, string[]>();
-  for (const model of models) {
+  for (const model of opts.models) {
     const cheapest = cheapestGroupForModel.get(model) ?? 1;
-    const adjustment = resolvePriceAdjustment(
-      adj, model, vendor, "text", defaultAdjustment, modelMapping,
-    );
+    const adjustment = resolvePriceAdjustment({
+      adj: opts.adj,
+      model,
+      vendor: opts.vendor,
+      modelType: "text",
+      fallback: opts.defaultAdjustment,
+      modelMapping: opts.modelMapping,
+    });
     const ratio = cheapest * (1 + adjustment);
     consola.debug(
       `[buildPriceTiers]   ${model}: cheapest=${cheapest.toFixed(4)} × (1+${adjustment}) = ${ratio.toFixed(6)}`,

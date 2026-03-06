@@ -1,3 +1,4 @@
+import { buildReverseMapping } from "@/lib/constants";
 import { tryFetchJson } from "@/lib/http";
 import { consola } from "consola";
 
@@ -23,7 +24,9 @@ export interface BasellmEntry {
   ratio_completion: number;
 }
 
-type BasellmResponse = BasellmEntry[] | { success: boolean; data: BasellmEntry[] };
+type BasellmResponse =
+  | BasellmEntry[]
+  | { success: boolean; data: BasellmEntry[] };
 
 export interface ModelMetadata {
   description?: string;
@@ -33,7 +36,9 @@ export interface ModelMetadata {
 // ---- Fetchers ----
 
 /** Fetch OpenRouter models and return a map of bare model name → description. */
-export async function fetchOpenRouterDescriptions(): Promise<Map<string, string>> {
+export async function fetchOpenRouterDescriptions(): Promise<
+  Map<string, string>
+> {
   const raw = await tryFetchJson<{ data: OpenRouterModel[] }>(
     OPENROUTER_MODELS_URL,
     { timeoutMs: 15_000 },
@@ -73,16 +78,24 @@ export async function fetchBasellmEntries(): Promise<BasellmEntry[]> {
 // ---- Fuzzy matching ----
 
 const STRIPPABLE_SUFFIXES = [
-  "-latest", "-preview", "-instruct", "-thinking", "-free",
-  "-online", "-nightly", "-beta", "-exp", "-experimental",
+  "-latest",
+  "-preview",
+  "-instruct",
+  "-thinking",
+  "-free",
+  "-online",
+  "-nightly",
+  "-beta",
+  "-exp",
+  "-experimental",
 ];
 
 const DATE_SUFFIX_PATTERNS = [
-  /-\d{8}$/,           // -20250929
+  /-\d{8}$/, // -20250929
   /-\d{4}-\d{2}-\d{2}$/, // -2025-12-11
-  /-\d{2}-\d{4}$/,     // -11-2025
-  /-\d{2}-\d{2}$/,     // -05-06
-  /-\d{4}-\d{2}$/,     // -2025-03
+  /-\d{2}-\d{4}$/, // -11-2025
+  /-\d{2}-\d{2}$/, // -05-06
+  /-\d{4}-\d{2}$/, // -2025-03
 ];
 
 /**
@@ -151,7 +164,8 @@ function similarity(a: string, b: string): number {
   }
   const dice = (2 * intersection) / (aTokens.size + bTokens.size);
   const sizePenalty =
-    Math.abs(aTokens.size - bTokens.size) / Math.max(aTokens.size, bTokens.size);
+    Math.abs(aTokens.size - bTokens.size) /
+    Math.max(aTokens.size, bTokens.size);
   return dice * (1 - sizePenalty * 0.3);
 }
 
@@ -267,12 +281,14 @@ function lookup<T>(
  * - Description: OpenRouter preferred, basellm fallback (if not template)
  * - Tags: basellm only
  */
-export function buildMetadataMap(
-  modelNames: Iterable<string>,
-  basellmEntries: BasellmEntry[],
-  openRouterDescriptions: Map<string, string>,
-  modelMapping: Record<string, string>,
-): Map<string, ModelMetadata> {
+export function buildMetadataMap(opts: {
+  modelNames: Iterable<string>;
+  basellmEntries: BasellmEntry[];
+  openRouterDescriptions: Map<string, string>;
+  modelMapping: Record<string, string>;
+}): Map<string, ModelMetadata> {
+  const { modelNames, basellmEntries, openRouterDescriptions, modelMapping } =
+    opts;
   // Build basellm lookup, storing under both full and bare names
   const basellmMap = new Map<string, { description?: string; tags?: string }>();
   const addToBasellm = (key: string, entry: BasellmEntry) => {
@@ -295,13 +311,11 @@ export function buildMetadataMap(
     if (!entry.model_name) continue;
     addToBasellm(entry.model_name, entry);
     const slashIdx = entry.model_name.indexOf("/");
-    if (slashIdx >= 0) addToBasellm(entry.model_name.slice(slashIdx + 1), entry);
+    if (slashIdx >= 0)
+      addToBasellm(entry.model_name.slice(slashIdx + 1), entry);
   }
 
-  const reverseMapping = new Map<string, string>();
-  for (const [original, mapped] of Object.entries(modelMapping)) {
-    reverseMapping.set(mapped, original);
-  }
+  const reverseMapping = buildReverseMapping(modelMapping);
 
   // Build fuzzy indices once
   const orIndex = buildFuzzyIndex(openRouterDescriptions);
@@ -323,16 +337,23 @@ export function buildMetadataMap(
       orHits++;
       if (orResult.score < 1.0) {
         orFuzzyHits++;
-        consola.debug(`Fuzzy OR: "${modelName}" -> "${orResult.key}" (${orResult.score.toFixed(2)})`);
+        consola.debug(
+          `Fuzzy OR: "${modelName}" -> "${orResult.key}" (${orResult.score.toFixed(2)})`,
+        );
       }
     } else {
       const blmResult = lookup(modelName, blmIndex, reverseMapping);
-      if (blmResult?.value.description && !TEMPLATE_DESCRIPTION_RE.test(blmResult.value.description)) {
+      if (
+        blmResult?.value.description &&
+        !TEMPLATE_DESCRIPTION_RE.test(blmResult.value.description)
+      ) {
         meta.description = blmResult.value.description;
         blmHits++;
         if (blmResult.score < 1.0) {
           blmFuzzyHits++;
-          consola.debug(`Fuzzy BLM desc: "${modelName}" -> "${blmResult.key}" (${blmResult.score.toFixed(2)})`);
+          consola.debug(
+            `Fuzzy BLM desc: "${modelName}" -> "${blmResult.key}" (${blmResult.score.toFixed(2)})`,
+          );
         }
       }
     }
@@ -341,7 +362,9 @@ export function buildMetadataMap(
     const blmResult = lookup(modelName, blmIndex, reverseMapping);
     if (blmResult?.value.tags) {
       if (blmResult.score < 1.0) {
-        consola.debug(`Fuzzy BLM tags: "${modelName}" -> "${blmResult.key}" (${blmResult.score.toFixed(2)})`);
+        consola.debug(
+          `Fuzzy BLM tags: "${modelName}" -> "${blmResult.key}" (${blmResult.score.toFixed(2)})`,
+        );
       }
       let tags = blmResult.value.tags;
       if (tags.length > 255) {

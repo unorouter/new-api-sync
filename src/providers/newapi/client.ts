@@ -57,7 +57,10 @@ export class NewApiClient {
     }>(`${this.baseUrl}/api/user/self`, { headers: this.headers });
     if (!data) return { ok: false, error: "Failed to reach API" };
     if (!data.success)
-      return { ok: false, error: data.message ?? "API returned success: false" };
+      return {
+        ok: false,
+        error: data.message ?? "API returned success: false",
+      };
     const quota = data.data?.quota;
     const balance =
       quota !== undefined ? `$${(quota / 500000).toFixed(2)}` : undefined;
@@ -336,14 +339,15 @@ export class NewApiClient {
       }
     }
 
+    const normalizeKey = (key: string) =>
+      key.startsWith("sk-") ? key : `sk-${key}`;
+
     for (const group of groups) {
       const tokenName = tokenNameForGroup(group.name);
       const existingToken = tokensByName.get(tokenName);
 
       if (existingToken) {
-        result[group.name] = existingToken.key.startsWith("sk-")
-          ? existingToken.key
-          : `sk-${existingToken.key}`;
+        result[group.name] = normalizeKey(existingToken.key);
         existing++;
       } else {
         if (!(await this.createToken(tokenName, group.name))) continue;
@@ -356,9 +360,7 @@ export class NewApiClient {
           );
           continue;
         }
-        result[group.name] = newToken.key.startsWith("sk-")
-          ? newToken.key
-          : `sk-${newToken.key}`;
+        result[group.name] = normalizeKey(newToken.key);
       }
     }
 
@@ -473,7 +475,9 @@ export class NewApiClient {
       `${this.baseUrl}/api/models/list`,
       `${this.baseUrl}/api/models/`,
     ];
-    const tryEndpoint = async (base: string): Promise<{ base: string; items: ModelMeta[] } | null> => {
+    const tryEndpoint = async (
+      base: string,
+    ): Promise<{ base: string; items: ModelMeta[] } | null> => {
       const data = await tryFetchJson<ApiResponse<{ items?: ModelMeta[] }>>(
         `${base}?p=0&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
         { headers: this.headers },

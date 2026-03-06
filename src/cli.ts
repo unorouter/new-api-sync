@@ -18,19 +18,21 @@ program
     [] as string[],
   )
   .option("-v, --verbose", "enable debug logging")
-  .action(async (options: { config?: string; only: string[]; verbose?: boolean }) => {
-    if (options.verbose) consola.level = 4;
-    const config = applyOnlyProviders(
-      await loadConfig(options.config),
-      options.only,
-    );
-    const result = await runSync(config);
-    printRunSummary(result);
+  .action(
+    async (options: { config?: string; only: string[]; verbose?: boolean }) => {
+      if (options.verbose) consola.level = 4;
+      const config = applyOnlyProviders(
+        await loadConfig(options.config),
+        options.only,
+      );
+      const result = await runSync(config);
+      printRunSummary(result);
 
-    if (!result.success) {
-      process.exitCode = 1;
-    }
-  });
+      if (!result.success) {
+        process.exitCode = 1;
+      }
+    },
+  );
 
 program
   .command("reset")

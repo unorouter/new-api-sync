@@ -1,5 +1,5 @@
 import type { RuntimeConfig } from "@/config";
-import { VENDOR_MATCHERS } from "@/lib/constants";
+import { parseModelList, VENDOR_MATCHERS } from "@/lib/constants";
 import type {
   Channel,
   DesiredState,
@@ -11,6 +11,14 @@ import type {
 } from "@/lib/types";
 
 const DEFAULT_AUTO_LABEL = "Auto (Smart Routing with Failover)";
+
+function collectModelsFromChannels(channels: Channel[]): Set<string> {
+  const models = new Set<string>();
+  for (const ch of channels) {
+    for (const m of parseModelList(ch.models)) models.add(m);
+  }
+  return models;
+}
 
 function stableJson(input: Record<string, unknown>): string {
   return JSON.stringify(
@@ -69,20 +77,18 @@ function buildManagedOptionValues(
     unmanagedChannels.map((channel) => channel.group),
   );
 
-  const protectedModels = new Set<string>();
-  for (const channel of unmanagedChannels) {
-    for (const model of channel.models.split(",").map((item) => item.trim())) {
-      if (model) protectedModels.add(model);
-    }
-  }
+  const protectedModels = collectModelsFromChannels(unmanagedChannels);
 
   // Models in desired channels that don't have explicit ratio data from the
   // sync (e.g. sub2api models — sub2api has no pricing info).  We preserve
   // their existing target values so pricing isn't wiped.
   const desiredModelsWithoutRatio = new Set<string>();
   for (const channel of desired.channels) {
-    for (const model of channel.models.split(",").map((m) => m.trim())) {
-      if (model && !desired.options.modelRatio[model] && !desired.options.modelPrice[model]) {
+    for (const model of parseModelList(channel.models)) {
+      if (
+        !desired.options.modelRatio[model] &&
+        !desired.options.modelPrice[model]
+      ) {
         desiredModelsWithoutRatio.add(model);
       }
     }
@@ -90,7 +96,10 @@ function buildManagedOptionValues(
 
   // Guard set for model-level options: protect models from unmanaged channels
   // AND models in managed channels that the sync didn't set pricing for.
-  const modelRatioGuard = new Set([...protectedModels, ...desiredModelsWithoutRatio]);
+  const modelRatioGuard = new Set([
+    ...protectedModels,
+    ...desiredModelsWithoutRatio,
+  ]);
 
   const parse = <T>(key: string, fallback: T): T => {
     try {
@@ -111,8 +120,9 @@ function buildManagedOptionValues(
   const groupGuard = isPartialSync
     ? new Set([
         ...unmanagedGroups,
-        ...Object.keys(parse<Record<string, unknown>>("GroupRatio", {}))
-          .filter((g) => !managedGroups.has(g)),
+        ...Object.keys(parse<Record<string, unknown>>("GroupRatio", {})).filter(
+          (g) => !managedGroups.has(g),
+        ),
       ])
     : unmanagedGroups;
   const modelGuard = isPartialSync
@@ -139,9 +149,7 @@ function buildManagedOptionValues(
 
   const mergedAutoGroups = [
     ...new Set([
-      ...parse<string[]>("AutoGroups", []).filter((g) =>
-        groupGuard.has(g),
-      ),
+      ...parse<string[]>("AutoGroups", []).filter((g) => groupGuard.has(g)),
       ...desired.options.autoGroups,
     ]),
   ].sort((a, b) => (mergedGroupRatio[a] ?? 1) - (mergedGroupRatio[b] ?? 1));
@@ -282,25 +290,24 @@ export function buildSyncDiff(
       existingModelsByName.set(model.model_name, model);
     } else {
       // Keep the one with the higher ID (newer), schedule the other for deletion
-      const [keep, discard] = (prev.id ?? 0) >= (model.id ?? 0)
-        ? [prev, model]
-        : [model, prev];
+      const [keep, discard] =
+        (prev.id ?? 0) >= (model.id ?? 0) ? [prev, model] : [model, prev];
       existingModelsByName.set(model.model_name, keep);
       duplicateModels.push(discard);
     }
   }
   for (const dup of duplicateModels) {
     if (!dup.id) continue;
-    modelOps.push({ type: "delete", key: `${dup.model_name} (dup #${dup.id})`, existing: dup });
+    modelOps.push({
+      type: "delete",
+      key: `${dup.model_name} (dup #${dup.id})`,
+      existing: dup,
+    });
   }
 
-  const protectedModels = new Set<string>();
-  for (const channel of snapshot.channels) {
-    if (channel.tag && managedProviders.has(channel.tag)) continue;
-    for (const model of channel.models.split(",").map((item) => item.trim())) {
-      if (model) protectedModels.add(model);
-    }
-  }
+  const protectedModels = collectModelsFromChannels(
+    snapshot.channels.filter((ch) => !ch.tag || !managedProviders.has(ch.tag)),
+  );
 
   for (const [modelName, desiredModel] of desired.models.entries()) {
     const existing = existingModelsByName.get(modelName);
@@ -365,7 +372,11 @@ export function buildSyncDiff(
 
   // ---- Options ----
   const isPartialSync = config.onlyProviders !== undefined;
-  const desiredOptionValues = buildManagedOptionValues(desired, snapshot, isPartialSync);
+  const desiredOptionValues = buildManagedOptionValues(
+    desired,
+    snapshot,
+    isPartialSync,
+  );
   const optionOps: DiffOperation<string>[] = [];
   for (const [key, value] of Object.entries(desiredOptionValues)) {
     const existing = snapshot.options[key];
