@@ -315,32 +315,18 @@ export async function processNewApiProvider(
         providerConfig,
       );
 
-      // Apply model mapping and build reverse map for the channel.
-      // The channel's model_mapping tells the upstream to translate the mapped
-      // (target-facing) name back to the original (upstream-facing) name.
-      const reverseModelMapping: Record<string, string> = {};
-      let mappedModels = [
-        ...new Set(
-          candidateModels.map((m) => {
-            const mapped = config.modelMapping?.[m] ?? m;
-            if (mapped !== m) {
-              reverseModelMapping[mapped] = m;
-            }
-            return mapped;
-          }),
-        ),
-      ];
-
       // Skip group if no models match filters
-      if (mappedModels.length === 0) {
+      if (candidateModels.length === 0) {
         continue;
       }
 
+      // Test with original upstream model names (before mapping) so the
+      // upstream provider recognises them.  Mapping is only for our target.
       const apiKey = tokenResult.tokens[group.name] ?? "";
       const modelCosts = new Map<string, number>();
       let groupBalanceBefore = startBalance;
       const filterResult = await testAndFilterModels({
-        allModels: mappedModels,
+        allModels: candidateModels,
         baseUrl: providerConfig.baseUrl,
         apiKey,
         channelType: group.channelType,
@@ -366,12 +352,14 @@ export async function processNewApiProvider(
         },
       });
 
-      // Log cost summary for this group
+      // Log cost summary for this group (use mapped names for display)
       let costStr = "";
       if (modelCosts.size > 0) {
         const parts = [...modelCosts.entries()].map(
-          ([model, cost]) =>
-            `${model} ${colorize("yellow", `$${cost.toFixed(4)}`)}`,
+          ([model, cost]) => {
+            const display = config.modelMapping?.[model] ?? model;
+            return `${display} ${colorize("yellow", `$${cost.toFixed(4)}`)}`;
+          },
         );
         costStr = ` | ${parts.join(", ")}`;
       }
@@ -381,7 +369,20 @@ export async function processNewApiProvider(
         );
       }
 
-      mappedModels = filterResult.workingModels;
+      // Now apply model mapping to working models and build the reverse map
+      // for the channel (so the upstream translates mapped names back).
+      const reverseModelMapping: Record<string, string> = {};
+      let mappedModels = [
+        ...new Set(
+          filterResult.workingModels.map((m) => {
+            const mapped = config.modelMapping?.[m] ?? m;
+            if (mapped !== m) {
+              reverseModelMapping[mapped] = m;
+            }
+            return mapped;
+          }),
+        ),
+      ];
 
       if (mappedModels.length === 0) {
         groupsWithNoWorkingModels.push(group.name);
