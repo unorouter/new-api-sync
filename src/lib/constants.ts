@@ -429,7 +429,11 @@ export function isTestableModel(
   const eps = endpoints ?? modelEndpoints?.get(name);
   if (eps && eps.length > 0) {
     if (eps.some((ep) => NON_TESTABLE_ENDPOINT_TYPES.has(ep))) return false;
-    return eps.some((ep) => TEXT_ENDPOINT_TYPES.has(ep));
+    if (eps.some((ep) => TEXT_ENDPOINT_TYPES.has(ep))) {
+      // Endpoints say text, but also check name patterns as fallback
+      // (upstream may not report image-generation endpoint for image models)
+      return inferModelTypeFromName(name) === "text";
+    }
   }
   const n = name.toLowerCase();
   return !NON_TEXT_MODEL_PATTERNS.some((p) => n.includes(p));
