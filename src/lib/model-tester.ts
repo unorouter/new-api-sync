@@ -27,6 +27,9 @@ interface ModelRequestOpts {
 
 function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
+  // Trivially simple prompt that requires no reasoning, keeping thinking tokens minimal
+  const testPrompt = "Reply with only the word ok.";
+
   if (channelType === CHANNEL_TYPES.ANTHROPIC) {
     return {
       url: `${baseUrl}/v1/messages`,
@@ -37,8 +40,8 @@ function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
       },
       body: {
         model,
-        messages: [{ role: "user", content: "1" }],
-        max_tokens: 1,
+        messages: [{ role: "user", content: testPrompt }],
+        max_tokens: 3,
       },
       isSuccess: (data) => (data as { type?: string }).type !== "error",
     };
@@ -48,8 +51,8 @@ function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
       url: `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`,
       headers: { "Content-Type": "application/json" },
       body: {
-        contents: [{ parts: [{ text: "1" }] }],
-        generationConfig: { maxOutputTokens: 1 },
+        contents: [{ parts: [{ text: testPrompt }] }],
+        generationConfig: { maxOutputTokens: 3 },
       },
       isSuccess: (data) => !(data as { error?: unknown }).error,
     };
@@ -63,8 +66,8 @@ function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
       },
       body: {
         model,
-        input: [{ role: "user", content: [{ type: "input_text", text: "1" }] }],
-        max_output_tokens: 1,
+        input: [{ role: "user", content: [{ type: "input_text", text: testPrompt }] }],
+        max_output_tokens: 3,
         store: false,
       },
       isSuccess: (data) => !(data as { error?: unknown }).error,
@@ -78,8 +81,8 @@ function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
     },
     body: {
       model,
-      messages: [{ role: "user", content: "1" }],
-      max_tokens: 1,
+      messages: [{ role: "user", content: testPrompt }],
+      max_tokens: 3,
     },
     isSuccess: (data) => !(data as { error?: unknown }).error,
   };
@@ -89,6 +92,8 @@ function getStreamRequestConfig(
   opts: ModelRequestOpts,
 ): StreamRequestConfig | null {
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
+  const streamPrompt = "Reply with only the word ok.";
+
   if (channelType === CHANNEL_TYPES.ANTHROPIC) {
     return {
       url: `${baseUrl}/v1/messages`,
@@ -99,7 +104,7 @@ function getStreamRequestConfig(
       },
       body: {
         model,
-        messages: [{ role: "user", content: "hi" }],
+        messages: [{ role: "user", content: streamPrompt }],
         max_tokens: 5,
         stream: true,
       },
@@ -125,7 +130,7 @@ function getStreamRequestConfig(
     },
     body: {
       model,
-      messages: [{ role: "user", content: "hi" }],
+      messages: [{ role: "user", content: streamPrompt }],
       max_tokens: 5,
       stream: true,
     },
