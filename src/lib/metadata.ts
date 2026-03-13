@@ -9,6 +9,22 @@ const BASELLM_MODELS_URL =
 // Template description pattern from basellm (auto-generated, not useful)
 const TEMPLATE_DESCRIPTION_RE = /^.+ is an AI model provided by .+\.$/;
 
+/** Strip markdown formatting from a description, keeping plain text. */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // [text](url) -> text
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1") // ![alt](url) -> alt
+    .replace(/#{1,6}\s+/g, "") // headings
+    .replace(/(\*{1,3}|_{1,3})(.+?)\1/g, "$2") // bold/italic
+    .replace(/~~(.+?)~~/g, "$1") // strikethrough
+    .replace(/`{1,3}[^`]*`{1,3}/g, (m) => m.replace(/`/g, "")) // inline code
+    .replace(/^\s*[-*+]\s+/gm, "") // unordered list markers
+    .replace(/^\s*\d+\.\s+/gm, "") // ordered list markers
+    .replace(/^\s*>\s+/gm, "") // blockquotes
+    .replace(/\n{3,}/g, "\n\n") // collapse excessive newlines
+    .trim();
+}
+
 // ---- Raw API response types ----
 
 interface OpenRouterModel {
@@ -53,7 +69,7 @@ export async function fetchOpenRouterDescriptions(): Promise<
     if (!model.id || !model.description) continue;
     const slashIdx = model.id.indexOf("/");
     const bareName = slashIdx >= 0 ? model.id.slice(slashIdx + 1) : model.id;
-    if (!map.has(bareName)) map.set(bareName, model.description);
+    if (!map.has(bareName)) map.set(bareName, stripMarkdown(model.description));
   }
 
   consola.info(`Fetched ${map.size} model descriptions from OpenRouter`);
@@ -294,7 +310,7 @@ export function buildMetadataMap(opts: {
   const addToBasellm = (key: string, entry: BasellmEntry) => {
     const existing = basellmMap.get(key);
     if (!existing) {
-      basellmMap.set(key, { description: entry.description, tags: entry.tags });
+      basellmMap.set(key, { description: entry.description ? stripMarkdown(entry.description) : undefined, tags: entry.tags });
     } else {
       if (
         existing.description &&
@@ -302,7 +318,7 @@ export function buildMetadataMap(opts: {
         entry.description &&
         !TEMPLATE_DESCRIPTION_RE.test(entry.description)
       ) {
-        existing.description = entry.description;
+        existing.description = entry.description ? stripMarkdown(entry.description) : entry.description;
       }
       if (!existing.tags && entry.tags) existing.tags = entry.tags;
     }
