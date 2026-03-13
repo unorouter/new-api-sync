@@ -155,45 +155,48 @@ export const TEXT_ENDPOINT_TYPES = new Set([
 ]);
 
 // Patterns that indicate non-text models (image, video, audio, embedding)
-export const NON_TEXT_MODEL_PATTERNS = [
+// Name patterns → model type (checked in order, first match wins)
+const NAME_PATTERN_TYPES: [string, ModelType][] = [
   // Image generation
-  "dall-e",
-  "dalle",
-  "gpt-image",
-  "imagen",
-  "midjourney",
-  "stable-diffusion",
-  "flux",
-  "seedream",
-  "jimeng",
+  ["dall-e", "image"],
+  ["dalle", "image"],
+  ["gpt-image", "image"],
+  ["imagen", "image"],
+  ["midjourney", "image"],
+  ["stable-diffusion", "image"],
+  ["flux", "image"],
+  ["seedream", "image"],
+  ["jimeng", "image"],
   // Video generation
-  "sora",
-  "veo",
-  "video",
-  "kling",
-  "vidu",
-  "hailuo",
-  "seedance",
-  "t2v-",
-  "i2v-",
-  "s2v-",
-  "wan2",
-  "wanx",
+  ["sora", "video"],
+  ["veo", "video"],
+  ["video", "video"],
+  ["kling", "video"],
+  ["vidu", "video"],
+  ["hailuo", "video"],
+  ["seedance", "video"],
+  ["t2v-", "video"],
+  ["i2v-", "video"],
+  ["s2v-", "video"],
+  ["wan2", "video"],
+  ["wanx", "video"],
   // Audio
-  "whisper",
-  "tts",
-  "speech",
-  "suno",
+  ["whisper", "audio"],
+  ["tts", "audio"],
+  ["speech", "audio"],
+  ["suno", "audio"],
   // Embeddings & reranking
-  "embedding",
-  "embed",
-  "rerank",
-  "bge-",
-  "m3e-",
+  ["embedding", "embedding"],
+  ["embed", "embedding"],
+  ["rerank", "embedding"],
+  ["bge-", "embedding"],
+  ["m3e-", "embedding"],
   // Other non-text
-  "image",
-  "moderation",
+  ["image", "image"],
+  ["moderation", "image"],
 ];
+
+export const NON_TEXT_MODEL_PATTERNS = NAME_PATTERN_TYPES.map(([p]) => p);
 
 export type ModelType = "image" | "video" | "audio" | "embedding" | "text";
 
@@ -222,7 +225,19 @@ const ENDPOINT_KEYWORD_TYPES: [string, ModelType][] = [
 ];
 
 /**
- * Classify a model by its media type from endpoint data.
+ * Infer model type from the model name using NAME_PATTERN_TYPES.
+ */
+function inferModelTypeFromName(name: string): ModelType {
+  const n = name.toLowerCase();
+  for (const [pattern, type] of NAME_PATTERN_TYPES) {
+    if (n.includes(pattern)) return type;
+  }
+  return "text";
+}
+
+/**
+ * Classify a model by its media type from endpoint data,
+ * falling back to name patterns when endpoints only report text types.
  */
 export function inferModelType(
   name: string,
@@ -243,7 +258,9 @@ export function inferModelType(
       }
     }
   }
-  return "text";
+  // Endpoints didn't reveal a non-text type; check model name as fallback
+  // (e.g. upstream reports ["gemini","openai"] for an image generation model)
+  return inferModelTypeFromName(name);
 }
 
 export const VENDOR_MATCHERS: Record<
