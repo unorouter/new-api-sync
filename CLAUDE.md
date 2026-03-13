@@ -53,8 +53,16 @@ If a model is misclassified as text when it's actually image/video, it gets filt
 ## Debugging
 
 ### Check what upstream reports for a model
+
+The sync tries `/api/pricing_new` (V1 format, array with `supported_endpoint_types` per model) first, then falls back to `/api/pricing` (V2 format, nested object without endpoint data).
+
 ```bash
+# V1 format (pricing_new): has supported_endpoint_types, tags, model_type per model
 curl -s "https://<upstream>/api/pricing_new" | jq '[.data[] | select(.model_name == "<model>")] | .[0]'
+
+# V2 format (pricing): model info under .data.model_info, groups under .data.model_group
+curl -s "https://<upstream>/api/pricing" | jq '.data.model_info["<model>"]'
+curl -s "https://<upstream>/api/pricing" | jq '.data.model_group["<group>"]'
 ```
 
 ### Check target DB
