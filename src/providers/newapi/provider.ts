@@ -4,7 +4,6 @@ import {
   type RuntimeConfig,
 } from "@/config";
 import {
-  inferChannelTypeFromModels,
   inferModelType,
   inferVendorFromModelName,
   matchesAnyPattern,
@@ -55,6 +54,7 @@ function buildGroupChannels(opts: {
   groupName: string;
   sanitizedName: string;
   channelRemark: string;
+  groupChannelType: number;
   providerConfig: ProviderConfig;
   config: RuntimeConfig;
   state: SyncState;
@@ -103,10 +103,7 @@ function buildGroupChannels(opts: {
       provider: opts.providerConfig.name,
     });
 
-    const channelType = inferChannelTypeFromModels(
-      models,
-      opts.state.modelEndpoints,
-    );
+    const channelType = opts.groupChannelType;
 
     // Build per-tier model_mapping: only include models in this tier that were mapped
     const tierModelMapping: Record<string, string> = {};
@@ -396,6 +393,7 @@ export async function processNewApiProvider(
         groupName: group.name,
         sanitizedName,
         channelRemark: originalName,
+        groupChannelType: group.channelType,
         providerConfig,
         config,
         state,
