@@ -90,8 +90,8 @@ function buildGroupChannels(opts: {
   // Create a channel per distinct ratio tier
   let tierIdx = 0;
   for (const [effectiveRatio, { models, nonText }] of ratioToModels) {
-    // Skip text model tiers that end up > 1 after adjustment; non-text (image, video, etc.) are allowed above 1
-    if (effectiveRatio > 1 && !nonText) continue;
+    // Skip text model tiers that end up >= 1 after adjustment; non-text (image, video, etc.) are allowed above 1
+    if (effectiveRatio >= 1 && !nonText) continue;
 
     const suffix = ratioToModels.size > 1 ? `-t${tierIdx}` : "";
     const tierName = `${opts.sanitizedName}${suffix}`;
@@ -263,13 +263,13 @@ export async function processNewApiProvider(
           : Math.min(...Object.values(adj));
     const effectiveMultiplier = 1 + minAdjustment;
     const highRatioGroups = groups.filter(
-      (g) => g.ratio * effectiveMultiplier > 1,
+      (g) => g.ratio * effectiveMultiplier >= 1,
     );
     if (highRatioGroups.length > 0) {
       consola.info(
-        `[${providerConfig.name}] Skipping ${highRatioGroups.length} group(s) with effective ratio > 1: ${highRatioGroups.map((g) => `${g.name} (${g.ratio} × ${effectiveMultiplier.toFixed(2)} = ${(g.ratio * effectiveMultiplier).toFixed(2)})`).join(", ")}`,
+        `[${providerConfig.name}] Skipping ${highRatioGroups.length} group(s) with effective ratio >= 1: ${highRatioGroups.map((g) => `${g.name} (${g.ratio} × ${effectiveMultiplier.toFixed(2)} = ${(g.ratio * effectiveMultiplier).toFixed(2)})`).join(", ")}`,
       );
-      groups = groups.filter((g) => g.ratio * effectiveMultiplier <= 1);
+      groups = groups.filter((g) => g.ratio * effectiveMultiplier < 1);
     }
 
     const tokenPrefix = config.target.targetPrefix ?? providerConfig.name;
