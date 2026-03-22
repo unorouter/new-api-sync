@@ -40,6 +40,7 @@ export interface Channel {
   tag?: string;
   remark?: string;
   model_mapping?: string;
+  setting?: string;
 }
 
 export interface ModelMeta {

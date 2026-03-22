@@ -11,7 +11,7 @@ import {
   normalizeEndpointTypes,
   sanitizeGroupName,
 } from "@/lib/constants";
-import { testAndFilterModels } from "@/lib/model-tester";
+import { testAndFilterModels, type ModelTestDetail } from "@/lib/model-tester";
 import { resolvePriceAdjustment } from "@/lib/pricing";
 import type { GroupInfo, ProviderReport, SyncState } from "@/lib/types";
 import { consola } from "consola";
@@ -59,6 +59,7 @@ function buildGroupChannels(opts: {
   config: RuntimeConfig;
   state: SyncState;
   apiKey: string;
+  testDetails?: ModelTestDetail[];
 }): void {
   // Group models by their effective ratio (per-model/vendor/type priceAdjustment may differ)
   const ratioToModels = new Map<
@@ -113,6 +114,46 @@ function buildGroupChannels(opts: {
       }
     }
 
+    // Aggregate capabilities from test details for models in this tier.
+    // A capability is false if ANY tested model in the tier failed it,
+    // true if ALL tested models passed, null if none were tested.
+    let setting: string | undefined;
+    if (opts.testDetails && opts.testDetails.length > 0) {
+      const tierOriginalNames = models.map(
+        (m) => opts.reverseModelMapping[m] ?? m,
+      );
+      const tierDetails = opts.testDetails.filter((d) =>
+        tierOriginalNames.includes(d.model),
+      );
+
+      const capabilities: Record<string, boolean | null> = {};
+
+      const toolResults = tierDetails
+        .map((d) => d.toolCallSuccess)
+        .filter((v) => v !== null && v !== undefined);
+      if (toolResults.length > 0) {
+        capabilities.tool_calling = toolResults.every(Boolean);
+      }
+
+      const streamResults = tierDetails
+        .map((d) => d.streamSuccess)
+        .filter((v) => v !== null && v !== undefined);
+      if (streamResults.length > 0) {
+        capabilities.streaming = streamResults.every(Boolean);
+      }
+
+      const httpResults = tierDetails
+        .map((d) => d.success)
+        .filter((v) => v !== null && v !== undefined);
+      if (httpResults.length > 0) {
+        capabilities.http = httpResults.every(Boolean);
+      }
+
+      if (Object.keys(capabilities).length > 0) {
+        setting = JSON.stringify({ capabilities });
+      }
+    }
+
     opts.state.channelsToCreate.push({
       name: tierName,
       type: channelType,
@@ -129,6 +170,7 @@ function buildGroupChannels(opts: {
         Object.keys(tierModelMapping).length > 0
           ? JSON.stringify(tierModelMapping)
           : undefined,
+      setting,
     });
     tierIdx++;
   }
@@ -398,6 +440,7 @@ export async function processNewApiProvider(
         config,
         state,
         apiKey,
+        testDetails: filterResult.details,
       });
     }
 

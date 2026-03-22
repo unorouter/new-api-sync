@@ -17,6 +17,13 @@ interface StreamRequestConfig {
   completionMarker: string;
 }
 
+interface ToolCallRequestConfig {
+  url: string;
+  headers: Record<string, string>;
+  body: unknown;
+  isToolCallSuccess: (data: unknown) => boolean;
+}
+
 interface ModelRequestOpts {
   baseUrl: string;
   apiKey: string;
@@ -138,6 +145,126 @@ function getStreamRequestConfig(
   };
 }
 
+// Minimal tool definition reused across all channel types
+const TOOL_NAME = "calculator";
+const TOOL_DESC = "Calculate a math expression";
+const TOOL_PARAMS = {
+  type: "object" as const,
+  properties: { expression: { type: "string", description: "The math expression" } },
+  required: ["expression"],
+};
+const TOOL_PROMPT = "What is 2+2? You must use the calculator tool to answer.";
+
+/**
+ * Build a tool-calling test request config for the given channel type.
+ * Returns null for channel types where tool testing is not applicable
+ * (e.g. Responses API, thinking/reasoning models that don't support forced tool choice).
+ */
+function getToolCallConfig(opts: ModelRequestOpts): ToolCallRequestConfig | null {
+  const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
+
+  if (useResponsesAPI) return null;
+
+  // Thinking/reasoning models don't support forced tool_choice
+  if (model.endsWith("-thinking") || model.includes("-thinking-")) return null;
+
+  if (channelType === CHANNEL_TYPES.ANTHROPIC) {
+    return {
+      url: `${baseUrl}/v1/messages`,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: {
+        model,
+        messages: [{ role: "user", content: TOOL_PROMPT }],
+        tools: [{ name: TOOL_NAME, description: TOOL_DESC, input_schema: TOOL_PARAMS }],
+        tool_choice: { type: "any" },
+        max_tokens: 100,
+      },
+      isToolCallSuccess: (data) => {
+        const d = data as {
+          stop_reason?: string;
+          content?: Array<{ type?: string }>;
+        };
+        if (d.stop_reason === "tool_use") return true;
+        return Array.isArray(d.content) && d.content.some((c) => c.type === "tool_use");
+      },
+    };
+  }
+
+  if (channelType === CHANNEL_TYPES.GEMINI) {
+    return {
+      url: `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      headers: { "Content-Type": "application/json" },
+      body: {
+        contents: [{ parts: [{ text: TOOL_PROMPT }] }],
+        tools: [
+          {
+            functionDeclarations: [
+              { name: TOOL_NAME, description: TOOL_DESC, parameters: TOOL_PARAMS },
+            ],
+          },
+        ],
+        toolConfig: { functionCallingConfig: { mode: "ANY" } },
+        generationConfig: { maxOutputTokens: 100 },
+      },
+      isToolCallSuccess: (data) => {
+        const d = data as {
+          candidates?: Array<{ content?: { parts?: Array<{ functionCall?: unknown }> } }>;
+        };
+        return (
+          Array.isArray(d.candidates) &&
+          d.candidates.some((c) =>
+            Array.isArray(c.content?.parts) &&
+            c.content!.parts.some((p) => p.functionCall != null),
+          )
+        );
+      },
+    };
+  }
+
+  // OpenAI-compatible format
+  return {
+    url: `${baseUrl}/v1/chat/completions`,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: {
+      model,
+      messages: [{ role: "user", content: TOOL_PROMPT }],
+      tools: [
+        { type: "function", function: { name: TOOL_NAME, description: TOOL_DESC, parameters: TOOL_PARAMS } },
+      ],
+      tool_choice: "required",
+      max_tokens: 100,
+    },
+    isToolCallSuccess: (data) => {
+      const d = data as {
+        choices?: Array<{
+          finish_reason?: string;
+          message?: { tool_calls?: unknown[] };
+        }>;
+      };
+      const choice = d.choices?.[0];
+      if (!choice) return false;
+      if (choice.finish_reason === "tool_calls") return true;
+      return (choice.message?.tool_calls?.length ?? 0) > 0;
+    },
+  };
+}
+
+/** Retry a test once on failure to avoid transient errors poisoning capabilities. */
+async function withRetry(
+  fn: () => Promise<boolean>,
+): Promise<boolean> {
+  const result = await fn();
+  if (result) return true;
+  return fn();
+}
+
 async function testRequest(
   config: RequestConfig,
   timeoutMs: number,
@@ -199,11 +326,31 @@ async function testStreamRequest(
   }
 }
 
+/**
+ * Test that a model supports tool/function calling by sending a request
+ * with tools and tool_choice forcing a tool call, then validating the
+ * response actually contains a tool call.
+ */
+async function testToolCall(
+  config: ToolCallRequestConfig,
+  timeoutMs: number,
+): Promise<boolean> {
+  const data = await tryFetchJson<unknown>(config.url, {
+    method: "POST",
+    headers: config.headers,
+    body: config.body,
+    timeoutMs,
+  });
+  return data !== null && config.isToolCallSuccess(data);
+}
+
 export interface ModelTestDetail {
   model: string;
   success: boolean;
   /** Whether streaming test passed. null if streaming was not tested. */
   streamSuccess: boolean | null;
+  /** Whether tool calling test passed. null if not tested. */
+  toolCallSuccess: boolean | null;
 }
 
 export async function testModels(opts: {
@@ -242,16 +389,23 @@ export async function testModels(opts: {
           useResponsesAPI,
         };
         const streamConfig = getStreamRequestConfig(reqOpts);
+        const toolCallConfig = getToolCallConfig(reqOpts);
 
-        // Run both tests in parallel
+        // Run basic + stream tests in parallel (with single retry on failure)
         const [success, streamSuccess] = await Promise.all([
-          testRequest(getRequestConfig(reqOpts), timeoutMs),
+          withRetry(() => testRequest(getRequestConfig(reqOpts), timeoutMs)),
           streamConfig
-            ? testStreamRequest(streamConfig, timeoutMs)
+            ? withRetry(() => testStreamRequest(streamConfig, timeoutMs))
             : Promise.resolve(null as boolean | null),
         ]);
 
-        return { model, success, streamSuccess };
+        // Only test tool calling if at least one request mode succeeded
+        const toolCallSuccess =
+          (success || streamSuccess) && toolCallConfig
+            ? await withRetry(() => testToolCall(toolCallConfig, timeoutMs))
+            : (null as boolean | null);
+
+        return { model, success, streamSuccess, toolCallSuccess };
       }),
     );
     results.push(...batchResults);
@@ -263,8 +417,11 @@ export async function testModels(opts: {
   }
 
   return {
+    // A model is "working" if at least one request mode succeeded (HTTP or streaming).
+    // Capability details (streaming, tool_calling) are stored on the channel
+    // so the router can make smart decisions per request.
     workingModels: results
-      .filter((r) => r.success && r.streamSuccess !== false)
+      .filter((r) => r.success || r.streamSuccess === true)
       .map((r) => r.model),
     details: results,
   };
@@ -317,7 +474,7 @@ export async function testAndFilterModels(opts: {
     details = testResult.details;
 
     const failedDetails = testResult.details.filter(
-      (d) => !d.success || d.streamSuccess === false,
+      (d) => !d.success || d.streamSuccess === false || d.toolCallSuccess === false,
     );
     if (failedDetails.length > 0) {
       const labeled = failedDetails.map((d) => {
@@ -328,7 +485,13 @@ export async function testAndFilterModels(opts: {
             : d.streamSuccess === null
               ? "·"
               : "✓";
-        return `${d.model} ${h}H ${s}S`;
+        const t =
+          d.toolCallSuccess === false
+            ? "✗"
+            : d.toolCallSuccess === null
+              ? "·"
+              : "✓";
+        return `${d.model} ${h}H ${s}S ${t}T`;
       });
       consola.info(`[${opts.providerLabel}] Failed: ${labeled.join(", ")}`);
     }

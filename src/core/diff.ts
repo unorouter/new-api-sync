@@ -28,6 +28,48 @@ function stableJson(input: Record<string, unknown>): string {
   );
 }
 
+/** Extract only the capabilities portion of a setting JSON for comparison. */
+function extractCapabilities(
+  setting?: string,
+): Record<string, unknown> | undefined {
+  if (!setting) return undefined;
+  try {
+    const parsed = JSON.parse(setting);
+    return parsed?.capabilities ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Merge desired capabilities into an existing setting JSON string,
+ * preserving any manually configured fields (proxy, system_prompt, etc.).
+ */
+export function mergeSettingCapabilities(
+  existingSetting: string | undefined,
+  desiredSetting: string | undefined,
+): string | undefined {
+  const desiredCaps = extractCapabilities(desiredSetting);
+  if (!desiredCaps) return undefined; // no capabilities to set
+
+  let existing: Record<string, unknown> = {};
+  if (existingSetting) {
+    try {
+      existing = JSON.parse(existingSetting);
+    } catch {
+      existing = {};
+    }
+  }
+
+  existing.capabilities = desiredCaps;
+  return JSON.stringify(existing);
+}
+
+function normalizeCapabilities(setting?: string): string | undefined {
+  const caps = extractCapabilities(setting);
+  return caps ? JSON.stringify(caps) : undefined;
+}
+
 function normalizeChannel(channel: Channel): Omit<Channel, "id"> {
   return {
     name: channel.name,
@@ -45,6 +87,7 @@ function normalizeChannel(channel: Channel): Omit<Channel, "id"> {
       channel.model_mapping && channel.model_mapping !== "{}"
         ? channel.model_mapping
         : undefined,
+    setting: normalizeCapabilities(channel.setting),
   };
 }
 
@@ -253,6 +296,11 @@ export function buildSyncDiff(
     }
 
     const normalizedDesired = { ...desiredChannel, id: existing.id };
+    // Merge capabilities into existing setting to preserve manual config
+    normalizedDesired.setting = mergeSettingCapabilities(
+      existing.setting,
+      desiredChannel.setting,
+    );
     if (
       JSON.stringify(normalizeChannel(existing)) !==
       JSON.stringify(normalizeChannel(normalizedDesired))

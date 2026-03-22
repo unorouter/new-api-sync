@@ -21,7 +21,7 @@ export const PAGINATION = {
 
 // Timeout configuration (milliseconds)
 export const TIMEOUTS = {
-  MODEL_TEST_MS: 10000,
+  MODEL_TEST_MS: 20000,
 } as const;
 
 // Channel type identifiers from new-api (constant/channel.go)
