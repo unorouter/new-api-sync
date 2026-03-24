@@ -10,6 +10,8 @@ export const MANAGED_OPTION_KEYS = [
   "CompletionRatio",
   "ModelPrice",
   "ImageRatio",
+  "ModelQuotaType",
+  "ModelGridPricing",
 ] as const;
 
 // Pagination configuration
@@ -97,7 +99,50 @@ export const VENDOR_CHANNEL_TYPES: Record<string, number> = {
   volcengine: CHANNEL_TYPES.VOLCENGINE,
   minimax: CHANNEL_TYPES.MINIMAX,
   perplexity: CHANNEL_TYPES.PERPLEXITY,
+  alibaba: CHANNEL_TYPES.ALI,
+  bailian: CHANNEL_TYPES.ALI,
 };
+
+// Task/video models that need a specific channel type different from vendor inference.
+// Maps model name patterns (lowercase prefix) to the required channel type and
+// an optional base_url path prefix for newapi upstream providers.
+// The prefix is needed because newapi instances like yunwu route task endpoints
+// under provider-specific paths (e.g. /alibailian/api/... instead of /api/...).
+interface TaskModelOverride {
+  channelType: number;
+  /** Path prefix appended to newapi provider's base_url (e.g. "/alibailian") */
+  baseUrlSuffix?: string;
+}
+
+const TASK_MODEL_OVERRIDES: [string, TaskModelOverride][] = [
+  ["sora", { channelType: CHANNEL_TYPES.SORA }],
+  ["kling", { channelType: CHANNEL_TYPES.KLING }],
+  ["vidu", { channelType: CHANNEL_TYPES.VIDU }],
+  ["jimeng", { channelType: CHANNEL_TYPES.JIMENG }],
+  ["hailuo", { channelType: CHANNEL_TYPES.MINIMAX }],
+  ["seedance", { channelType: CHANNEL_TYPES.DOUBAO_VIDEO }],
+  ["veo", { channelType: CHANNEL_TYPES.GEMINI }],
+  ["imagen", { channelType: CHANNEL_TYPES.GEMINI }],
+  ["wan", { channelType: CHANNEL_TYPES.ALI, baseUrlSuffix: "/alibailian" }],
+];
+
+/**
+ * Get the task model override for a model, or undefined if no override needed.
+ */
+export function getTaskModelOverride(modelName: string): TaskModelOverride | undefined {
+  const lower = modelName.toLowerCase();
+  for (const [pattern, override] of TASK_MODEL_OVERRIDES) {
+    if (lower.includes(pattern)) return override;
+  }
+  return undefined;
+}
+
+/**
+ * Get the required task channel type for a model, or undefined if no override needed.
+ */
+export function getTaskChannelType(modelName: string): number | undefined {
+  return getTaskModelOverride(modelName)?.channelType;
+}
 
 // Default paths for endpoint types (mirrors new-api's endpoint_defaults.go)
 export const ENDPOINT_DEFAULT_PATHS: Record<string, string> = {
@@ -216,12 +261,17 @@ const ENDPOINT_TO_MODEL_TYPE: Record<string, ModelType> = {
 
 // Keyword patterns for non-standard endpoint types (e.g. Chinese names from upstream)
 const ENDPOINT_KEYWORD_TYPES: [string, ModelType][] = [
-  ["视频", "video"], // video (Chinese)
+  ["视频", "video"], // video (Chinese: contains 视频)
   ["video", "video"],
+  ["动作", "video"], // motion/action control (Chinese: 动作控制)
+  ["角色", "video"], // character creation (Chinese: 创建角色)
+  ["首尾帧", "video"], // first/last frame (Chinese)
   ["生图", "image"], // text-to-image (Chinese)
+  ["扩图", "image"], // image expand (Chinese)
   ["image", "image"],
-  ["音", "audio"], // audio/sound (Chinese)
+  ["音", "audio"], // audio/sound (Chinese: 音乐, 音效, 语音)
   ["tts", "audio"],
+  ["嵌入", "embedding"], // embedding (Chinese)
 ];
 
 /**
@@ -263,53 +313,118 @@ export function inferModelType(
   return inferModelTypeFromName(name);
 }
 
-export const VENDOR_MATCHERS: Record<
-  string,
-  {
-    modelPatterns: string[];
-    nameAliases?: string[];
-  }
-> = {
-  anthropic: { modelPatterns: ["claude"] },
-  google: { modelPatterns: ["gemini", "palm", "veo"] },
-  openai: { modelPatterns: ["gpt", "o1-", "o3-", "o4-", "chatgpt"] },
-  deepseek: { modelPatterns: ["deepseek"] },
-  xai: { modelPatterns: ["grok"] },
-  mistral: { modelPatterns: ["mistral", "codestral"] },
-  meta: { modelPatterns: ["llama"] },
+export interface VendorMatcher {
+  modelPatterns: string[];
+  nameAliases?: string[];
+  displayName?: string;
+  icon?: string;
+}
+
+export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
+  anthropic: {
+    modelPatterns: ["claude"],
+    displayName: "Anthropic",
+    icon: "Claude.Color",
+  },
+  google: {
+    modelPatterns: ["gemini", "palm", "veo"],
+    displayName: "Google",
+    icon: "Gemini.Color",
+  },
+  openai: {
+    modelPatterns: ["gpt", "o1-", "o3-", "o4-", "chatgpt", "sora"],
+    displayName: "OpenAI",
+    icon: "OpenAI",
+  },
+  kling: {
+    modelPatterns: ["kling"],
+    nameAliases: ["kling", "可灵"],
+    displayName: "Kling",
+    icon: "Kling.Color",
+  },
+  deepseek: {
+    modelPatterns: ["deepseek"],
+    displayName: "DeepSeek",
+    icon: "DeepSeek.Color",
+  },
+  xai: { modelPatterns: ["grok"], displayName: "xAI", icon: "XAI" },
+  mistral: {
+    modelPatterns: ["mistral", "codestral"],
+    displayName: "Mistral",
+    icon: "Mistral.Color",
+  },
+  meta: { modelPatterns: ["llama"], displayName: "Meta", icon: "Meta.Color" },
   alibaba: {
     modelPatterns: ["qwen", "qwq-"],
-    nameAliases: ["阿里", "通义", "qwen"],
+    nameAliases: ["阿里", "通义", "qwen", "阿里巴巴"],
+    displayName: "Alibaba",
+    icon: "AlibabaCloud.Color",
   },
-  cohere: { modelPatterns: ["command-", "c4ai-"] },
-  minimax: { modelPatterns: ["abab", "minimax-"] },
+  bailian: {
+    modelPatterns: ["wan2", "z-image"],
+    nameAliases: ["bailian", "阿里云百炼"],
+    displayName: "Bailian",
+    icon: "AlibabaCloud.Color",
+  },
+  flux: {
+    modelPatterns: ["flux-", "flux."],
+    nameAliases: ["flux"],
+    displayName: "Flux",
+    icon: "Flux",
+  },
+  cohere: {
+    modelPatterns: ["command-", "c4ai-"],
+    displayName: "Cohere",
+    icon: "Cohere.Color",
+  },
+  minimax: {
+    modelPatterns: ["abab", "minimax-"],
+    displayName: "MiniMax",
+    icon: "Minimax.Color",
+  },
   moonshot: {
     modelPatterns: ["moonshot-", "kimi-"],
     nameAliases: ["月之暗面", "kimi"],
+    displayName: "Moonshot",
+    icon: "Moonshot",
   },
   zhipu: {
     modelPatterns: ["glm-", "chatglm"],
     nameAliases: ["智谱", "zhipu ai", "chatglm"],
+    displayName: "Zhipu",
+    icon: "Zhipu.Color",
   },
-  perplexity: { modelPatterns: ["sonar"] },
+  perplexity: {
+    modelPatterns: ["sonar"],
+    displayName: "Perplexity",
+    icon: "Perplexity.Color",
+  },
   baidu: {
     modelPatterns: ["ernie-"],
     nameAliases: ["百度", "文心"],
+    displayName: "Baidu",
+    icon: "Wenxin",
   },
   xunfei: {
     modelPatterns: ["sparkdesk"],
     nameAliases: ["讯飞", "spark"],
+    displayName: "Xunfei",
+    icon: "Spark.Color",
   },
   tencent: {
     modelPatterns: ["hunyuan-"],
     nameAliases: ["腾讯", "混元"],
+    displayName: "Tencent",
+    icon: "Hunyuan",
   },
   bytedance: {
     modelPatterns: ["doubao-"],
     nameAliases: ["字节", "豆包", "doubao"],
+    displayName: "ByteDance",
+    icon: "Doubao.Color",
   },
-  yi: { modelPatterns: ["yi-"] },
-  ai360: { modelPatterns: ["360gpt"] },
+  yi: { modelPatterns: ["yi-"], displayName: "Yi", icon: "Yi.Color" },
+  ai360: { modelPatterns: ["360gpt"], displayName: "360 AI", icon: "Ai360" },
 };
 
 export const SUB2API_PLATFORM_CHANNEL_TYPES: Record<string, number> = {
@@ -471,20 +586,21 @@ export function matchesBlacklist(
   });
 }
 
-/** Substring match, or glob match when the pattern contains "*". */
+/** Exact match, or glob match when the pattern contains "*". */
 function matchPattern(text: string, pattern: string): boolean {
-  if (!pattern.includes("*")) return text.includes(pattern);
+  if (!pattern.includes("*")) return text === pattern;
   return micromatch.isMatch(text, pattern);
 }
 
 /**
- * Check if a model name matches any of the given patterns (glob or substring).
+ * Check if a model name matches any of the given patterns.
+ * Patterns with "*" use glob matching; patterns without use exact matching.
  */
 export function matchesAnyPattern(name: string, patterns: string[]): boolean {
   const n = name.toLowerCase();
   return patterns.some((raw) => {
     const p = raw.toLowerCase();
-    if (!p.includes("*")) return n.includes(p);
+    if (!p.includes("*")) return n === p;
     return micromatch.isMatch(n, p);
   });
 }
@@ -522,3 +638,4 @@ export function sanitizeGroupName(name: string): string {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 }
+

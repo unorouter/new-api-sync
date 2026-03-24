@@ -28,12 +28,25 @@ const PriceAdjustmentSchema = z.union([
     ),
 ]);
 
+const GridPricingRowSchema = z.record(z.string(), z.union([z.string(), z.number()]));
+
+const ModelPricingDetailSchema = z.object({
+  type: str,
+  model: str,
+  modelPricingGrid: z.array(GridPricingRowSchema).min(1),
+});
+
+const EnabledModelEntrySchema = z.union([
+  str,
+  ModelPricingDetailSchema,
+]);
+
 const ProviderCommon = z.object({
   name: str,
   skipTesting: z.boolean().optional(),
   enabledGroups: z.array(str).optional(),
   enabledVendors: z.array(str).optional(),
-  enabledModels: z.array(str).optional(),
+  enabledModels: z.array(EnabledModelEntrySchema).optional(),
   priceAdjustment: PriceAdjustmentSchema.optional(),
 });
 
@@ -80,6 +93,29 @@ export type AnyProviderConfig =
   | ProviderConfig
   | Sub2ApiProviderConfig
   | DirectProviderConfig;
+export type EnabledModelEntry = z.output<typeof EnabledModelEntrySchema>;
+
+/** Extract model glob strings from enabledModels (ignoring grid pricing metadata). */
+export function getEnabledModelGlobs(
+  entries: EnabledModelEntry[] | undefined,
+): string[] | undefined {
+  if (!entries) return undefined;
+  return entries.map((e) => (typeof e === "string" ? e : e.model));
+}
+
+/** Extract pricing grid data from enabledModels into a model → rows map. */
+export function getPricingGridFromEnabledModels(
+  entries: EnabledModelEntry[] | undefined,
+): Record<string, Record<string, string | number>[]> {
+  const result: Record<string, Record<string, string | number>[]> = {};
+  if (!entries) return result;
+  for (const entry of entries) {
+    if (typeof entry !== "string" && entry.modelPricingGrid) {
+      result[entry.model] = entry.modelPricingGrid;
+    }
+  }
+  return result;
+}
 
 const ConfigSchema = z
   .object({

@@ -1,9 +1,12 @@
 import {
+  getEnabledModelGlobs,
   shouldSkipTesting,
   type ProviderConfig,
   type RuntimeConfig,
 } from "@/config";
 import {
+  getTaskModelOverride,
+  inferChannelTypeFromModels,
   inferModelType,
   inferVendorFromModelName,
   matchesAnyPattern,
@@ -23,8 +26,10 @@ function filterGroupModels(
   config: RuntimeConfig,
   providerConfig: ProviderConfig,
 ): string[] {
+  // Blacklist only applies to text models — image/video/audio/embedding are never blacklisted
   let result = models.filter(
     (modelName) =>
+      inferModelType(modelName) !== "text" ||
       !matchesBlacklist(modelName, config.blacklist, providerConfig.name),
   );
 
@@ -38,9 +43,10 @@ function filterGroupModels(
     });
   }
 
-  if (providerConfig.enabledModels?.length) {
+  const modelGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
+  if (modelGlobs?.length) {
     result = result.filter((modelName) =>
-      matchesAnyPattern(modelName, providerConfig.enabledModels!),
+      matchesAnyPattern(modelName, modelGlobs),
     );
   }
 
@@ -88,90 +94,118 @@ function buildGroupChannels(opts: {
     ratioToModels.get(key)!.models.push(model);
   }
 
-  // Create a channel per distinct ratio tier
+  // Create a channel per distinct ratio tier, splitting by required channel type
+  // so video/image models that need specific adaptors get their own channels.
   let tierIdx = 0;
   for (const [effectiveRatio, { models, nonText }] of ratioToModels) {
     // Skip text model tiers that end up >= 1 after adjustment; non-text (image, video, etc.) are allowed above 1
     if (effectiveRatio >= 1 && !nonText) continue;
 
-    const suffix = ratioToModels.size > 1 ? `-t${tierIdx}` : "";
-    const tierName = `${opts.sanitizedName}${suffix}`;
-
-    opts.state.mergedGroups.push({
-      name: tierName,
-      ratio: effectiveRatio,
-      description: `${sanitizeGroupName(opts.groupName)} via ${opts.providerConfig.name}`,
-      provider: opts.providerConfig.name,
-    });
-
-    const channelType = opts.groupChannelType;
-
-    // Build per-tier model_mapping: only include models in this tier that were mapped
-    const tierModelMapping: Record<string, string> = {};
+    // Sub-split models by required task channel type and base_url suffix.
+    // Models needing a specific adaptor (sora, kling, veo, etc.) get separated;
+    // the rest stay together with vendor-inferred channel type.
+    // Key format: "channelType:suffix" or "default" for models without overrides.
+    const subGroups = new Map<string, { models: string[]; channelType?: number; baseUrlSuffix?: string }>();
     for (const model of models) {
-      if (opts.reverseModelMapping[model]) {
-        tierModelMapping[model] = opts.reverseModelMapping[model];
-      }
+      const override = getTaskModelOverride(model);
+      const key = override ? `${override.channelType}:${override.baseUrlSuffix ?? ""}` : "default";
+      if (!subGroups.has(key)) subGroups.set(key, {
+        models: [],
+        channelType: override?.channelType,
+        baseUrlSuffix: override?.baseUrlSuffix,
+      });
+      subGroups.get(key)!.models.push(model);
     }
 
-    // Aggregate capabilities from test details for models in this tier.
-    // A capability is false if ANY tested model in the tier failed it,
-    // true if ALL tested models passed, null if none were tested.
-    let setting: string | undefined;
-    if (opts.testDetails && opts.testDetails.length > 0) {
-      const tierOriginalNames = models.map(
-        (m) => opts.reverseModelMapping[m] ?? m,
-      );
-      const tierDetails = opts.testDetails.filter((d) =>
-        tierOriginalNames.includes(d.model),
-      );
+    let subIdx = 0;
+    for (const [, subGroup] of subGroups) {
+      const { models: subModels, channelType: overrideType, baseUrlSuffix } = subGroup;
+      const tierSuffix = ratioToModels.size > 1 || subGroups.size > 1
+        ? `-t${tierIdx}${subGroups.size > 1 ? String.fromCharCode(97 + subIdx) : ""}`
+        : "";
+      const tierName = `${opts.sanitizedName}${tierSuffix}`;
 
-      const capabilities: Record<string, boolean | null> = {};
+      opts.state.mergedGroups.push({
+        name: tierName,
+        ratio: effectiveRatio,
+        description: `${sanitizeGroupName(opts.groupName)} via ${opts.providerConfig.name}`,
+        provider: opts.providerConfig.name,
+      });
 
-      const toolResults = tierDetails
-        .map((d) => d.toolCallSuccess)
-        .filter((v) => v !== null && v !== undefined);
-      if (toolResults.length > 0) {
-        capabilities.tool_calling = toolResults.every(Boolean);
+      // Use explicit task channel type, or infer from the sub-group's models
+      const channelType = overrideType
+        ?? inferChannelTypeFromModels(subModels, opts.state.modelEndpoints);
+
+      // Apply base_url suffix for newapi providers with provider-specific paths
+      const baseUrl = opts.providerConfig.baseUrl.replace(/\/$/, "")
+        + (baseUrlSuffix ?? "");
+
+      // Build per-tier model_mapping: only include models in this tier that were mapped
+      const tierModelMapping: Record<string, string> = {};
+      for (const model of subModels) {
+        if (opts.reverseModelMapping[model]) {
+          tierModelMapping[model] = opts.reverseModelMapping[model];
+        }
       }
 
-      const streamResults = tierDetails
-        .map((d) => d.streamSuccess)
-        .filter((v) => v !== null && v !== undefined);
-      if (streamResults.length > 0) {
-        capabilities.streaming = streamResults.every(Boolean);
+      // Aggregate capabilities from test details for models in this tier.
+      let setting: string | undefined;
+      if (opts.testDetails && opts.testDetails.length > 0) {
+        const tierOriginalNames = subModels.map(
+          (m) => opts.reverseModelMapping[m] ?? m,
+        );
+        const tierDetails = opts.testDetails.filter((d) =>
+          tierOriginalNames.includes(d.model),
+        );
+
+        const capabilities: Record<string, boolean | null> = {};
+
+        const toolResults = tierDetails
+          .map((d) => d.toolCallSuccess)
+          .filter((v) => v !== null && v !== undefined);
+        if (toolResults.length > 0) {
+          capabilities.tool_calling = toolResults.every(Boolean);
+        }
+
+        const streamResults = tierDetails
+          .map((d) => d.streamSuccess)
+          .filter((v) => v !== null && v !== undefined);
+        if (streamResults.length > 0) {
+          capabilities.streaming = streamResults.every(Boolean);
+        }
+
+        const httpResults = tierDetails
+          .map((d) => d.success)
+          .filter((v) => v !== null && v !== undefined);
+        if (httpResults.length > 0) {
+          capabilities.http = httpResults.every(Boolean);
+        }
+
+        if (Object.keys(capabilities).length > 0) {
+          setting = JSON.stringify({ capabilities });
+        }
       }
 
-      const httpResults = tierDetails
-        .map((d) => d.success)
-        .filter((v) => v !== null && v !== undefined);
-      if (httpResults.length > 0) {
-        capabilities.http = httpResults.every(Boolean);
-      }
-
-      if (Object.keys(capabilities).length > 0) {
-        setting = JSON.stringify({ capabilities });
-      }
+      opts.state.channelsToCreate.push({
+        name: tierName,
+        type: channelType,
+        key: opts.apiKey,
+        base_url: baseUrl,
+        models: subModels.join(","),
+        group: tierName,
+        priority: 0,
+        weight: 1,
+        status: 1,
+        tag: opts.providerConfig.name,
+        remark: opts.channelRemark,
+        model_mapping:
+          Object.keys(tierModelMapping).length > 0
+            ? JSON.stringify(tierModelMapping)
+            : undefined,
+        setting,
+      });
+      subIdx++;
     }
-
-    opts.state.channelsToCreate.push({
-      name: tierName,
-      type: channelType,
-      key: opts.apiKey,
-      base_url: opts.providerConfig.baseUrl.replace(/\/$/, ""),
-      models: models.join(","),
-      group: tierName,
-      priority: 0,
-      weight: 1,
-      status: 1,
-      tag: opts.providerConfig.name,
-      remark: opts.channelRemark,
-      model_mapping:
-        Object.keys(tierModelMapping).length > 0
-          ? JSON.stringify(tierModelMapping)
-          : undefined,
-      setting,
-    });
     tierIdx++;
   }
 }
@@ -272,25 +306,27 @@ export async function processNewApiProvider(
 
     // Filter by enabledModels if specified — skip groups that don't contain
     // any model matching the patterns, so we don't create unnecessary tokens.
-    if (providerConfig.enabledModels?.length) {
+    const enabledGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
+    if (enabledGlobs?.length) {
       groups = groups.filter((g) =>
         g.models.some((m) =>
-          matchesAnyPattern(m, providerConfig.enabledModels!),
+          matchesAnyPattern(m, enabledGlobs),
         ),
       );
     }
 
-    // Apply global blacklist to groups (by name or description)
+    // Apply global blacklist to groups (by name or description).
+    // When a group matches, only remove its text models — non-text models
+    // (image/video/audio/embedding) are never affected by the blacklist.
     if (config.blacklist?.length) {
-      groups = groups.filter(
-        (g) =>
-          !matchesBlacklist(g.name, config.blacklist, providerConfig.name) &&
-          !matchesBlacklist(
-            g.description,
-            config.blacklist,
-            providerConfig.name,
-          ),
-      );
+      for (const g of groups) {
+        const nameHit = matchesBlacklist(g.name, config.blacklist, providerConfig.name);
+        const descHit = matchesBlacklist(g.description, config.blacklist, providerConfig.name);
+        if (nameHit || descHit) {
+          g.models = g.models.filter((m) => inferModelType(m) !== "text");
+        }
+      }
+      groups = groups.filter((g) => g.models.length > 0);
     }
 
     // Skip groups whose effective ratio after priceAdjustment exceeds 1.
@@ -458,6 +494,7 @@ export async function processNewApiProvider(
           ratio: model.ratio,
           completionRatio: model.completionRatio,
           modelPrice: model.modelPrice,
+          quotaType: model.quotaType,
         });
       }
     }

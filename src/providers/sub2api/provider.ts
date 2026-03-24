@@ -5,12 +5,11 @@ import {
 } from "@/config";
 import {
   CHANNEL_TYPES,
-  matchesAnyPattern,
-  matchesBlacklist,
   SUB2API_PLATFORM_CHANNEL_TYPES,
   SUB2API_PLATFORM_TO_VENDOR,
   VENDOR_TO_SUB2API_PLATFORMS,
 } from "@/lib/constants";
+import { filterModels } from "@/lib/model-filter";
 import { testAndFilterModels } from "@/lib/model-tester";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
 import type { ProviderReport, SyncState } from "@/lib/types";
@@ -31,21 +30,6 @@ function getEnabledPlatforms(enabledVendors?: string[]): Set<string> | null {
       (v) => VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()],
     ),
   );
-}
-
-function filterModels(
-  modelIds: string[],
-  config: RuntimeConfig,
-  providerConfig: Sub2ApiProviderConfig,
-): string[] {
-  return modelIds.filter((id) => {
-    if (matchesBlacklist(id, config.blacklist, providerConfig.name))
-      return false;
-    if (providerConfig.enabledModels?.length) {
-      if (!matchesAnyPattern(id, providerConfig.enabledModels)) return false;
-    }
-    return true;
-  });
 }
 
 async function resolveViaAdmin(

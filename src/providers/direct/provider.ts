@@ -3,32 +3,13 @@ import {
   type DirectProviderConfig,
   type RuntimeConfig,
 } from "@/config";
-import {
-  CHANNEL_TYPES,
-  matchesAnyPattern,
-  matchesBlacklist,
-  VENDOR_CHANNEL_TYPES,
-} from "@/lib/constants";
+import { CHANNEL_TYPES, VENDOR_CHANNEL_TYPES } from "@/lib/constants";
+import { filterModels } from "@/lib/model-filter";
 import { testAndFilterModels } from "@/lib/model-tester";
 import { buildPriceTiers, pushTieredChannels } from "@/lib/pricing";
 import type { ProviderReport, SyncState } from "@/lib/types";
 import { consola } from "consola";
 import { discoverModels } from "./discovery";
-
-function filterModels(
-  models: string[],
-  config: RuntimeConfig,
-  providerConfig: DirectProviderConfig,
-): string[] {
-  return models.filter((id) => {
-    if (matchesBlacklist(id, config.blacklist, providerConfig.name))
-      return false;
-    if (providerConfig.enabledModels?.length) {
-      if (!matchesAnyPattern(id, providerConfig.enabledModels)) return false;
-    }
-    return true;
-  });
-}
 
 export async function processDirectProvider(
   providerConfig: DirectProviderConfig,

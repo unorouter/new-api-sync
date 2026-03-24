@@ -57,6 +57,8 @@ export async function runReset(config: RuntimeConfig): Promise<ResetResult> {
     CompletionRatio: "{}",
     ModelPrice: "{}",
     ImageRatio: "{}",
+    ModelQuotaType: "{}",
+    ModelGridPricing: "{}",
   };
 
   const optionsUpdated: string[] = [];

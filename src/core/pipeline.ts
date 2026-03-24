@@ -1,8 +1,9 @@
-import type {
-  DirectProviderConfig,
-  ProviderConfig,
-  RuntimeConfig,
-  Sub2ApiProviderConfig,
+import {
+  getPricingGridFromEnabledModels,
+  type DirectProviderConfig,
+  type ProviderConfig,
+  type RuntimeConfig,
+  type Sub2ApiProviderConfig,
 } from "@/config";
 import {
   buildReverseMapping,
@@ -98,13 +99,21 @@ function backfillModelRatios(
   }
   if (filled < missing.length) {
     const unfilled = missing.filter((m) => !state.mergedModels.has(m));
-    consola.warn(`No upstream ratios for: ${unfilled.join(", ")}`);
+    // Show which channels reference each unfilled model
+    const details = unfilled.map((m) => {
+      const refs = channels
+        .filter((ch) => parseModelList(ch.models).includes(m))
+        .map((ch) => ch.tag ?? ch.name);
+      return refs.length > 0 ? `${m} (${refs.join(", ")})` : m;
+    });
+    consola.warn(`No upstream ratios for: ${details.join(", ")}`);
   }
 }
 
 function buildOptionMaps(
   state: SyncState,
   modelMapping: Record<string, string>,
+  configGridPricing: Record<string, Record<string, string | number>[]>,
 ): Omit<ManagedOptionMaps, "responsesApiModels" | "defaultUseAutoGroup"> {
   const groupRatio: Record<string, number> = {};
   const userUsableGroups: Record<string, string> = {
@@ -124,6 +133,7 @@ function buildOptionMaps(
   const completionRatio: Record<string, number> = {};
   const modelPrice: Record<string, number> = {};
   const imageRatio: Record<string, number> = {};
+  const modelQuotaType: Record<string, number> = {};
   for (const [name, ratios] of state.mergedModels) {
     const mappedName = modelMapping?.[name] ?? name;
     if (ratios.modelPrice !== undefined && ratios.modelPrice > 0) {
@@ -136,6 +146,20 @@ function buildOptionMaps(
     if (ratios.imageRatio !== undefined && ratios.imageRatio > 0) {
       imageRatio[mappedName] = Math.round(ratios.imageRatio * 10000) / 10000;
     }
+    if (ratios.quotaType !== undefined && ratios.quotaType >= 2) {
+      modelQuotaType[mappedName] = ratios.quotaType;
+    }
+  }
+
+  // Build grid pricing display metadata from config.
+  // Grid pricing is independent of quota_type: video models use quota_type=4,
+  // image models keep quota_type=1 (per-request) but still show a resolution grid.
+  const modelGridPricing: Record<string, import("@/lib/types").GridPricingInfo> = {};
+  for (const [modelName, rows] of Object.entries(configGridPricing)) {
+    const mappedName = modelMapping?.[modelName] ?? modelName;
+    if (modelPrice[mappedName] !== undefined || modelRatio[mappedName] !== undefined) {
+      modelGridPricing[mappedName] = rows as import("@/lib/types").GridPricingInfo;
+    }
   }
 
   return {
@@ -146,6 +170,8 @@ function buildOptionMaps(
     completionRatio,
     modelPrice,
     imageRatio,
+    modelQuotaType,
+    modelGridPricing,
   };
 }
 
@@ -396,7 +422,14 @@ export async function runProviderPipeline(
   // (e.g. sub2api-only models where no newapi provider supplied pricing)
   backfillModelRatios(state, channels, config.modelMapping, basellmEntries);
 
-  const optionMaps = buildOptionMaps(state, config.modelMapping);
+  // Collect pricing grid data from all providers' enabledModels
+  const allPricingGrids: Record<string, Record<string, string | number>[]> = {};
+  for (const provider of config.providers) {
+    const grids = getPricingGridFromEnabledModels(provider.enabledModels);
+    Object.assign(allPricingGrids, grids);
+  }
+
+  const optionMaps = buildOptionMaps(state, config.modelMapping, allPricingGrids);
 
   const reverseMapping = buildReverseMapping(config.modelMapping);
 

@@ -157,7 +157,8 @@ export class NewApiClient {
       vendorId: m.vendor_id,
       supportedEndpoints: m.supported_endpoint_types,
       modelPrice:
-        m.quota_type === 1 && m.model_price > 0 ? m.model_price : undefined,
+        m.quota_type !== 0 && m.model_price > 0 ? m.model_price : undefined,
+      quotaType: m.quota_type >= 2 ? m.quota_type : undefined,
     }));
 
     const modelRatios: Record<string, number> = {};
@@ -314,12 +315,23 @@ export class NewApiClient {
     const existingTokens = await this.listTokens();
     const tokensByName = new Map(existingTokens.map((t) => [t.name, t]));
 
-    const TOKEN_NAME_MAX = 30;
+    const TOKEN_NAME_MAX_BYTES = 30;
     const suffix = `-${prefix}`;
+    const suffixBytes = new TextEncoder().encode(suffix).length;
     const tokenNameForGroup = (groupName: string) => {
-      const maxLen = TOKEN_NAME_MAX - suffix.length;
-      const truncated =
-        groupName.length > maxLen ? groupName.slice(0, maxLen) : groupName;
+      const maxBytes = TOKEN_NAME_MAX_BYTES - suffixBytes;
+      const encoder = new TextEncoder();
+      if (encoder.encode(groupName).length <= maxBytes) {
+        return `${groupName}${suffix}`;
+      }
+      let truncated = "";
+      let usedBytes = 0;
+      for (const char of groupName) {
+        const charBytes = encoder.encode(char).length;
+        if (usedBytes + charBytes > maxBytes) break;
+        truncated += char;
+        usedBytes += charBytes;
+      }
       return `${truncated}${suffix}`;
     };
     const desiredTokenNames = new Set(
@@ -546,6 +558,21 @@ export class NewApiClient {
       page++;
     }
     return all;
+  }
+
+  async createVendor(vendor: {
+    name: string;
+    icon?: string;
+  }): Promise<Vendor | null> {
+    const data = await tryFetchJson<ApiResponse<Vendor>>(
+      `${this.baseUrl}/api/vendors/`,
+      {
+        method: "POST",
+        headers: this.headers,
+        body: vendor,
+      },
+    );
+    return data?.data ?? null;
   }
 
   async cleanupOrphanedModels(): Promise<number> {

@@ -14,6 +14,7 @@ export interface ModelInfo {
   vendorId?: number;
   supportedEndpoints?: string[];
   modelPrice?: number;
+  quotaType?: number;
 }
 
 export interface UpstreamPricing {

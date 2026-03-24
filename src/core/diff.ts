@@ -175,6 +175,8 @@ function buildManagedOptionValues(
         ...Object.keys(parse<Record<string, unknown>>("ModelPrice", {})),
         ...Object.keys(parse<Record<string, unknown>>("CompletionRatio", {})),
         ...Object.keys(parse<Record<string, unknown>>("ImageRatio", {})),
+        ...Object.keys(parse<Record<string, unknown>>("ModelQuotaType", {})),
+        ...Object.keys(parse<Record<string, unknown>>("ModelGridPricing", {})),
       ])
     : modelRatioGuard;
 
@@ -217,6 +219,16 @@ function buildManagedOptionValues(
     modelGuard,
     desired.options.imageRatio,
   );
+  const mergedModelQuotaType = mergeProtected(
+    parse<Record<string, number>>("ModelQuotaType", {}),
+    modelGuard,
+    desired.options.modelQuotaType,
+  );
+  const mergedModelGridPricing = mergeProtected(
+    parse<Record<string, unknown>>("ModelGridPricing", {}),
+    modelGuard,
+    desired.options.modelGridPricing as Record<string, unknown>,
+  );
 
   // Build model_patterns for chat/completions → /v1/responses policy.
   // Each model name is escaped and anchored as an exact match.
@@ -240,6 +252,8 @@ function buildManagedOptionValues(
     CompletionRatio: stableJson(mergedCompletionRatio),
     ModelPrice: stableJson(mergedModelPrice),
     ImageRatio: stableJson(mergedImageRatio),
+    ModelQuotaType: stableJson(mergedModelQuotaType),
+    ModelGridPricing: stableJson(mergedModelGridPricing),
     "global.chat_completions_to_responses_policy": responsesPolicy,
   };
 }

@@ -11,6 +11,7 @@ export interface GroupInfo {
 export interface Vendor {
   id: number;
   name: string;
+  icon?: string;
 }
 
 // ============ Reports ============
@@ -68,6 +69,8 @@ export interface MergedModel {
   modelPrice?: number;
   /** Image ratio multiplier for image generation tokens. */
   imageRatio?: number;
+  /** Custom billing type override (3=flat custom, 4=grid pricing). Only set for types >= 2. */
+  quotaType?: number;
 }
 
 export interface SyncState {
@@ -92,6 +95,12 @@ export interface DesiredModelSpec {
   tags?: string;
 }
 
+/** A single row in a pricing grid. All keys except "Pricing" become display columns. "Pricing" is the price value. */
+export type GridPricingRow = Record<string, string | number> & { Pricing: number };
+
+/** Pricing grid: array of rows with arbitrary columns + required Pricing value. */
+export type GridPricingInfo = GridPricingRow[];
+
 export interface ManagedOptionMaps {
   groupRatio: Record<string, number>;
   userUsableGroups: Record<string, string>;
@@ -100,6 +109,8 @@ export interface ManagedOptionMaps {
   completionRatio: Record<string, number>;
   modelPrice: Record<string, number>;
   imageRatio: Record<string, number>;
+  modelQuotaType: Record<string, number>;
+  modelGridPricing: Record<string, GridPricingInfo>;
   defaultUseAutoGroup: boolean;
   /** Models that require chat/completions → /v1/responses conversion */
   responsesApiModels: string[];
