@@ -748,11 +748,12 @@ export async function testModels(opts: {
             : null;
         const toolCallSuccess = toolResult?.pass ?? null;
 
-        // Kiro substitution detection for Anthropic channels
+        // Kiro substitution detection for Anthropic channels with Claude models
         let authentic = true;
         const logKey = `${prefix}|${model}`;
         if (
           channelType === CHANNEL_TYPES.ANTHROPIC &&
+          model.startsWith("claude-") &&
           (success || streamSuccess)
         ) {
           authentic = await testAnthropicAuthenticity({
@@ -776,7 +777,7 @@ export async function testModels(opts: {
           stream: streamResult,
           toolCall: toolResult,
           authentic:
-            channelType === CHANNEL_TYPES.ANTHROPIC ? authentic : null
+            channelType === CHANNEL_TYPES.ANTHROPIC && model.startsWith("claude-") ? authentic : null
         });
 
         return {
