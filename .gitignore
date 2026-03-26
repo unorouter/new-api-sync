@@ -43,3 +43,4 @@ bun.lock*
 *.png
 config copy.json*
 config.debug.jsonc
+model-tests.json

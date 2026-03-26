@@ -4,6 +4,7 @@ import { buildSyncDiff } from "@/core/diff";
 import { runProviderPipeline } from "@/core/pipeline";
 import type { ResetResult } from "@/core/reset";
 import { MANAGED_OPTION_KEYS, VENDOR_MATCHERS } from "@/lib/constants";
+import { writeTestReport } from "@/lib/model-tester";
 import type { DesiredState, SyncRunResult, TargetSnapshot } from "@/lib/types";
 import { NewApiClient } from "@/providers/newapi/client";
 import { consola } from "consola";
@@ -121,6 +122,8 @@ export function printRunSummary(result: SyncRunResult): void {
   for (const error of result.apply.errors) {
     consola.error(`[${error.phase}/${error.key}] ${error.message}`);
   }
+
+  writeTestReport();
 
   if (result.success) {
     consola.success(`Completed in ${elapsed}s`);

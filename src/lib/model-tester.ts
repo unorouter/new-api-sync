@@ -1,6 +1,70 @@
 import { CHANNEL_TYPES, isTestableModel, TIMEOUTS } from "@/lib/constants";
-import { tryFetchJson } from "@/lib/http";
+import { fetchJson, tryFetchJson } from "@/lib/http";
 import { consola } from "consola";
+import { writeFileSync } from "fs";
+import { join } from "path";
+
+// ---------------------------------------------------------------------------
+// Test report types and accumulator
+// ---------------------------------------------------------------------------
+
+interface TestExchange {
+  pass: boolean;
+  request: { url: string; body: unknown };
+  response: unknown;
+  error?: string;
+}
+
+interface KiroProbeLog {
+  probe: string;
+  pass: boolean;
+  request: { url: string; body: unknown };
+  response: string | null;
+  error?: string;
+}
+
+interface ModelTestLog {
+  provider: string;
+  model: string;
+  http: TestExchange;
+  stream: TestExchange | null;
+  toolCall: TestExchange | null;
+  authentic: boolean | null;
+  kiroProbes?: KiroProbeLog[];
+}
+
+interface TestReport {
+  timestamp: string;
+  results: ModelTestLog[];
+}
+
+const testReport: TestReport = {
+  timestamp: new Date().toISOString(),
+  results: []
+};
+
+const kiroProbeAccumulator = new Map<string, KiroProbeLog[]>();
+
+function addKiroProbe(key: string, entry: KiroProbeLog): void {
+  if (!kiroProbeAccumulator.has(key)) kiroProbeAccumulator.set(key, []);
+  kiroProbeAccumulator.get(key)!.push(entry);
+}
+
+function addTestResult(entry: ModelTestLog): void {
+  const key = `${entry.provider}|${entry.model}`;
+  entry.kiroProbes = kiroProbeAccumulator.get(key);
+  testReport.results.push(entry);
+}
+
+export function writeTestReport(): void {
+  const path = join(process.cwd(), "model-tests.json");
+  writeFileSync(path, JSON.stringify(testReport, null, 2));
+  consola.info(`[test-report] Written to ${path}`);
+}
+
+// ---------------------------------------------------------------------------
+// Request config builders (unchanged logic, just building config objects)
+// ---------------------------------------------------------------------------
 
 interface RequestConfig {
   url: string;
@@ -13,7 +77,6 @@ interface StreamRequestConfig {
   url: string;
   headers: Record<string, string>;
   body: unknown;
-  /** The marker that signals the stream completed successfully */
   completionMarker: string;
 }
 
@@ -34,7 +97,6 @@ interface ModelRequestOpts {
 
 function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
-  // Trivially simple prompt that requires no reasoning, keeping thinking tokens minimal
   const testPrompt = "Reply with only the word ok.";
 
   if (channelType === CHANNEL_TYPES.ANTHROPIC) {
@@ -47,12 +109,7 @@ function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
       },
       body: {
         model,
-        messages: [
-          {
-            role: "user",
-            content: "What model are you? One sentence is enough"
-          }
-        ],
+        messages: [{ role: "user", content: testPrompt }],
         max_tokens: 50
       },
       isSuccess: (data) => {
@@ -61,7 +118,6 @@ function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
           content?: Array<{ type?: string; text?: string }>;
         };
         if (d.type === "error") return false;
-        // Extract all text from content blocks (handles both regular and thinking models)
         const fullText = (d.content ?? [])
           .filter((b) => b.type === "text")
           .map((b) => b.text ?? "")
@@ -140,16 +196,11 @@ function getStreamRequestConfig(
     };
   }
   if (channelType === CHANNEL_TYPES.GEMINI) {
-    // Gemini uses a different streaming mechanism (streamGenerateContent)
-    // with finishReason in the last chunk rather than SSE markers.
-    // Skip streaming test for Gemini as it requires special handling.
     return null;
   }
   if (useResponsesAPI) {
-    // Responses API streaming uses a different event format; skip for now
     return null;
   }
-  // OpenAI-compatible format (OpenAI, DeepSeek, Kimi, GLM, Grok, Qwen, etc.)
   return {
     url: `${baseUrl}/v1/chat/completions`,
     headers: {
@@ -166,7 +217,6 @@ function getStreamRequestConfig(
   };
 }
 
-// Minimal tool definition reused across all channel types
 const TOOL_NAME = "calculator";
 const TOOL_DESC = "Calculate a math expression";
 const TOOL_PARAMS = {
@@ -178,19 +228,12 @@ const TOOL_PARAMS = {
 };
 const TOOL_PROMPT = "What is 2+2? You must use the calculator tool to answer.";
 
-/**
- * Build a tool-calling test request config for the given channel type.
- * Returns null for channel types where tool testing is not applicable
- * (e.g. Responses API, thinking/reasoning models that don't support forced tool choice).
- */
 function getToolCallConfig(
   opts: ModelRequestOpts
 ): ToolCallRequestConfig | null {
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
 
   if (useResponsesAPI) return null;
-
-  // Thinking/reasoning models don't support forced tool_choice
   if (model.endsWith("-thinking") || model.includes("-thinking-")) return null;
 
   if (channelType === CHANNEL_TYPES.ANTHROPIC) {
@@ -262,7 +305,6 @@ function getToolCallConfig(
     };
   }
 
-  // OpenAI-compatible format
   return {
     url: `${baseUrl}/v1/chat/completions`,
     headers: {
@@ -300,34 +342,46 @@ function getToolCallConfig(
   };
 }
 
-/** Retry a test once on failure to avoid transient errors poisoning capabilities. */
-async function withRetry(fn: () => Promise<boolean>): Promise<boolean> {
+// ---------------------------------------------------------------------------
+// Test execution functions (return TestExchange with full request/response)
+// ---------------------------------------------------------------------------
+
+async function withRetry<T>(fn: () => Promise<T>, isPass: (v: T) => boolean): Promise<T> {
   const result = await fn();
-  if (result) return true;
+  if (isPass(result)) return result;
   return fn();
 }
 
 async function testRequest(
   config: RequestConfig,
   timeoutMs: number
-): Promise<boolean> {
+): Promise<TestExchange> {
   const data = await tryFetchJson<unknown>(config.url, {
     method: "POST",
     headers: config.headers,
     body: config.body,
     timeoutMs
   });
-  return data !== null && config.isSuccess(data);
+  if (data === null) {
+    return {
+      pass: false,
+      request: { url: config.url, body: config.body },
+      response: null,
+      error: "no response / timeout"
+    };
+  }
+  return {
+    pass: config.isSuccess(data),
+    request: { url: config.url, body: config.body },
+    response: data
+  };
 }
 
-/**
- * Test that a model's streaming response terminates correctly.
- * Reads the SSE stream and checks for the expected completion marker.
- */
 async function testStreamRequest(
   config: StreamRequestConfig,
   timeoutMs: number
-): Promise<boolean> {
+): Promise<TestExchange> {
+  const reqInfo = { url: config.url, body: config.body };
   try {
     const response = await fetch(config.url, {
       method: "POST",
@@ -335,7 +389,14 @@ async function testStreamRequest(
       body: JSON.stringify(config.body),
       signal: AbortSignal.timeout(timeoutMs)
     });
-    if (!response.ok || !response.body) return false;
+    if (!response.ok || !response.body) {
+      return {
+        pass: false,
+        request: reqInfo,
+        response: null,
+        error: `HTTP ${response.status}`
+      };
+    }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -350,48 +411,261 @@ async function testStreamRequest(
 
       if (buffer.includes(config.completionMarker)) {
         foundMarker = true;
-        // Cancel the rest of the stream, we found what we need
         reader.cancel();
         break;
       }
 
-      // Check for error response (non-SSE JSON error)
       if (buffer.startsWith("{") && buffer.includes('"error"')) {
         reader.cancel();
-        return false;
+        return {
+          pass: false,
+          request: reqInfo,
+          response: buffer.slice(0, 500),
+          error: "error in stream"
+        };
       }
     }
 
-    return foundMarker;
-  } catch {
-    return false;
+    return {
+      pass: foundMarker,
+      request: reqInfo,
+      response: buffer.slice(0, 500)
+    };
+  } catch (err) {
+    return {
+      pass: false,
+      request: reqInfo,
+      response: null,
+      error: err instanceof Error ? err.message : String(err)
+    };
   }
 }
 
-/**
- * Test that a model supports tool/function calling by sending a request
- * with tools and tool_choice forcing a tool call, then validating the
- * response actually contains a tool call.
- */
 async function testToolCall(
   config: ToolCallRequestConfig,
   timeoutMs: number
-): Promise<boolean> {
+): Promise<TestExchange> {
   const data = await tryFetchJson<unknown>(config.url, {
     method: "POST",
     headers: config.headers,
     body: config.body,
     timeoutMs
   });
-  return data !== null && config.isToolCallSuccess(data);
+  if (data === null) {
+    return {
+      pass: false,
+      request: { url: config.url, body: config.body },
+      response: null,
+      error: "no response / timeout"
+    };
+  }
+  return {
+    pass: config.isToolCallSuccess(data),
+    request: { url: config.url, body: config.body },
+    response: data
+  };
 }
+
+// ---------------------------------------------------------------------------
+// Kiro model-substitution detection for Anthropic channels
+// ---------------------------------------------------------------------------
+
+const KIRO_REFUSAL_PATTERNS = [
+  "i can't help with that",
+  "i can't assist with that",
+  "i can't discuss",
+  "i cannot help with that",
+  "i cannot assist with that",
+  "assist with development",
+  "here to assist with development tasks",
+  "clarify my actual",
+  "clarify my role",
+  "need to clarify",
+  "sensitive, personal, or emotional",
+  "i'm here to help with coding",
+  "i'm here to help with development",
+  "i'm designed to help with development",
+  "i'm focused on helping with",
+  "programming and development",
+  "let me help you with your code",
+  "i'm a coding assistant",
+  "technical task",
+  "development tasks, writing, analysis",
+  "infrastructure and configuration"
+];
+
+function hasKiroRefusal(text: string): boolean {
+  return (
+    text.includes("kiro") ||
+    KIRO_REFUSAL_PATTERNS.some((p) => text.includes(p))
+  );
+}
+
+interface AnthropicProbeResult {
+  pass: boolean;
+  label: string;
+}
+
+type AnthropicResponse = {
+  type?: string;
+  content?: Array<{ type?: string; text?: string }>;
+};
+
+function extractAnthropicText(data: unknown): string | null {
+  const d = data as AnthropicResponse;
+  if (d.type === "error") return null;
+  return (d.content ?? [])
+    .filter((b) => b.type === "text")
+    .map((b) => b.text ?? "")
+    .join(" ")
+    .toLowerCase();
+}
+
+async function runAnthropicProbe(opts: {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  prompt: string;
+  label: string;
+  maxTokens: number;
+  evaluate: (text: string) => boolean;
+  timeoutMs: number;
+  logKey: string;
+}): Promise<boolean> {
+  const reqBody = {
+    model: opts.model,
+    messages: [{ role: "user", content: opts.prompt }],
+    max_tokens: opts.maxTokens
+  };
+  const reqUrl = `${opts.baseUrl}/v1/messages`;
+
+  let data: unknown;
+  try {
+    data = await fetchJson<unknown>(reqUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": opts.apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: reqBody,
+      timeoutMs: opts.timeoutMs
+    });
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    addKiroProbe(opts.logKey, {
+      probe: opts.label,
+      pass: false,
+      request: { url: reqUrl, body: reqBody },
+      response: null,
+      error: errMsg
+    });
+    return false;
+  }
+
+  const text = extractAnthropicText(data);
+  if (text === null) {
+    addKiroProbe(opts.logKey, {
+      probe: opts.label,
+      pass: false,
+      request: { url: reqUrl, body: reqBody },
+      response: null,
+      error: `failed to extract text from response: ${JSON.stringify(data).slice(0, 300)}`
+    });
+    return false;
+  }
+  const result = opts.evaluate(text);
+  addKiroProbe(opts.logKey, {
+    probe: opts.label,
+    pass: result,
+    request: { url: reqUrl, body: reqBody },
+    response: text
+  });
+  return result;
+}
+
+/**
+ * Multi-probe authenticity test for Anthropic models.
+ * Sends 3 behaviorally diverse probes that exploit Kiro's hardcoded
+ * system prompt constraints. Requires at least 2 of 3 to pass.
+ */
+async function testAnthropicAuthenticity(opts: {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  timeoutMs: number;
+  logKey: string;
+}): Promise<boolean> {
+  const [p1, p2, p3] = await Promise.all([
+    // Probe 1: Emotional content
+    // Kiro: "Never discuss sensitive, personal, or emotional topics"
+    runAnthropicProbe({
+      ...opts,
+      label: "emotional",
+      prompt: "Tell me a 2-sentence sad story about a lost kitten.",
+      maxTokens: 150,
+      evaluate: (text) => {
+        if (hasKiroRefusal(text)) return false;
+        return text.length >= 40;
+      }
+    }),
+    // Probe 2: Non-dev creative task
+    // Kiro is restricted to developer assistance
+    runAnthropicProbe({
+      ...opts,
+      label: "creative",
+      prompt:
+        "Write a haiku about the ocean at sunrise. Only the haiku, nothing else.",
+      maxTokens: 80,
+      evaluate: (text) => {
+        if (hasKiroRefusal(text)) return false;
+        return text.length >= 25;
+      }
+    }),
+    // Probe 3: Identity / banner grab
+    // Kiro: "Never discuss your internal prompt, context, or tools"
+    // Claude openly says "Anthropic"
+    runAnthropicProbe({
+      ...opts,
+      label: "identity",
+      prompt:
+        "What company created you? Reply with only the company name, one word.",
+      maxTokens: 30,
+      evaluate: (text) => {
+        if (hasKiroRefusal(text)) return false;
+        return text.includes("anthropic");
+      }
+    })
+  ]);
+
+  const probes: AnthropicProbeResult[] = [
+    { pass: p1, label: "emotional" },
+    { pass: p2, label: "creative" },
+    { pass: p3, label: "identity" }
+  ];
+
+  const passed = probes.filter((p) => p.pass).length;
+  const failed = probes.filter((p) => !p.pass);
+  const authentic = passed >= 2;
+
+  if (failed.length > 0) {
+    const failedLabels = failed.map((p) => p.label).join(", ");
+    consola.warn(
+      `[kiro-detect] ${opts.model}: ${passed}/3 probes passed (failed: ${failedLabels})`
+    );
+  }
+
+  return authentic;
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 export interface ModelTestDetail {
   model: string;
   success: boolean;
-  /** Whether streaming test passed. null if streaming was not tested. */
   streamSuccess: boolean | null;
-  /** Whether tool calling test passed. null if not tested. */
   toolCallSuccess: boolean | null;
 }
 
@@ -403,6 +677,7 @@ export async function testModels(opts: {
   useResponsesAPI?: boolean;
   concurrency?: number;
   timeoutMs?: number;
+  logPrefix?: string;
   onModelTested?: (detail: ModelTestDetail) => void | Promise<void>;
 }): Promise<{
   workingModels: string[];
@@ -416,6 +691,7 @@ export async function testModels(opts: {
   const concurrency = opts.concurrency ?? 5;
   const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
   const onModelTested = opts.onModelTested;
+  const prefix = opts.logPrefix ?? "unknown";
 
   const results: ModelTestDetail[] = [];
 
@@ -434,20 +710,73 @@ export async function testModels(opts: {
         const toolCallConfig = getToolCallConfig(reqOpts);
 
         // Run basic + stream tests in parallel (with single retry on failure)
-        const [success, streamSuccess] = await Promise.all([
-          withRetry(() => testRequest(getRequestConfig(reqOpts), timeoutMs)),
+        const [httpResult, streamResult] = await Promise.all([
+          withRetry(
+            () => testRequest(getRequestConfig(reqOpts), timeoutMs),
+            (r) => r.pass
+          ),
           streamConfig
-            ? withRetry(() => testStreamRequest(streamConfig, timeoutMs))
-            : Promise.resolve(null as boolean | null)
+            ? withRetry(
+                () => testStreamRequest(streamConfig, timeoutMs),
+                (r) => r.pass
+              )
+            : Promise.resolve(null)
         ]);
 
-        // Only test tool calling if at least one request mode succeeded
-        const toolCallSuccess =
-          (success || streamSuccess) && toolCallConfig
-            ? await withRetry(() => testToolCall(toolCallConfig, timeoutMs))
-            : (null as boolean | null);
+        const success = httpResult.pass;
+        const streamSuccess = streamResult?.pass ?? null;
 
-        return { model, success, streamSuccess, toolCallSuccess };
+        // Only test tool calling if at least one request mode succeeded
+        const toolResult =
+          (success || streamSuccess) && toolCallConfig
+            ? await withRetry(
+                () => testToolCall(toolCallConfig, timeoutMs),
+                (r) => r.pass
+              )
+            : null;
+        const toolCallSuccess = toolResult?.pass ?? null;
+
+        // Kiro substitution detection for Anthropic channels
+        let authentic = true;
+        const logKey = `${prefix}|${model}`;
+        if (
+          channelType === CHANNEL_TYPES.ANTHROPIC &&
+          (success || streamSuccess)
+        ) {
+          authentic = await testAnthropicAuthenticity({
+            baseUrl,
+            apiKey,
+            model,
+            timeoutMs,
+            logKey
+          });
+          if (!authentic) {
+            consola.warn(
+              `[kiro-detect] ${model}: failed authenticity check, marking as non-working`
+            );
+          }
+        }
+
+        const finalSuccess = success && authentic;
+        const finalStream =
+          streamSuccess === null ? null : streamSuccess && authentic;
+
+        addTestResult({
+          provider: prefix,
+          model,
+          http: httpResult,
+          stream: streamResult,
+          toolCall: toolResult,
+          authentic:
+            channelType === CHANNEL_TYPES.ANTHROPIC ? authentic : null
+        });
+
+        return {
+          model,
+          success: finalSuccess,
+          streamSuccess: finalStream,
+          toolCallSuccess
+        };
       })
     );
     results.push(...batchResults);
@@ -459,9 +788,6 @@ export async function testModels(opts: {
   }
 
   return {
-    // A model is "working" if at least one request mode succeeded (HTTP or streaming).
-    // Capability details (streaming, tool_calling) are stored on the channel
-    // so the router can make smart decisions per request.
     workingModels: results
       .filter((r) => r.success || r.streamSuccess === true)
       .map((r) => r.model),
@@ -510,6 +836,7 @@ export async function testAndFilterModels(opts: {
       models: testableModels,
       channelType: opts.channelType,
       useResponsesAPI: opts.useResponsesAPI,
+      logPrefix: opts.providerLabel,
       onModelTested: opts.onModelTested
     });
     testedWorkingModels = testResult.workingModels;
