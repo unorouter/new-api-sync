@@ -27,6 +27,7 @@ interface KiroProbeLog {
 interface ModelTestLog {
   provider: string;
   model: string;
+  cost: number | null;
   http: TestExchange;
   stream: TestExchange | null;
   toolCall: TestExchange | null;
@@ -55,6 +56,13 @@ function addTestResult(entry: ModelTestLog): void {
   const key = `${entry.provider}|${entry.model}`;
   entry.kiroProbes = kiroProbeAccumulator.get(key);
   testReport.results.push(entry);
+}
+
+export function setTestCost(provider: string, model: string, cost: number): void {
+  const entry = testReport.results.find(
+    (r) => r.provider === provider && r.model === model
+  );
+  if (entry) entry.cost = cost;
 }
 
 export function writeTestReport(): void {
@@ -773,6 +781,7 @@ export async function testModels(opts: {
         addTestResult({
           provider: prefix,
           model,
+          cost: null,
           http: httpResult,
           stream: streamResult,
           toolCall: toolResult,

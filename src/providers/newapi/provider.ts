@@ -14,7 +14,7 @@ import {
   normalizeEndpointTypes,
   sanitizeGroupName,
 } from "@/lib/constants";
-import { testAndFilterModels, type ModelTestDetail } from "@/lib/model-tester";
+import { setTestCost, testAndFilterModels, type ModelTestDetail } from "@/lib/model-tester";
 import { resolvePriceAdjustment } from "@/lib/pricing";
 import type { GroupInfo, ProviderReport, SyncState } from "@/lib/types";
 import { consola } from "consola";
@@ -423,6 +423,7 @@ export async function processNewApiProvider(
               (modelCosts.get(detail.model) ?? 0) + cost,
             );
             groupBalanceBefore = bal;
+            setTestCost(`${providerConfig.name}/${group.name}`, detail.model, cost);
           }
         },
       });
