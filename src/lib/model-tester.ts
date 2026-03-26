@@ -1,7 +1,7 @@
 import { CHANNEL_TYPES, isTestableModel, TIMEOUTS } from "@/lib/constants";
 import { fetchJson, tryFetchJson } from "@/lib/http";
 import { consola } from "consola";
-import { writeFileSync } from "fs";
+import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 
 // ---------------------------------------------------------------------------
@@ -18,6 +18,7 @@ interface TestExchange {
 interface KiroProbeLog {
   probe: string;
   pass: boolean;
+  kiroRefusal: boolean;
   request: { url: string; body: unknown };
   response: string | null;
   error?: string;
@@ -57,7 +58,10 @@ function addTestResult(entry: ModelTestLog): void {
 }
 
 export function writeTestReport(): void {
-  const path = join(process.cwd(), "model-tests.json");
+  const logsDir = join(process.cwd(), "logs");
+  mkdirSync(logsDir, { recursive: true });
+  const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  const path = join(logsDir, `${ts}-model-tests.json`);
   writeFileSync(path, JSON.stringify(testReport, null, 2));
   consola.info(`[test-report] Written to ${path}`);
 }
@@ -501,10 +505,7 @@ function hasKiroRefusal(text: string): boolean {
   );
 }
 
-interface AnthropicProbeResult {
-  pass: boolean;
-  label: string;
-}
+
 
 type AnthropicResponse = {
   type?: string;
@@ -521,6 +522,8 @@ function extractAnthropicText(data: unknown): string | null {
     .toLowerCase();
 }
 
+type ProbeResult = { pass: boolean; kiroRefusal: boolean };
+
 async function runAnthropicProbe(opts: {
   baseUrl: string;
   apiKey: string;
@@ -531,7 +534,7 @@ async function runAnthropicProbe(opts: {
   evaluate: (text: string) => boolean;
   timeoutMs: number;
   logKey: string;
-}): Promise<boolean> {
+}): Promise<ProbeResult> {
   const reqBody = {
     model: opts.model,
     messages: [{ role: "user", content: opts.prompt }],
@@ -556,11 +559,12 @@ async function runAnthropicProbe(opts: {
     addKiroProbe(opts.logKey, {
       probe: opts.label,
       pass: false,
+      kiroRefusal: false,
       request: { url: reqUrl, body: reqBody },
       response: null,
       error: errMsg
     });
-    return false;
+    return { pass: false, kiroRefusal: false };
   }
 
   const text = extractAnthropicText(data);
@@ -568,26 +572,29 @@ async function runAnthropicProbe(opts: {
     addKiroProbe(opts.logKey, {
       probe: opts.label,
       pass: false,
+      kiroRefusal: false,
       request: { url: reqUrl, body: reqBody },
       response: null,
       error: `failed to extract text from response: ${JSON.stringify(data).slice(0, 300)}`
     });
-    return false;
+    return { pass: false, kiroRefusal: false };
   }
+  const refusal = hasKiroRefusal(text);
   const result = opts.evaluate(text);
   addKiroProbe(opts.logKey, {
     probe: opts.label,
     pass: result,
+    kiroRefusal: refusal,
     request: { url: reqUrl, body: reqBody },
     response: text
   });
-  return result;
+  return { pass: result, kiroRefusal: refusal };
 }
 
 /**
  * Multi-probe authenticity test for Anthropic models.
- * Sends 3 behaviorally diverse probes that exploit Kiro's hardcoded
- * system prompt constraints. Requires at least 2 of 3 to pass.
+ * If ANY probe detects a Kiro refusal, the model fails immediately.
+ * Otherwise, timeouts/errors are tolerated as long as 2/3 probes pass.
  */
 async function testAnthropicAuthenticity(opts: {
   baseUrl: string;
@@ -596,7 +603,7 @@ async function testAnthropicAuthenticity(opts: {
   timeoutMs: number;
   logKey: string;
 }): Promise<boolean> {
-  const [p1, p2, p3] = await Promise.all([
+  const [r1, r2, r3] = await Promise.all([
     // Probe 1: Emotional content
     // Kiro: "Never discuss sensitive, personal, or emotional topics"
     runAnthropicProbe({
@@ -638,24 +645,29 @@ async function testAnthropicAuthenticity(opts: {
     })
   ]);
 
-  const probes: AnthropicProbeResult[] = [
-    { pass: p1, label: "emotional" },
-    { pass: p2, label: "creative" },
-    { pass: p3, label: "identity" }
+  const results = [
+    { ...r1, label: "emotional" },
+    { ...r2, label: "creative" },
+    { ...r3, label: "identity" }
   ];
 
-  const passed = probes.filter((p) => p.pass).length;
-  const failed = probes.filter((p) => !p.pass);
-  const authentic = passed >= 2;
-
-  if (failed.length > 0) {
-    const failedLabels = failed.map((p) => p.label).join(", ");
-    consola.warn(
-      `[kiro-detect] ${opts.model}: ${passed}/3 probes passed (failed: ${failedLabels})`
-    );
+  // Any confirmed Kiro refusal = immediate fail, regardless of other probes
+  const kiroDetected = results.some((r) => r.kiroRefusal);
+  if (kiroDetected) {
+    const refusalLabels = results.filter((r) => r.kiroRefusal).map((r) => r.label).join(", ");
+    consola.warn(`[kiro-detect] ${opts.model}: Kiro refusal on: ${refusalLabels}, rejected`);
+    return false;
   }
 
-  return authentic;
+  // No Kiro refusal found; tolerate timeouts if 2/3 probes passed
+  const passed = results.filter((r) => r.pass).length;
+  const failed = results.filter((r) => !r.pass);
+  if (failed.length > 0) {
+    const failedLabels = failed.map((r) => r.label).join(", ");
+    consola.warn(`[kiro-detect] ${opts.model}: ${passed}/3 probes passed (failed: ${failedLabels})`);
+  }
+
+  return passed >= 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -750,11 +762,7 @@ export async function testModels(opts: {
             timeoutMs,
             logKey
           });
-          if (!authentic) {
-            consola.warn(
-              `[kiro-detect] ${model}: failed authenticity check, marking as non-working`
-            );
-          }
+          // kiro-detect warnings are logged inside testAnthropicAuthenticity
         }
 
         const finalSuccess = success && authentic;
