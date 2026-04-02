@@ -458,16 +458,46 @@ export function inferChannelType(endpoints: string[]): number {
 }
 
 /**
- * Infer channel type from model names using vendor detection.
- * Falls back to endpoint-based inference if vendor can't be determined.
- * This avoids misclassification when models support multiple endpoint types
- * (e.g. GPT models with both openai and anthropic endpoints).
+ * Infer channel type from model endpoint data and vendor name detection.
+ *
+ * When the upstream only exposes OpenAI-compatible endpoints (openai / openai-response),
+ * always return OPENAI — using a vendor-native adaptor (e.g. ZhipuV4 which constructs
+ * /api/paas/v4/... paths) against an OpenAI-compatible reseller causes 404s.
+ *
+ * When the upstream reports vendor-specific endpoints (anthropic, gemini, etc.),
+ * prefer vendor name inference to pick the best adaptor (e.g. Claude models with
+ * ["anthropic","openai"] endpoints should use the anthropic adaptor, not openai).
  */
 export function inferChannelTypeFromModels(
   models: string[],
   modelEndpoints: Map<string, string[]>,
 ): number {
-  // Count vendor occurrences among the models
+  // Collect all endpoint types reported by the upstream for these models
+  const endpoints = new Set<string>();
+  for (const model of models) {
+    const eps = modelEndpoints.get(model);
+    if (eps) {
+      for (const ep of eps) endpoints.add(ep);
+    }
+  }
+
+  if (endpoints.size > 0) {
+    // If the upstream only exposes OpenAI-compatible endpoints, use OPENAI.
+    // This prevents vendor-native adaptors (ZhipuV4, DeepSeek, etc.) from
+    // constructing wrong URLs against OpenAI-compatible resellers.
+    const openaiOnly = [...endpoints].every(
+      (ep) => ep === "openai" || ep === "openai-response",
+    );
+    if (openaiOnly) {
+      return CHANNEL_TYPES.OPENAI;
+    }
+
+    // Vendor-specific endpoints present — use vendor name inference for
+    // the best adaptor match (handles cases like Claude models supporting
+    // both anthropic and openai endpoints).
+  }
+
+  // Vendor name inference: pick the most common vendor among the models
   const vendorCounts = new Map<string, number>();
   for (const model of models) {
     const vendor = inferVendorFromModelName(model);
@@ -476,7 +506,6 @@ export function inferChannelTypeFromModels(
     }
   }
 
-  // Pick the most common vendor
   let topVendor: string | undefined;
   let topCount = 0;
   for (const [vendor, count] of vendorCounts) {
@@ -486,7 +515,6 @@ export function inferChannelTypeFromModels(
     }
   }
 
-  // Map vendor to channel type via registry
   if (topVendor) {
     const channelType = VENDOR_CHANNEL_TYPES[topVendor];
     if (channelType !== undefined) {
@@ -494,18 +522,7 @@ export function inferChannelTypeFromModels(
     }
   }
 
-  // Fallback: use endpoint-based inference from filtered models
-  const endpoints = new Set<string>();
-  for (const model of models) {
-    const eps = modelEndpoints.get(model);
-    if (eps) {
-      for (const ep of eps) endpoints.add(ep);
-    }
-  }
-  if (endpoints.size > 0) {
-    return inferChannelType(Array.from(endpoints));
-  }
-
+  // No endpoint data and no vendor match — default to OpenAI
   return CHANNEL_TYPES.OPENAI;
 }
 

@@ -372,6 +372,9 @@ export async function processNewApiProvider(
     // Track used sanitized names to disambiguate collisions from Chinese-only group names
     const usedSanitizedNames = new Map<string, number>();
 
+    // Running balance across groups so per-model costs are accurate
+    let runningBalance = startBalance;
+
     for (const group of groups) {
       const originalName = `${group.name}-${providerConfig.name}`;
       let sanitizedName = sanitizeGroupName(originalName);
@@ -399,7 +402,6 @@ export async function processNewApiProvider(
       // upstream provider recognises them.  Mapping is only for our target.
       const apiKey = tokenResult.tokens[group.name] ?? "";
       const modelCosts = new Map<string, number>();
-      let groupBalanceBefore = startBalance;
       const filterResult = await testAndFilterModels({
         allModels: candidateModels,
         baseUrl: providerConfig.baseUrl,
@@ -411,18 +413,18 @@ export async function processNewApiProvider(
         onModelTested: async (detail) => {
           if (
             (!detail.success && detail.streamSuccess !== true) ||
-            groupBalanceBefore === null
+            runningBalance === null
           )
             return;
           const bal = await upstream.fetchBalance();
           if (bal === null) return;
-          const cost = groupBalanceBefore - bal;
+          const cost = runningBalance - bal;
           if (cost > 0) {
             modelCosts.set(
               detail.model,
               (modelCosts.get(detail.model) ?? 0) + cost,
             );
-            groupBalanceBefore = bal;
+            runningBalance = bal;
             setTestCost(`${providerConfig.name}/${group.name}`, detail.model, cost);
           }
         },
