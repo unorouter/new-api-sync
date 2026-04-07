@@ -1,5 +1,5 @@
 import {
-  shouldSkipTesting,
+  getTestModelTypes,
   type RuntimeConfig,
   type Sub2ApiProviderConfig,
 } from "@/config";
@@ -189,7 +189,7 @@ export async function processSub2ApiProvider(
         apiKey: groupInfo.apiKey,
         channelType,
         providerLabel: `${providerConfig.name}/${groupInfo.platform}`,
-        skipTesting: shouldSkipTesting(config, providerConfig),
+        testableModelTypes: getTestModelTypes(config, providerConfig),
         useResponsesAPI,
       });
       const workingModels = filterResult.workingModels;

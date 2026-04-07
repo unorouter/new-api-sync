@@ -1,5 +1,5 @@
 import {
-  shouldSkipTesting,
+  getTestModelTypes,
   type DirectProviderConfig,
   type RuntimeConfig,
 } from "@/config";
@@ -69,7 +69,7 @@ export async function processDirectProvider(
       apiKey: providerConfig.apiKey,
       channelType,
       providerLabel: providerConfig.name,
-      skipTesting: shouldSkipTesting(config, providerConfig),
+      testableModelTypes: getTestModelTypes(config, providerConfig),
     });
     const workingModels = filterResult.workingModels;
 

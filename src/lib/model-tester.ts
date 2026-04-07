@@ -1,7 +1,13 @@
-import { CHANNEL_TYPES, isTestableModel, TIMEOUTS } from "@/lib/constants";
+import type { ModelType } from "@/lib/constants";
+import {
+  CHANNEL_TYPES,
+  inferModelType,
+  isTestableModel,
+  TIMEOUTS
+} from "@/lib/constants";
 import { fetchJson, tryFetchJson } from "@/lib/http";
 import { consola } from "consola";
-import { mkdirSync, writeFileSync } from "fs";
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
 // ---------------------------------------------------------------------------
@@ -58,7 +64,11 @@ function addTestResult(entry: ModelTestLog): void {
   testReport.results.push(entry);
 }
 
-export function setTestCost(provider: string, model: string, cost: number): void {
+export function setTestCost(
+  provider: string,
+  model: string,
+  cost: number
+): void {
   const entry = testReport.results.find(
     (r) => r.provider === provider && r.model === model
   );
@@ -72,6 +82,32 @@ export function writeTestReport(): void {
   const path = join(logsDir, `${ts}-model-tests.json`);
   writeFileSync(path, JSON.stringify(testReport, null, 2));
   consola.info(`[test-report] Written to ${path}`);
+}
+
+export function initTestReportForDate(): void {
+  const today = new Date().toISOString().slice(0, 10);
+  const path = join(process.cwd(), "logs", `${today}-model-tests.json`);
+  try {
+    const raw = readFileSync(path, "utf8");
+    const existing = JSON.parse(raw) as TestReport;
+    testReport.results = existing.results.filter((r) => r.http.pass);
+    consola.info(
+      `[test-report] Resumed from ${path} (${testReport.results.length} already passed)`
+    );
+  } catch {
+    // File doesn't exist yet — start fresh
+  }
+}
+
+export function writeTestReportForDate(): void {
+  const today = new Date().toISOString().slice(0, 10);
+  const logsDir = join(process.cwd(), "logs");
+  mkdirSync(logsDir, { recursive: true });
+  const path = join(logsDir, `${today}-model-tests.json`);
+  writeFileSync(path, JSON.stringify(testReport, null, 2));
+  consola.info(
+    `[test-report] Written to ${path} (${testReport.results.length} results)`
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -355,10 +391,73 @@ function getToolCallConfig(
 }
 
 // ---------------------------------------------------------------------------
+// Non-text (image / video / embedding / audio) test request config builders
+// ---------------------------------------------------------------------------
+
+function getImageTestConfig(opts: ModelRequestOpts): RequestConfig {
+  return {
+    url: `${opts.baseUrl}/v1/images/generations`,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${opts.apiKey}`
+    },
+    body: {
+      model: opts.model,
+      prompt: "a tiny red circle",
+      n: 1,
+      size: "256x256"
+    },
+    isSuccess: (data) => !(data as { error?: unknown }).error
+  };
+}
+
+function getVideoTestConfig(opts: ModelRequestOpts): RequestConfig {
+  return {
+    url: `${opts.baseUrl}/v1/videos`,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${opts.apiKey}`
+    },
+    body: { model: opts.model, prompt: "a slow pan over a landscape" },
+    isSuccess: (data) => !(data as { error?: unknown }).error
+  };
+}
+
+function getEmbeddingTestConfig(opts: ModelRequestOpts): RequestConfig {
+  return {
+    url: `${opts.baseUrl}/v1/embeddings`,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${opts.apiKey}`
+    },
+    body: { model: opts.model, input: "test" },
+    isSuccess: (data) => {
+      const d = data as { error?: unknown; data?: unknown[] };
+      return !d.error && Array.isArray(d.data);
+    }
+  };
+}
+
+function getAudioTestConfig(opts: ModelRequestOpts): RequestConfig {
+  return {
+    url: `${opts.baseUrl}/v1/audio/speech`,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${opts.apiKey}`
+    },
+    body: { model: opts.model, input: "test", voice: "alloy" },
+    isSuccess: (data) => !(data as { error?: unknown }).error
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Test execution functions (return TestExchange with full request/response)
 // ---------------------------------------------------------------------------
 
-async function withRetry<T>(fn: () => Promise<T>, isPass: (v: T) => boolean): Promise<T> {
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  isPass: (v: T) => boolean
+): Promise<T> {
   const result = await fn();
   if (isPass(result)) return result;
   return fn();
@@ -508,12 +607,9 @@ const KIRO_REFUSAL_PATTERNS = [
 
 function hasKiroRefusal(text: string): boolean {
   return (
-    text.includes("kiro") ||
-    KIRO_REFUSAL_PATTERNS.some((p) => text.includes(p))
+    text.includes("kiro") || KIRO_REFUSAL_PATTERNS.some((p) => text.includes(p))
   );
 }
-
-
 
 type AnthropicResponse = {
   type?: string;
@@ -662,8 +758,13 @@ async function testAnthropicAuthenticity(opts: {
   // Any confirmed Kiro refusal = immediate fail, regardless of other probes
   const kiroDetected = results.some((r) => r.kiroRefusal);
   if (kiroDetected) {
-    const refusalLabels = results.filter((r) => r.kiroRefusal).map((r) => r.label).join(", ");
-    consola.warn(`[kiro-detect] ${opts.model}: Kiro refusal on: ${refusalLabels}, rejected`);
+    const refusalLabels = results
+      .filter((r) => r.kiroRefusal)
+      .map((r) => r.label)
+      .join(", ");
+    consola.warn(
+      `[kiro-detect] ${opts.model}: Kiro refusal on: ${refusalLabels}, rejected`
+    );
     return false;
   }
 
@@ -672,7 +773,9 @@ async function testAnthropicAuthenticity(opts: {
   const failed = results.filter((r) => !r.pass);
   if (failed.length > 0) {
     const failedLabels = failed.map((r) => r.label).join(", ");
-    consola.warn(`[kiro-detect] ${opts.model}: ${passed}/3 probes passed (failed: ${failedLabels})`);
+    consola.warn(
+      `[kiro-detect] ${opts.model}: ${passed}/3 probes passed (failed: ${failedLabels})`
+    );
   }
 
   return passed >= 2;
@@ -698,6 +801,7 @@ export async function testModels(opts: {
   concurrency?: number;
   timeoutMs?: number;
   logPrefix?: string;
+  modelEndpoints?: Map<string, string[]>;
   onModelTested?: (detail: ModelTestDetail) => void | Promise<void>;
 }): Promise<{
   workingModels: string[];
@@ -719,6 +823,20 @@ export async function testModels(opts: {
     const batch = models.slice(i, i + concurrency);
     const batchResults = await Promise.all(
       batch.map(async (model) => {
+        // Skip if already passing from today's daily log (loaded by initTestReportForDate)
+        const existingPass = testReport.results.find(
+          (r) => r.provider === prefix && r.model === model && r.http.pass
+        );
+        if (existingPass) {
+          consola.debug(`[${prefix}] ${model}: already passed, skipping`);
+          return {
+            model,
+            success: true,
+            streamSuccess: existingPass.stream?.pass ?? null,
+            toolCallSuccess: existingPass.toolCall?.pass ?? null
+          };
+        }
+
         const reqOpts: ModelRequestOpts = {
           baseUrl,
           apiKey,
@@ -726,27 +844,55 @@ export async function testModels(opts: {
           channelType,
           useResponsesAPI
         };
-        const streamConfig = getStreamRequestConfig(reqOpts);
-        const toolCallConfig = getToolCallConfig(reqOpts);
 
-        // Run basic + stream tests in parallel (with single retry on failure)
-        const [httpResult, streamResult] = await Promise.all([
-          withRetry(
+        const modelType = inferModelType(model, undefined, opts.modelEndpoints);
+        const isNonTextModel = modelType !== "text";
+
+        let httpResult: TestExchange;
+        if (modelType === "image") {
+          httpResult = await withRetry(
+            () => testRequest(getImageTestConfig(reqOpts), timeoutMs),
+            (r) => r.pass
+          );
+        } else if (modelType === "video") {
+          httpResult = await withRetry(
+            () => testRequest(getVideoTestConfig(reqOpts), timeoutMs),
+            (r) => r.pass
+          );
+        } else if (modelType === "embedding") {
+          httpResult = await withRetry(
+            () => testRequest(getEmbeddingTestConfig(reqOpts), timeoutMs),
+            (r) => r.pass
+          );
+        } else if (modelType === "audio") {
+          httpResult = await withRetry(
+            () => testRequest(getAudioTestConfig(reqOpts), timeoutMs),
+            (r) => r.pass
+          );
+        } else {
+          httpResult = await withRetry(
             () => testRequest(getRequestConfig(reqOpts), timeoutMs),
             (r) => r.pass
-          ),
-          streamConfig
-            ? withRetry(
-                () => testStreamRequest(streamConfig, timeoutMs),
-                (r) => r.pass
-              )
-            : Promise.resolve(null)
-        ]);
+          );
+        }
 
         const success = httpResult.pass;
+
+        // Stream and tool call only apply to text models
+        const streamConfig = isNonTextModel
+          ? null
+          : getStreamRequestConfig(reqOpts);
+        const streamResult = streamConfig
+          ? await withRetry(
+              () => testStreamRequest(streamConfig, timeoutMs),
+              (r) => r.pass
+            )
+          : null;
         const streamSuccess = streamResult?.pass ?? null;
 
-        // Only test tool calling if at least one request mode succeeded
+        const toolCallConfig = isNonTextModel
+          ? null
+          : getToolCallConfig(reqOpts);
         const toolResult =
           (success || streamSuccess) && toolCallConfig
             ? await withRetry(
@@ -771,7 +917,6 @@ export async function testModels(opts: {
             timeoutMs,
             logKey
           });
-          // kiro-detect warnings are logged inside testAnthropicAuthenticity
         }
 
         const finalSuccess = success && authentic;
@@ -786,7 +931,10 @@ export async function testModels(opts: {
           stream: streamResult,
           toolCall: toolResult,
           authentic:
-            channelType === CHANNEL_TYPES.ANTHROPIC && model.startsWith("claude-") ? authentic : null
+            channelType === CHANNEL_TYPES.ANTHROPIC &&
+            model.startsWith("claude-")
+              ? authentic
+              : null
         });
 
         return {
@@ -823,7 +971,7 @@ export async function testAndFilterModels(opts: {
   apiKey: string;
   channelType: number;
   providerLabel: string;
-  skipTesting: boolean;
+  testableModelTypes: Set<ModelType>;
   modelEndpoints?: Map<string, string[]>;
   useResponsesAPI?: boolean;
   onModelTested?: (detail: ModelTestDetail) => void | Promise<void>;
@@ -832,17 +980,24 @@ export async function testAndFilterModels(opts: {
   testedCount: number;
   details?: ModelTestDetail[];
 }> {
-  const testableModels = opts.allModels.filter((m) =>
-    isTestableModel(m, undefined, opts.modelEndpoints)
-  );
+  const skipTesting = opts.testableModelTypes.size === 0;
+
+  const testableModels = opts.allModels.filter((m) => {
+    const modelType = inferModelType(m, undefined, opts.modelEndpoints);
+    // Non-text model explicitly opted in
+    if (modelType !== "text" && opts.testableModelTypes.has(modelType))
+      return true;
+    // Standard testability check for text models
+    return isTestableModel(m, undefined, opts.modelEndpoints);
+  });
   const nonTestableModels = opts.allModels.filter(
-    (m) => !isTestableModel(m, undefined, opts.modelEndpoints)
+    (m) => !testableModels.includes(m)
   );
 
   let testedWorkingModels: string[] = [];
   let details: ModelTestDetail[] | undefined;
 
-  if (opts.skipTesting) {
+  if (skipTesting) {
     testedWorkingModels = testableModels;
     consola.info(
       `[${opts.providerLabel}] ${testableModels.length} models (testing skipped)`
@@ -854,6 +1009,7 @@ export async function testAndFilterModels(opts: {
       models: testableModels,
       channelType: opts.channelType,
       useResponsesAPI: opts.useResponsesAPI,
+      modelEndpoints: opts.modelEndpoints,
       logPrefix: opts.providerLabel,
       onModelTested: opts.onModelTested
     });

@@ -298,6 +298,28 @@ export class NewApiClient {
     return true;
   }
 
+  async getTokenFullKey(id: number): Promise<string | null> {
+    const data = await tryFetchJson<{
+      success: boolean;
+      data?: { key: string };
+    }>(`${this.baseUrl}/api/token/${id}/key`, {
+      method: "POST",
+      headers: this.headers,
+    });
+    if (!data?.success || !data.data?.key) return null;
+    return data.data.key;
+  }
+
+  private isMaskedKey(key: string): boolean {
+    return key.includes("**");
+  }
+
+  private async resolveFullKey(token: UpstreamToken): Promise<string | null> {
+    const k = token.key;
+    if (!this.isMaskedKey(k)) return k;
+    return this.getTokenFullKey(token.id);
+  }
+
   async ensureTokens(
     groups: GroupInfo[],
     prefix: string,
@@ -359,7 +381,14 @@ export class NewApiClient {
       const existingToken = tokensByName.get(tokenName);
 
       if (existingToken) {
-        result[group.name] = normalizeKey(existingToken.key);
+        const fullKey = await this.resolveFullKey(existingToken);
+        if (!fullKey) {
+          consola.warn(
+            `[${this.name}] Could not retrieve full key for existing token "${tokenName}"`,
+          );
+          continue;
+        }
+        result[group.name] = normalizeKey(fullKey);
         existing++;
       } else {
         if (!(await this.createToken(tokenName, group.name))) continue;
@@ -372,7 +401,14 @@ export class NewApiClient {
           );
           continue;
         }
-        result[group.name] = normalizeKey(newToken.key);
+        const fullKey = await this.resolveFullKey(newToken);
+        if (!fullKey) {
+          consola.warn(
+            `[${this.name}] Could not retrieve full key for new token "${tokenName}"`,
+          );
+          continue;
+        }
+        result[group.name] = normalizeKey(fullKey);
       }
     }
 

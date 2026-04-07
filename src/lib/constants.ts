@@ -243,7 +243,8 @@ const NAME_PATTERN_TYPES: [string, ModelType][] = [
 
 export const NON_TEXT_MODEL_PATTERNS = NAME_PATTERN_TYPES.map(([p]) => p);
 
-export type ModelType = "image" | "video" | "audio" | "embedding" | "text";
+export const MODEL_TYPES = ["text", "image", "video", "audio", "embedding"] as const;
+export type ModelType = (typeof MODEL_TYPES)[number];
 
 // Exact endpoint type → model type mapping
 const ENDPOINT_TO_MODEL_TYPE: Record<string, ModelType> = {
@@ -540,7 +541,7 @@ export function inferVendorFromModelName(name: string): string | undefined {
 }
 
 // Endpoint types that indicate a model should NOT be tested with chat completions.
-const NON_TESTABLE_ENDPOINT_TYPES = new Set([
+export const NON_TESTABLE_ENDPOINT_TYPES = new Set([
   "image-generation",
   "dall-e-3",
   "embeddings",

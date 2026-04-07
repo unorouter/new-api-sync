@@ -1,10 +1,11 @@
+import { MODEL_TYPES, type ModelType } from "@/lib/constants";
 import { z, ZodError } from "zod/v4";
 
 // ============ Schema ============
 
 const str = z.string().trim().min(1);
 
-const NON_TEXT_TYPES = new Set(["image", "video", "audio", "embedding"]);
+const NON_TEXT_TYPES: Set<string> = new Set(MODEL_TYPES.filter((t) => t !== "text"));
 const PriceAdjustmentValue = z.number().gt(-1).lte(1);
 const PriceAdjustmentSchema = z.union([
   z.number().gt(-1).lt(1),
@@ -41,10 +42,11 @@ const EnabledModelEntrySchema = z.union([
   ModelPricingDetailSchema,
 ]);
 
+const ModelTypeEnum = z.enum(MODEL_TYPES);
+
 const ProviderCommon = z.object({
   name: str,
-  skipTesting: z.boolean().optional(),
-  enabledGroups: z.array(str).optional(),
+  testModelTypes: z.array(ModelTypeEnum).optional(),
   enabledVendors: z.array(str).optional(),
   enabledModels: z.array(EnabledModelEntrySchema).optional(),
   priceAdjustment: PriceAdjustmentSchema.optional(),
@@ -125,7 +127,7 @@ const ConfigSchema = z
       userId: z.number().int().positive(),
       targetPrefix: str.optional(),
     }),
-    skipTesting: z.boolean().default(false),
+    testModelTypes: z.array(ModelTypeEnum).optional(),
     blacklist: z.array(str).default([]),
     modelMapping: z.record(z.string(), z.string()).default({}),
     providers: z
@@ -154,6 +156,7 @@ const ConfigSchema = z
 
 export interface RuntimeConfig extends z.output<typeof ConfigSchema> {
   onlyProviders?: Set<string>;
+  isTestMode?: boolean;
 }
 
 // ============ Loader ============
@@ -198,12 +201,16 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
   return parsed.data;
 }
 
-/** Provider-level skipTesting overrides global; defaults to false. */
-export function shouldSkipTesting(
+/** Returns the effective set of model types to test for a provider.
+ * Provider-level overrides global; default is text-only.
+ * Empty array means skip all testing (replaces skipTesting: true). */
+export function getTestModelTypes(
   config: RuntimeConfig,
   provider: AnyProviderConfig,
-): boolean {
-  return provider.skipTesting ?? config.skipTesting;
+): Set<ModelType> {
+  const types = provider.testModelTypes ?? config.testModelTypes;
+  if (types !== undefined) return new Set(types as ModelType[]);
+  return new Set<ModelType>(["text"]);
 }
 
 export function applyOnlyProviders(

@@ -1,6 +1,6 @@
 import {
   getEnabledModelGlobs,
-  shouldSkipTesting,
+  getTestModelTypes,
   type ProviderConfig,
   type RuntimeConfig,
 } from "@/config";
@@ -269,27 +269,17 @@ export async function processNewApiProvider(
         )
         .map((m) => m.name),
     );
-    const enabledSet = new Set(providerConfig.enabledGroups ?? []);
-    const suggestedGroups = pricing.groups.filter((g) => {
-      const hasAnthropicModel = g.models.some((m) => anthropicModels.has(m));
-      const notEnabled = !enabledSet.has(g.name);
-      return hasAnthropicModel && notEnabled;
-    });
+    const suggestedGroups = pricing.groups.filter((g) =>
+      g.models.some((m) => anthropicModels.has(m)),
+    );
 
-    if (suggestedGroups.length > 0 && providerConfig.enabledGroups?.length) {
-      consola.info(
-        `[${providerConfig.name}] Groups with Claude models (not in config): ${suggestedGroups.map((g) => g.name).join(", ")}`,
+    if (suggestedGroups.length > 0) {
+      consola.debug(
+        `[${providerConfig.name}] Groups with Claude models: ${suggestedGroups.map((g) => g.name).join(", ")}`,
       );
     }
 
     let groups: GroupInfo[] = pricing.groups;
-
-    // Filter by enabledGroups if specified
-    if (providerConfig.enabledGroups?.length) {
-      groups = groups.filter((g) =>
-        providerConfig.enabledGroups!.includes(g.name),
-      );
-    }
 
     // Filter by enabledVendors if specified
     if (providerConfig.enabledVendors?.length) {
@@ -332,22 +322,25 @@ export async function processNewApiProvider(
     // Skip groups whose effective ratio after priceAdjustment exceeds 1.
     // With per-vendor adjustments, use the lowest adjustment (biggest discount) to decide
     // whether the entire group is too expensive. Per-vendor filtering happens later.
-    const adj = providerConfig.priceAdjustment;
-    const minAdjustment =
-      adj === undefined
-        ? 0
-        : typeof adj === "number"
-          ? adj
-          : Math.min(...Object.values(adj));
-    const effectiveMultiplier = 1 + minAdjustment;
-    const highRatioGroups = groups.filter(
-      (g) => g.ratio * effectiveMultiplier >= 1,
-    );
-    if (highRatioGroups.length > 0) {
-      consola.info(
-        `[${providerConfig.name}] Skipping ${highRatioGroups.length} group(s) with effective ratio >= 1: ${highRatioGroups.map((g) => `${g.name} (${g.ratio} × ${effectiveMultiplier.toFixed(2)} = ${(g.ratio * effectiveMultiplier).toFixed(2)})`).join(", ")}`,
+    // In test mode this filter is bypassed so all groups get tested regardless of cost.
+    if (!config.isTestMode) {
+      const adj = providerConfig.priceAdjustment;
+      const minAdjustment =
+        adj === undefined
+          ? 0
+          : typeof adj === "number"
+            ? adj
+            : Math.min(...Object.values(adj));
+      const effectiveMultiplier = 1 + minAdjustment;
+      const highRatioGroups = groups.filter(
+        (g) => g.ratio * effectiveMultiplier >= 1,
       );
-      groups = groups.filter((g) => g.ratio * effectiveMultiplier < 1);
+      if (highRatioGroups.length > 0) {
+        consola.info(
+          `[${providerConfig.name}] Skipping ${highRatioGroups.length} group(s) with effective ratio >= 1: ${highRatioGroups.map((g) => `${g.name} (${g.ratio} × ${effectiveMultiplier.toFixed(2)} = ${(g.ratio * effectiveMultiplier).toFixed(2)})`).join(", ")}`,
+        );
+        groups = groups.filter((g) => g.ratio * effectiveMultiplier < 1);
+      }
     }
 
     const tokenPrefix = config.target.targetPrefix ?? providerConfig.name;
@@ -408,7 +401,7 @@ export async function processNewApiProvider(
         apiKey,
         channelType: group.channelType,
         providerLabel: `${providerConfig.name}/${group.name}`,
-        skipTesting: shouldSkipTesting(config, providerConfig),
+        testableModelTypes: getTestModelTypes(config, providerConfig),
         modelEndpoints: state.modelEndpoints,
         onModelTested: async (detail) => {
           if (
@@ -483,12 +476,14 @@ export async function processNewApiProvider(
       });
     }
 
-    await cleanupEmptyGroupTokens(
-      upstream,
-      groupsWithNoWorkingModels,
-      tokenPrefix,
-      providerReport,
-    );
+    if (!config.isTestMode) {
+      await cleanupEmptyGroupTokens(
+        upstream,
+        groupsWithNoWorkingModels,
+        tokenPrefix,
+        providerReport,
+      );
+    }
 
     for (const model of pricing.models) {
       const existing = state.mergedModels.get(model.name);

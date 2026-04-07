@@ -1,6 +1,7 @@
 import { applyOnlyProviders, loadConfig } from "@/config";
 import { runReset } from "@/core/reset";
 import { printResetSummary, printRunSummary, runSync } from "@/core/run";
+import { runTestPipeline } from "@/core/test-runner";
 import { Command } from "commander";
 import { consola } from "consola";
 
@@ -51,6 +52,29 @@ program
     );
     const result = await runReset(config);
     printResetSummary(result);
+  });
+
+program
+  .command("test")
+  .description("test models without applying changes to the target")
+  .option("-c, --config <path>", "config file path")
+  .option(
+    "--only <providers>",
+    "comma-separated provider names",
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[],
+  )
+  .option("-v, --verbose", "enable debug logging")
+  .action(async (options: { config?: string; only: string[]; verbose?: boolean }) => {
+    if (options.verbose) consola.level = 4;
+    const config = applyOnlyProviders(
+      await loadConfig(options.config),
+      options.only,
+    );
+    const success = await runTestPipeline(config);
+    if (!success) {
+      process.exitCode = 1;
+    }
   });
 
 program.parseAsync(process.argv).catch((error: unknown) => {
