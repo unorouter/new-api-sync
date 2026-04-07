@@ -1,6 +1,7 @@
 import {
   getPricingGridFromEnabledModels,
   type DirectProviderConfig,
+  type NvidiaProviderConfig,
   type ProviderConfig,
   type RuntimeConfig,
   type Sub2ApiProviderConfig,
@@ -31,6 +32,7 @@ import type {
 import { NewApiClient } from "@/providers/newapi/client";
 import { processDirectProvider } from "@/providers/direct/provider";
 import { processNewApiProvider } from "@/providers/newapi/provider";
+import { processNvidiaProvider } from "@/providers/nvidia/provider";
 import { processSub2ApiProvider } from "@/providers/sub2api/provider";
 import { consola } from "consola";
 
@@ -146,7 +148,7 @@ function buildOptionMaps(
     if (ratios.imageRatio !== undefined && ratios.imageRatio > 0) {
       imageRatio[mappedName] = Math.round(ratios.imageRatio * 10000) / 10000;
     }
-    if (ratios.quotaType !== undefined && ratios.quotaType >= 2) {
+    if (ratios.quotaType !== undefined && ratios.quotaType >= 1) {
       modelQuotaType[mappedName] = ratios.quotaType;
     }
   }
@@ -380,27 +382,23 @@ export async function runProviderPipeline(
   ]);
 
   // Process providers (newapi first, then direct, then sub2api last)
-  const typeOrder: Record<string, number> = { newapi: 0, direct: 1, sub2api: 2 };
+  const typeOrder: Record<string, number> = { newapi: 0, nvidia: 1, direct: 2, sub2api: 3 };
   const sorted = [...config.providers].sort(
-    (a, b) => (typeOrder[a.type] ?? 1) - (typeOrder[b.type] ?? 1),
+    (a, b) => (typeOrder[a.type] ?? 2) - (typeOrder[b.type] ?? 2),
   );
   const providerReports: ProviderReport[] = [];
   for (const [i, provider] of sorted.entries()) {
     if (i > 0) console.log();
-    const report =
-      provider.type === "newapi"
-        ? await processNewApiProvider(provider as ProviderConfig, config, state)
-        : provider.type === "direct"
-          ? await processDirectProvider(
-              provider as DirectProviderConfig,
-              config,
-              state,
-            )
-          : await processSub2ApiProvider(
-              provider as Sub2ApiProviderConfig,
-              config,
-              state,
-            );
+    let report: ProviderReport;
+    if (provider.type === "newapi") {
+      report = await processNewApiProvider(provider as ProviderConfig, config, state);
+    } else if (provider.type === "nvidia") {
+      report = await processNvidiaProvider(provider as NvidiaProviderConfig, config, state);
+    } else if (provider.type === "direct") {
+      report = await processDirectProvider(provider as DirectProviderConfig, config, state);
+    } else {
+      report = await processSub2ApiProvider(provider as Sub2ApiProviderConfig, config, state);
+    }
     providerReports.push(report);
   }
 

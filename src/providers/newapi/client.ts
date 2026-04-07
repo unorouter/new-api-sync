@@ -611,6 +611,22 @@ export class NewApiClient {
     return data?.data ?? null;
   }
 
+  async updateVendor(vendor: {
+    id: number;
+    name: string;
+    icon?: string;
+  }): Promise<boolean> {
+    const data = await tryFetchJson<ApiResponse>(
+      `${this.baseUrl}/api/vendors/`,
+      {
+        method: "PUT",
+        headers: this.headers,
+        body: vendor,
+      },
+    );
+    return data?.success ?? false;
+  }
+
   async cleanupOrphanedModels(): Promise<number> {
     const data = await tryFetchJson<ApiResponse<{ deleted: number }>>(
       `${this.baseUrl}/api/models/orphaned`,

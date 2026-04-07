@@ -25,6 +25,7 @@ function filterGroupModels(
   models: string[],
   config: RuntimeConfig,
   providerConfig: ProviderConfig,
+  groupName: string,
 ): string[] {
   // Blacklist only applies to text models — image/video/audio/embedding are never blacklisted
   let result = models.filter(
@@ -32,23 +33,47 @@ function filterGroupModels(
       inferModelType(modelName) !== "text" ||
       !matchesBlacklist(modelName, config.blacklist, providerConfig.name),
   );
+  const blacklisted = models.filter((m) => !result.includes(m));
+  if (blacklisted.length > 0) {
+    consola.debug(
+      `[${providerConfig.name}/${groupName}] Blacklisted: ${blacklisted.join(", ")}`,
+    );
+  }
 
   if (providerConfig.enabledVendors?.length) {
     const vendorSet = new Set(
       providerConfig.enabledVendors.map((v) => v.toLowerCase()),
     );
+    const before = result;
     result = result.filter((modelName) => {
       const vendor = inferVendorFromModelName(modelName);
       return vendor && vendorSet.has(vendor);
     });
+    const vendorFiltered = before.filter((m) => !result.includes(m));
+    if (vendorFiltered.length > 0) {
+      consola.debug(
+        `[${providerConfig.name}/${groupName}] Vendor-filtered (not in [${[...new Set(providerConfig.enabledVendors)].join(", ")}]): ${vendorFiltered.join(", ")}`,
+      );
+    }
   }
 
   const modelGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
   if (modelGlobs?.length) {
+    const before = result;
     result = result.filter((modelName) =>
       matchesAnyPattern(modelName, modelGlobs),
     );
+    const globFiltered = before.filter((m) => !result.includes(m));
+    if (globFiltered.length > 0) {
+      consola.debug(
+        `[${providerConfig.name}/${groupName}] Model-glob filtered (not matching [${modelGlobs.join(", ")}]): ${globFiltered.join(", ")}`,
+      );
+    }
   }
+
+  consola.debug(
+    `[${providerConfig.name}/${groupName}] ${models.length} → ${result.length} models after filters: ${result.join(", ") || "(none)"}`,
+  );
 
   return result;
 }
@@ -384,6 +409,7 @@ export async function processNewApiProvider(
         group.models,
         config,
         providerConfig,
+        group.name,
       );
 
       // Skip group if no models match filters

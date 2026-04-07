@@ -88,13 +88,24 @@ const DirectProviderSchema = ProviderCommon.extend({
   discoverEndpoint: str.optional(),
 });
 
+const NvidiaProviderSchema = ProviderCommon.extend({
+  type: z.literal("nvidia"),
+  baseUrl: z.url().default("https://integrate.api.nvidia.com"),
+  imageBaseUrl: z.url().default("https://ai.api.nvidia.com"),
+  apiKey: str,
+  models: z.array(str).optional(),
+  ratio: z.number().positive().default(1),
+});
+
 export type ProviderConfig = z.output<typeof NewApiProviderSchema>;
 export type Sub2ApiProviderConfig = z.output<typeof Sub2ApiProviderSchema>;
 export type DirectProviderConfig = z.output<typeof DirectProviderSchema>;
+export type NvidiaProviderConfig = z.output<typeof NvidiaProviderSchema>;
 export type AnyProviderConfig =
   | ProviderConfig
   | Sub2ApiProviderConfig
-  | DirectProviderConfig;
+  | DirectProviderConfig
+  | NvidiaProviderConfig;
 export type EnabledModelEntry = z.output<typeof EnabledModelEntrySchema>;
 
 /** Extract model glob strings from enabledModels (ignoring grid pricing metadata). */
@@ -136,6 +147,7 @@ const ConfigSchema = z
           NewApiProviderSchema,
           Sub2ApiProviderSchema,
           DirectProviderSchema,
+          NvidiaProviderSchema,
         ]),
       )
       .min(1),

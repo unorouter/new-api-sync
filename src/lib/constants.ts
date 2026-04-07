@@ -82,6 +82,7 @@ export const CHANNEL_TYPES = {
   SORA: 55,
   REPLICATE: 56,
   CODEX: 57,
+  NVIDIA_NIM: 58,
 } as const;
 
 // Vendor name → channel type mapping
@@ -423,6 +424,12 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
     nameAliases: ["字节", "豆包", "doubao"],
     displayName: "ByteDance",
     icon: "Doubao.Color",
+  },
+  stabilityai: {
+    modelPatterns: ["stable-diffusion", "stability"],
+    nameAliases: ["stability ai", "stabilityai"],
+    displayName: "Stability AI",
+    icon: "Stability",
   },
   yi: { modelPatterns: ["yi-"], displayName: "Yi", icon: "Yi.Color" },
   ai360: { modelPatterns: ["360gpt"], displayName: "360 AI", icon: "Ai360" },

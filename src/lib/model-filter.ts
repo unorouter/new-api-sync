@@ -1,11 +1,11 @@
 import { getEnabledModelGlobs } from "@/config";
-import type { DirectProviderConfig, RuntimeConfig, Sub2ApiProviderConfig } from "@/config";
+import type { DirectProviderConfig, NvidiaProviderConfig, RuntimeConfig, Sub2ApiProviderConfig } from "@/config";
 import { inferModelType, matchesAnyPattern, matchesBlacklist } from "@/lib/constants";
 
 export function filterModels(
   models: string[],
   config: RuntimeConfig,
-  providerConfig: DirectProviderConfig | Sub2ApiProviderConfig,
+  providerConfig: DirectProviderConfig | NvidiaProviderConfig | Sub2ApiProviderConfig,
 ): string[] {
   const modelGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
   // Blacklist only applies to text models — image/video/audio/embedding are never blacklisted

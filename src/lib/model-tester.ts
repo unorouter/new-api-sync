@@ -937,6 +937,13 @@ export async function testModels(opts: {
               : null
         });
 
+        const h = finalSuccess ? "✓" : "✗";
+        const s = finalStream === null ? "·" : finalStream ? "✓" : "✗";
+        const t = toolCallSuccess === null ? "·" : toolCallSuccess ? "✓" : "✗";
+        consola.debug(
+          `[${prefix}] ${model}: ${h}HTTP ${s}Stream ${t}Tool | type=${modelType}`,
+        );
+
         return {
           model,
           success: finalSuccess,
@@ -993,6 +1000,15 @@ export async function testAndFilterModels(opts: {
   const nonTestableModels = opts.allModels.filter(
     (m) => !testableModels.includes(m)
   );
+
+  consola.debug(
+    `[${opts.providerLabel}] Testable (${testableModels.length}): ${testableModels.join(", ") || "(none)"}`,
+  );
+  if (nonTestableModels.length > 0) {
+    consola.debug(
+      `[${opts.providerLabel}] Non-testable (${nonTestableModels.length}): ${nonTestableModels.join(", ")}`,
+    );
+  }
 
   let testedWorkingModels: string[] = [];
   let details: ModelTestDetail[] | undefined;

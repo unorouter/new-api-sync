@@ -19,36 +19,62 @@ async function ensureVendors(
     if (model.vendor) neededVendors.add(model.vendor.toLowerCase());
   }
 
-  const existingNames = new Set(snap.vendors.map((v) => v.name.toLowerCase()));
-  const existingAliases = new Map<string, boolean>();
+  // Build a lookup: canonical vendor name → existing vendor (by name or alias)
+  const existingByCanonical = new Map<string, (typeof snap.vendors)[0]>();
   for (const [canonical, matcher] of Object.entries(VENDOR_MATCHERS)) {
-    if (existingNames.has(canonical)) {
-      existingAliases.set(canonical, true);
+    // Direct name match
+    const direct = snap.vendors.find(
+      (v) => v.name.toLowerCase() === canonical || v.name.toLowerCase() === matcher.displayName?.toLowerCase(),
+    );
+    if (direct) {
+      existingByCanonical.set(canonical, direct);
       continue;
     }
+    // Alias match
     for (const alias of matcher.nameAliases ?? []) {
-      if (snap.vendors.some((v) => v.name.toLowerCase().includes(alias.toLowerCase()))) {
-        existingAliases.set(canonical, true);
+      const match = snap.vendors.find((v) =>
+        v.name.toLowerCase().includes(alias.toLowerCase()),
+      );
+      if (match) {
+        existingByCanonical.set(canonical, match);
         break;
       }
     }
   }
 
-  let created = 0;
+  let changed = 0;
   for (const vendor of neededVendors) {
-    if (existingNames.has(vendor) || existingAliases.get(vendor)) continue;
     const matcher = VENDOR_MATCHERS[vendor];
     const displayName = matcher?.displayName ?? vendor.charAt(0).toUpperCase() + vendor.slice(1);
     const icon = matcher?.icon;
+
+    const existing = existingByCanonical.get(vendor);
+    if (existing) {
+      // Upsert: update if icon or name changed
+      if (existing.icon !== icon || existing.name !== displayName) {
+        const ok = await client.updateVendor({
+          id: existing.id,
+          name: displayName,
+          icon,
+        });
+        if (ok) {
+          consola.info(`Updated vendor "${displayName}" (id=${existing.id}, icon=${icon ?? "none"})`);
+          changed++;
+        }
+      }
+      continue;
+    }
+
+    // Create new vendor
     const result = await client.createVendor({ name: displayName, icon });
     if (result) {
       consola.info(`Created vendor "${displayName}" (id=${result.id}, icon=${icon ?? "none"})`);
-      created++;
+      changed++;
     } else {
       consola.warn(`Failed to create vendor "${displayName}"`);
     }
   }
-  return created;
+  return changed;
 }
 
 async function snapshot(client: NewApiClient): Promise<TargetSnapshot> {
