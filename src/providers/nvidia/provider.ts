@@ -207,6 +207,17 @@ export async function processNvidiaProvider(
         provider: providerConfig.name,
       });
 
+      // Build reverse model_mapping so the adaptor sends the original
+      // vendor-prefixed name (e.g. "stabilityai/stable-diffusion-3-medium")
+      // to the NVIDIA endpoint while users see the short mapped name.
+      const imgModelMapping: Record<string, string> = {};
+      for (const original of imageModels) {
+        const mapped = config.modelMapping?.[original] ?? original;
+        if (mapped !== original) {
+          imgModelMapping[mapped] = original;
+        }
+      }
+
       state.channelsToCreate.push({
         name: groupName,
         type: CHANNEL_TYPES.NVIDIA_NIM,
@@ -219,17 +230,20 @@ export async function processNvidiaProvider(
         status: 1,
         tag: providerConfig.name,
         remark: `nvidia-img-${providerConfig.name}`,
+        model_mapping:
+          Object.keys(imgModelMapping).length > 0
+            ? JSON.stringify(imgModelMapping)
+            : undefined,
       });
 
       for (const model of mappedImageModels) {
-        if (!state.mergedModels.has(model)) {
-          state.mergedModels.set(model, {
-            ratio: 0,
-            completionRatio: 0,
-            modelPrice: 0,
-            quotaType: 1,
-          });
-        }
+        // Always override: partial sync may have seeded a stale ratio-based entry
+        state.mergedModels.set(model, {
+          ratio: 0,
+          completionRatio: 0,
+          modelPrice: 0,
+          quotaType: 1,
+        });
       }
 
       consola.info(

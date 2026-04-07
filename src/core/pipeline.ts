@@ -11,6 +11,7 @@ import {
   ENDPOINT_DEFAULT_PATHS,
   inferModelType,
   inferVendorFromModelName,
+  MODEL_TYPE_CANONICAL_ENDPOINT,
   normalizeEndpointType,
   parseModelList,
 } from "@/lib/constants";
@@ -138,8 +139,9 @@ function buildOptionMaps(
   const modelQuotaType: Record<string, number> = {};
   for (const [name, ratios] of state.mergedModels) {
     const mappedName = modelMapping?.[name] ?? name;
-    if (ratios.modelPrice !== undefined && ratios.modelPrice > 0) {
-      modelPrice[mappedName] = Math.round(ratios.modelPrice * 10000) / 10000;
+    const isPerRequest = ratios.quotaType !== undefined && ratios.quotaType >= 1;
+    if ((ratios.modelPrice !== undefined && ratios.modelPrice > 0) || isPerRequest) {
+      modelPrice[mappedName] = Math.round((ratios.modelPrice ?? 0) * 10000) / 10000;
     } else {
       modelRatio[mappedName] = Math.round(ratios.ratio * 10000) / 10000;
       completionRatio[mappedName] =
@@ -206,6 +208,14 @@ function buildDesiredModels(opts: {
           if (path) epMap[normalized] = path;
         }
         if (Object.keys(epMap).length > 0) endpoints = JSON.stringify(epMap);
+      } else {
+        // No upstream endpoint data: infer from model type
+        const modelType = inferModelType(modelName);
+        const canonicalEp = MODEL_TYPE_CANONICAL_ENDPOINT[modelType];
+        if (canonicalEp) {
+          const path = ENDPOINT_DEFAULT_PATHS[canonicalEp];
+          if (path) endpoints = JSON.stringify({ [canonicalEp]: path });
+        }
       }
       models.set(modelName, {
         model_name: modelName,

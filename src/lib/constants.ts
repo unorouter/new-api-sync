@@ -159,7 +159,7 @@ export const ENDPOINT_DEFAULT_PATHS: Record<string, string> = {
 };
 
 // Canonical endpoint type for each model type (used for normalization)
-const MODEL_TYPE_CANONICAL_ENDPOINT: Partial<Record<ModelType, string>> = {
+export const MODEL_TYPE_CANONICAL_ENDPOINT: Partial<Record<ModelType, string>> = {
   image: "image-generation",
   video: "openai-video",
 };
