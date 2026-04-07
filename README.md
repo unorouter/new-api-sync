@@ -8,8 +8,20 @@ Sync pricing, channels, and models from upstream providers to your [new-api](htt
 bun install
 cp config.example.jsonc config.jsonc  # edit with your config
 bun sync                              # run sync
+bun sync --only myprovider            # sync one provider
 bun reset                             # delete all synced data
 ```
+
+## Model Testing
+
+```bash
+bun sync test                         # test all models across all providers
+bun sync test --only myprovider       # test one provider
+```
+
+The `test` command tests every model across all groups without applying any changes to your target instance. Results are saved to `logs/YYYY-MM-DD-model-tests.json`. Re-running the same day skips models that already passed and only retests failures, so you can resume an interrupted run.
+
+Testing ignores `enabledVendors` and `enabledModels` filters — it tests everything the provider has. Per-provider `testModelTypes` in `config.jsonc` controls which model categories are tested during regular sync (e.g. `["text", "image"]`). Omit it to only test text models (the default).
 
 ## Configuration
 
@@ -29,9 +41,9 @@ bun reset                             # delete all synced data
 | `baseUrl`           | yes      | Provider URL                                                             |
 | `systemAccessToken` | yes      | System Access Token from provider                                        |
 | `userId`            | yes      | Your user ID on the provider                                             |
-| `enabledGroups`     |          | Specific groups to sync (omit for all)                                   |
 | `enabledVendors`    |          | Filter by vendor: `anthropic`, `openai`, `google`, etc.                  |
 | `enabledModels`     |          | Glob patterns: `["claude-*-4-5*", "gpt-5*"]`                             |
+| `testModelTypes`    |          | Model types to test during sync: `["text", "image", "video", "audio", "embedding"]` (default: `["text"]`) |
 | `priceAdjustment`   |          | Price adjustment (e.g. `-0.5` = 50% cheaper, `0.1` = 10% more expensive) |
 
 ### Direct Provider (`type: "direct"`)
