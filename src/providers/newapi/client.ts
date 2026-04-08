@@ -262,7 +262,9 @@ export class NewApiClient {
         { headers: this.headers },
       );
       if (!data.success) {
-        throw new Error("Token list API returned success: false");
+        throw new Error(
+          `Token list API returned success: false${data.message ? ` (${data.message})` : ""}`,
+        );
       }
       const tokens = Array.isArray(data.data)
         ? data.data

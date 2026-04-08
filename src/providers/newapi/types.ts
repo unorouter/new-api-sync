@@ -86,6 +86,7 @@ export interface PricingResponseV2 {
 
 export interface TokenListResponse {
   success: boolean;
+  message?: string;
   data: { data?: UpstreamToken[]; items?: UpstreamToken[] } | UpstreamToken[];
 }
 

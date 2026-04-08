@@ -698,7 +698,7 @@ async function runAnthropicProbe(opts: {
 /**
  * Multi-probe authenticity test for Anthropic models.
  * If ANY probe detects a Kiro refusal, the model fails immediately.
- * Otherwise, timeouts/errors are tolerated as long as 2/3 probes pass.
+ * All 4 probes must pass for the model to be considered authentic.
  */
 async function testAnthropicAuthenticity(opts: {
   baseUrl: string;
@@ -707,7 +707,7 @@ async function testAnthropicAuthenticity(opts: {
   timeoutMs: number;
   logKey: string;
 }): Promise<boolean> {
-  const [r1, r2, r3] = await Promise.all([
+  const [r1, r2, r3, r4] = await Promise.all([
     // Probe 1: Emotional content
     // Kiro: "Never discuss sensitive, personal, or emotional topics"
     runAnthropicProbe({
@@ -746,13 +746,27 @@ async function testAnthropicAuthenticity(opts: {
         if (hasKiroRefusal(text)) return false;
         return text.includes("anthropic");
       }
+    }),
+    // Probe 4: Direct model identity check
+    // Kiro identifies itself as "Kiro"; Claude identifies as "Claude"
+    runAnthropicProbe({
+      ...opts,
+      label: "model-name",
+      prompt:
+        "Which model are you? Reply with only your model name, nothing else.",
+      maxTokens: 50,
+      evaluate: (text) => {
+        if (text.includes("kiro")) return false;
+        return true;
+      }
     })
   ]);
 
   const results = [
     { ...r1, label: "emotional" },
     { ...r2, label: "creative" },
-    { ...r3, label: "identity" }
+    { ...r3, label: "identity" },
+    { ...r4, label: "model-name" }
   ];
 
   // Any confirmed Kiro refusal = immediate fail, regardless of other probes
@@ -768,17 +782,17 @@ async function testAnthropicAuthenticity(opts: {
     return false;
   }
 
-  // No Kiro refusal found; tolerate timeouts if 2/3 probes passed
+  // No Kiro refusal found; tolerate timeouts if 3/4 probes passed
   const passed = results.filter((r) => r.pass).length;
   const failed = results.filter((r) => !r.pass);
   if (failed.length > 0) {
     const failedLabels = failed.map((r) => r.label).join(", ");
     consola.warn(
-      `[kiro-detect] ${opts.model}: ${passed}/3 probes passed (failed: ${failedLabels})`
+      `[kiro-detect] ${opts.model}: ${passed}/4 probes passed (failed: ${failedLabels})`
     );
   }
 
-  return passed >= 2;
+  return passed >= 4;
 }
 
 // ---------------------------------------------------------------------------
