@@ -602,7 +602,25 @@ const KIRO_REFUSAL_PATTERNS = [
   "i'm a coding assistant",
   "technical task",
   "development tasks, writing, analysis",
-  "infrastructure and configuration"
+  "infrastructure and configuration",
+  "falls outside what i can help with",
+  "outside what i can help with",
+  "outside my wheelhouse",
+  "that's outside what i can",
+  "i'm focused on software development",
+  "focused on software development and coding",
+  "best suited for software development",
+  "i'm built to help with software development",
+  "i'm built to help with coding",
+  "help with software development, coding",
+  "i can help you build",
+  "what can i help you build",
+  "got a tricky bug",
+  "got a coding challenge",
+  "got any code challenges",
+  "i'm here to help with software",
+  "i'm here for coding",
+  "i'm droid",
 ];
 
 function hasKiroRefusal(text: string): boolean {
@@ -749,6 +767,7 @@ async function testAnthropicAuthenticity(opts: {
     }),
     // Probe 4: Direct model identity check
     // Kiro identifies itself as "Kiro"; Claude identifies as "Claude"
+    // Also catches other wrappers (Droid, ChatGPT, o4-mini)
     runAnthropicProbe({
       ...opts,
       label: "model-name",
@@ -756,7 +775,9 @@ async function testAnthropicAuthenticity(opts: {
         "Which model are you? Reply with only your model name, nothing else.",
       maxTokens: 50,
       evaluate: (text) => {
-        if (text.includes("kiro")) return false;
+        if (hasKiroRefusal(text)) return false;
+        // Must contain "claude" or "anthropic" to pass
+        if (!text.includes("claude") && !text.includes("anthropic")) return false;
         return true;
       }
     })
