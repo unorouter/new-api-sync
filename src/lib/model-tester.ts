@@ -7,7 +7,7 @@ import {
 } from "@/lib/constants";
 import { fetchJson, tryFetchJson } from "@/lib/http";
 import { consola } from "consola";
-import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
 // ---------------------------------------------------------------------------
@@ -75,6 +75,62 @@ export function setTestCost(
   if (entry) entry.cost = cost;
 }
 
+// ---------------------------------------------------------------------------
+// Kiro blacklist: persistent across runs, skips retesting known-fake providers
+// ---------------------------------------------------------------------------
+
+interface KiroBlacklistEntry {
+  since: string;
+  reason: string;
+}
+
+const KIRO_BLACKLIST_FILE = "kiro-blacklist.json";
+const kiroBlacklist = new Map<string, KiroBlacklistEntry>();
+
+function getKiroBlacklistPath(): string {
+  return join(process.cwd(), "logs", KIRO_BLACKLIST_FILE);
+}
+
+export function loadKiroBlacklist(): void {
+  const path = getKiroBlacklistPath();
+  if (!existsSync(path)) return;
+  try {
+    const raw = readFileSync(path, "utf8");
+    const entries = JSON.parse(raw) as Record<string, KiroBlacklistEntry>;
+    kiroBlacklist.clear();
+    for (const [key, val] of Object.entries(entries)) {
+      kiroBlacklist.set(key, val);
+    }
+    consola.info(`[kiro-blacklist] Loaded ${kiroBlacklist.size} entries`);
+  } catch {
+    // Corrupted file, start fresh
+  }
+}
+
+export function saveKiroBlacklist(): void {
+  if (kiroBlacklist.size === 0) return;
+  const logsDir = join(process.cwd(), "logs");
+  mkdirSync(logsDir, { recursive: true });
+  const obj: Record<string, KiroBlacklistEntry> = {};
+  for (const [key, val] of kiroBlacklist) {
+    obj[key] = val;
+  }
+  writeFileSync(getKiroBlacklistPath(), JSON.stringify(obj, null, 2));
+}
+
+function addToKiroBlacklist(key: string, reason: string): void {
+  if (kiroBlacklist.has(key)) return;
+  kiroBlacklist.set(key, {
+    since: new Date().toISOString().slice(0, 10),
+    reason
+  });
+  consola.warn(`[kiro-blacklist] Added ${key}: ${reason}`);
+}
+
+function isKiroBlacklisted(key: string): boolean {
+  return kiroBlacklist.has(key);
+}
+
 export function writeTestReport(): void {
   const logsDir = join(process.cwd(), "logs");
   mkdirSync(logsDir, { recursive: true });
@@ -82,6 +138,7 @@ export function writeTestReport(): void {
   const path = join(logsDir, `${ts}-model-tests.json`);
   writeFileSync(path, JSON.stringify(testReport, null, 2));
   consola.info(`[test-report] Written to ${path}`);
+  saveKiroBlacklist();
 }
 
 export function initTestReportForDate(): void {
@@ -97,6 +154,7 @@ export function initTestReportForDate(): void {
   } catch {
     // File doesn't exist yet — start fresh
   }
+  loadKiroBlacklist();
 }
 
 export function writeTestReportForDate(): void {
@@ -108,6 +166,7 @@ export function writeTestReportForDate(): void {
   consola.info(
     `[test-report] Written to ${path} (${testReport.results.length} results)`
   );
+  saveKiroBlacklist();
 }
 
 // ---------------------------------------------------------------------------
@@ -800,10 +859,11 @@ async function testAnthropicAuthenticity(opts: {
     consola.warn(
       `[kiro-detect] ${opts.model}: Kiro refusal on: ${refusalLabels}, rejected`
     );
+    addToKiroBlacklist(opts.logKey, `kiro-refusal: ${refusalLabels}`);
     return false;
   }
 
-  // No Kiro refusal found; tolerate timeouts if 3/4 probes passed
+  // All 4 probes must pass for the model to be considered authentic
   const passed = results.filter((r) => r.pass).length;
   const failed = results.filter((r) => !r.pass);
   if (failed.length > 0) {
@@ -811,6 +871,7 @@ async function testAnthropicAuthenticity(opts: {
     consola.warn(
       `[kiro-detect] ${opts.model}: ${passed}/4 probes passed (failed: ${failedLabels})`
     );
+    addToKiroBlacklist(opts.logKey, `failed: ${failedLabels}`);
   }
 
   return passed >= 4;
@@ -869,6 +930,38 @@ export async function testModels(opts: {
             success: true,
             streamSuccess: existingPass.stream?.pass ?? null,
             toolCallSuccess: existingPass.toolCall?.pass ?? null
+          };
+        }
+
+        // Skip if kiro-blacklisted (Anthropic Claude models only)
+        const blacklistKey = `${prefix}|${model}`;
+        if (
+          channelType === CHANNEL_TYPES.ANTHROPIC &&
+          model.startsWith("claude-") &&
+          isKiroBlacklisted(blacklistKey)
+        ) {
+          consola.debug(
+            `[${prefix}] ${model}: kiro-blacklisted, skipping`
+          );
+          addTestResult({
+            provider: prefix,
+            model,
+            cost: null,
+            http: {
+              pass: false,
+              request: { url: "", body: null },
+              response: null,
+              error: "kiro-blacklisted"
+            },
+            stream: null,
+            toolCall: null,
+            authentic: false
+          });
+          return {
+            model,
+            success: false,
+            streamSuccess: null,
+            toolCallSuccess: null
           };
         }
 

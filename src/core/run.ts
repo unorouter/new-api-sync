@@ -4,7 +4,7 @@ import { buildSyncDiff } from "@/core/diff";
 import { runProviderPipeline } from "@/core/pipeline";
 import type { ResetResult } from "@/core/reset";
 import { MANAGED_OPTION_KEYS, VENDOR_MATCHERS } from "@/lib/constants";
-import { writeTestReport } from "@/lib/model-tester";
+import { loadKiroBlacklist, writeTestReport } from "@/lib/model-tester";
 import type { DesiredState, SyncRunResult, TargetSnapshot } from "@/lib/types";
 import { NewApiClient } from "@/providers/newapi/client";
 import { consola } from "consola";
@@ -90,6 +90,7 @@ async function snapshot(client: NewApiClient): Promise<TargetSnapshot> {
 export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
   const start = Date.now();
   const target = new NewApiClient(config.target, "target");
+  loadKiroBlacklist();
 
   const health = await target.healthCheck();
   if (!health.ok) {
