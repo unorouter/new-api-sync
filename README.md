@@ -1,15 +1,17 @@
+English | [中文](README.zh.md)
+
 # new-api-sync
 
-Sync pricing, channels, and models from upstream providers to your [new-api](https://github.com/QuantumNous/new-api) instance. Supports [new-api](https://github.com/QuantumNous/new-api), [sub2api](https://github.com/Wei-Shaw/sub2api), and direct vendor API providers.
+Sync pricing, channels, and models from upstream providers to your [new-api](https://github.com/unorouter/new-api) instance. Supports [new-api](https://github.com/unorouter/new-api), [sub2api](https://github.com/unorouter/sub2api), direct vendor APIs, and NVIDIA NIM.
 
 ## Quick Start
 
 ```bash
 bun install
 cp config.example.jsonc config.jsonc  # edit with your config
-bun sync                              # run sync
-bun sync --only myprovider            # sync one provider
-bun reset                             # delete all synced data
+bun sync run                          # run sync
+bun sync run --only myprovider        # sync one provider
+bun sync reset                        # delete all synced data
 ```
 
 ## Model Testing
@@ -21,7 +23,7 @@ bun sync test --only myprovider       # test one provider
 
 The `test` command tests every model across all groups without applying any changes to your target instance. Results are saved to `logs/YYYY-MM-DD-model-tests.json`. Re-running the same day skips models that already passed and only retests failures, so you can resume an interrupted run.
 
-Testing ignores `enabledVendors` and `enabledModels` filters — it tests everything the provider has. Per-provider `testModelTypes` in `config.jsonc` controls which model categories are tested during regular sync (e.g. `["text", "image"]`). Omit it to only test text models (the default).
+Testing ignores `enabledVendors` and `enabledModels` filters and tests all model types. Per-provider `testModelTypes` in `config.jsonc` controls which model categories are tested during regular sync (e.g. `["text", "image"]`). Omit it to only test text models (the default).
 
 ## Configuration
 
@@ -32,53 +34,91 @@ Testing ignores `enabledVendors` and `enabledModels` filters — it tests everyt
 | `baseUrl`           | Your new-api instance URL              |
 | `systemAccessToken` | System Access Token (Settings > Other) |
 | `userId`            | Your user ID                           |
+| `targetPrefix`      | Optional prefix for sync resources     |
+
+### Global Options
+
+| Field            | Description                                                                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `testModelTypes` | Model types to test during sync: `["text", "image", "video", "audio", "embedding"]` (default: `["text"]`). Per-provider setting overrides this. |
+| `blacklist`      | Exclude matching groups/models: `["kiro", "nsfw"]`                                                                                              |
+| `modelMapping`   | Rename models: `{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                                        |
 
 ### new-api Provider (`type: "newapi"`)
 
-| Field               | Required | Description                                                              |
-| ------------------- | -------- | ------------------------------------------------------------------------ |
-| `name`              | yes      | Unique identifier, used as channel tag                                   |
-| `baseUrl`           | yes      | Provider URL                                                             |
-| `systemAccessToken` | yes      | System Access Token from provider                                        |
-| `userId`            | yes      | Your user ID on the provider                                             |
-| `enabledVendors`    |          | Filter by vendor: `anthropic`, `openai`, `google`, etc.                  |
-| `enabledModels`     |          | Glob patterns: `["claude-*-4-5*", "gpt-5*"]`                             |
-| `testModelTypes`    |          | Model types to test during sync: `["text", "image", "video", "audio", "embedding"]` (default: `["text"]`) |
-| `priceAdjustment`   |          | Price adjustment (e.g. `-0.5` = 50% cheaper, `0.1` = 10% more expensive) |
+| Field               | Required | Description                                             |
+| ------------------- | -------- | ------------------------------------------------------- |
+| `name`              | yes      | Unique identifier, used as channel tag                  |
+| `baseUrl`           | yes      | Provider URL                                            |
+| `systemAccessToken` | yes      | System Access Token from provider                       |
+| `userId`            | yes      | Your user ID on the provider                            |
+| `enabledVendors`    |          | Filter by vendor: `anthropic`, `openai`, `google`, etc. |
+| `enabledModels`     |          | Glob patterns: `["claude-*-4-5*", "gpt-5*"]`            |
+| `testModelTypes`    |          | Override global test types: `["text", "image"]`         |
+| `priceAdjustment`   |          | Number or per-key object (see Price Adjustment below)   |
 
 ### Direct Provider (`type: "direct"`)
 
 Connect directly to a vendor API (OpenAI, Anthropic, Google, Moonshot, etc.) without an intermediary.
 
-| Field             | Required | Description                                                              |
-| ----------------- | -------- | ------------------------------------------------------------------------ |
-| `name`            | yes      | Unique identifier, used as channel tag                                   |
-| `vendor`          | yes      | Vendor name: `openai`, `anthropic`, `google`, `moonshot`, etc.           |
-| `apiKey`          | yes      | Vendor API key                                                           |
-| `baseUrl`         |          | Custom base URL (defaults to vendor's official URL)                      |
-| `enabledModels`   |          | Glob patterns: `["kimi-*", "moonshot-*"]`                                |
-| `groupRatio`      |          | Fixed group ratio (cannot be used with `priceAdjustment`)                |
-| `priceAdjustment` |          | Price adjustment (e.g. `-0.1` = 10% cheaper, `0.1` = 10% more expensive) |
+| Field              | Required | Description                                                    |
+| ------------------ | -------- | -------------------------------------------------------------- |
+| `name`             | yes      | Unique identifier, used as channel tag                         |
+| `baseUrl`          | yes      | Vendor API base URL                                            |
+| `apiKey`           | yes      | Vendor API key                                                 |
+| `vendor`           | yes      | Vendor name: `openai`, `anthropic`, `google`, `moonshot`, etc. |
+| `models`           |          | Explicit model list (skips auto-discovery)                     |
+| `enabledModels`    |          | Glob patterns for auto-discovered models: `["kimi-*"]`         |
+| `channelType`      |          | Override inferred channel type number                          |
+| `ratio`            |          | Base group ratio (default 1.0)                                 |
+| `discoverEndpoint` |          | Custom discovery endpoint (default `/v1/models`)               |
+| `testModelTypes`   |          | Override global test types                                     |
+| `priceAdjustment`  |          | Number or per-key object (see Price Adjustment below)          |
 
 ### sub2api Provider (`type: "sub2api"`)
 
 Provide either `adminApiKey` (auto-discovers groups) or `groups` (explicit group API keys).
 
-| Field             | Required | Description                                                              |
-| ----------------- | -------- | ------------------------------------------------------------------------ |
-| `name`            | yes      | Unique identifier, used as channel tag                                   |
-| `baseUrl`         | yes      | Sub2API instance URL                                                     |
-| `adminApiKey`     |          | Admin API key — auto-discovers groups, accounts, and models              |
-| `groups`          |          | Explicit groups: `[{ "key": "sk-...", "platform": "anthropic" }]`        |
-| `enabledVendors`  |          | Filter by vendor: `anthropic`, `openai`, `google`                        |
-| `enabledModels`   |          | Glob patterns: `["claude-*-4-5*", "gpt-5*"]`                             |
-| `priceAdjustment` |          | Price adjustment (e.g. `-0.1` = 10% cheaper, `0.1` = 10% more expensive) |
+| Field             | Required | Description                                                       |
+| ----------------- | -------- | ----------------------------------------------------------------- |
+| `name`            | yes      | Unique identifier, used as channel tag                            |
+| `baseUrl`         | yes      | Sub2API instance URL                                              |
+| `adminApiKey`     |          | Admin API key, auto-discovers groups, accounts, and models        |
+| `groups`          |          | Explicit groups: `[{ "key": "sk-...", "platform": "anthropic" }]` |
+| `enabledVendors`  |          | Filter by vendor: `anthropic`, `openai`, `google`                 |
+| `enabledModels`   |          | Glob patterns: `["claude-*-4-5*", "gpt-5*"]`                      |
+| `testModelTypes`  |          | Override global test types                                        |
+| `priceAdjustment` |          | Number or per-key object (see Price Adjustment below)             |
 
-### Options
+### NVIDIA NIM Provider (`type: "nvidia"`)
 
-- **`blacklist`** — Exclude matching groups/models: `["kiro", "nsfw"]`
-- **`enabledModels`** — Glob patterns: `claude-*-4-5*` matches `claude-sonnet-4-5-20250929`, `*-preview` matches anything ending in `-preview`
-- **`modelMapping`** — Rename models: `{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`
+Connect to NVIDIA NIM APIs. Text models are auto-discovered; image models must be listed in `enabledModels`.
+
+| Field             | Required | Description                                                          |
+| ----------------- | -------- | -------------------------------------------------------------------- |
+| `name`            | yes      | Unique identifier, used as channel tag                               |
+| `apiKey`          | yes      | NVIDIA API key                                                       |
+| `baseUrl`         |          | Text model endpoint (default `https://integrate.api.nvidia.com`)     |
+| `imageBaseUrl`    |          | Image model endpoint (default `https://ai.api.nvidia.com`)           |
+| `models`          |          | Explicit model list (skips auto-discovery)                           |
+| `enabledModels`   |          | Glob patterns; literal image model names are auto-added to discovery |
+| `ratio`           |          | Base group ratio (default 1.0)                                       |
+| `testModelTypes`  |          | Override global test types                                           |
+| `priceAdjustment` |          | Number or per-key object (see Price Adjustment below)                |
+
+### Price Adjustment
+
+`priceAdjustment` accepts either a single number or a keyed object:
+
+- **Number:** applies uniformly. `-0.5` = 50% cheaper, `0.1` = 10% more expensive.
+- **Object:** keyed by model name glob, vendor name, model type, or `"default"`. Resolved in that order. Must contain a `"default"` key. Example:
+  ```jsonc
+  { "default": -0.3, "image": 0.5, "anthropic": -0.1, "gpt-5*": -0.5 }
+  ```
+
+### Other Options
+
+- **`enabledModels`** supports glob patterns: `claude-*-4-5*` matches `claude-sonnet-4-5-20250929`, `*-preview` matches anything ending in `-preview`
 
 ## How It Works
 
@@ -90,6 +130,3 @@ Provide either `adminApiKey` (auto-discovers groups) or `groups` (explicit group
 6. **Cleanup** — remove orphaned models
 
 Channels are named `{group}-{provider}`. Priority is dynamic: cheapest groups first, faster response times get higher priority.
-
-<!-- bun sync run --only sub2api -->
-<!-- bun sync run --config config.debug.jsonc --skip-testing --only yun  -->
