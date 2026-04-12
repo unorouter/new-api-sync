@@ -5,7 +5,7 @@ import {
   type ProviderConfig,
   type RuntimeConfig,
   type Sub2ApiProviderConfig,
-} from "@/config";
+} from "@core/config";
 import {
   buildReverseMapping,
   ENDPOINT_DEFAULT_PATHS,
@@ -14,13 +14,13 @@ import {
   MODEL_TYPE_CANONICAL_ENDPOINT,
   normalizeEndpointType,
   parseModelList,
-} from "@/lib/constants";
+} from "@core/lib/constants";
 import {
   type BasellmEntry,
   buildMetadataMap,
   fetchBasellmEntries,
   fetchOpenRouterDescriptions,
-} from "@/lib/metadata";
+} from "@core/lib/metadata";
 import type {
   Channel,
   DesiredModelSpec,
@@ -29,12 +29,12 @@ import type {
   ProviderReport,
   SyncState,
   TargetSnapshot,
-} from "@/lib/types";
-import { NewApiClient } from "@/providers/newapi/client";
-import { processDirectProvider } from "@/providers/direct/provider";
-import { processNewApiProvider } from "@/providers/newapi/provider";
-import { processNvidiaProvider } from "@/providers/nvidia/provider";
-import { processSub2ApiProvider } from "@/providers/sub2api/provider";
+} from "@core/lib/types";
+import { NewApiClient } from "@core/providers/newapi/client";
+import { processDirectProvider } from "@core/providers/direct/provider";
+import { processNewApiProvider } from "@core/providers/newapi/provider";
+import { processNvidiaProvider } from "@core/providers/nvidia/provider";
+import { processSub2ApiProvider } from "@core/providers/sub2api/provider";
 import { consola } from "consola";
 
 /**
@@ -158,11 +158,11 @@ function buildOptionMaps(
   // Build grid pricing display metadata from config.
   // Grid pricing is independent of quota_type: video models use quota_type=4,
   // image models keep quota_type=1 (per-request) but still show a resolution grid.
-  const modelGridPricing: Record<string, import("@/lib/types").GridPricingInfo> = {};
+  const modelGridPricing: Record<string, import("@core/lib/types").GridPricingInfo> = {};
   for (const [modelName, rows] of Object.entries(configGridPricing)) {
     const mappedName = modelMapping?.[modelName] ?? modelName;
     if (modelPrice[mappedName] !== undefined || modelRatio[mappedName] !== undefined) {
-      modelGridPricing[mappedName] = rows as import("@/lib/types").GridPricingInfo;
+      modelGridPricing[mappedName] = rows as import("@core/lib/types").GridPricingInfo;
     }
   }
 

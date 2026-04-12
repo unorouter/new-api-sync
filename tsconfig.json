@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     // Environment setup & latest features
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "target": "ESNext",
     "module": "Preserve",
     "moduleDetection": "force",
@@ -29,7 +29,10 @@
 
     // Path aliases
     "paths": {
-      "@/*": ["./src/*"]
+      "@core/*": ["./src/core/*"],
+      "@server/*": ["./src/server/*"],
+      "@web/*": ["./src/web/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   },
   "exclude": ["node_modules"]

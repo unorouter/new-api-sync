@@ -1,5 +1,5 @@
-import type { RuntimeConfig } from "@/config";
-import { parseModelList, VENDOR_MATCHERS } from "@/lib/constants";
+import type { RuntimeConfig } from "@core/config";
+import { parseModelList, VENDOR_MATCHERS } from "@core/lib/constants";
 import type {
   Channel,
   DesiredState,
@@ -8,7 +8,7 @@ import type {
   SyncDiff,
   TargetSnapshot,
   Vendor,
-} from "@/lib/types";
+} from "@core/lib/types";
 
 const DEFAULT_AUTO_LABEL = "Auto (Smart Routing with Failover)";
 

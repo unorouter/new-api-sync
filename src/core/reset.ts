@@ -1,5 +1,5 @@
-import type { RuntimeConfig } from "@/config";
-import { NewApiClient } from "@/providers/newapi/client";
+import type { RuntimeConfig } from "@core/config";
+import { NewApiClient } from "@core/providers/newapi/client";
 
 export interface ResetResult {
   channelsDeleted: number;

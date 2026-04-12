@@ -1,6 +1,6 @@
-import { type RuntimeConfig } from "@/config";
-import { runProviderPipeline } from "@/core/pipeline";
-import { initTestReportForDate, writeTestReportForDate } from "@/lib/model-tester";
+import { type RuntimeConfig } from "@core/config";
+import { runProviderPipeline } from "@core/pipeline";
+import { initTestReportForDate, writeTestReportForDate } from "@core/lib/model-tester";
 import { consola } from "consola";
 
 const ALL_MODEL_TYPES = ["text", "image", "video", "audio", "embedding"] as const;

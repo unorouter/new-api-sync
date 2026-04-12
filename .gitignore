@@ -42,3 +42,4 @@ yarn.lock
 bun.lock*
 config.debug.yml
 logs/*
+config copy.yml

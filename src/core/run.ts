@@ -1,12 +1,12 @@
-import type { RuntimeConfig } from "@/config";
-import { applySyncDiff } from "@/core/apply";
-import { buildSyncDiff } from "@/core/diff";
-import { runProviderPipeline } from "@/core/pipeline";
-import type { ResetResult } from "@/core/reset";
-import { MANAGED_OPTION_KEYS, VENDOR_MATCHERS } from "@/lib/constants";
-import { loadKiroBlacklist, writeTestReport } from "@/lib/model-tester";
-import type { DesiredState, SyncRunResult, TargetSnapshot } from "@/lib/types";
-import { NewApiClient } from "@/providers/newapi/client";
+import type { RuntimeConfig } from "@core/config";
+import { applySyncDiff } from "@core/apply";
+import { buildSyncDiff } from "@core/diff";
+import { runProviderPipeline } from "@core/pipeline";
+import type { ResetResult } from "@core/reset";
+import { MANAGED_OPTION_KEYS, VENDOR_MATCHERS } from "@core/lib/constants";
+import { loadKiroBlacklist, writeTestReport } from "@core/lib/model-tester";
+import type { DesiredState, SyncRunResult, TargetSnapshot } from "@core/lib/types";
+import { NewApiClient } from "@core/providers/newapi/client";
 import { consola } from "consola";
 
 async function ensureVendors(
