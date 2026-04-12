@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ConfigEditor } from "@web/components/config/config-editor";
 import { SyncPanel } from "@web/components/dashboard/sync-panel";
+import { HistoryPanel } from "@web/components/history/history-panel";
 import {
   FormattedMessage,
   useIntl,
@@ -96,21 +97,7 @@ function ConfigTab() {
 }
 
 function HistoryTab() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <FormattedMessage id="HISTORY.TITLE" />
-        </CardTitle>
-        <CardDescription>
-          <FormattedMessage id="HISTORY.DESCRIPTION" />
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="text-muted-foreground text-sm">
-        <FormattedMessage id="HISTORY.COMING_SOON" />
-      </CardContent>
-    </Card>
-  );
+  return <HistoryPanel />;
 }
 
 export function App() {
