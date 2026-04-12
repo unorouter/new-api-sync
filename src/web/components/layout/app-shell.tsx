@@ -9,6 +9,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@web/components/ui/tabs";
+import { LanguageToggle } from "@web/components/toggle/language-toggle";
+import { ThemeToggle } from "@web/components/toggle/theme-toggle";
 import { useUiStore, type MainTab } from "@web/store/ui-store";
 
 /**
@@ -30,6 +32,10 @@ export function AppShell() {
           <p className="text-muted-foreground mt-1">
             <FormattedMessage id="APP.SUBTITLE" />
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <LanguageToggle />
+          <ThemeToggle />
         </div>
       </header>
       <Tabs
