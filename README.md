@@ -10,7 +10,7 @@ Sync pricing, channels, and models from upstream providers to your [new-api](htt
 
 ```bash
 bun install
-cp config.example.jsonc config.jsonc  # edit with your config
+cp config.example.yml config.yml      # edit with your config
 bun sync run                          # run sync
 bun sync run --only myprovider        # sync one provider
 bun sync run --verbose                # run with debug logging
@@ -27,7 +27,7 @@ bun sync test --verbose               # test with debug logging
 
 The `test` command tests every model across all groups without applying any changes to your target instance. Results are saved to `logs/YYYY-MM-DD-model-tests.json`. Re-running the same day skips models that already passed and only retests failures, so you can resume an interrupted run.
 
-Testing ignores `enabledVendors`, `enabledModels`, and the ratio-gate filters (see Behaviors to Know) and tests all model types. Per-provider `testModelTypes` in `config.jsonc` controls which model categories are tested during regular sync (e.g. `["text", "image"]`). Omit it to only test text models (the default).
+Testing ignores `enabledVendors`, `enabledModels`, and the ratio-gate filters (see Behaviors to Know) and tests all model types. Per-provider `testModelTypes` in `config.yml` controls which model categories are tested during regular sync (e.g. `[text, image]`). Omit it to only test text models (the default).
 
 ## Configuration
 
@@ -100,18 +100,15 @@ Provide either `adminApiKey` (auto-discovers groups) or `groups` (explicit group
 `blacklist` removes matching text models from sync. Non-text types (image, video, audio, embedding) are never filtered by the blacklist.
 
 - **Case-insensitive** match against the model ID.
-- **Glob wildcards** supported: `"gpt-5.*-codex"`, `"*-preview"`.
+- **Glob wildcards** supported: `gpt-5.*-codex`, `*-preview`.
 - **Provider-scoped patterns** use `provider/pattern` syntax. The part before the slash must match the provider's `name`; the part after is the glob. Example:
 
-  ```jsonc
-  {
-    "blacklist": [
-      "nsfw",              // unscoped: blocks any provider's model containing "nsfw"
-      "*-preview",         // unscoped: blocks any provider's preview models
-      "duck/gpt-5*",       // scoped: only blocks gpt-5* models from the "duck" provider
-      "yun/claude-*-opus", // scoped: only blocks claude opus models from "yun"
-    ],
-  }
+  ```yml
+  blacklist:
+    - nsfw               # unscoped: blocks any provider's model containing "nsfw"
+    - "*-preview"        # unscoped: blocks any provider's preview models
+    - duck/gpt-5*        # scoped: only blocks gpt-5* models from the "duck" provider
+    - yun/claude-*-opus  # scoped: only blocks claude opus models from "yun"
   ```
 
 ### Price Adjustment
@@ -119,9 +116,13 @@ Provide either `adminApiKey` (auto-discovers groups) or `groups` (explicit group
 `priceAdjustment` accepts either a single number or a keyed object:
 
 - **Number:** applies uniformly. `-0.5` = 50% cheaper, `0.1` = 10% more expensive.
-- **Object:** keyed by model name glob, vendor name, model type, or `"default"`. Resolved in that order. Must contain a `"default"` key. Example:
-  ```jsonc
-  { "default": -0.3, "image": 0.5, "anthropic": -0.1, "gpt-5*": -0.5 }
+- **Object:** keyed by model name glob, vendor name, model type, or `default`. Resolved in that order. Must contain a `default` key. Example:
+  ```yml
+  priceAdjustment:
+    default: -0.3
+    image: 0.5
+    anthropic: -0.1
+    gpt-5*: -0.5
   ```
 
 ### Other Options
@@ -147,8 +148,8 @@ By default, text models whose effective ratio (group ratio × `priceAdjustment`)
 
 Disable via global config:
 
-```jsonc
-{ "skipUnprofitableText": false }
+```yml
+skipUnprofitableText: false
 ```
 
 ### Task Model Channel Pinning

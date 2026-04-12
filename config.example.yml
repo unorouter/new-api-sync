@@ -1,0 +1,42 @@
+target:
+  baseUrl: https://api.unorouter.ai
+  systemAccessToken: target-system-access-token
+  userId: 1
+blacklist:
+  - kiro
+  - nsfw
+modelMapping:
+  claude-sonnet-4-5-20250929-thinking: claude-sonnet-4-5-20250929
+providers:
+  # ── new-api upstream ──
+  - type: newapi
+    name: upstream-main
+    baseUrl: https://www.newapi.ai
+    systemAccessToken: upstream-system-access-token
+    userId: 1
+    enabledVendors:
+      - anthropic
+      - openai
+    enabledModels:
+      - claude-*-4-5*
+      - gpt-5*
+    priceAdjustment: -0.67
+
+  # ── Direct vendor API ──
+  - type: direct
+    name: kimi-code
+    baseUrl: https://api.kimi.com/coding
+    apiKey: sk-kimi-...
+    vendor: moonshot
+    models:
+      - kimi-for-coding
+
+  # ── sub2api ──
+  - type: sub2api
+    name: sub2api-fallback
+    baseUrl: https://sub2api.unorouter.ai
+    adminApiKey: admin-api-key
+  # disabled providers (uncomment to enable)
+  # - type: nvidia
+  #   name: nvidia-nim
+  #   apiKey: nvapi-...

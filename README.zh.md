@@ -10,7 +10,7 @@
 
 ```bash
 bun install
-cp config.example.jsonc config.jsonc  # 编辑你的配置
+cp config.example.yml config.yml      # 编辑你的配置
 bun sync run                          # 运行同步
 bun sync run --only myprovider        # 仅同步指定提供商
 bun sync run --verbose                # 以调试日志级别运行
@@ -27,7 +27,7 @@ bun sync test --verbose               # 以调试日志级别测试
 
 `test` 命令会测试所有组中的每个模型，但不会对目标实例做任何更改。结果保存在 `logs/YYYY-MM-DD-model-tests.json`。同一天再次运行会跳过已通过的模型，只重测失败项，因此可以恢复中断的运行。
 
-测试会忽略 `enabledVendors`、`enabledModels` 以及倍率阈值过滤器（详见"行为说明"），并测试所有模型类型。`config.jsonc` 中的 `testModelTypes` 可以按提供商控制常规同步时测试的模型类别（如 `["text", "image"]`）。省略则默认只测试文本模型。
+测试会忽略 `enabledVendors`、`enabledModels` 以及倍率阈值过滤器（详见"行为说明"），并测试所有模型类型。`config.yml` 中的 `testModelTypes` 可以按提供商控制常规同步时测试的模型类别（如 `[text, image]`）。省略则默认只测试文本模型。
 
 ## 配置
 
@@ -100,18 +100,15 @@ bun sync test --verbose               # 以调试日志级别测试
 `blacklist` 会从同步中移除匹配的文本模型。非文本类型（图像、视频、音频、嵌入）不会被黑名单过滤。
 
 - **大小写不敏感**，按模型 ID 匹配。
-- **支持 Glob 通配符**：`"gpt-5.*-codex"`、`"*-preview"`。
+- **支持 Glob 通配符**：`gpt-5.*-codex`、`*-preview`。
 - **提供商作用域模式**使用 `provider/pattern` 语法。斜杠前的部分需与提供商的 `name` 匹配，斜杠后是 Glob 模式。示例：
 
-  ```jsonc
-  {
-    "blacklist": [
-      "nsfw",              // 不限作用域：屏蔽任何提供商中包含 "nsfw" 的模型
-      "*-preview",         // 不限作用域：屏蔽任何提供商的预览模型
-      "duck/gpt-5*",       // 作用域：仅屏蔽 "duck" 提供商的 gpt-5* 模型
-      "yun/claude-*-opus", // 作用域：仅屏蔽 "yun" 提供商的 claude opus 模型
-    ],
-  }
+  ```yml
+  blacklist:
+    - nsfw               # 不限作用域：屏蔽任何提供商中包含 "nsfw" 的模型
+    - "*-preview"        # 不限作用域：屏蔽任何提供商的预览模型
+    - duck/gpt-5*        # 作用域：仅屏蔽 "duck" 提供商的 gpt-5* 模型
+    - yun/claude-*-opus  # 作用域：仅屏蔽 "yun" 提供商的 claude opus 模型
   ```
 
 ### 价格调整
@@ -119,9 +116,13 @@ bun sync test --verbose               # 以调试日志级别测试
 `priceAdjustment` 接受单个数字或按键对象：
 
 - **数字：** 统一应用。`-0.5` = 便宜 50%，`0.1` = 贵 10%。
-- **对象：** 按模型名称 Glob、厂商名称、模型类型或 `"default"` 作为键。按此顺序解析，必须包含 `"default"` 键。示例：
-  ```jsonc
-  { "default": -0.3, "image": 0.5, "anthropic": -0.1, "gpt-5*": -0.5 }
+- **对象：** 按模型名称 Glob、厂商名称、模型类型或 `default` 作为键。按此顺序解析，必须包含 `default` 键。示例：
+  ```yml
+  priceAdjustment:
+    default: -0.3
+    image: 0.5
+    anthropic: -0.1
+    gpt-5*: -0.5
   ```
 
 ### 其他选项
@@ -147,8 +148,8 @@ bun sync test --verbose               # 以调试日志级别测试
 
 通过全局配置关闭：
 
-```jsonc
-{ "skipUnprofitableText": false }
+```yml
+skipUnprofitableText: false
 ```
 
 ### 任务模型渠道固定

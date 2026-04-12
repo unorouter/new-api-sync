@@ -6,8 +6,13 @@ import { z, ZodError } from "zod/v4";
 const str = z.string().trim().min(1);
 
 const NON_TEXT_TYPES: Set<string> = new Set(MODEL_TYPES.filter((t) => t !== "text"));
+// Per-key value in a priceAdjustment object. Can be <= 1 because non-text keys
+// (image/video/audio/embedding) are allowed to reach 1 or higher. A refine
+// below enforces that text-type keys stay below 1.
 const PriceAdjustmentValue = z.number().gt(-1).lte(1);
 const PriceAdjustmentSchema = z.union([
+  // Bare number applies to all model types uniformly, so must stay below 1
+  // to avoid unprofitable text channels.
   z.number().gt(-1).lt(1),
   z
     .record(z.string(), PriceAdjustmentValue)
@@ -174,15 +179,22 @@ export interface RuntimeConfig extends z.output<typeof ConfigSchema> {
 
 // ============ Loader ============
 
+const CONFIG_CANDIDATES = ["./config.yml", "./config.yaml"];
+
 export async function loadConfig(path?: string): Promise<RuntimeConfig> {
   let resolvedPath = path;
   if (!resolvedPath) {
-    if (await Bun.file("./config.jsonc").exists())
-      resolvedPath = "./config.jsonc";
-    else if (await Bun.file("./config.json").exists())
-      resolvedPath = "./config.json";
-    else
-      throw new Error("No config file found (tried config.jsonc, config.json)");
+    for (const candidate of CONFIG_CANDIDATES) {
+      if (await Bun.file(candidate).exists()) {
+        resolvedPath = candidate;
+        break;
+      }
+    }
+    if (!resolvedPath) {
+      throw new Error(
+        `No config file found (tried ${CONFIG_CANDIDATES.join(", ")})`,
+      );
+    }
   }
 
   const file = Bun.file(resolvedPath);
@@ -192,10 +204,10 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
 
   let parsedRaw: unknown;
   try {
-    parsedRaw = Bun.JSONC.parse(await file.text());
+    parsedRaw = Bun.YAML.parse(await file.text());
   } catch (error) {
     throw new Error(
-      `Invalid JSONC in ${resolvedPath}: ${error instanceof Error ? error.message : String(error)}`,
+      `Invalid YAML in ${resolvedPath}: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 

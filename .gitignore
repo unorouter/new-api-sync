@@ -23,8 +23,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.local
 
 # config with secrets
-config.json
-config.jsonc
+config.yml
+config.yaml
 
 # caches
 .eslintcache
@@ -40,6 +40,5 @@ pnpm-lock.yaml
 package-lock.json
 yarn.lock
 bun.lock*
-config copy.json*
-config.debug.jsonc
+config.debug.yml
 logs/*

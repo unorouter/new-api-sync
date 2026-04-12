@@ -28,7 +28,7 @@ TypeScript/Bun project that syncs external AI providers into the new-api target.
 | `src/core/pipeline.ts` | Orchestrates providers, builds desired state (channels, models, options) |
 | `src/core/diff.ts` | Computes diff between desired state and target snapshot |
 | `src/core/apply.ts` | Applies diff to target new-api instance |
-| `src/config.ts` | Config parsing and Zod schema (`config.jsonc` format) |
+| `src/config.ts` | Config parsing and Zod schema (`config.yml` format) |
 
 ## Model Classification Flow
 
