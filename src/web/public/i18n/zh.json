@@ -1,0 +1,50 @@
+{
+  "APP.TITLE": "new-api-sync",
+  "APP.SUBTITLE": "从上游提供商同步定价、渠道和模型。",
+
+  "TABS.DASHBOARD": "仪表盘",
+  "TABS.CONFIGURATION": "配置",
+  "TABS.HISTORY": "历史",
+
+  "HEALTH.TITLE": "服务状态",
+  "HEALTH.DESCRIPTION": "同步服务的运行时状态。",
+  "HEALTH.OK": "正常",
+  "HEALTH.DOWN": "离线",
+  "HEALTH.VERSION": "版本",
+  "HEALTH.UPTIME": "运行时长",
+  "HEALTH.ERROR": "错误：{error}",
+
+  "SYNC.TITLE": "同步流水线",
+  "SYNC.DESCRIPTION": "执行完整同步、测试提供商连接，或重置已管理的资源。",
+  "SYNC.RUN": "运行",
+  "SYNC.TEST": "测试",
+  "SYNC.RESET": "重置",
+  "SYNC.CLEAR_LOG": "清除日志",
+  "SYNC.PHASE.RUNNING": "运行中",
+  "SYNC.PHASE.DONE": "已完成",
+  "SYNC.PHASE.ERROR": "错误",
+  "SYNC.ERROR": "错误：{error}",
+  "SYNC.EMPTY_IDLE": "尚未运行。点击“运行”、“测试”或“重置”开始。",
+  "SYNC.EMPTY_WAITING": "等待输出…",
+
+  "CONFIG.TITLE": "配置",
+  "CONFIG.DESCRIPTION": "编辑提供商、定价和全局设置。保存时会重新校验 YAML；无效的文档会被自动回滚。",
+  "CONFIG.LOAD_ERROR": "加载失败：{error}",
+  "CONFIG.SAVE": "保存",
+  "CONFIG.SAVING": "保存中…",
+  "CONFIG.REVERT": "还原",
+  "CONFIG.UNSAVED": "存在未保存的更改",
+
+  "HISTORY.TITLE": "运行历史",
+  "HISTORY.DESCRIPTION": "过往的同步运行与摘要，保存在 logs/ 目录。",
+  "HISTORY.COMING_SOON": "即将推出：列出历史运行的差异和报告",
+
+  "THEME.TOGGLE": "切换主题",
+  "THEME.LIGHT": "浅色",
+  "THEME.DARK": "深色",
+  "THEME.SYSTEM": "跟随系统",
+
+  "LANGUAGE.SWITCH": "切换语言",
+  "LANGUAGE.EN": "English",
+  "LANGUAGE.ZH": "中文"
+}

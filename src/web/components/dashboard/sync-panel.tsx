@@ -1,3 +1,4 @@
+import { FormattedMessage, useIntl } from "@web/lib/intl";
 import {
   Card,
   CardContent,
@@ -11,10 +12,25 @@ import { useResetPipeline } from "@web/hooks/reset-hook";
 import { useSyncPipeline } from "@web/hooks/sync-hook";
 import { useSyncStore, type SyncPhase } from "@web/store/sync-store";
 
-function phaseBadge(phase: SyncPhase) {
-  if (phase === "running") return <Badge variant="secondary">running</Badge>;
-  if (phase === "done") return <Badge>done</Badge>;
-  if (phase === "error") return <Badge variant="destructive">error</Badge>;
+function PhaseBadge(props: { phase: SyncPhase }) {
+  if (props.phase === "running")
+    return (
+      <Badge variant="secondary">
+        <FormattedMessage id="SYNC.PHASE.RUNNING" />
+      </Badge>
+    );
+  if (props.phase === "done")
+    return (
+      <Badge>
+        <FormattedMessage id="SYNC.PHASE.DONE" />
+      </Badge>
+    );
+  if (props.phase === "error")
+    return (
+      <Badge variant="destructive">
+        <FormattedMessage id="SYNC.PHASE.ERROR" />
+      </Badge>
+    );
   return null;
 }
 
@@ -27,6 +43,7 @@ function levelClass(level: string): string {
 }
 
 export function SyncPanel() {
+  const intl = useIntl();
   const phase = useSyncStore((s) => s.phase);
   const mode = useSyncStore((s) => s.mode);
   const logs = useSyncStore((s) => s.logs);
@@ -42,8 +59,8 @@ export function SyncPanel() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          Sync pipeline
-          {phaseBadge(phase)}
+          <FormattedMessage id="SYNC.TITLE" />
+          <PhaseBadge phase={phase} />
           {mode ? (
             <span className="text-muted-foreground text-xs font-normal">
               {mode}
@@ -51,51 +68,51 @@ export function SyncPanel() {
           ) : null}
         </CardTitle>
         <CardDescription>
-          Run a full sync, test provider connectivity, or reset managed
-          resources.
+          <FormattedMessage id="SYNC.DESCRIPTION" />
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={() => sync.mutate({ mode: "run" })}
-            disabled={busy}
-          >
-            Run
+          <Button onClick={() => sync.mutate({ mode: "run" })} disabled={busy}>
+            <FormattedMessage id="SYNC.RUN" />
           </Button>
           <Button
             variant="secondary"
             onClick={() => sync.mutate({ mode: "test" })}
             disabled={busy}
           >
-            Test
+            <FormattedMessage id="SYNC.TEST" />
           </Button>
           <Button
             variant="destructive"
             onClick={() => resetMutation.mutate({})}
             disabled={busy}
           >
-            Reset
+            <FormattedMessage id="SYNC.RESET" />
           </Button>
           <Button
             variant="outline"
             onClick={() => storeReset()}
             disabled={busy || phase === "idle"}
           >
-            Clear log
+            <FormattedMessage id="SYNC.CLEAR_LOG" />
           </Button>
         </div>
 
         {error ? (
-          <p className="text-destructive text-sm">Error: {error}</p>
+          <p className="text-destructive text-sm">
+            {intl.formatMessage({ id: "SYNC.ERROR" }, { error })}
+          </p>
         ) : null}
 
         <div className="bg-muted/40 border-border max-h-96 overflow-auto rounded-md border p-3 font-mono text-xs">
           {logs.length === 0 ? (
             <p className="text-muted-foreground">
-              {phase === "idle"
-                ? "No run yet. Click Run, Test, or Reset to start."
-                : "Waiting for output..."}
+              <FormattedMessage
+                id={
+                  phase === "idle" ? "SYNC.EMPTY_IDLE" : "SYNC.EMPTY_WAITING"
+                }
+              />
             </p>
           ) : (
             <ul className="space-y-0.5">

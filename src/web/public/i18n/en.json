@@ -1,0 +1,50 @@
+{
+  "APP.TITLE": "new-api-sync",
+  "APP.SUBTITLE": "Sync pricing, channels, and models from upstream providers.",
+
+  "TABS.DASHBOARD": "Dashboard",
+  "TABS.CONFIGURATION": "Configuration",
+  "TABS.HISTORY": "History",
+
+  "HEALTH.TITLE": "Server health",
+  "HEALTH.DESCRIPTION": "Runtime status of the sync server.",
+  "HEALTH.OK": "OK",
+  "HEALTH.DOWN": "DOWN",
+  "HEALTH.VERSION": "version",
+  "HEALTH.UPTIME": "uptime",
+  "HEALTH.ERROR": "Error: {error}",
+
+  "SYNC.TITLE": "Sync pipeline",
+  "SYNC.DESCRIPTION": "Run a full sync, test provider connectivity, or reset managed resources.",
+  "SYNC.RUN": "Run",
+  "SYNC.TEST": "Test",
+  "SYNC.RESET": "Reset",
+  "SYNC.CLEAR_LOG": "Clear log",
+  "SYNC.PHASE.RUNNING": "running",
+  "SYNC.PHASE.DONE": "done",
+  "SYNC.PHASE.ERROR": "error",
+  "SYNC.ERROR": "Error: {error}",
+  "SYNC.EMPTY_IDLE": "No run yet. Click Run, Test, or Reset to start.",
+  "SYNC.EMPTY_WAITING": "Waiting for output…",
+
+  "CONFIG.TITLE": "Configuration",
+  "CONFIG.DESCRIPTION": "Edit providers, pricing, and global settings. Saving re-validates the YAML; an invalid document is rolled back automatically.",
+  "CONFIG.LOAD_ERROR": "Failed to load: {error}",
+  "CONFIG.SAVE": "Save",
+  "CONFIG.SAVING": "Saving…",
+  "CONFIG.REVERT": "Revert",
+  "CONFIG.UNSAVED": "unsaved changes",
+
+  "HISTORY.TITLE": "Run history",
+  "HISTORY.DESCRIPTION": "Past sync runs and their summaries, stored in logs/.",
+  "HISTORY.COMING_SOON": "coming soon: list of past runs with diff and report",
+
+  "THEME.TOGGLE": "Toggle theme",
+  "THEME.LIGHT": "Light",
+  "THEME.DARK": "Dark",
+  "THEME.SYSTEM": "System",
+
+  "LANGUAGE.SWITCH": "Switch language",
+  "LANGUAGE.EN": "English",
+  "LANGUAGE.ZH": "中文"
+}

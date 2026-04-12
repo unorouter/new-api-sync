@@ -10,8 +10,10 @@ import { Textarea } from "@web/components/ui/textarea";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { useConfig, useSaveConfig } from "@web/hooks/config-hook";
 import { useEffect, useState } from "react";
+import { FormattedMessage, useIntl } from "@web/lib/intl";
 
 export function ConfigEditor() {
+  const intl = useIntl();
   const config = useConfig();
   const save = useSaveConfig();
   const [draft, setDraft] = useState("");
@@ -29,7 +31,7 @@ export function ConfigEditor() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          Configuration
+          <FormattedMessage id="CONFIG.TITLE" />
           {config.data ? (
             <span className="text-muted-foreground text-xs font-normal font-mono">
               {config.data.path}
@@ -37,8 +39,7 @@ export function ConfigEditor() {
           ) : null}
         </CardTitle>
         <CardDescription>
-          Edit providers, pricing, and global settings. Saving re-validates the
-          YAML; an invalid document is rolled back automatically.
+          <FormattedMessage id="CONFIG.DESCRIPTION" />
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -49,7 +50,10 @@ export function ConfigEditor() {
           </div>
         ) : config.error ? (
           <p className="text-destructive text-sm">
-            Failed to load: {String(config.error)}
+            {intl.formatMessage(
+              { id: "CONFIG.LOAD_ERROR" },
+              { error: String(config.error) },
+            )}
           </p>
         ) : (
           <>
@@ -64,18 +68,20 @@ export function ConfigEditor() {
                 onClick={() => save.mutate(draft)}
                 disabled={!dirty || save.isPending}
               >
-                {save.isPending ? "Saving..." : "Save"}
+                <FormattedMessage
+                  id={save.isPending ? "CONFIG.SAVING" : "CONFIG.SAVE"}
+                />
               </Button>
               <Button
                 variant="outline"
                 onClick={() => config.data && setDraft(config.data.yaml)}
                 disabled={!dirty || save.isPending}
               >
-                Revert
+                <FormattedMessage id="CONFIG.REVERT" />
               </Button>
               {dirty ? (
                 <span className="text-muted-foreground text-xs">
-                  unsaved changes
+                  <FormattedMessage id="CONFIG.UNSAVED" />
                 </span>
               ) : null}
             </div>

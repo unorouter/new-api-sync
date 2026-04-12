@@ -1,4 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
+import { FormattedMessage, useIntl } from "@web/lib/intl";
 import {
   Card,
   CardContent,
@@ -12,26 +13,31 @@ import { Skeleton } from "@web/components/ui/skeleton";
 import { Toaster } from "@web/components/ui/sonner";
 import { SyncPanel } from "@web/components/dashboard/sync-panel";
 import { ConfigEditor } from "@web/components/config/config-editor";
+import { LanguageToggle } from "@web/components/toggle/language-toggle";
+import { ThemeToggle } from "@web/components/toggle/theme-toggle";
 import { useHealth } from "@web/hooks/health-hook";
 import getQueryClient from "@web/lib/react-query/client";
 
 const queryClient = getQueryClient();
 
 function HealthPanel() {
+  const intl = useIntl();
   const health = useHealth();
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          Server health
+          <FormattedMessage id="HEALTH.TITLE" />
           {health.data ? (
             <Badge variant={health.data.ok ? "default" : "destructive"}>
-              {health.data.ok ? "OK" : "DOWN"}
+              <FormattedMessage id={health.data.ok ? "HEALTH.OK" : "HEALTH.DOWN"} />
             </Badge>
           ) : null}
         </CardTitle>
-        <CardDescription>Runtime status of the sync server.</CardDescription>
+        <CardDescription>
+          <FormattedMessage id="HEALTH.DESCRIPTION" />
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {health.isPending ? (
@@ -42,16 +48,23 @@ function HealthPanel() {
           </div>
         ) : health.error ? (
           <p className="text-destructive text-sm">
-            Error: {String(health.error)}
+            {intl.formatMessage(
+              { id: "HEALTH.ERROR" },
+              { error: String(health.error) },
+            )}
           </p>
         ) : health.data ? (
           <dl className="space-y-1 text-sm">
             <div className="flex gap-2">
-              <dt className="text-muted-foreground w-20">version</dt>
+              <dt className="text-muted-foreground w-20">
+                <FormattedMessage id="HEALTH.VERSION" />
+              </dt>
               <dd className="font-mono">{health.data.version}</dd>
             </div>
             <div className="flex gap-2">
-              <dt className="text-muted-foreground w-20">uptime</dt>
+              <dt className="text-muted-foreground w-20">
+                <FormattedMessage id="HEALTH.UPTIME" />
+              </dt>
               <dd className="font-mono">{health.data.uptime.toFixed(1)}s</dd>
             </div>
           </dl>
@@ -78,13 +91,15 @@ function HistoryTab() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Run history</CardTitle>
+        <CardTitle>
+          <FormattedMessage id="HISTORY.TITLE" />
+        </CardTitle>
         <CardDescription>
-          Past sync runs and their summaries, stored in logs/.
+          <FormattedMessage id="HISTORY.DESCRIPTION" />
         </CardDescription>
       </CardHeader>
       <CardContent className="text-muted-foreground text-sm">
-        (coming soon — list of past runs with diff & report)
+        <FormattedMessage id="HISTORY.COMING_SOON" />
       </CardContent>
     </Card>
   );
@@ -94,17 +109,31 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <main className="mx-auto max-w-5xl p-8">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold">new-api-sync</h1>
-          <p className="text-muted-foreground mt-1">
-            Sync pricing, channels, and models from upstream providers.
-          </p>
+        <header className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">
+              <FormattedMessage id="APP.TITLE" />
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              <FormattedMessage id="APP.SUBTITLE" />
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            <LanguageToggle />
+            <ThemeToggle />
+          </div>
         </header>
         <Tabs defaultValue="dashboard">
           <TabsList>
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="config">Configuration</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="dashboard">
+              <FormattedMessage id="TABS.DASHBOARD" />
+            </TabsTrigger>
+            <TabsTrigger value="config">
+              <FormattedMessage id="TABS.CONFIGURATION" />
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              <FormattedMessage id="TABS.HISTORY" />
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="dashboard" className="mt-6">
             <DashboardTab />
