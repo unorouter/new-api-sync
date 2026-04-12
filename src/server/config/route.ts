@@ -1,4 +1,4 @@
-import { loadConfig } from "@core/config";
+import { ConfigSchema, loadConfig, type ConfigSchemaType } from "@core/config";
 import { Elysia, t } from "elysia";
 
 const CONFIG_CANDIDATES = ["./config.yml", "./config.yaml"];
@@ -16,12 +16,12 @@ const GetResponseSchema = t.Object({
   success: t.Literal(true),
   data: t.Object({
     path: t.String(),
-    yaml: t.String(),
+    config: ConfigSchema,
   }),
 });
 
 const PutBodySchema = t.Object({
-  yaml: t.String({ minLength: 1 }),
+  config: ConfigSchema,
 });
 
 const PutResponseSchema = {
@@ -29,7 +29,7 @@ const PutResponseSchema = {
     success: t.Literal(true),
     data: t.Object({
       path: t.String(),
-      yaml: t.String(),
+      config: ConfigSchema,
     }),
   }),
   400: t.Object({
@@ -41,16 +41,21 @@ const PutResponseSchema = {
 /**
  * Config routes.
  *
- * GET  /api/config   → raw YAML text (preserves comments/formatting)
- * PUT  /api/config   → replace the YAML file, validate by reloading
+ * GET  /api/config   → parsed JSON config
+ * PUT  /api/config   → replace config with a JSON object; server serializes to
+ *                      YAML and validates by reloading. On failure, the previous
+ *                      file content is restored.
+ *
+ * YAML comments in the source file are not preserved through this round-trip.
  */
 export const configRoute = new Elysia({ prefix: "/config" })
   .get(
     "/",
     async () => {
       const path = await resolveConfigPath();
-      const yaml = await Bun.file(path).text();
-      return { success: true as const, data: { path, yaml } };
+      const text = await Bun.file(path).text();
+      const config = Bun.YAML.parse(text) as ConfigSchemaType;
+      return { success: true as const, data: { path, config } };
     },
     { response: GetResponseSchema },
   )
@@ -60,7 +65,8 @@ export const configRoute = new Elysia({ prefix: "/config" })
       const path = await resolveConfigPath();
       const previous = await Bun.file(path).text();
 
-      await Bun.write(path, body.yaml);
+      const yaml = Bun.YAML.stringify(body.config, null, 2);
+      await Bun.write(path, yaml);
 
       try {
         await loadConfig(path);
@@ -74,7 +80,7 @@ export const configRoute = new Elysia({ prefix: "/config" })
         };
       }
 
-      return { success: true as const, data: { path, yaml: body.yaml } };
+      return { success: true as const, data: { path, config: body.config } };
     },
     { body: PutBodySchema, response: PutResponseSchema },
   );

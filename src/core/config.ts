@@ -46,9 +46,15 @@ const ModelPricingDetailSchema = T.Object({
   modelPricingGrid: T.Array(GridPricingRowSchema, { minItems: 1 }),
 });
 
-const EnabledModelEntrySchema = T.Union([str, ModelPricingDetailSchema]);
+export const EnabledModelEntrySchema = T.Union([str, ModelPricingDetailSchema]);
 
-const ModelTypeEnum = T.Union(MODEL_TYPES.map((t) => T.Literal(t)));
+export const ModelTypeEnum = T.Union([
+  T.Literal("text"),
+  T.Literal("image"),
+  T.Literal("video"),
+  T.Literal("audio"),
+  T.Literal("embedding"),
+]);
 
 // Common provider fields — extended by each provider variant below.
 const ProviderCommonProps = {
@@ -67,7 +73,7 @@ const NewApiProviderSchema = T.Object({
   userId: T.Integer({ minimum: 1 }),
 });
 
-const Sub2ApiGroupSchema = T.Object({
+export const Sub2ApiGroupSchema = T.Object({
   key: str,
   platform: str,
   name: T.Optional(str),
@@ -103,7 +109,7 @@ const NvidiaProviderSchema = T.Object({
   ratio: T.Optional(T.Number({ exclusiveMinimum: 0 })),
 });
 
-const AnyProviderSchema = T.Union([
+export const AnyProviderSchema = T.Union([
   NewApiProviderSchema,
   Sub2ApiProviderSchema,
   DirectProviderSchema,
@@ -150,7 +156,7 @@ export function getPricingGridFromEnabledModels(
   return result;
 }
 
-const ConfigSchema = T.Object({
+export const ConfigSchema = T.Object({
   target: T.Object({
     baseUrl: T.String({ format: "uri" }),
     systemAccessToken: str,
@@ -164,7 +170,7 @@ const ConfigSchema = T.Object({
   providers: T.Array(AnyProviderSchema, { minItems: 1 }),
 });
 
-type ConfigSchemaType = Static<typeof ConfigSchema>;
+export type ConfigSchemaType = Static<typeof ConfigSchema>;
 
 // Defaults applied post-parse to match the previous Zod .default() semantics.
 export interface RuntimeConfig
@@ -186,7 +192,7 @@ export interface RuntimeConfig
  * Custom cross-field rules that TypeBox's schema cannot express directly.
  * Returns an array of error messages (empty = valid).
  */
-function customValidate(config: ConfigSchemaType): string[] {
+export function customValidateConfig(config: ConfigSchemaType): string[] {
   const errors: string[] = [];
 
   // Duplicate provider names
@@ -277,7 +283,7 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
   }
 
   const typed = parsedRaw as ConfigSchemaType;
-  const customErrors = customValidate(typed);
+  const customErrors = customValidateConfig(typed);
   if (customErrors.length > 0) {
     throw new Error(`Config validation failed:\n${customErrors.join("\n")}`);
   }

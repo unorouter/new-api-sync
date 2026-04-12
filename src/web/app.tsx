@@ -1,20 +1,26 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { FormattedMessage, useIntl } from "@web/components/provider/intl-provider";
+import { ConfigEditor } from "@web/components/config/config-editor";
+import { SyncPanel } from "@web/components/dashboard/sync-panel";
+import {
+  FormattedMessage,
+  useIntl
+} from "@web/components/provider/intl-provider";
+import { Badge } from "@web/components/ui/badge";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
+  CardTitle
 } from "@web/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@web/components/ui/tabs";
-import { Badge } from "@web/components/ui/badge";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { Toaster } from "@web/components/ui/sonner";
-import { SyncPanel } from "@web/components/dashboard/sync-panel";
-import { ConfigEditor } from "@web/components/config/config-editor";
-import { LanguageToggle } from "@web/components/toggle/language-toggle";
-import { ThemeToggle } from "@web/components/toggle/theme-toggle";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
+} from "@web/components/ui/tabs";
 import { useHealth } from "@web/hooks/health-hook";
 import getQueryClient from "@web/lib/react-query/client";
 
@@ -31,7 +37,9 @@ function HealthPanel() {
           <FormattedMessage id="HEALTH.TITLE" />
           {health.data ? (
             <Badge variant={health.data.ok ? "default" : "destructive"}>
-              <FormattedMessage id={health.data.ok ? "HEALTH.OK" : "HEALTH.DOWN"} />
+              <FormattedMessage
+                id={health.data.ok ? "HEALTH.OK" : "HEALTH.DOWN"}
+              />
             </Badge>
           ) : null}
         </CardTitle>
@@ -50,7 +58,7 @@ function HealthPanel() {
           <p className="text-destructive text-sm">
             {intl.formatMessage(
               { id: "HEALTH.ERROR" },
-              { error: String(health.error) },
+              { error: String(health.error) }
             )}
           </p>
         ) : health.data ? (
@@ -118,10 +126,7 @@ export function App() {
               <FormattedMessage id="APP.SUBTITLE" />
             </p>
           </div>
-          <div className="flex items-center gap-1">
-            <LanguageToggle />
-            <ThemeToggle />
-          </div>
+          <div className="flex items-center gap-1"></div>
         </header>
         <Tabs defaultValue="dashboard">
           <TabsList>

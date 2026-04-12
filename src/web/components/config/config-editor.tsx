@@ -1,93 +1,157 @@
+import { ConfigSchema, customValidateConfig, type ConfigSchemaType } from "@core/config";
+import { Value } from "@sinclair/typebox/value";
+import { FormattedMessage, useIntl } from "@web/components/provider/intl-provider";
+import { Button } from "@web/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@web/components/ui/card";
-import { Button } from "@web/components/ui/button";
-import { Textarea } from "@web/components/ui/textarea";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { useConfig, useSaveConfig } from "@web/hooks/config-hook";
 import { useEffect, useState } from "react";
-import { FormattedMessage, useIntl } from "@web/components/provider/intl-provider";
+import { toast } from "sonner";
+import { GlobalSection } from "./global-section";
+import { ProvidersSection } from "./providers-section";
+import { TargetSection } from "./target-section";
 
 export function ConfigEditor() {
   const intl = useIntl();
   const config = useConfig();
   const save = useSaveConfig();
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState<ConfigSchemaType | null>(null);
+  const [lastServerError, setLastServerError] = useState<string | null>(null);
 
-  // Sync server value into the textarea when it first loads (or after save).
+  // Hydrate draft once the server value lands (or after a successful save).
   useEffect(() => {
-    if (config.data?.yaml !== undefined) {
-      setDraft(config.data.yaml);
+    if (config.data) {
+      setDraft(structuredClone(config.data.config));
+      setLastServerError(null);
     }
-  }, [config.data?.yaml]);
+  }, [config.data]);
 
-  const dirty = config.data ? draft !== config.data.yaml : false;
+  const server = config.data?.config;
+  const dirty =
+    draft !== null && server !== undefined
+      ? JSON.stringify(draft) !== JSON.stringify(server)
+      : false;
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FormattedMessage id="CONFIG.TITLE" />
-          {config.data ? (
-            <span className="text-muted-foreground text-xs font-normal font-mono">
-              {config.data.path}
-            </span>
-          ) : null}
-        </CardTitle>
-        <CardDescription>
-          <FormattedMessage id="CONFIG.DESCRIPTION" />
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {config.isPending ? (
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-64" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-        ) : config.error ? (
+  const handleSave = () => {
+    if (!draft) return;
+    // Client-side validation first so the user gets the actual path that failed.
+    if (!Value.Check(ConfigSchema, draft)) {
+      const first = [...Value.Errors(ConfigSchema, draft)][0];
+      const message = first
+        ? `${first.path || "root"}: ${first.message}`
+        : intl.formatMessage({ id: "CONFIG.VALIDATION.FAILED" });
+      toast.error(message);
+      setLastServerError(message);
+      return;
+    }
+    const customErrors = customValidateConfig(draft);
+    if (customErrors.length > 0) {
+      const message = customErrors[0]!;
+      toast.error(message);
+      setLastServerError(message);
+      return;
+    }
+    setLastServerError(null);
+    save.mutate(draft, {
+      onError: (error) =>
+        setLastServerError(error instanceof Error ? error.message : String(error)),
+    });
+  };
+
+  const handleRevert = () => {
+    if (server) setDraft(structuredClone(server));
+    setLastServerError(null);
+  };
+
+  if (config.isPending) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <FormattedMessage id="CONFIG.TITLE" />
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-64 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (config.error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <FormattedMessage id="CONFIG.TITLE" />
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <p className="text-destructive text-sm">
             {intl.formatMessage(
               { id: "CONFIG.LOAD_ERROR" },
               { error: String(config.error) },
             )}
           </p>
-        ) : (
-          <>
-            <Textarea
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              spellCheck={false}
-              className="h-128 font-mono text-xs"
-            />
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => save.mutate(draft)}
-                disabled={!dirty || save.isPending}
-              >
-                <FormattedMessage
-                  id={save.isPending ? "CONFIG.SAVING" : "CONFIG.SAVE"}
-                />
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => config.data && setDraft(config.data.yaml)}
-                disabled={!dirty || save.isPending}
-              >
-                <FormattedMessage id="CONFIG.REVERT" />
-              </Button>
-              {dirty ? (
-                <span className="text-muted-foreground text-xs">
-                  <FormattedMessage id="CONFIG.UNSAVED" />
-                </span>
-              ) : null}
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!draft || !config.data) return null;
+
+  return (
+    <div className="space-y-4">
+      <Card size="sm">
+        <CardContent className="flex items-center justify-between gap-2 py-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground font-mono text-xs">
+              {config.data.path}
+            </span>
+            {lastServerError ? (
+              <span className="text-destructive text-xs">
+                {lastServerError}
+              </span>
+            ) : dirty ? (
+              <span className="text-muted-foreground text-xs">
+                <FormattedMessage id="CONFIG.UNSAVED" />
+              </span>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleRevert}
+              disabled={!dirty || save.isPending}
+            >
+              <FormattedMessage id="CONFIG.REVERT" />
+            </Button>
+            <Button onClick={handleSave} disabled={!dirty || save.isPending}>
+              <FormattedMessage
+                id={save.isPending ? "CONFIG.SAVING" : "CONFIG.SAVE"}
+              />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <TargetSection
+        value={draft.target}
+        onChange={(target) => setDraft({ ...draft, target })}
+      />
+
+      <GlobalSection value={draft} onChange={setDraft} />
+
+      <ProvidersSection
+        value={draft.providers}
+        onChange={(providers) => setDraft({ ...draft, providers })}
+      />
+    </div>
   );
 }

@@ -1,6 +1,7 @@
-import { rpc } from "@web/lib/rpc";
-import { queryKeys } from "@web/lib/react-query/keys";
+import type { ConfigSchemaType } from "@core/config";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@web/lib/react-query/keys";
+import { rpc } from "@web/lib/rpc";
 import { toast } from "sonner";
 
 export function useConfig() {
@@ -18,8 +19,8 @@ export function useSaveConfig() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (yaml: string) => {
-      const res = await rpc.api.config.put({ yaml });
+    mutationFn: async (config: ConfigSchemaType) => {
+      const res = await rpc.api.config.put({ config });
       if (res.error) {
         const value = res.error.value;
         throw new Error(
