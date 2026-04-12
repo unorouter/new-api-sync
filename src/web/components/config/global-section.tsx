@@ -1,5 +1,5 @@
 import type { ConfigSchemaType } from "@core/config";
-import type { ModelType } from "@core/models/constants";
+import type { ModelType } from "@core/models/types";
 import { FormattedMessage } from "@web/components/provider/intl-provider";
 import {
   Card,

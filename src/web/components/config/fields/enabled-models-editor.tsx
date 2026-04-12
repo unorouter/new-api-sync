@@ -1,4 +1,4 @@
-import { MODEL_TYPES } from "@core/models/constants";
+import { MODEL_TYPES } from "@core/models/types";
 import { FormattedMessage } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";

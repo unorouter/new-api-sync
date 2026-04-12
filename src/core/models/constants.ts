@@ -1,4 +1,7 @@
 import micromatch from "micromatch";
+import { MODEL_TYPES, type ModelType } from "./types";
+
+export { MODEL_TYPES, type ModelType };
 
 // Managed option keys for sync
 export const MANAGED_OPTION_KEYS = [
@@ -246,15 +249,6 @@ const NAME_PATTERN_TYPES: [string, ModelType][] = [
 ];
 
 export const NON_TEXT_MODEL_PATTERNS = NAME_PATTERN_TYPES.map(([p]) => p);
-
-export const MODEL_TYPES = [
-  "text",
-  "image",
-  "video",
-  "audio",
-  "embedding",
-] as const;
-export type ModelType = (typeof MODEL_TYPES)[number];
 
 // Exact endpoint type → model type mapping
 const ENDPOINT_TO_MODEL_TYPE: Record<string, ModelType> = {
