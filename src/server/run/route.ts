@@ -23,7 +23,8 @@ export const runRoute = new Elysia({ prefix: "/run" }).post(
   ({ body }) =>
     sseResponse(async (emit) => {
       emit("start", { at: new Date().toISOString() });
-      const config = applyOnlyProviders(await loadConfig(), body.only ?? []);
+      const path = configPath(body.configName);
+      const config = applyOnlyProviders(await loadConfig(path), body.only ?? []);
       const result = await runSync(config);
       return {
         success: result.success,

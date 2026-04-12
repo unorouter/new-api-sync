@@ -1,10 +1,12 @@
 import { applyOnlyProviders, loadConfig } from "@core/config";
 import { runTestPipeline } from "@core/sync/test-runner";
+import { configPath } from "@server/config/route";
 import { sseResponse } from "@server/lib/sse";
 import { Elysia, t } from "elysia";
 
 const BodySchema = t.Object({
   only: t.Optional(t.Array(t.String(), { default: [] })),
+  configName: t.Optional(t.String()),
 });
 
 /**
@@ -17,7 +19,8 @@ export const testRoute = new Elysia({ prefix: "/test" }).post(
   ({ body }) =>
     sseResponse(async (emit) => {
       emit("start", { at: new Date().toISOString() });
-      const config = applyOnlyProviders(await loadConfig(), body.only ?? []);
+      const path = configPath(body.configName);
+      const config = applyOnlyProviders(await loadConfig(path), body.only ?? []);
       const ok = await runTestPipeline(config);
       return { success: ok };
     }),

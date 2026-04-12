@@ -1,5 +1,6 @@
 import { streamSse } from "@web/lib/sse-client";
 import { useSyncStore, type SyncMode } from "@web/store/sync-store";
+import { useUiStore } from "@web/store/ui-store";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -19,8 +20,9 @@ export function useSyncPipeline() {
     mutationFn: async (args: RunArgs) => {
       store.start(args.mode);
 
+      const configName = useUiStore.getState().selectedConfigName;
       const url = args.mode === "run" ? "/api/run" : "/api/test";
-      await streamSse(url, { only: args.only ?? [] }, (evt) => {
+      await streamSse(url, { only: args.only ?? [], configName }, (evt) => {
         if (evt.event === "log") {
           try {
             const parsed = JSON.parse(evt.data) as {

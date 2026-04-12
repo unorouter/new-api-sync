@@ -1,9 +1,11 @@
 import { applyOnlyProviders, loadConfig } from "@core/config";
 import { runReset } from "@core/sync/reset";
+import { configPath } from "@server/config/route";
 import { Elysia, t } from "elysia";
 
 const BodySchema = t.Object({
   only: t.Optional(t.Array(t.String(), { default: [] })),
+  configName: t.Optional(t.String()),
 });
 
 const ResponseSchema = {
@@ -33,7 +35,8 @@ export const resetRoute = new Elysia({ prefix: "/reset" }).post(
   "/",
   async ({ body, set }) => {
     try {
-      const config = applyOnlyProviders(await loadConfig(), body.only ?? []);
+      const path = configPath(body.configName);
+      const config = applyOnlyProviders(await loadConfig(path), body.only ?? []);
       const result = await runReset(config);
       return { success: true as const, data: result };
     } catch (error) {

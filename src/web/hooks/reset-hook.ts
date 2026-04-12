@@ -1,5 +1,6 @@
 import { rpc } from "@web/lib/rpc";
 import { useSyncStore } from "@web/store/sync-store";
+import { useUiStore } from "@web/store/ui-store";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -10,7 +11,8 @@ export function useResetPipeline() {
     mutationFn: async (args: { only?: string[] }) => {
       store.start("reset");
       store.addLog("info", "reset started");
-      const res = await rpc.api.reset.post({ only: args.only ?? [] });
+      const configName = useUiStore.getState().selectedConfigName;
+      const res = await rpc.api.reset.post({ only: args.only ?? [], configName });
       if (res.error) throw res.error;
       const result = res.data.data;
       store.addLog(
