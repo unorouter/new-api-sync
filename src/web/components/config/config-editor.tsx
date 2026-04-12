@@ -57,7 +57,7 @@ export function ConfigEditor() {
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               spellCheck={false}
-              className="h-[32rem] font-mono text-xs"
+              className="h-128 font-mono text-xs"
             />
             <div className="flex items-center gap-2">
               <Button

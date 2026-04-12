@@ -3,10 +3,10 @@ name: Release
 # Source of truth for the release version is `package.json`'s `version` field.
 # On every push to main we:
 #   1. Read the version
-#   2. Run `bun run build -- --all` which typechecks, bundles the frontend
-#      (with tailwind), builds the portable JS bundle, and cross-compiles 3
-#      native binaries (linux-x64, linux-arm64, darwin-arm64)
-#   3. Package each artifact + public/ into a tar.gz
+#   2. Run `bun run build --all` which typechecks, bundles the frontend (with
+#      tailwind), builds the portable JS bundle, and cross-compiles 6 native
+#      binaries (linux x64/arm64, darwin x64/arm64, windows x64/arm64)
+#   3. Rename artifacts with the version prefix + zip the public/ dir
 #   4. Delete any existing release + tag at v<version>
 #   5. Create a fresh release and upload the artifacts
 #
@@ -42,52 +42,43 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      # Builds: typecheck → frontend (tailwind) → js bundle → 3 native binaries.
+      # Builds: typecheck → frontend (tailwind) → js bundle → 5 native binaries.
       # See src/build.ts for the full pipeline.
       - name: Build all artifacts
         run: bun run build --all
 
-      # --- Package each artifact + public/ into its own tar.gz ---------------
-      - name: Package release artifacts
+      # --- Rename binaries with version prefix + zip the public/ dir ----------
+      - name: Stage release artifacts
+        id: stage
         run: |
           VERSION=${{ steps.pkg.outputs.version }}
+          PREFIX="new-api-sync-v${VERSION}"
+          OUT="release"
+          mkdir -p "$OUT"
 
-          pack() {
-            local suffix=$1      # e.g. linux-x64, darwin-arm64, js
-            local runtime=$2     # binary filename under dist/ (without path)
-            local stage=$(mktemp -d)
+          # Native binaries — raw files, just renamed with the version prefix.
+          # macOS / Linux users `chmod +x` then run directly.
+          cp dist/new-api-sync-linux-x64         "$OUT/${PREFIX}-linux-x64"
+          cp dist/new-api-sync-linux-arm64       "$OUT/${PREFIX}-linux-arm64"
+          cp dist/new-api-sync-darwin-x64        "$OUT/${PREFIX}-darwin-x64"
+          cp dist/new-api-sync-darwin-arm64      "$OUT/${PREFIX}-darwin-arm64"
+          cp dist/new-api-sync-windows-x64.exe   "$OUT/${PREFIX}-windows-x64.exe"
+          cp dist/new-api-sync-windows-arm64.exe "$OUT/${PREFIX}-windows-arm64.exe"
 
-            cp "dist/$runtime" "$stage/"
+          # Portable JS bundle + frontend — one zip, works anywhere Bun is
+          # installed. Contains new-api-sync.js and public/ side by side so the
+          # static plugin finds the assets out of the box.
+          JS_STAGE=$(mktemp -d)
+          cp dist/new-api-sync.js "$JS_STAGE/"
+          cp -r dist/public "$JS_STAGE/"
+          (cd "$JS_STAGE" && zip -qr "$GITHUB_WORKSPACE/$OUT/${PREFIX}-js.zip" .)
 
-            # All archives ship the frontend next to the runtime.
-            cp -r dist/public "$stage/"
+          # Frontend assets only — for users of the native binaries. They
+          # place the extracted `public/` dir next to the binary.
+          (cd dist && zip -qr "../$OUT/${PREFIX}-public.zip" public)
 
-            cat > "$stage/README.txt" <<EOF
-          new-api-sync v${VERSION} — ${suffix}
-
-          Usage:
-            ./new-api-sync ui --port 3000     (binary)
-            bun new-api-sync.js ui --port 3000 (js bundle, requires bun)
-
-          The ./public/ directory next to the runtime must remain alongside it.
-          EOF
-
-            # Normalise the runtime filename inside the archive so users can
-            # script against a predictable name regardless of which they pulled.
-            local target_name="new-api-sync"
-            [[ "$suffix" == "js" ]] && target_name="new-api-sync.js"
-            if [[ "$runtime" != "$target_name" ]]; then
-              mv "$stage/$runtime" "$stage/$target_name"
-            fi
-
-            tar -czf "new-api-sync-v${VERSION}-${suffix}.tar.gz" -C "$stage" .
-            ls -lh "new-api-sync-v${VERSION}-${suffix}.tar.gz"
-          }
-
-          pack linux-x64    new-api-sync-linux-x64
-          pack linux-arm64  new-api-sync-linux-arm64
-          pack darwin-arm64 new-api-sync-darwin-arm64
-          pack js           new-api-sync.js
+          ls -lh "$OUT/"
+          echo "prefix=$PREFIX" >> $GITHUB_OUTPUT
 
       # --- Release ------------------------------------------------------------
       - name: Delete existing release and tag
@@ -103,8 +94,37 @@ jobs:
           tag_name: ${{ steps.pkg.outputs.tag }}
           name: ${{ steps.pkg.outputs.tag }}
           generate_release_notes: true
+          body: |
+            ## Downloads
+
+            Download the binary for your platform **and** `${{ steps.stage.outputs.prefix }}-public.zip`. Place the extracted `public/` directory next to the binary, then run.
+
+            | Platform | File |
+            |---|---|
+            | Linux x64 | `${{ steps.stage.outputs.prefix }}-linux-x64` |
+            | Linux arm64 | `${{ steps.stage.outputs.prefix }}-linux-arm64` |
+            | macOS Apple Silicon | `${{ steps.stage.outputs.prefix }}-darwin-arm64` |
+            | macOS Intel | `${{ steps.stage.outputs.prefix }}-darwin-x64` |
+            | Windows x64 | `${{ steps.stage.outputs.prefix }}-windows-x64.exe` |
+            | Windows arm64 | `${{ steps.stage.outputs.prefix }}-windows-arm64.exe` |
+            | Any (requires Bun) | `${{ steps.stage.outputs.prefix }}-js.zip` |
+            | **Frontend assets** | `${{ steps.stage.outputs.prefix }}-public.zip` *(required)* |
+
+            Quick start (Linux/macOS):
+
+            ```sh
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.pkg.outputs.tag }}/${{ steps.stage.outputs.prefix }}-linux-x64
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.pkg.outputs.tag }}/${{ steps.stage.outputs.prefix }}-public.zip
+            unzip ${{ steps.stage.outputs.prefix }}-public.zip
+            chmod +x ${{ steps.stage.outputs.prefix }}-linux-x64
+            ./${{ steps.stage.outputs.prefix }}-linux-x64 ui --port 3000
+            ```
           files: |
-            new-api-sync-v${{ steps.pkg.outputs.version }}-linux-x64.tar.gz
-            new-api-sync-v${{ steps.pkg.outputs.version }}-linux-arm64.tar.gz
-            new-api-sync-v${{ steps.pkg.outputs.version }}-darwin-arm64.tar.gz
-            new-api-sync-v${{ steps.pkg.outputs.version }}-js.tar.gz
+            release/${{ steps.stage.outputs.prefix }}-linux-x64
+            release/${{ steps.stage.outputs.prefix }}-linux-arm64
+            release/${{ steps.stage.outputs.prefix }}-darwin-x64
+            release/${{ steps.stage.outputs.prefix }}-darwin-arm64
+            release/${{ steps.stage.outputs.prefix }}-windows-x64.exe
+            release/${{ steps.stage.outputs.prefix }}-windows-arm64.exe
+            release/${{ steps.stage.outputs.prefix }}-js.zip
+            release/${{ steps.stage.outputs.prefix }}-public.zip

@@ -25,7 +25,14 @@ const JS_OUT = `${DIST}/new-api-sync.js`;
 const CLI_ENTRY = "src/cli/index.ts";
 
 // The supported release targets for `--all`.
-const RELEASE_TARGETS = ["bun-linux-x64", "bun-linux-arm64", "bun-darwin-arm64"];
+const RELEASE_TARGETS = [
+  "bun-linux-x64",
+  "bun-linux-arm64",
+  "bun-darwin-x64",
+  "bun-darwin-arm64",
+  "bun-windows-x64",
+  "bun-windows-arm64",
+];
 
 function parseTargets(argv: string[]): string[] {
   const args = argv.slice(2);
@@ -38,7 +45,9 @@ function parseTargets(argv: string[]): string[] {
 function outfileFor(target: string): string {
   if (target === "bun") return `${DIST}/new-api-sync`;
   const suffix = target.replace(/^bun-/, "");
-  return `${DIST}/new-api-sync-${suffix}`;
+  // Windows binaries need a .exe extension to be executable.
+  const ext = target.includes("windows") ? ".exe" : "";
+  return `${DIST}/new-api-sync-${suffix}${ext}`;
 }
 
 const targets = parseTargets(process.argv);
