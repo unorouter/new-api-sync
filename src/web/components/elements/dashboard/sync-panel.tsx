@@ -2,6 +2,8 @@ import {
   FormattedMessage,
   useIntl,
 } from "@web/components/provider/intl-provider";
+import { Badge } from "@web/components/ui/badge";
+import { Button } from "@web/components/ui/button";
 import {
   Card,
   CardContent,
@@ -9,11 +11,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@web/components/ui/card";
-import { Button } from "@web/components/ui/button";
-import { Badge } from "@web/components/ui/badge";
-import { useResetPipeline } from "@web/hooks/reset-hook";
+import { RadioGroup, RadioGroupItem } from "@web/components/ui/radio-group";
 import { useSyncPipeline } from "@web/hooks/sync-hook";
 import { useSyncStore, type SyncPhase } from "@web/store/sync-store";
+import { useUiStore, type PipelineMode } from "@web/store/ui-store";
+import type { TranslationKey } from "@web/lib/constants";
+import { PlayIcon, SquareIcon } from "lucide-react";
 
 function PhaseBadge(props: { phase: SyncPhase }) {
   if (props.phase === "running")
@@ -45,6 +48,14 @@ function levelClass(level: string): string {
   return "";
 }
 
+const MODE_LABELS: Record<PipelineMode, TranslationKey> = {
+  run: "SYNC.MODE.RUN",
+  test: "SYNC.MODE.TEST",
+  reset: "SYNC.MODE.RESET",
+};
+
+const MODE_ORDER: PipelineMode[] = ["run", "test", "reset"];
+
 export function SyncPanel() {
   const intl = useIntl();
   const phase = useSyncStore((s) => s.phase);
@@ -52,9 +63,10 @@ export function SyncPanel() {
   const logs = useSyncStore((s) => s.logs);
   const error = useSyncStore((s) => s.error);
   const storeReset = useSyncStore((s) => s.reset);
+  const pipelineMode = useUiStore((s) => s.pipelineMode);
+  const setPipelineMode = useUiStore((s) => s.setPipelineMode);
 
   const sync = useSyncPipeline();
-  const resetMutation = useResetPipeline();
 
   const busy = phase === "running";
 
@@ -75,24 +87,42 @@ export function SyncPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => sync.mutate({ mode: "run" })} disabled={busy}>
-            <FormattedMessage id="SYNC.RUN" />
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => sync.mutate({ mode: "test" })}
-            disabled={busy}
+        <div className="flex flex-wrap items-center gap-4">
+          <RadioGroup
+            value={pipelineMode}
+            onValueChange={(next) => {
+              if (typeof next === "string")
+                setPipelineMode(next as PipelineMode);
+            }}
+            className="flex gap-4"
           >
-            <FormattedMessage id="SYNC.TEST" />
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => resetMutation.mutate({})}
-            disabled={busy}
-          >
-            <FormattedMessage id="SYNC.RESET" />
-          </Button>
+            {MODE_ORDER.map((m) => (
+              <label
+                key={m}
+                className="flex items-center gap-2 text-sm data-disabled:opacity-50"
+                data-disabled={busy ? "" : undefined}
+              >
+                <RadioGroupItem value={m} disabled={busy} />
+                <FormattedMessage id={MODE_LABELS[m]} />
+              </label>
+            ))}
+          </RadioGroup>
+
+          {busy ? (
+            <Button variant="destructive" onClick={() => sync.stop()}>
+              <SquareIcon />
+              <FormattedMessage id="SYNC.STOP" />
+            </Button>
+          ) : (
+            <Button
+              onClick={() => sync.mutate({ mode: pipelineMode })}
+              variant={pipelineMode === "reset" ? "destructive" : "default"}
+            >
+              <PlayIcon />
+              <FormattedMessage id="SYNC.START" />
+            </Button>
+          )}
+
           <Button
             variant="outline"
             onClick={() => storeReset()}

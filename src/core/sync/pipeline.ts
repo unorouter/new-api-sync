@@ -307,6 +307,7 @@ function collectResponsesApiModels(
 export async function runProviderPipeline(
   config: RuntimeConfig,
   targetSnapshot?: TargetSnapshot,
+  signal?: AbortSignal,
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
   const state: SyncState = {
     mergedGroups: [],
@@ -415,6 +416,7 @@ export async function runProviderPipeline(
   );
   const providerReports: ProviderReport[] = [];
   for (const [i, provider] of sorted.entries()) {
+    signal?.throwIfAborted();
     if (i > 0) console.log();
     let report: ProviderReport;
     if (provider.type === "newapi") {

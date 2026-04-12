@@ -14,7 +14,10 @@ const ALL_MODEL_TYPES = [
   "embedding",
 ] as const;
 
-export async function runTestPipeline(config: RuntimeConfig): Promise<boolean> {
+export async function runTestPipeline(
+  config: RuntimeConfig,
+  signal?: AbortSignal,
+): Promise<boolean> {
   const start = Date.now();
 
   // Load today's passing results so already-tested models get skipped
@@ -32,7 +35,11 @@ export async function runTestPipeline(config: RuntimeConfig): Promise<boolean> {
     })),
   };
 
-  const { providerReports } = await runProviderPipeline(testConfig);
+  const { providerReports } = await runProviderPipeline(
+    testConfig,
+    undefined,
+    signal,
+  );
 
   const succeeded = providerReports.filter((r) => r.success).length;
   consola.info(`Providers: ${succeeded}/${providerReports.length}`);

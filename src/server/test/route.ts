@@ -16,16 +16,16 @@ const BodySchema = t.Object({
  */
 export const testRoute = new Elysia({ prefix: "/test" }).post(
   "/",
-  ({ body }) =>
-    sseResponse(async (emit) => {
+  ({ body, request }) =>
+    sseResponse(async (emit, signal) => {
       emit("start", { at: new Date().toISOString() });
       const path = configPath(body.configName);
       const config = applyOnlyProviders(
         await loadConfig(path),
         body.only ?? [],
       );
-      const ok = await runTestPipeline(config);
+      const ok = await runTestPipeline(config, signal);
       return { success: ok };
-    }),
+    }, request),
   { body: BodySchema },
 );

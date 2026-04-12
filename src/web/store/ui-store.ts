@@ -12,6 +12,7 @@ import { persist } from "zustand/middleware";
 export type MainTab = "dashboard" | "config" | "history";
 export type HistoryTab = "runs" | "kiro";
 export type RunResultFilter = "all" | "passed" | "failed";
+export type PipelineMode = "run" | "test" | "reset";
 
 interface UiStore {
   mainTab: MainTab;
@@ -23,6 +24,8 @@ interface UiStore {
   kiroQuery: string;
   /** Name of the active config file; "" = main (config.yml), else config.<name>.yml */
   selectedConfigName: string;
+  /** Which pipeline mode the Start button will launch. */
+  pipelineMode: PipelineMode;
 
   setMainTab: (tab: MainTab) => void;
   setHistoryTab: (tab: HistoryTab) => void;
@@ -31,6 +34,7 @@ interface UiStore {
   setRunQuery: (query: string) => void;
   setKiroQuery: (query: string) => void;
   setSelectedConfigName: (name: string) => void;
+  setPipelineMode: (mode: PipelineMode) => void;
 }
 
 export const useUiStore = create<UiStore>()(
@@ -43,6 +47,7 @@ export const useUiStore = create<UiStore>()(
       runQuery: "",
       kiroQuery: "",
       selectedConfigName: "",
+      pipelineMode: "run",
 
       setMainTab: (mainTab) => set({ mainTab }),
       setHistoryTab: (historyTab) => set({ historyTab }),
@@ -52,6 +57,7 @@ export const useUiStore = create<UiStore>()(
       setKiroQuery: (kiroQuery) => set({ kiroQuery }),
       setSelectedConfigName: (selectedConfigName) =>
         set({ selectedConfigName }),
+      setPipelineMode: (pipelineMode) => set({ pipelineMode }),
     }),
     { name: "new-api-sync-ui" },
   ),

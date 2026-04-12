@@ -20,15 +20,15 @@ const BodySchema = t.Object({
  */
 export const runRoute = new Elysia({ prefix: "/run" }).post(
   "/",
-  ({ body }) =>
-    sseResponse(async (emit) => {
+  ({ body, request }) =>
+    sseResponse(async (emit, signal) => {
       emit("start", { at: new Date().toISOString() });
       const path = configPath(body.configName);
       const config = applyOnlyProviders(
         await loadConfig(path),
         body.only ?? [],
       );
-      const result = await runSync(config);
+      const result = await runSync(config, signal);
       return {
         success: result.success,
         elapsedMs: result.elapsedMs,
@@ -45,6 +45,6 @@ export const runRoute = new Elysia({ prefix: "/run" }).post(
           errors: result.apply.errors,
         },
       };
-    }),
+    }, request),
   { body: BodySchema },
 );
