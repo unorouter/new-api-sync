@@ -1,6 +1,6 @@
-import { KiroTable } from "@web/components/elements/history/kiro-table";
-import { RunDetail } from "@web/components/elements/history/run-detail";
-import { RunsTable } from "@web/components/elements/history/runs-table";
+import { KiroTable } from "./kiro-table";
+import { RunDetail } from "./run-detail";
+import { RunsTable } from "./runs-table";
 import { FormattedMessage } from "@web/components/provider/intl-provider";
 import {
   Card,

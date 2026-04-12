@@ -1,8 +1,8 @@
 import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
 import { FormattedMessage } from "@web/components/provider/intl-provider";
 import { MyFormInput } from "@web/components/elements/form/my-form-input";
-import { providerPath } from "@web/components/elements/config/provider-path";
-import { Sub2ApiGroupsEditor } from "@web/components/elements/config/sub2api-groups-editor";
+import { providerPath } from "./provider-path";
+import { Sub2ApiGroupsEditor } from "../editors/sub2api-groups-editor";
 import { Label } from "@web/components/ui/label";
 import type { TObject } from "@sinclair/typebox/type";
 import { Controller, useFormContext } from "react-hook-form";

@@ -1,10 +1,10 @@
 import type { ConfigSchemaType } from "@core/validations/config";
-import { ProviderCommonFields } from "@web/components/elements/config/provider-common-fields";
-import { ProviderDirectPanel } from "@web/components/elements/config/provider-direct-panel";
-import { ProviderNewApiPanel } from "@web/components/elements/config/provider-newapi-panel";
-import { ProviderNvidiaPanel } from "@web/components/elements/config/provider-nvidia-panel";
-import { ProviderSub2ApiPanel } from "@web/components/elements/config/provider-sub2api-panel";
-import { providerPath } from "@web/components/elements/config/provider-path";
+import { ProviderCommonFields } from "./provider-common-fields";
+import { ProviderDirectPanel } from "./provider-direct-panel";
+import { ProviderNewApiPanel } from "./provider-newapi-panel";
+import { ProviderNvidiaPanel } from "./provider-nvidia-panel";
+import { ProviderSub2ApiPanel } from "./provider-sub2api-panel";
+import { providerPath } from "./provider-path";
 import {
   FormattedMessage,
   useIntl,

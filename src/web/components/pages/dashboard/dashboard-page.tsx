@@ -1,4 +1,4 @@
-import { SyncPanel } from "@web/components/elements/dashboard/sync-panel";
+import { SyncPanel } from "./sync-panel";
 import {
   FormattedMessage,
   useIntl,

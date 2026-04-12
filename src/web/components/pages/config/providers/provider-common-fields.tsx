@@ -1,8 +1,8 @@
 import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
 import { MODEL_TYPES } from "@core/models/types";
-import { EnabledModelsEditor } from "@web/components/elements/config/enabled-models-editor";
-import { PriceAdjustmentEditor } from "@web/components/elements/config/price-adjustment-editor";
-import { providerPath } from "@web/components/elements/config/provider-path";
+import { EnabledModelsEditor } from "../editors/enabled-models-editor";
+import { PriceAdjustmentEditor } from "../editors/price-adjustment-editor";
+import { providerPath } from "./provider-path";
 import { MyFormCheckboxGroup } from "@web/components/elements/form/my-form-checkbox-group";
 import { MyFormInput } from "@web/components/elements/form/my-form-input";
 import { FormattedMessage } from "@web/components/provider/intl-provider";

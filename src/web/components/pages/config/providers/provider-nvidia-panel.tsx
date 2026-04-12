@@ -1,7 +1,7 @@
 import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
 import { FormattedMessage } from "@web/components/provider/intl-provider";
 import { MyFormInput } from "@web/components/elements/form/my-form-input";
-import { providerPath } from "@web/components/elements/config/provider-path";
+import { providerPath } from "./provider-path";
 import type { TObject } from "@sinclair/typebox/type";
 import { useFormContext } from "react-hook-form";
 

@@ -1,7 +1,7 @@
-import { ConfigFilesDropdown } from "@web/components/elements/config/config-files-dropdown";
-import { ConfigPage } from "@web/components/pages/config-page";
-import { DashboardPage } from "@web/components/pages/dashboard-page";
-import { HistoryPage } from "@web/components/pages/history-page";
+import { ConfigFilesDropdown } from "@web/components/elements/config-files-dropdown";
+import { ConfigPage } from "@web/components/pages/config/config-page";
+import { DashboardPage } from "@web/components/pages/dashboard/dashboard-page";
+import { HistoryPage } from "@web/components/pages/history/history-page";
 import { FormattedMessage } from "@web/components/provider/intl-provider";
 import {
   Tabs,

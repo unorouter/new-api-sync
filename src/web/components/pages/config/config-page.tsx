@@ -4,9 +4,9 @@ import {
   type ConfigSchemaType,
 } from "@core/validations/config";
 import { typeboxResolver } from "@hookform/resolvers/typebox";
-import { GlobalSection } from "@web/components/elements/config/global-section";
-import { ProvidersSection } from "@web/components/elements/config/providers-section";
-import { TargetSection } from "@web/components/elements/config/target-section";
+import { GlobalSection } from "./sections/global-section";
+import { ProvidersSection } from "./sections/providers-section";
+import { TargetSection } from "./sections/target-section";
 import {
   FormattedMessage,
   useIntl,

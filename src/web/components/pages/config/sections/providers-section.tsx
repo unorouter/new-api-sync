@@ -1,5 +1,5 @@
 import type { ConfigSchemaType } from "@core/validations/config";
-import { ProviderCard } from "@web/components/elements/config/provider-card";
+import { ProviderCard } from "../providers/provider-card";
 import { FormattedMessage } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import {
