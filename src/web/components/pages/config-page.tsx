@@ -22,68 +22,21 @@ import { Form } from "@web/components/ui/form";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { useConfig, useSaveConfig } from "@web/hooks/config-hook";
 import { useUiStore } from "@web/store/ui-store";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 /**
- * Structured editor for a config file. A single root `useForm` feeds every
- * section; child sections reach for `control` via `useFormContext`. The
- * floating Save/Revert bar is wired to `form.formState.isDirty`.
+ * Structured editor for a config file. Outer component loads the server data
+ * and gates rendering on it so the inner `useForm` can set `defaultValues`
+ * once — giving us correct `isDirty` semantics out of the box. Remounting
+ * the inner via `key` on the config path/name also guarantees a clean form
+ * whenever the user swaps configs.
  */
 export function ConfigPage() {
   const intl = useIntl();
   const selectedName = useUiStore((s) => s.selectedConfigName);
   const config = useConfig(selectedName);
-  const save = useSaveConfig(selectedName);
-  const [lastServerError, setLastServerError] = useState<string | null>(null);
-
-  const form = useForm<ConfigSchemaType>({
-    resolver: typeboxResolver(ConfigSchema),
-  });
-
-  // Hydrate defaults once the server value lands (and after a successful save).
-  useEffect(() => {
-    if (config.data) {
-      form.reset(config.data.config);
-      setLastServerError(null);
-    }
-  }, [config.data, form]);
-
-  const handleRevert = () => {
-    if (config.data) form.reset(config.data.config);
-    setLastServerError(null);
-  };
-
-  const onSubmit = form.handleSubmit(
-    (values) => {
-      const customErrors = customValidateConfig(values);
-      if (customErrors.length > 0) {
-        const message = customErrors[0]!;
-        toast.error(message);
-        setLastServerError(message);
-        return;
-      }
-      setLastServerError(null);
-      save.mutate(values, {
-        onError: (error) =>
-          setLastServerError(
-            error instanceof Error ? error.message : String(error),
-          ),
-      });
-    },
-    (errors) => {
-      // Surface the first resolver error as a toast so it's not silently
-      // stuck in formState.
-      const first = Object.values(errors)[0];
-      const message =
-        (first && typeof first === "object" && "message" in first
-          ? String((first as { message?: unknown }).message ?? "")
-          : "") || intl.formatMessage({ id: "CONFIG.VALIDATION.FAILED" });
-      toast.error(message);
-      setLastServerError(message);
-    },
-  );
 
   if (config.isPending) {
     return (
@@ -123,7 +76,74 @@ export function ConfigPage() {
 
   if (!config.data) return null;
 
-  const dirty = form.formState.isDirty;
+  return (
+    <ConfigForm
+      key={config.data.path}
+      name={selectedName}
+      path={config.data.path}
+      defaults={config.data.config}
+    />
+  );
+}
+
+function ConfigForm(props: {
+  name: string;
+  path: string;
+  defaults: ConfigSchemaType;
+}) {
+  const intl = useIntl();
+  const save = useSaveConfig(props.name);
+  const [lastServerError, setLastServerError] = useState<string | null>(null);
+
+  // `values` (rather than `defaultValues`) so RHF re-syncs whenever the
+  // server-provided defaults change after a save. Also `resetOptions` tells
+  // RHF to preserve dirty/touched flags as false on that re-sync.
+  const form = useForm<ConfigSchemaType>({
+    resolver: typeboxResolver(ConfigSchema),
+    values: props.defaults,
+    resetOptions: { keepDirtyValues: false, keepDirty: false },
+  });
+
+  const handleRevert = () => {
+    form.reset(props.defaults);
+    setLastServerError(null);
+  };
+
+  const onSubmit = form.handleSubmit(
+    (values) => {
+      const customErrors = customValidateConfig(values);
+      if (customErrors.length > 0) {
+        const message = customErrors[0]!;
+        toast.error(message);
+        setLastServerError(message);
+        return;
+      }
+      setLastServerError(null);
+      save.mutate(values, {
+        // Re-seed defaults with the saved values so isDirty clears cleanly.
+        // The mutation returns { path, config }; only config belongs in the form.
+        onSuccess: (data) => form.reset(data.config),
+        onError: (error) =>
+          setLastServerError(
+            error instanceof Error ? error.message : String(error),
+          ),
+      });
+    },
+    (errors) => {
+      const first = Object.values(errors)[0];
+      const message =
+        (first && typeof first === "object" && "message" in first
+          ? String((first as { message?: unknown }).message ?? "")
+          : "") || intl.formatMessage({ id: "CONFIG.VALIDATION.FAILED" });
+      toast.error(message);
+      setLastServerError(message);
+    },
+  );
+
+  // `isDirty` alone lies here: useFieldArray flips it true at mount even
+  // when no field has actually changed and `dirtyFields` is empty. Trust
+  // `dirtyFields` as the source of truth instead.
+  const dirty = Object.keys(form.formState.dirtyFields).length > 0;
   const showBar = dirty || lastServerError !== null || save.isPending;
 
   return (
@@ -142,7 +162,7 @@ export function ConfigPage() {
               <CardContent className="flex items-center gap-3 py-3">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-muted-foreground font-mono text-xs">
-                    {config.data.path}
+                    {props.path}
                   </span>
                   {lastServerError ? (
                     <span className="text-destructive text-xs">
