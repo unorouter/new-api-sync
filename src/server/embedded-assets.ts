@@ -4,7 +4,7 @@
 //
 // The committed version is an empty stub; dev falls through to disk-based
 // serving via @elysiajs/static. `bun run build` overwrites this file with
-// the real manifest.
+// the real manifest, then restores the stub once the artifacts are emitted.
 
 export type EmbeddedAsset = {
   path: string;
