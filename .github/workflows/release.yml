@@ -93,7 +93,7 @@ jobs:
           body: |
             ## Downloads
 
-            Every artifact is a single file with the frontend baked in. Pick the native binary for your platform, or the js bundle if you already have [Bun](https://bun.sh).
+            Every artifact is a single self-contained file with the full sync engine and web UI baked in, ready to discover, test, price, and push AI models from external providers into your new-api target instance. Pick the native binary for your platform, or the js bundle if you already have [Bun](https://bun.sh).
 
             | Platform | File |
             |---|---|
