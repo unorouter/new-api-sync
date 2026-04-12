@@ -21,10 +21,7 @@ export function useSaveConfig(name: string) {
 
   return useMutation({
     mutationFn: async (config: ConfigSchemaType) => {
-      const res = await rpc.api.config.put(
-        { config },
-        { query: { name } },
-      );
+      const res = await rpc.api.config.put({ config }, { query: { name } });
       if (res.error) {
         const value = res.error.value;
         throw new Error(

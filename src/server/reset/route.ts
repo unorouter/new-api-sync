@@ -36,7 +36,10 @@ export const resetRoute = new Elysia({ prefix: "/reset" }).post(
   async ({ body, set }) => {
     try {
       const path = configPath(body.configName);
-      const config = applyOnlyProviders(await loadConfig(path), body.only ?? []);
+      const config = applyOnlyProviders(
+        await loadConfig(path),
+        body.only ?? [],
+      );
       const result = await runReset(config);
       return { success: true as const, data: result };
     } catch (error) {

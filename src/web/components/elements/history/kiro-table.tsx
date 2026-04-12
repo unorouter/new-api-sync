@@ -13,10 +13,7 @@ import {
 } from "@web/components/ui/dialog";
 import { Input } from "@web/components/ui/input";
 import { Skeleton } from "@web/components/ui/skeleton";
-import {
-  useDeleteKiroEntry,
-  useKiroBlacklist,
-} from "@web/hooks/history-hook";
+import { useDeleteKiroEntry, useKiroBlacklist } from "@web/hooks/history-hook";
 import { useUiStore } from "@web/store/ui-store";
 import { Trash2Icon } from "lucide-react";
 import { useState } from "react";
@@ -104,10 +101,7 @@ export function KiroTable() {
           </thead>
           <tbody>
             {filtered.map((entry) => (
-              <tr
-                key={entry.key}
-                className="border-t [&>td]:px-3 [&>td]:py-2"
-              >
+              <tr key={entry.key} className="border-t [&>td]:px-3 [&>td]:py-2">
                 <td className="font-mono text-xs">{entry.provider}</td>
                 <td className="font-mono text-xs">{entry.group}</td>
                 <td className="font-mono text-xs">{entry.model}</td>

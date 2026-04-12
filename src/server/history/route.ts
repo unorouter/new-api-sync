@@ -1,4 +1,10 @@
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { Elysia, t } from "elysia";
 
@@ -142,7 +148,11 @@ function writeKiro(map: KiroMap): void {
 }
 
 /** Split "<provider>/<group>|<model>" into its parts. */
-function splitKiroKey(key: string): { provider: string; group: string; model: string } {
+function splitKiroKey(key: string): {
+  provider: string;
+  group: string;
+  model: string;
+} {
   const pipeIdx = key.indexOf("|");
   const left = pipeIdx === -1 ? key : key.slice(0, pipeIdx);
   const model = pipeIdx === -1 ? "" : key.slice(pipeIdx + 1);
@@ -158,7 +168,9 @@ export const historyRoute = new Elysia({ prefix: "/history" })
     () => {
       const runs = listRunIds()
         .map(summarize)
-        .filter((r): r is NonNullable<ReturnType<typeof summarize>> => r !== null);
+        .filter(
+          (r): r is NonNullable<ReturnType<typeof summarize>> => r !== null,
+        );
       return { success: true as const, data: runs };
     },
     {

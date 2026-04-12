@@ -17,10 +17,7 @@ import YAML, { isMap, isScalar, isSeq, type Document, type Node } from "yaml";
  *
  * Returns the mutated document (same reference).
  */
-export function syncYamlDocument(
-  doc: Document,
-  next: unknown,
-): Document {
+export function syncYamlDocument(doc: Document, next: unknown): Document {
   syncNode(doc, [], next);
   return doc;
 }
@@ -41,15 +38,23 @@ function captureComments(node: unknown): CommentFields {
   };
 }
 
-function restoreComments(node: Node | null | undefined, fields: CommentFields): void {
+function restoreComments(
+  node: Node | null | undefined,
+  fields: CommentFields,
+): void {
   if (!node) return;
   const target = node as Partial<CommentFields>;
   if (fields.comment !== undefined) target.comment = fields.comment;
-  if (fields.commentBefore !== undefined) target.commentBefore = fields.commentBefore;
+  if (fields.commentBefore !== undefined)
+    target.commentBefore = fields.commentBefore;
   if (fields.spaceBefore !== undefined) target.spaceBefore = fields.spaceBefore;
 }
 
-function syncNode(doc: Document, path: (string | number)[], next: unknown): void {
+function syncNode(
+  doc: Document,
+  path: (string | number)[],
+  next: unknown,
+): void {
   if (next === undefined || next === null) {
     if (path.length > 0) doc.deleteIn(path);
     return;
@@ -69,13 +74,16 @@ function syncNode(doc: Document, path: (string | number)[], next: unknown): void
     }
     const nextKeys = new Set(Object.keys(next as Record<string, unknown>));
     for (const item of [...existing.items]) {
-      const key =
-        isScalar(item.key) ? String(item.key.value) : String(item.key);
+      const key = isScalar(item.key)
+        ? String(item.key.value)
+        : String(item.key);
       if (!nextKeys.has(key)) {
         doc.deleteIn([...path, key]);
       }
     }
-    for (const [key, value] of Object.entries(next as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(
+      next as Record<string, unknown>,
+    )) {
       syncNode(doc, [...path, key], value);
     }
     return;
@@ -142,7 +150,8 @@ function syncArray(
   const previousComments = isSeq(existing) ? captureComments(existing) : {};
   doc.setIn(path, next);
   if (Object.keys(previousComments).length > 0) {
-    const replacement = path.length === 0 ? doc.contents : doc.getIn(path, true);
+    const replacement =
+      path.length === 0 ? doc.contents : doc.getIn(path, true);
     restoreComments(replacement as Node | null, previousComments);
   }
 }
@@ -169,7 +178,10 @@ function tryReadName(item: unknown): string | null {
 }
 
 /** Parse + sync + stringify, preserving comments on untouched nodes. */
-export function stringifyWithComments(previousText: string, next: unknown): string {
+export function stringifyWithComments(
+  previousText: string,
+  next: unknown,
+): string {
   const doc = YAML.parseDocument(previousText);
   syncYamlDocument(doc, next);
   return String(doc);

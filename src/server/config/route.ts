@@ -124,27 +124,29 @@ const CreateBodySchema = t.Object({
 });
 
 export const configRoute = new Elysia({ prefix: "/config" })
-  .get(
-    "/files",
-    () => ({ success: true as const, data: listConfigs() }),
-    {
-      response: t.Object({
-        success: t.Literal(true),
-        data: t.Array(ConfigFileSchema),
-      }),
-    },
-  )
+  .get("/files", () => ({ success: true as const, data: listConfigs() }), {
+    response: t.Object({
+      success: t.Literal(true),
+      data: t.Array(ConfigFileSchema),
+    }),
+  })
   .post(
     "/files",
     async ({ body, set }) => {
       if (body.name === "example") {
         set.status = 400;
-        return { success: false as const, message: "name 'example' is reserved" };
+        return {
+          success: false as const,
+          message: "name 'example' is reserved",
+        };
       }
       const path = configPath(body.name);
       if (Bun.file(path).size > 0) {
         set.status = 400;
-        return { success: false as const, message: `config '${body.name}' already exists` };
+        return {
+          success: false as const,
+          message: `config '${body.name}' already exists`,
+        };
       }
       // Seed with the current main config (or `fromName`) so the new file is
       // a valid starting point — otherwise PUT would reject an empty doc.

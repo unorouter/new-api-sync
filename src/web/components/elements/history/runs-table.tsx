@@ -1,4 +1,7 @@
-import { FormattedMessage, useIntl } from "@web/components/provider/intl-provider";
+import {
+  FormattedMessage,
+  useIntl,
+} from "@web/components/provider/intl-provider";
 import { Badge } from "@web/components/ui/badge";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { useHistoryRuns } from "@web/hooks/history-hook";
@@ -75,16 +78,16 @@ export function RunsTable(props: Props) {
               onClick={() => props.onSelect(run.id)}
               className="hover:bg-muted/40 cursor-pointer border-t transition-colors [&>td]:px-3 [&>td]:py-2"
             >
-              <td className="font-mono text-xs">{formatTimestamp(run.timestamp)}</td>
+              <td className="font-mono text-xs">
+                {formatTimestamp(run.timestamp)}
+              </td>
               <td className="text-right">
                 <Badge variant={run.passed > 0 ? "default" : "secondary"}>
                   {run.passed}
                 </Badge>
               </td>
               <td className="text-right">
-                <Badge
-                  variant={run.failed > 0 ? "destructive" : "secondary"}
-                >
+                <Badge variant={run.failed > 0 ? "destructive" : "secondary"}>
                   {run.failed}
                 </Badge>
               </td>

@@ -89,7 +89,11 @@ export function RunDetail(props: Props) {
               className="max-w-80"
             />
           </div>
-          <ResultsTable results={run.data.results} filter={filter} query={query} />
+          <ResultsTable
+            results={run.data.results}
+            filter={filter}
+            query={query}
+          />
         </>
       )}
     </div>
@@ -113,7 +117,8 @@ function ResultsTable(props: {
   const filtered = props.results.filter((r) => {
     if (props.filter === "passed" && !r.http.pass) return false;
     if (props.filter === "failed" && r.http.pass) return false;
-    if (q && !`${r.provider} ${r.model}`.toLowerCase().includes(q)) return false;
+    if (q && !`${r.provider} ${r.model}`.toLowerCase().includes(q))
+      return false;
     return true;
   });
 

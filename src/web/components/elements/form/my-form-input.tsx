@@ -26,15 +26,7 @@ type MyFormInputProps<T extends FieldValues> = {
 } & ComponentProps<"input">;
 
 export function MyFormInput<T extends FieldValues>(props: MyFormInputProps<T>) {
-  const {
-    control,
-    label,
-    name,
-    schema,
-    symbol,
-    validate,
-    ...rest
-  } = props;
+  const { control, label, name, schema, symbol, validate, ...rest } = props;
   const leafName = name.split(".").pop() ?? name;
   const schemaProp = schema.properties[leafName];
 

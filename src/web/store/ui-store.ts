@@ -50,7 +50,8 @@ export const useUiStore = create<UiStore>()(
       setRunResultFilter: (runResultFilter) => set({ runResultFilter }),
       setRunQuery: (runQuery) => set({ runQuery }),
       setKiroQuery: (kiroQuery) => set({ kiroQuery }),
-      setSelectedConfigName: (selectedConfigName) => set({ selectedConfigName }),
+      setSelectedConfigName: (selectedConfigName) =>
+        set({ selectedConfigName }),
     }),
     { name: "new-api-sync-ui" },
   ),

@@ -137,7 +137,7 @@ export function ConfigPage() {
           <div className="fixed right-6 bottom-6 z-50">
             <Card
               size="sm"
-              className="bg-background/95 shadow-lg backdrop-blur supports-backdrop-filter:bg-background/80"
+              className="bg-background/95 supports-backdrop-filter:bg-background/80 shadow-lg backdrop-blur"
             >
               <CardContent className="flex items-center gap-3 py-3">
                 <div className="flex flex-col gap-0.5">
@@ -165,10 +165,7 @@ export function ConfigPage() {
                       <FormattedMessage id="CONFIG.REVERT" />
                     </Button>
                   ) : null}
-                  <Button
-                    type="submit"
-                    disabled={!dirty || save.isPending}
-                  >
+                  <Button type="submit" disabled={!dirty || save.isPending}>
                     <FormattedMessage
                       id={save.isPending ? "CONFIG.SAVING" : "CONFIG.SAVE"}
                     />

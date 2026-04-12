@@ -19,7 +19,11 @@ export function MyFormError(props: MyFormErrorProps) {
   const intl = useIntl();
   if (!props.error) return null;
 
-  const leafName = props.name.replace(/\.\d+\./g, ".").split(".").pop() ?? props.name;
+  const leafName =
+    props.name
+      .replace(/\.\d+\./g, ".")
+      .split(".")
+      .pop() ?? props.name;
   const property = props.schema.properties[leafName];
 
   let message: string;

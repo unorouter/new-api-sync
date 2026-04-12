@@ -20,7 +20,10 @@ export const testRoute = new Elysia({ prefix: "/test" }).post(
     sseResponse(async (emit) => {
       emit("start", { at: new Date().toISOString() });
       const path = configPath(body.configName);
-      const config = applyOnlyProviders(await loadConfig(path), body.only ?? []);
+      const config = applyOnlyProviders(
+        await loadConfig(path),
+        body.only ?? [],
+      );
       const ok = await runTestPipeline(config);
       return { success: ok };
     }),

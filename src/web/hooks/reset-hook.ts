@@ -12,7 +12,10 @@ export function useResetPipeline() {
       store.start("reset");
       store.addLog("info", "reset started");
       const configName = useUiStore.getState().selectedConfigName;
-      const res = await rpc.api.reset.post({ only: args.only ?? [], configName });
+      const res = await rpc.api.reset.post({
+        only: args.only ?? [],
+        configName,
+      });
       if (res.error) throw res.error;
       const result = res.data.data;
       store.addLog(

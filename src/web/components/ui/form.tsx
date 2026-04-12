@@ -98,6 +98,7 @@ function FormControl(
   props: React.ComponentProps<"div"> & { children?: React.ReactNode },
 ) {
   const field = useFormField();
+  const { children, ...rest } = props;
   const formProps = {
     "data-slot": "form-control" as const,
     id: field.formItemId,
@@ -105,15 +106,15 @@ function FormControl(
       ? field.formDescriptionId
       : `${field.formDescriptionId} ${field.formMessageId}`,
     "aria-invalid": !!field.error,
-    ...props,
+    ...rest,
   };
-  if (React.isValidElement(props.children)) {
+  if (React.isValidElement(children)) {
     return React.cloneElement(
-      props.children as React.ReactElement<Record<string, unknown>>,
+      children as React.ReactElement<Record<string, unknown>>,
       formProps,
     );
   }
-  return <div {...formProps}>{props.children}</div>;
+  return <div {...formProps}>{children}</div>;
 }
 
 function FormDescription(props: React.ComponentProps<"p">) {
@@ -130,7 +131,8 @@ function FormDescription(props: React.ComponentProps<"p">) {
 
 function FormMessage(props: React.ComponentProps<"p">) {
   const field = useFormField();
-  const body = props.children ?? (field.error ? String(field.error.message) : null);
+  const body =
+    props.children ?? (field.error ? String(field.error.message) : null);
   if (!body) return null;
   return (
     <p
