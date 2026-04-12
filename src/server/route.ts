@@ -4,6 +4,7 @@ import { Elysia } from "elysia";
 import { configRoute } from "./config/route";
 import { embeddedAssets } from "./embedded-assets";
 import { healthRoute } from "./health/route";
+import { historyRoute } from "./history/route";
 import { resetRoute } from "./reset/route";
 import { runRoute } from "./run/route";
 import { testRoute } from "./test/route";
@@ -59,6 +60,7 @@ export const app = mountAssets(new Elysia()).group("/api", (api) =>
   api
     .use(healthRoute)
     .use(configRoute)
+    .use(historyRoute)
     .use(resetRoute)
     .use(runRoute)
     .use(testRoute),
