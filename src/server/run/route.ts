@@ -1,3 +1,4 @@
+import { runWithSignal } from "@core/abort";
 import { applyOnlyProviders, loadConfig } from "@core/config";
 import { runSync } from "@core/sync/run";
 import { configPath } from "@server/config/route";
@@ -28,7 +29,7 @@ export const runRoute = new Elysia({ prefix: "/run" }).post(
         await loadConfig(path),
         body.only ?? [],
       );
-      const result = await runSync(config, signal);
+      const result = await runWithSignal(signal, () => runSync(config));
       return {
         success: result.success,
         elapsedMs: result.elapsedMs,

@@ -13,16 +13,18 @@ interface RunArgs {
 /**
  * Kick off a sync pipeline (run / test / reset) via SSE, streaming logs and
  * the terminal result into the Zustand store. Returns the mutation plus a
- * `stop()` that aborts the in-flight SSE connection — the server propagates
- * that abort into the pipeline so work actually halts.
+ * `stop()` that POSTs to `/api/cancel` with the active run id — the server
+ * aborts the pipeline while keeping the SSE stream open, so the final
+ * cleanup logs (summary, report-written) still reach the UI.
  */
 export function useSyncPipeline() {
   const store = useSyncStore();
-  const controllerRef = useRef<AbortController | null>(null);
+  const runIdRef = useRef<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: async (args: RunArgs) => {
       store.start(args.mode);
+      runIdRef.current = null;
 
       const configName = useUiStore.getState().selectedConfigName;
       const url =
@@ -32,52 +34,44 @@ export function useSyncPipeline() {
             ? "/api/test"
             : "/api/reset";
 
-      const controller = new AbortController();
-      controllerRef.current = controller;
-
       try {
-        await streamSse(
-          url,
-          { only: args.only ?? [], configName },
-          (evt) => {
-            if (evt.event === "log") {
-              try {
-                const parsed = JSON.parse(evt.data) as {
-                  level: string;
-                  message: string;
-                };
-                store.addLog(parsed.level, parsed.message);
-              } catch {
-                store.addLog("info", evt.data);
-              }
-            } else if (evt.event === "done") {
-              try {
-                store.finish(JSON.parse(evt.data));
-              } catch {
-                store.finish(evt.data);
-              }
-            } else if (evt.event === "error") {
-              try {
-                const parsed = JSON.parse(evt.data) as { message?: string };
-                store.fail(parsed.message ?? "Unknown error");
-              } catch {
-                store.fail(evt.data);
-              }
-            } else if (evt.event === "start") {
-              store.addLog("info", "pipeline started");
+        await streamSse(url, { only: args.only ?? [], configName }, (evt) => {
+          if (evt.event === "run") {
+            try {
+              const parsed = JSON.parse(evt.data) as { id?: string };
+              if (parsed.id) runIdRef.current = parsed.id;
+            } catch {
+              // ignore malformed id frame
             }
-          },
-          controller.signal,
-        );
-      } catch (error) {
-        if (controller.signal.aborted) {
-          // Expected when the user clicked Stop; store.fail already ran via
-          // the "error" event, or will after the server emits it.
-          return;
-        }
-        throw error;
+          } else if (evt.event === "log") {
+            try {
+              const parsed = JSON.parse(evt.data) as {
+                level: string;
+                message: string;
+              };
+              store.addLog(parsed.level, parsed.message);
+            } catch {
+              store.addLog("info", evt.data);
+            }
+          } else if (evt.event === "done") {
+            try {
+              store.finish(JSON.parse(evt.data));
+            } catch {
+              store.finish(evt.data);
+            }
+          } else if (evt.event === "error") {
+            try {
+              const parsed = JSON.parse(evt.data) as { message?: string };
+              store.fail(parsed.message ?? "Unknown error");
+            } catch {
+              store.fail(evt.data);
+            }
+          } else if (evt.event === "start") {
+            store.addLog("info", "pipeline started");
+          }
+        });
       } finally {
-        if (controllerRef.current === controller) controllerRef.current = null;
+        runIdRef.current = null;
       }
     },
     onError: (error) => {
@@ -87,16 +81,28 @@ export function useSyncPipeline() {
     },
   });
 
-  const stop = () => {
-    const controller = controllerRef.current;
-    if (controller) {
-      controller.abort();
-      store.addLog("warn", "stop requested");
+  const stop = async () => {
+    const id = runIdRef.current;
+    if (!id) {
+      // Orphaned `running` state (page refresh, server restart). Nothing to
+      // cancel on the server — just clear the stuck phase locally.
+      store.fail("stopped (no active connection)");
       return;
     }
-    // Orphaned `running` state (page refresh after server restart, etc).
-    // Nothing to abort — just clear the stuck phase so the UI is usable.
-    store.fail("stopped (no active connection)");
+    store.addLog("warn", "stop requested");
+    try {
+      await fetch("/api/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+    } catch (error) {
+      // If the cancel POST fails we still want the UI to reflect intent;
+      // the server-side pipeline will run to completion but that's a network
+      // fault the user can retry.
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(`cancel failed: ${message}`);
+    }
   };
 
   return { ...mutation, stop };

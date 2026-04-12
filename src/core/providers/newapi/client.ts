@@ -1,3 +1,4 @@
+import { throwIfRunAborted } from "@core/abort";
 import {
   CHANNEL_TYPES,
   inferChannelType,
@@ -368,6 +369,7 @@ export class NewApiClient {
 
     // Delete tokens that are managed by us but no longer needed
     for (const token of existingTokens) {
+      throwIfRunAborted();
       if (
         token.name.endsWith(`-${prefix}`) &&
         !desiredTokenNames.has(token.name)
@@ -383,6 +385,7 @@ export class NewApiClient {
       key.startsWith("sk-") ? key : `sk-${key}`;
 
     for (const group of groups) {
+      throwIfRunAborted();
       const tokenName = tokenNameForGroup(group.name);
       const existingToken = tokensByName.get(tokenName);
 

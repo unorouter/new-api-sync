@@ -1,3 +1,4 @@
+import { throwIfRunAborted } from "@core/abort";
 import type { RuntimeConfig } from "@core/config";
 import { NewApiClient } from "@core/providers/newapi/client";
 
@@ -9,10 +10,7 @@ export interface ResetResult {
   optionsUpdated: string[];
 }
 
-export async function runReset(
-  config: RuntimeConfig,
-  signal?: AbortSignal,
-): Promise<ResetResult> {
+export async function runReset(config: RuntimeConfig): Promise<ResetResult> {
   const target = new NewApiClient(config.target, "target");
   const providerNames = new Set(
     config.providers.map((provider) => provider.name),
@@ -21,7 +19,7 @@ export async function runReset(
   let channelsDeleted = 0;
   const channels = await target.listChannels();
   for (const channel of channels) {
-    signal?.throwIfAborted();
+    throwIfRunAborted();
     if (!channel.id || !channel.tag) continue;
     if (providerNames.size > 0 && !providerNames.has(channel.tag)) continue;
     if (await target.deleteChannel(channel.id)) channelsDeleted++;
@@ -30,17 +28,17 @@ export async function runReset(
   let modelsDeleted = 0;
   const models = await target.listModels();
   for (const model of models) {
-    signal?.throwIfAborted();
+    throwIfRunAborted();
     if (!model.id || model.sync_official !== 1) continue;
     if (await target.deleteModel(model.id)) modelsDeleted++;
   }
 
-  signal?.throwIfAborted();
+  throwIfRunAborted();
   const orphanModelsDeleted = await target.cleanupOrphanedModels();
 
   let tokensDeleted = 0;
   for (const provider of config.providers) {
-    signal?.throwIfAborted();
+    throwIfRunAborted();
     if (provider.type !== "newapi") continue;
     const client = new NewApiClient(provider, provider.name);
     const tokens = await client.listTokens();
@@ -48,7 +46,7 @@ export async function runReset(
       ? `-${provider.name}-${config.target.targetPrefix}`
       : `-${provider.name}`;
     for (const token of tokens) {
-      signal?.throwIfAborted();
+      throwIfRunAborted();
       if (!token.name.endsWith(suffix)) continue;
       if (await client.deleteToken(token.id)) tokensDeleted++;
     }

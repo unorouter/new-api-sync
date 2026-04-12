@@ -1,3 +1,4 @@
+import { runWithSignal } from "@core/abort";
 import { applyOnlyProviders, loadConfig } from "@core/config";
 import { runReset } from "@core/sync/reset";
 import { configPath } from "@server/config/route";
@@ -25,8 +26,7 @@ export const resetRoute = new Elysia({ prefix: "/reset" }).post(
         await loadConfig(path),
         body.only ?? [],
       );
-      const result = await runReset(config, signal);
-      return result;
+      return await runWithSignal(signal, () => runReset(config));
     }, request),
   { body: BodySchema },
 );

@@ -1,3 +1,4 @@
+import { throwIfRunAborted } from "@core/abort";
 import type { ModelType } from "@core/models/constants";
 import {
   CHANNEL_TYPES,
@@ -904,8 +905,6 @@ export async function testModels(opts: {
   logPrefix?: string;
   modelEndpoints?: Map<string, string[]>;
   onModelTested?: (detail: ModelTestDetail) => void | Promise<void>;
-  /** When aborted, stop scheduling further batches (the in-flight one finishes). */
-  signal?: AbortSignal;
 }): Promise<{
   workingModels: string[];
   details: ModelTestDetail[];
@@ -923,7 +922,7 @@ export async function testModels(opts: {
   const results: ModelTestDetail[] = [];
 
   for (let i = 0; i < models.length; i += concurrency) {
-    opts.signal?.throwIfAborted();
+    throwIfRunAborted();
     const batch = models.slice(i, i + concurrency);
     const batchResults = await Promise.all(
       batch.map(async (model) => {

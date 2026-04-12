@@ -1,3 +1,4 @@
+import { throwIfRunAborted } from "@core/abort";
 import {
   getPricingGridFromEnabledModels,
   type DirectProviderConfig,
@@ -307,7 +308,6 @@ function collectResponsesApiModels(
 export async function runProviderPipeline(
   config: RuntimeConfig,
   targetSnapshot?: TargetSnapshot,
-  signal?: AbortSignal,
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
   const state: SyncState = {
     mergedGroups: [],
@@ -416,7 +416,7 @@ export async function runProviderPipeline(
   );
   const providerReports: ProviderReport[] = [];
   for (const [i, provider] of sorted.entries()) {
-    signal?.throwIfAborted();
+    throwIfRunAborted();
     if (i > 0) console.log();
     let report: ProviderReport;
     if (provider.type === "newapi") {

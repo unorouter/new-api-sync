@@ -1,6 +1,7 @@
 import { staticPlugin } from "@elysiajs/static";
 import { existsSync } from "node:fs";
 import { Elysia } from "elysia";
+import { cancelRoute } from "./cancel/route";
 import { configRoute } from "./config/route";
 import { embeddedAssets } from "./embedded-assets";
 import { healthRoute } from "./health/route";
@@ -63,7 +64,8 @@ export const app = mountAssets(new Elysia()).group("/api", (api) =>
     .use(historyRoute)
     .use(resetRoute)
     .use(runRoute)
-    .use(testRoute),
+    .use(testRoute)
+    .use(cancelRoute),
 );
 
 export type App = typeof app;

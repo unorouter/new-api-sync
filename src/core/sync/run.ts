@@ -1,3 +1,4 @@
+import { throwIfRunAborted } from "@core/abort";
 import type { RuntimeConfig } from "@core/config";
 import { applySyncDiff } from "@core/sync/apply";
 import { buildSyncDiff } from "@core/sync/diff";
@@ -94,10 +95,7 @@ async function snapshot(client: NewApiClient): Promise<TargetSnapshot> {
   return { channels, models, vendors, options };
 }
 
-export async function runSync(
-  config: RuntimeConfig,
-  signal?: AbortSignal,
-): Promise<SyncRunResult> {
+export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
   const start = Date.now();
   const target = new NewApiClient(config.target, "target");
   loadKiroBlacklist();
@@ -107,22 +105,18 @@ export async function runSync(
     throw new Error(`Target health check failed: ${health.error ?? "unknown"}`);
   }
 
-  signal?.throwIfAborted();
+  throwIfRunAborted();
   let snap = await snapshot(target);
-  signal?.throwIfAborted();
-  const { desired, providerReports } = await runProviderPipeline(
-    config,
-    snap,
-    signal,
-  );
+  throwIfRunAborted();
+  const { desired, providerReports } = await runProviderPipeline(config, snap);
 
-  signal?.throwIfAborted();
+  throwIfRunAborted();
   const vendorsCreated = await ensureVendors(target, desired, snap);
   if (vendorsCreated > 0) {
     snap = { ...snap, vendors: await target.listVendors() };
   }
 
-  signal?.throwIfAborted();
+  throwIfRunAborted();
   const diff = buildSyncDiff(config, desired, snap);
   const apply = await applySyncDiff(target, diff);
 

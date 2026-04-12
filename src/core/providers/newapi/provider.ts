@@ -1,3 +1,4 @@
+import { throwIfRunAborted } from "@core/abort";
 import {
   getEnabledModelGlobs,
   getTestModelTypes,
@@ -420,6 +421,7 @@ export async function processNewApiProvider(
     let runningBalance = startBalance;
 
     for (const group of groups) {
+      throwIfRunAborted();
       const originalName = `${group.name}-${providerConfig.name}`;
       let sanitizedName = sanitizeGroupName(originalName);
 

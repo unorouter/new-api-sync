@@ -1,3 +1,4 @@
+import { runWithSignal } from "@core/abort";
 import { applyOnlyProviders, loadConfig } from "@core/config";
 import { runTestPipeline } from "@core/sync/test-runner";
 import { configPath } from "@server/config/route";
@@ -24,7 +25,7 @@ export const testRoute = new Elysia({ prefix: "/test" }).post(
         await loadConfig(path),
         body.only ?? [],
       );
-      const ok = await runTestPipeline(config, signal);
+      const ok = await runWithSignal(signal, () => runTestPipeline(config));
       return { success: ok };
     }, request),
   { body: BodySchema },
