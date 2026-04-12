@@ -117,41 +117,10 @@ export function ConfigEditor() {
 
   if (!draft || !config.data) return null;
 
-  return (
-    <div className="space-y-4">
-      <Card size="sm">
-        <CardContent className="flex items-center justify-between gap-2 py-3">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-muted-foreground font-mono text-xs">
-              {config.data.path}
-            </span>
-            {lastServerError ? (
-              <span className="text-destructive text-xs">
-                {lastServerError}
-              </span>
-            ) : dirty ? (
-              <span className="text-muted-foreground text-xs">
-                <FormattedMessage id="CONFIG.UNSAVED" />
-              </span>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleRevert}
-              disabled={!dirty || save.isPending}
-            >
-              <FormattedMessage id="CONFIG.REVERT" />
-            </Button>
-            <Button onClick={handleSave} disabled={!dirty || save.isPending}>
-              <FormattedMessage
-                id={save.isPending ? "CONFIG.SAVING" : "CONFIG.SAVE"}
-              />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+  const showBar = dirty || lastServerError !== null || save.isPending;
 
+  return (
+    <div className="space-y-4 pb-20">
       <TargetSection
         value={draft.target}
         onChange={(target) => setDraft({ ...draft, target })}
@@ -163,6 +132,51 @@ export function ConfigEditor() {
         value={draft.providers}
         onChange={(providers) => setDraft({ ...draft, providers })}
       />
+
+      {showBar ? (
+        <div className="fixed right-6 bottom-6 z-50">
+          <Card
+            size="sm"
+            className="bg-background/95 shadow-lg backdrop-blur supports-backdrop-filter:bg-background/80"
+          >
+            <CardContent className="flex items-center gap-3 py-3">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-muted-foreground font-mono text-xs">
+                  {config.data.path}
+                </span>
+                {lastServerError ? (
+                  <span className="text-destructive text-xs">
+                    {lastServerError}
+                  </span>
+                ) : dirty ? (
+                  <span className="text-muted-foreground text-xs">
+                    <FormattedMessage id="CONFIG.UNSAVED" />
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-2">
+                {dirty ? (
+                  <Button
+                    variant="outline"
+                    onClick={handleRevert}
+                    disabled={save.isPending}
+                  >
+                    <FormattedMessage id="CONFIG.REVERT" />
+                  </Button>
+                ) : null}
+                <Button
+                  onClick={handleSave}
+                  disabled={!dirty || save.isPending}
+                >
+                  <FormattedMessage
+                    id={save.isPending ? "CONFIG.SAVING" : "CONFIG.SAVE"}
+                  />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 }
