@@ -1,10 +1,10 @@
 [English](README.md) | 中文
 
-> 友情链接：[LINUX DO](https://linux.do/) — 新的理想型社区
+> 友情链接：[LINUX DO](https://linux.do/) - 新的理想型社区
 
 # new-api-sync
 
-将上游提供商的定价、渠道和模型同步到你的 [new-api](https://github.com/unorouter/new-api) 实例。支持 [new-api](https://github.com/unorouter/new-api)、[sub2api](https://github.com/unorouter/sub2api)、厂商直连 API 以及 NVIDIA NIM。
+将上游提供商的定价、渠道和模型同步到你的 [new-api](https://github.com/unorouter/new-api) 实例。支持 [new-api](https://github.com/unorouter/new-api)、[sub2api](https://github.com/unorouter/sub2api) 以及厂商直连 API。
 
 ## 快速开始
 
@@ -13,6 +13,7 @@ bun install
 cp config.example.jsonc config.jsonc  # 编辑你的配置
 bun sync run                          # 运行同步
 bun sync run --only myprovider        # 仅同步指定提供商
+bun sync run --verbose                # 以调试日志级别运行
 bun sync reset                        # 删除所有已同步数据
 ```
 
@@ -21,11 +22,12 @@ bun sync reset                        # 删除所有已同步数据
 ```bash
 bun sync test                         # 测试所有提供商的全部模型
 bun sync test --only myprovider       # 测试指定提供商
+bun sync test --verbose               # 以调试日志级别测试
 ```
 
 `test` 命令会测试所有组中的每个模型，但不会对目标实例做任何更改。结果保存在 `logs/YYYY-MM-DD-model-tests.json`。同一天再次运行会跳过已通过的模型，只重测失败项，因此可以恢复中断的运行。
 
-测试会忽略 `enabledVendors` 和 `enabledModels` 筛选器，并测试所有模型类型。`config.jsonc` 中的 `testModelTypes` 可以按提供商控制常规同步时测试的模型类别（如 `["text", "image"]`）。省略则默认只测试文本模型。
+测试会忽略 `enabledVendors`、`enabledModels` 以及倍率阈值过滤器（详见"行为说明"），并测试所有模型类型。`config.jsonc` 中的 `testModelTypes` 可以按提供商控制常规同步时测试的模型类别（如 `["text", "image"]`）。省略则默认只测试文本模型。
 
 ## 配置
 
@@ -43,7 +45,7 @@ bun sync test --only myprovider       # 测试指定提供商
 | 字段             | 说明                                                                                                     |
 | ---------------- | -------------------------------------------------------------------------------------------------------- |
 | `testModelTypes` | 同步时测试的模型类型：`["text", "image", "video", "audio", "embedding"]`（默认：`["text"]`）。提供商级别设置可覆盖全局。 |
-| `blacklist`      | 排除匹配的组/模型：`["kiro", "nsfw"]`                                                                    |
+| `blacklist`      | 排除匹配的文本模型（大小写不敏感）。支持 Glob 通配符和提供商作用域模式。详见下方"黑名单"。             |
 | `modelMapping`   | 重命名模型：`{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                     |
 
 ### new-api 提供商 (`type: "newapi"`)
@@ -92,21 +94,24 @@ bun sync test --only myprovider       # 测试指定提供商
 | `testModelTypes` |      | 覆盖全局测试类型                                                  |
 | `priceAdjustment`|      | 数字或按键对象（见下方"价格调整"）                                |
 
-### NVIDIA NIM 提供商 (`type: "nvidia"`)
+### 黑名单
 
-连接 NVIDIA NIM API。文本模型自动发现；图像模型需在 `enabledModels` 中列出。
+`blacklist` 会从同步中移除匹配的文本模型。非文本类型（图像、视频、音频、嵌入）不会被黑名单过滤。
 
-| 字段             | 必填 | 说明                                                                     |
-| ---------------- | ---- | ------------------------------------------------------------------------ |
-| `name`           | 是   | 唯一标识符，用作渠道标签                                                 |
-| `apiKey`         | 是   | NVIDIA API 密钥                                                          |
-| `baseUrl`        |      | 文本模型端点（默认 `https://integrate.api.nvidia.com`）                  |
-| `imageBaseUrl`   |      | 图像模型端点（默认 `https://ai.api.nvidia.com`）                         |
-| `models`         |      | 显式模型列表（跳过自动发现）                                             |
-| `enabledModels`  |      | Glob 模式；字面量图像模型名称会自动加入发现                              |
-| `ratio`          |      | 基础组倍率（默认 1.0）                                                   |
-| `testModelTypes` |      | 覆盖全局测试类型                                                         |
-| `priceAdjustment`|      | 数字或按键对象（见下方"价格调整"）                                       |
+- **大小写不敏感**，按模型 ID 匹配。
+- **支持 Glob 通配符**：`"gpt-5.*-codex"`、`"*-preview"`。
+- **提供商作用域模式**使用 `provider/pattern` 语法。斜杠前的部分需与提供商的 `name` 匹配，斜杠后是 Glob 模式。示例：
+
+  ```jsonc
+  {
+    "blacklist": [
+      "nsfw",              // 不限作用域：屏蔽任何提供商中包含 "nsfw" 的模型
+      "*-preview",         // 不限作用域：屏蔽任何提供商的预览模型
+      "duck/gpt-5*",       // 作用域：仅屏蔽 "duck" 提供商的 gpt-5* 模型
+      "yun/claude-*-opus", // 作用域：仅屏蔽 "yun" 提供商的 claude opus 模型
+    ],
+  }
+  ```
 
 ### 价格调整
 
@@ -124,11 +129,46 @@ bun sync test --only myprovider       # 测试指定提供商
 
 ## 工作原理
 
-1. **发现** — 从每个提供商获取模型/组，按厂商、黑名单和 Glob 模式筛选
-2. **测试** — 通过最小化 API 请求验证每个模型
-3. **构建目标状态** — 合并定价（GroupRatio、ModelRatio、CompletionRatio），构建渠道和策略
-4. **差异比较** — 将目标状态与当前目标实例状态进行比较
-5. **应用** — 创建、更新和删除渠道、模型和选项
-6. **清理** — 移除孤立模型
+1. **发现**：从每个提供商获取模型/组，按厂商、黑名单和 Glob 模式筛选
+2. **测试**：通过最小化 API 请求验证每个模型
+3. **构建目标状态**：合并定价（GroupRatio、ModelRatio、CompletionRatio），构建渠道和策略
+4. **差异比较**：将目标状态与当前目标实例状态进行比较
+5. **应用**：创建、更新和删除渠道、模型和选项
+6. **清理**：移除孤立模型
 
-渠道命名为 `{group}-{provider}`。优先级动态分配：最便宜的组优先，响应更快的获得更高优先级。
+渠道命名为 `{group}-{provider}`。当某个提供商的模型分裂为多个价格层时，渠道会追加数字后缀：`{group}-{provider}-t0`、`-t1` 等。进一步分裂（由单模型价格覆盖或任务模型固定触发）会追加字母：`-t0a`、`-t0b`。优先级动态分配：最便宜的组优先，响应更快的获得更高优先级。
+
+## 行为说明
+
+### 有效倍率 ≥ 1 的文本模型会被跳过
+
+当文本模型的有效组倍率（基础组倍率 × 单模型 `priceAdjustment`）大于或等于 1.0 时，会被静默丢弃，不会创建渠道。其目的是避免同步产生比直接调用上游还贵的渠道。
+
+非文本模型类型（图像、视频、音频、嵌入）不受此限制，任何倍率都可同步。
+
+如果同步后某个文本模型消失：
+
+1. 检查其有效倍率。可降低提供商的 `ratio` 或施加负值 `priceAdjustment`，使结果低于 1.0。
+2. 或检查模型分类：误判为 text 的图像/视频模型会被此过滤器吃掉。参见 `src/lib/constants.ts` 中的 `inferModelType()`。
+
+测试模式（`bun sync test`）会绕过此阈值，方便查看所有层级的原始测试结果。
+
+### `-thinking` 模型会被过滤
+
+以 `-thinking` 结尾或名称中包含 `-thinking-` 的模型会在测试与渠道创建阶段被跳过。如果需要把上游的 thinking 变体当作普通模型保留，请使用 `modelMapping` 重命名：
+
+```jsonc
+{ "modelMapping": { "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" } }
+```
+
+### 任务模型渠道固定
+
+部分视频/图像模型会被固定到 new-api 中的特定渠道类型：`sora`、`kling`、`vidu`、`jimeng`、`hailuo`、`seedance`、`veo`、`imagen`、`wan`。其中一些还会在提供商 `baseUrl` 后追加路径后缀（例如 `wan` → `/alibailian`）。该行为自动触发，会产生独立子渠道。
+
+### 模型元数据补全
+
+同步过程中，会从 [OpenRouter](https://openrouter.ai) 与 [basellm](https://github.com/basellm/basellm) 拉取模型描述，用于丰富 new-api 中展示的元数据。此为尽力而为：失败仅记录警告，不会阻塞同步。
+
+### Kiro 自动黑名单
+
+`logs/kiro-blacklist.json` 由测试运行器自动维护，用于记录通过真伪校验失败的 Anthropic Claude 模型提供商。此为内部状态，无需手动编辑。
