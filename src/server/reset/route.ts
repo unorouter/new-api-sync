@@ -1,7 +1,7 @@
 import { applyOnlyProviders, loadConfig } from "@core/config";
 import { runReset } from "@core/sync/reset";
 import { configPath } from "@server/config/route";
-import { sseResponse } from "@server/lib/sse";
+import { sseResponse } from "@server/sse";
 import { Elysia, t } from "elysia";
 
 const BodySchema = t.Object({
