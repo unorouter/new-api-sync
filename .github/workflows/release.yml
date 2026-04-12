@@ -3,12 +3,16 @@ name: Release
 # Source of truth for the release version is `package.json`'s `version` field.
 # On every push to main we:
 #   1. Read the version
-#   2. Run `bun run build --all` which typechecks, bundles the frontend (with
-#      tailwind), builds the portable JS bundle, and cross-compiles 6 native
-#      binaries (linux x64/arm64, darwin x64/arm64, windows x64/arm64)
-#   3. Rename artifacts with the version prefix + zip the public/ dir
+#   2. Run `bun run build` which typechecks, bundles the frontend, generates
+#      the embedded-assets manifest, builds the portable JS bundle, and
+#      cross-compiles 6 native binaries (linux x64/arm64, darwin x64/arm64,
+#      windows x64/arm64) with the frontend baked in
+#   3. Rename artifacts with the version prefix + zip the js bundle with public/
 #   4. Delete any existing release + tag at v<version>
 #   5. Create a fresh release and upload the artifacts
+#
+# Native binaries are fully self-contained — no public/ extraction required.
+# The -js.zip is only for users who want to run with Bun directly.
 #
 # To cut a new release: bump "version" in package.json, merge to main.
 
@@ -56,8 +60,9 @@ jobs:
           OUT="release"
           mkdir -p "$OUT"
 
-          # Native binaries — raw files, just renamed with the version prefix.
-          # macOS / Linux users `chmod +x` then run directly.
+          # Native binaries — fully self-contained, frontend assets baked in
+          # via Bun's `with { type: "file" }` embedding. Just rename with the
+          # version prefix. macOS / Linux users `chmod +x` then run directly.
           cp dist/new-api-sync-linux-x64         "$OUT/${PREFIX}-linux-x64"
           cp dist/new-api-sync-linux-arm64       "$OUT/${PREFIX}-linux-arm64"
           cp dist/new-api-sync-darwin-x64        "$OUT/${PREFIX}-darwin-x64"
@@ -65,9 +70,9 @@ jobs:
           cp dist/new-api-sync-windows-x64.exe   "$OUT/${PREFIX}-windows-x64.exe"
           cp dist/new-api-sync-windows-arm64.exe "$OUT/${PREFIX}-windows-arm64.exe"
 
-          # One zip with everything frontend-related: the portable js bundle
-          # plus the compiled public/ dir. Native-binary users extract this to
-          # get public/ alongside their binary; js users run it directly with bun.
+          # Zip for Bun users: portable js bundle + compiled public/ dir. The
+          # js bundle reads public/ from disk at runtime (embedding only works
+          # with --compile, not the js bundle).
           JS_STAGE=$(mktemp -d)
           cp dist/new-api-sync.js "$JS_STAGE/"
           cp -r dist/public "$JS_STAGE/"
@@ -93,7 +98,7 @@ jobs:
           body: |
             ## Downloads
 
-            Download the binary for your platform **and** `${{ steps.stage.outputs.prefix }}-js.zip`. Extract the `public/` directory from the zip next to the binary, then run.
+            Pick the native binary for your platform (single file, frontend baked in) or grab the js bundle if you already have [Bun](https://bun.sh).
 
             | Platform | File |
             |---|---|
@@ -103,7 +108,17 @@ jobs:
             | macOS Intel | `${{ steps.stage.outputs.prefix }}-darwin-x64` |
             | Windows x64 | `${{ steps.stage.outputs.prefix }}-windows-x64.exe` |
             | Windows arm64 | `${{ steps.stage.outputs.prefix }}-windows-arm64.exe` |
-            | **Frontend + JS bundle** | `${{ steps.stage.outputs.prefix }}-js.zip` *(required for every install)* |
+            | JS bundle (requires Bun) | `${{ steps.stage.outputs.prefix }}-js.zip` |
+
+            ### Run a native binary (no runtime required)
+
+            Single file, fully self-contained.
+
+            ```sh
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.pkg.outputs.tag }}/${{ steps.stage.outputs.prefix }}-linux-x64
+            chmod +x ${{ steps.stage.outputs.prefix }}-linux-x64
+            ./${{ steps.stage.outputs.prefix }}-linux-x64 ui --port 3000
+            ```
 
             ### Run the JS bundle (any platform, just needs [Bun](https://bun.sh))
 
@@ -113,16 +128,6 @@ jobs:
             curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.pkg.outputs.tag }}/${{ steps.stage.outputs.prefix }}-js.zip
             unzip ${{ steps.stage.outputs.prefix }}-js.zip
             bun new-api-sync.js ui --port 3000
-            ```
-
-            ### Run a native binary (no runtime required)
-
-            ```sh
-            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.pkg.outputs.tag }}/${{ steps.stage.outputs.prefix }}-linux-x64
-            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.pkg.outputs.tag }}/${{ steps.stage.outputs.prefix }}-js.zip
-            unzip ${{ steps.stage.outputs.prefix }}-js.zip 'public/*'
-            chmod +x ${{ steps.stage.outputs.prefix }}-linux-x64
-            ./${{ steps.stage.outputs.prefix }}-linux-x64 ui --port 3000
             ```
           files: |
             release/${{ steps.stage.outputs.prefix }}-linux-x64
