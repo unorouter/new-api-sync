@@ -1,4 +1,10 @@
 import type { ConfigSchemaType } from "@core/config";
+import { ProviderCommonFields } from "@web/components/elements/config/provider-common-fields";
+import { ProviderDirectPanel } from "@web/components/elements/config/provider-direct-panel";
+import { ProviderNewApiPanel } from "@web/components/elements/config/provider-newapi-panel";
+import { ProviderNvidiaPanel } from "@web/components/elements/config/provider-nvidia-panel";
+import { ProviderSub2ApiPanel } from "@web/components/elements/config/provider-sub2api-panel";
+import { providerPath } from "@web/components/elements/config/provider-path";
 import {
   FormattedMessage,
   useIntl,
@@ -21,24 +27,24 @@ import {
 } from "@web/components/ui/dialog";
 import { ChevronRightIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
-import { ProviderCommonFields } from "./provider-common-fields";
-import {
-  DirectPanel,
-  NewApiPanel,
-  NvidiaPanel,
-  Sub2ApiPanel,
-} from "./provider-type-panels";
-
-type Provider = ConfigSchemaType["providers"][number];
+import { useFormContext, useWatch } from "react-hook-form";
 
 interface Props {
-  value: Provider;
-  onChange: (value: Provider) => void;
+  index: number;
   onDelete: () => void;
 }
 
 export function ProviderCard(props: Props) {
   const intl = useIntl();
+  const form = useFormContext<ConfigSchemaType>();
+  const type = useWatch({
+    control: form.control,
+    name: providerPath(props.index, "type"),
+  }) as string | undefined;
+  const name = useWatch({
+    control: form.control,
+    name: providerPath(props.index, "name"),
+  }) as string | undefined;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -62,14 +68,15 @@ export function ProviderCard(props: Props) {
               </Button>
             }
           />
-          <Badge variant="outline">{props.value.type}</Badge>
+          <Badge variant="outline">{type}</Badge>
           <span className="text-sm font-medium">
-            {props.value.name || (
+            {name || (
               <span className="text-muted-foreground italic">unnamed</span>
             )}
           </span>
           <div className="ml-auto">
             <Button
+              type="button"
               variant="ghost"
               size="icon-sm"
               onClick={() => setConfirmOpen(true)}
@@ -81,12 +88,9 @@ export function ProviderCard(props: Props) {
         </div>
         <CollapsiblePanel>
           <div className="space-y-6 border-t px-4 py-4">
-            <ProviderCommonFields
-              value={props.value}
-              onChange={props.onChange}
-            />
+            <ProviderCommonFields index={props.index} />
             <div className="border-border border-t pt-4">
-              {renderTypePanel(props.value, props.onChange)}
+              {renderTypePanel(type, props.index)}
             </div>
           </div>
         </CollapsiblePanel>
@@ -98,7 +102,7 @@ export function ProviderCard(props: Props) {
             <DialogTitle>
               {intl.formatMessage(
                 { id: "CONFIG.PROVIDERS.CONFIRM_DELETE" },
-                { name: props.value.name },
+                { name: name ?? "" },
               )}
             </DialogTitle>
             <DialogDescription>
@@ -125,18 +129,10 @@ export function ProviderCard(props: Props) {
   );
 }
 
-function renderTypePanel(
-  provider: Provider,
-  onChange: (next: Provider) => void,
-) {
-  if (provider.type === "newapi") {
-    return <NewApiPanel value={provider} onChange={onChange} />;
-  }
-  if (provider.type === "sub2api") {
-    return <Sub2ApiPanel value={provider} onChange={onChange} />;
-  }
-  if (provider.type === "direct") {
-    return <DirectPanel value={provider} onChange={onChange} />;
-  }
-  return <NvidiaPanel value={provider} onChange={onChange} />;
+function renderTypePanel(type: string | undefined, index: number) {
+  if (type === "newapi") return <ProviderNewApiPanel index={index} />;
+  if (type === "sub2api") return <ProviderSub2ApiPanel index={index} />;
+  if (type === "direct") return <ProviderDirectPanel index={index} />;
+  if (type === "nvidia") return <ProviderNvidiaPanel index={index} />;
+  return null;
 }

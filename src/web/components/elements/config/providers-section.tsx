@@ -1,4 +1,5 @@
 import type { ConfigSchemaType } from "@core/config";
+import { ProviderCard } from "@web/components/elements/config/provider-card";
 import { FormattedMessage } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import {
@@ -16,7 +17,7 @@ import {
 } from "@web/components/ui/dialog";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
-import { ProviderCard } from "./provider-card";
+import { useFieldArray, useFormContext } from "react-hook-form";
 
 type Provider = ConfigSchemaType["providers"][number];
 type ProviderType = Provider["type"];
@@ -51,28 +52,17 @@ const TEMPLATES: Record<ProviderType, () => Provider> = {
 
 const TYPE_ORDER: ProviderType[] = ["newapi", "sub2api", "direct", "nvidia"];
 
-interface Props {
-  value: Provider[];
-  onChange: (value: Provider[]) => void;
-}
-
-export function ProvidersSection(props: Props) {
+export function ProvidersSection() {
+  const form = useFormContext<ConfigSchemaType>();
+  const providers = useFieldArray({
+    control: form.control,
+    name: "providers",
+  });
   const [pickOpen, setPickOpen] = useState(false);
 
   const addProvider = (type: ProviderType) => {
-    const next = [...props.value, TEMPLATES[type]()];
-    props.onChange(next);
+    providers.append(TEMPLATES[type]());
     setPickOpen(false);
-  };
-
-  const updateProvider = (index: number, provider: Provider) => {
-    const next = [...props.value];
-    next[index] = provider;
-    props.onChange(next);
-  };
-
-  const deleteProvider = (index: number) => {
-    props.onChange(props.value.filter((_, i) => i !== index));
   };
 
   return (
@@ -86,20 +76,23 @@ export function ProvidersSection(props: Props) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {props.value.length === 0 ? (
+        {providers.fields.length === 0 ? (
           <p className="text-muted-foreground text-sm">
             <FormattedMessage id="CONFIG.PROVIDERS.EMPTY" />
           </p>
         ) : null}
-        {props.value.map((provider, i) => (
+        {providers.fields.map((field, i) => (
           <ProviderCard
-            key={i}
-            value={provider}
-            onChange={(next) => updateProvider(i, next)}
-            onDelete={() => deleteProvider(i)}
+            key={field.id}
+            index={i}
+            onDelete={() => providers.remove(i)}
           />
         ))}
-        <Button variant="outline" onClick={() => setPickOpen(true)}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setPickOpen(true)}
+        >
           <PlusIcon />
           <FormattedMessage id="CONFIG.PROVIDERS.ADD" />
         </Button>
@@ -116,6 +109,7 @@ export function ProvidersSection(props: Props) {
             {TYPE_ORDER.map((type) => (
               <Button
                 key={type}
+                type="button"
                 variant="outline"
                 onClick={() => addProvider(type)}
                 className="justify-start"

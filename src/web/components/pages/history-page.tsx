@@ -1,3 +1,6 @@
+import { KiroTable } from "@web/components/elements/history/kiro-table";
+import { RunDetail } from "@web/components/elements/history/run-detail";
+import { RunsTable } from "@web/components/elements/history/runs-table";
 import { FormattedMessage } from "@web/components/provider/intl-provider";
 import {
   Card,
@@ -13,11 +16,8 @@ import {
   TabsTrigger,
 } from "@web/components/ui/tabs";
 import { useUiStore } from "@web/store/ui-store";
-import { KiroTable } from "./kiro-table";
-import { RunDetail } from "./run-detail";
-import { RunsTable } from "./runs-table";
 
-export function HistoryPanel() {
+export function HistoryPage() {
   const historyTab = useUiStore((s) => s.historyTab);
   const setHistoryTab = useUiStore((s) => s.setHistoryTab);
   const selectedRunId = useUiStore((s) => s.selectedRunId);
