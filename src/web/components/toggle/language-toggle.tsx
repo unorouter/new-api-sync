@@ -1,5 +1,6 @@
 "use client";
 
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import {
   DropdownMenu,
@@ -8,16 +9,17 @@ import {
   DropdownMenuTrigger,
 } from "@web/components/ui/dropdown-menu";
 import {
-  FormattedMessage,
-  useIntl,
-  useLocale,
-} from "@web/components/provider/intl-provider";
+  useConfigLocale,
+  useSetConfigLocale,
+} from "@web/hooks/config-hook";
 import { LANGUAGES } from "@web/lib/constants";
+import { useUiStore } from "@web/store/ui-store";
 
 export function LanguageToggle() {
-  const intl = useIntl();
-  const locale = useLocale().locale;
-  const setLocale = useLocale().setLocale;
+  const { t } = useIntl();
+  const selectedName = useUiStore((s) => s.selectedConfigName);
+  const locale = useConfigLocale(selectedName).data ?? "en";
+  const setLocale = useSetConfigLocale(selectedName);
   const current = LANGUAGES.find((lang) => lang.locale === locale);
 
   return (
@@ -27,7 +29,8 @@ export function LanguageToggle() {
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={intl.formatMessage({ id: "LANGUAGE.SWITCH" })}
+            aria-label={t("LANGUAGE.SWITCH")}
+            disabled={setLocale.isPending}
           />
         }
       >
@@ -37,11 +40,11 @@ export function LanguageToggle() {
         {LANGUAGES.map((lang) => (
           <DropdownMenuItem
             key={lang.code}
-            onClick={() => setLocale(lang.locale)}
+            onClick={() => setLocale.mutate(lang.locale)}
             className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm"
           >
             <lang.Flag className="h-3.5 w-5 rounded-sm" />
-            <FormattedMessage id={`LANGUAGE.${lang.code}`} />
+            {t(`LANGUAGE.${lang.code}` as const)}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

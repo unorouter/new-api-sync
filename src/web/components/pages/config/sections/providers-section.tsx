@@ -1,6 +1,6 @@
 import type { ConfigSchemaType } from "@core/validations/config";
 import { ProviderCard } from "../providers/provider-card";
-import { FormattedMessage } from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import {
   Card,
@@ -53,6 +53,7 @@ const TEMPLATES: Record<ProviderType, () => Provider> = {
 const TYPE_ORDER: ProviderType[] = ["newapi", "sub2api", "direct", "nvidia"];
 
 export function ProvidersSection() {
+  const { t } = useIntl();
   const form = useFormContext<ConfigSchemaType>();
   const providers = useFieldArray({
     control: form.control,
@@ -69,16 +70,16 @@ export function ProvidersSection() {
     <Card>
       <CardHeader>
         <CardTitle>
-          <FormattedMessage id="CONFIG.PROVIDERS.TITLE" />
+          {t("CONFIG.PROVIDERS.TITLE")}
         </CardTitle>
         <CardDescription>
-          <FormattedMessage id="CONFIG.PROVIDERS.DESCRIPTION" />
+          {t("CONFIG.PROVIDERS.DESCRIPTION")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {providers.fields.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            <FormattedMessage id="CONFIG.PROVIDERS.EMPTY" />
+            {t("CONFIG.PROVIDERS.EMPTY")}
           </p>
         ) : null}
         {providers.fields.map((field, i) => (
@@ -94,7 +95,7 @@ export function ProvidersSection() {
           onClick={() => setPickOpen(true)}
         >
           <PlusIcon />
-          <FormattedMessage id="CONFIG.PROVIDERS.ADD" />
+          {t("CONFIG.PROVIDERS.ADD")}
         </Button>
       </CardContent>
 
@@ -102,7 +103,7 @@ export function ProvidersSection() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              <FormattedMessage id="CONFIG.PROVIDERS.PICK_TYPE" />
+              {t("CONFIG.PROVIDERS.PICK_TYPE")}
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-2">

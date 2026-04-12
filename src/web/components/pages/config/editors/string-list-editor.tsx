@@ -1,4 +1,4 @@
-import { FormattedMessage } from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import { PlusIcon, Trash2Icon } from "lucide-react";
@@ -20,6 +20,7 @@ interface Props {
  * React's DOM nodes by index and steal focus from the next input.
  */
 export function StringListEditor(props: Props) {
+  const { t } = useIntl();
   const keyCounter = useRef(0);
   const keysRef = useRef<number[]>([]);
 
@@ -71,7 +72,7 @@ export function StringListEditor(props: Props) {
             size="icon-sm"
             onClick={() => remove(i)}
             type="button"
-            aria-label="Remove"
+            aria-label={t("CONFIG.FIELD.REMOVE")}
           >
             <Trash2Icon />
           </Button>
@@ -79,7 +80,7 @@ export function StringListEditor(props: Props) {
       ))}
       <Button variant="outline" size="sm" onClick={add} type="button">
         <PlusIcon />
-        <FormattedMessage id="CONFIG.FIELD.ADD" />
+        {t("CONFIG.FIELD.ADD")}
       </Button>
     </div>
   );

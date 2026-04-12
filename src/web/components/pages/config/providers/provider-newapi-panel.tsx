@@ -1,5 +1,5 @@
 import type { ConfigSchemaType } from "@core/validations/config";
-import { FormattedMessage } from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { MyFormInput } from "@web/components/elements/form/my-form-input";
 import { providerPath } from "./provider-path";
 import type { TObject } from "@sinclair/typebox/type";
@@ -17,6 +17,7 @@ const variantSchema = { properties: {} } as unknown as TObject;
 void ConfigSchema;
 
 export function ProviderNewApiPanel(props: { index: number }) {
+  const { t } = useIntl();
   const form = useFormContext<ConfigSchemaType>();
   return (
     <div className="space-y-4">
@@ -24,21 +25,21 @@ export function ProviderNewApiPanel(props: { index: number }) {
         control={form.control}
         name={providerPath(props.index, "baseUrl")}
         schema={variantSchema}
-        label={<FormattedMessage id="CONFIG.PROVIDER.BASE_URL" />}
+        label={t("CONFIG.PROVIDER.BASE_URL")}
         placeholder="https://…"
       />
       <MyFormInput
         control={form.control}
         name={providerPath(props.index, "systemAccessToken")}
         schema={variantSchema}
-        label={<FormattedMessage id="CONFIG.PROVIDER.SYSTEM_ACCESS_TOKEN" />}
+        label={t("CONFIG.PROVIDER.SYSTEM_ACCESS_TOKEN")}
         type="password"
       />
       <MyFormInput
         control={form.control}
         name={providerPath(props.index, "userId")}
         schema={variantSchema}
-        label={<FormattedMessage id="CONFIG.PROVIDER.USER_ID" />}
+        label={t("CONFIG.PROVIDER.USER_ID")}
         type="number"
         min={1}
       />

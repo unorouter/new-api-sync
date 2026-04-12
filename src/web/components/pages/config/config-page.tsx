@@ -7,10 +7,7 @@ import { typeboxResolver } from "@hookform/resolvers/typebox";
 import { GlobalSection } from "./sections/global-section";
 import { ProvidersSection } from "./sections/providers-section";
 import { TargetSection } from "./sections/target-section";
-import {
-  FormattedMessage,
-  useIntl,
-} from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import {
   Card,
@@ -34,7 +31,7 @@ import { toast } from "sonner";
  * whenever the user swaps configs.
  */
 export function ConfigPage() {
-  const intl = useIntl();
+  const { t } = useIntl();
   const selectedName = useUiStore((s) => s.selectedConfigName);
   const config = useConfig(selectedName);
 
@@ -43,7 +40,7 @@ export function ConfigPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            <FormattedMessage id="CONFIG.TITLE" />
+            {t("CONFIG.TITLE")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -59,15 +56,12 @@ export function ConfigPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            <FormattedMessage id="CONFIG.TITLE" />
+            {t("CONFIG.TITLE")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-destructive text-sm">
-            {intl.formatMessage(
-              { id: "CONFIG.LOAD_ERROR" },
-              { error: String(config.error) },
-            )}
+            {t("CONFIG.LOAD_ERROR", { error: String(config.error) })}
           </p>
         </CardContent>
       </Card>
@@ -91,7 +85,7 @@ function ConfigForm(props: {
   path: string;
   defaults: ConfigSchemaType;
 }) {
-  const intl = useIntl();
+  const { t } = useIntl();
   const save = useSaveConfig(props.name);
   const [lastServerError, setLastServerError] = useState<string | null>(null);
 
@@ -134,7 +128,7 @@ function ConfigForm(props: {
       const message =
         (first && typeof first === "object" && "message" in first
           ? String((first as { message?: unknown }).message ?? "")
-          : "") || intl.formatMessage({ id: "CONFIG.VALIDATION.FAILED" });
+          : "") || t("CONFIG.VALIDATION.FAILED");
       toast.error(message);
       setLastServerError(message);
     },
@@ -170,7 +164,7 @@ function ConfigForm(props: {
                     </span>
                   ) : dirty ? (
                     <span className="text-muted-foreground text-xs">
-                      <FormattedMessage id="CONFIG.UNSAVED" />
+                      {t("CONFIG.UNSAVED")}
                     </span>
                   ) : null}
                 </div>
@@ -182,13 +176,11 @@ function ConfigForm(props: {
                       onClick={handleRevert}
                       disabled={save.isPending}
                     >
-                      <FormattedMessage id="CONFIG.REVERT" />
+                      {t("CONFIG.REVERT")}
                     </Button>
                   ) : null}
                   <Button type="submit" disabled={!dirty || save.isPending}>
-                    <FormattedMessage
-                      id={save.isPending ? "CONFIG.SAVING" : "CONFIG.SAVE"}
-                    />
+                    {t(save.isPending ? "CONFIG.SAVING" : "CONFIG.SAVE")}
                   </Button>
                 </div>
               </CardContent>

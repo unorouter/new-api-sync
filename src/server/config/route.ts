@@ -6,6 +6,8 @@ import {
   ConfigDeleteResponseSchema,
   ConfigFilesListResponseSchema,
   ConfigGetResponsesSchema,
+  ConfigLocalePatchBodySchema,
+  ConfigLocalePatchResponsesSchema,
   ConfigNameParamsSchema,
   ConfigPutBodySchema,
   ConfigPutResponsesSchema,
@@ -13,6 +15,7 @@ import {
 } from "@core/validations/config-route";
 import { Elysia } from "elysia";
 import { readdirSync, unlinkSync } from "node:fs";
+import { readLocaleFromPath, translatorFor } from "../i18n";
 import { stringifyWithComments } from "./yaml-sync";
 
 /**
@@ -100,11 +103,12 @@ export const configRoute = new Elysia({ prefix: "/config" })
   .post(
     "/files",
     async ({ body, set }) => {
+      const t = translatorFor(await readLocaleFromPath(configPath("")));
       if (body.name === "example") {
         set.status = 400;
         return {
           success: false as const,
-          message: "name 'example' is reserved",
+          message: t("SERVER.RESERVED_NAME"),
         };
       }
       const path = configPath(body.name);
@@ -112,7 +116,7 @@ export const configRoute = new Elysia({ prefix: "/config" })
         set.status = 400;
         return {
           success: false as const,
-          message: `config '${body.name}' already exists`,
+          message: t("SERVER.CONFIG_EXISTS", { name: body.name }),
         };
       }
       // Seed with the current main config (or `fromName`) so the new file is
@@ -149,12 +153,13 @@ export const configRoute = new Elysia({ prefix: "/config" })
   )
   .delete(
     "/files/:name",
-    ({ params, set }) => {
+    async ({ params, set }) => {
+      const t = translatorFor(await readLocaleFromPath(configPath("")));
       if (!params.name || params.name === "example") {
         set.status = 400;
         return {
           success: false as const,
-          message: "cannot delete main or reserved configs",
+          message: t("SERVER.CANNOT_DELETE_MAIN"),
         };
       }
       const path = configPath(params.name);
@@ -162,7 +167,7 @@ export const configRoute = new Elysia({ prefix: "/config" })
         set.status = 404;
         return {
           success: false as const,
-          message: `config '${params.name}' not found`,
+          message: t("SERVER.CONFIG_NOT_FOUND", { name: params.name }),
         };
       }
       unlinkSync(path);
@@ -180,9 +185,10 @@ export const configRoute = new Elysia({ prefix: "/config" })
       const path = configPath(name);
       if (!(Bun.file(path).size > 0)) {
         set.status = 404;
+        const t = translatorFor(await readLocaleFromPath(configPath("")));
         return {
           success: false as const,
-          message: `config '${name || "main"}' not found`,
+          message: t("SERVER.CONFIG_NOT_FOUND", { name: name || "main" }),
         };
       }
       const text = await Bun.file(path).text();
@@ -201,9 +207,10 @@ export const configRoute = new Elysia({ prefix: "/config" })
       const path = configPath(name);
       if (!(Bun.file(path).size > 0)) {
         set.status = 404;
+        const t = translatorFor(await readLocaleFromPath(configPath("")));
         return {
           success: false as const,
-          message: `config '${name || "main"}' not found`,
+          message: t("SERVER.CONFIG_NOT_FOUND", { name: name || "main" }),
         };
       }
       const previous = await Bun.file(path).text();
@@ -234,5 +241,66 @@ export const configRoute = new Elysia({ prefix: "/config" })
       body: ConfigPutBodySchema,
       query: ConfigQuerySchema,
       response: ConfigPutResponsesSchema,
+    },
+  )
+  .get(
+    "/locale",
+    async ({ query, set }) => {
+      const name = query.name ?? "";
+      const path = configPath(name);
+      if (!(Bun.file(path).size > 0)) {
+        set.status = 404;
+        const t = translatorFor(await readLocaleFromPath(configPath("")));
+        return {
+          success: false as const,
+          message: t("SERVER.CONFIG_NOT_FOUND", { name: name || "main" }),
+        };
+      }
+      const text = await Bun.file(path).text();
+      const config = Bun.YAML.parse(text) as ConfigSchemaType;
+      return {
+        success: true as const,
+        data: { locale: config.locale ?? "en" },
+      };
+    },
+    {
+      query: ConfigQuerySchema,
+      response: ConfigLocalePatchResponsesSchema,
+    },
+  )
+  .patch(
+    "/locale",
+    async ({ body, query, set }) => {
+      const name = query.name ?? "";
+      const path = configPath(name);
+      if (!(Bun.file(path).size > 0)) {
+        set.status = 404;
+        const t = translatorFor(await readLocaleFromPath(configPath("")));
+        return {
+          success: false as const,
+          message: t("SERVER.CONFIG_NOT_FOUND", { name: name || "main" }),
+        };
+      }
+      const previous = await Bun.file(path).text();
+      const config = Bun.YAML.parse(previous) as ConfigSchemaType;
+      const nextConfig: ConfigSchemaType = { ...config, locale: body.locale };
+      const yaml = stringifyWithComments(previous, nextConfig);
+      await Bun.write(path, yaml);
+      try {
+        await loadConfig(path);
+      } catch (error) {
+        await Bun.write(path, previous);
+        set.status = 400;
+        return {
+          success: false as const,
+          message: error instanceof Error ? error.message : String(error),
+        };
+      }
+      return { success: true as const, data: { locale: body.locale } };
+    },
+    {
+      body: ConfigLocalePatchBodySchema,
+      query: ConfigQuerySchema,
+      response: ConfigLocalePatchResponsesSchema,
     },
   );

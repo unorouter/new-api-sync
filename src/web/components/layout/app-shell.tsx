@@ -2,7 +2,7 @@ import { ConfigFilesDropdown } from "@web/components/elements/config-files-dropd
 import { ConfigPage } from "@web/components/pages/config/config-page";
 import { DashboardPage } from "@web/components/pages/dashboard/dashboard-page";
 import { HistoryPage } from "@web/components/pages/history/history-page";
-import { FormattedMessage } from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import {
   Tabs,
   TabsContent,
@@ -19,6 +19,7 @@ import { useUiStore, type MainTab } from "@web/store/ui-store";
  * zustand ui-store so switching tabs never loses the selected config.
  */
 export function AppShell() {
+  const { t } = useIntl();
   const mainTab = useUiStore((s) => s.mainTab);
   const setMainTab = useUiStore((s) => s.setMainTab);
 
@@ -27,10 +28,10 @@ export function AppShell() {
       <header className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">
-            <FormattedMessage id="APP.TITLE" />
+            {t("APP.TITLE")}
           </h1>
           <p className="text-muted-foreground mt-1">
-            <FormattedMessage id="APP.SUBTITLE" />
+            {t("APP.SUBTITLE")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -47,13 +48,13 @@ export function AppShell() {
         <div className="flex items-center justify-between gap-4">
           <TabsList>
             <TabsTrigger value="dashboard">
-              <FormattedMessage id="TABS.DASHBOARD" />
+              {t("TABS.DASHBOARD")}
             </TabsTrigger>
             <TabsTrigger value="config">
-              <FormattedMessage id="TABS.CONFIGURATION" />
+              {t("TABS.CONFIGURATION")}
             </TabsTrigger>
             <TabsTrigger value="history">
-              <FormattedMessage id="TABS.HISTORY" />
+              {t("TABS.HISTORY")}
             </TabsTrigger>
           </TabsList>
           <ConfigFilesDropdown />

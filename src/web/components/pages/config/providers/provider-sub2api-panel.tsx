@@ -1,5 +1,5 @@
 import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
-import { FormattedMessage } from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { MyFormInput } from "@web/components/elements/form/my-form-input";
 import { providerPath } from "./provider-path";
 import { Sub2ApiGroupsEditor } from "../editors/sub2api-groups-editor";
@@ -16,6 +16,7 @@ type Groups = Extract<
 >["groups"];
 
 export function ProviderSub2ApiPanel(props: { index: number }) {
+  const { t } = useIntl();
   const form = useFormContext<ConfigSchemaType>();
   return (
     <div className="space-y-4">
@@ -23,7 +24,7 @@ export function ProviderSub2ApiPanel(props: { index: number }) {
         control={form.control}
         name={providerPath(props.index, "baseUrl")}
         schema={variantSchema}
-        label={<FormattedMessage id="CONFIG.PROVIDER.BASE_URL" />}
+        label={t("CONFIG.PROVIDER.BASE_URL")}
         placeholder="https://…"
       />
       <MyFormInput
@@ -32,9 +33,9 @@ export function ProviderSub2ApiPanel(props: { index: number }) {
         schema={variantSchema}
         label={
           <>
-            <FormattedMessage id="CONFIG.PROVIDER.ADMIN_API_KEY" />
+            {t("CONFIG.PROVIDER.ADMIN_API_KEY")}
             <span className="text-muted-foreground ml-1 text-xs font-normal">
-              (<FormattedMessage id="CONFIG.FIELD.OPTIONAL" />)
+              ({t("CONFIG.FIELD.OPTIONAL")})
             </span>
           </>
         }
@@ -43,7 +44,7 @@ export function ProviderSub2ApiPanel(props: { index: number }) {
       />
       <div className="grid gap-2">
         <Label>
-          <FormattedMessage id="CONFIG.PROVIDER.GROUPS" />
+          {t("CONFIG.PROVIDER.GROUPS")}
         </Label>
         <Controller
           control={form.control}

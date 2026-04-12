@@ -1,7 +1,4 @@
-import {
-  FormattedMessage,
-  useIntl,
-} from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Badge } from "@web/components/ui/badge";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
@@ -25,7 +22,7 @@ interface Props {
 type Filter = "all" | "passed" | "failed";
 
 export function RunDetail(props: Props) {
-  const intl = useIntl();
+  const { t } = useIntl();
   const run = useHistoryRun(props.id);
   const filter = useUiStore((s) => s.runResultFilter);
   const setFilter = useUiStore((s) => s.setRunResultFilter);
@@ -37,7 +34,7 @@ export function RunDetail(props: Props) {
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={props.onBack}>
           <ChevronLeftIcon />
-          <FormattedMessage id="HISTORY.RUN.BACK" />
+          {t("HISTORY.RUN.BACK")}
         </Button>
         <span className="text-muted-foreground font-mono text-xs">
           {props.id}
@@ -48,14 +45,11 @@ export function RunDetail(props: Props) {
         <Skeleton className="h-64 w-full" />
       ) : run.error ? (
         <p className="text-destructive text-sm">
-          {intl.formatMessage(
-            { id: "HISTORY.RUN.LOAD_ERROR" },
-            { error: String(run.error) },
-          )}
+          {t("HISTORY.RUN.LOAD_ERROR", { error: String(run.error) })}
         </p>
       ) : !run.data || run.data.results.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          <FormattedMessage id="HISTORY.RUN.EMPTY" />
+          {t("HISTORY.RUN.EMPTY")}
         </p>
       ) : (
         <>
@@ -72,13 +66,13 @@ export function RunDetail(props: Props) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">
-                  {intl.formatMessage({ id: "HISTORY.RUN.FILTER_ALL" })}
+                  {t("HISTORY.RUN.FILTER_ALL")}
                 </SelectItem>
                 <SelectItem value="passed">
-                  {intl.formatMessage({ id: "HISTORY.RUN.FILTER_PASSED" })}
+                  {t("HISTORY.RUN.FILTER_PASSED")}
                 </SelectItem>
                 <SelectItem value="failed">
-                  {intl.formatMessage({ id: "HISTORY.RUN.FILTER_FAILED" })}
+                  {t("HISTORY.RUN.FILTER_FAILED")}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -113,6 +107,7 @@ function ResultsTable(props: {
   filter: Filter;
   query: string;
 }) {
+  const { t } = useIntl();
   const q = props.query.trim().toLowerCase();
   const filtered = props.results.filter((r) => {
     if (props.filter === "passed" && !r.http.pass) return false;
@@ -125,7 +120,7 @@ function ResultsTable(props: {
   if (filtered.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
-        <FormattedMessage id="HISTORY.RUN.EMPTY" />
+        {t("HISTORY.RUN.EMPTY")}
       </p>
     );
   }
@@ -136,22 +131,22 @@ function ResultsTable(props: {
         <thead className="bg-muted/50">
           <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-medium">
             <th>
-              <FormattedMessage id="HISTORY.RUN.COL_PROVIDER" />
+              {t("HISTORY.RUN.COL_PROVIDER")}
             </th>
             <th>
-              <FormattedMessage id="HISTORY.RUN.COL_MODEL" />
+              {t("HISTORY.RUN.COL_MODEL")}
             </th>
             <th>
-              <FormattedMessage id="HISTORY.RUN.COL_STATUS" />
+              {t("HISTORY.RUN.COL_STATUS")}
             </th>
             <th className="text-right">
-              <FormattedMessage id="HISTORY.RUN.COL_COST" />
+              {t("HISTORY.RUN.COL_COST")}
             </th>
             <th>
-              <FormattedMessage id="HISTORY.RUN.COL_AUTHENTIC" />
+              {t("HISTORY.RUN.COL_AUTHENTIC")}
             </th>
             <th>
-              <FormattedMessage id="HISTORY.RUN.COL_ERROR" />
+              {t("HISTORY.RUN.COL_ERROR")}
             </th>
           </tr>
         </thead>
@@ -162,13 +157,11 @@ function ResultsTable(props: {
               <td className="font-mono text-xs">{r.model}</td>
               <td>
                 <Badge variant={r.http.pass ? "default" : "destructive"}>
-                  <FormattedMessage
-                    id={
-                      r.http.pass
-                        ? "HISTORY.RUN.STATUS_PASS"
-                        : "HISTORY.RUN.STATUS_FAIL"
-                    }
-                  />
+                  {t(
+                    r.http.pass
+                      ? "HISTORY.RUN.STATUS_PASS"
+                      : "HISTORY.RUN.STATUS_FAIL",
+                  )}
                 </Badge>
               </td>
               <td className="text-right font-mono text-xs">

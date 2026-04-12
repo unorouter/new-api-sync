@@ -135,6 +135,9 @@ export type AnyProviderConfig =
   | NvidiaProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
+export const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);
+export type LocaleValue = Static<typeof LocaleEnum>;
+
 export const ConfigSchema = T.Object({
   target: T.Object({
     baseUrl: T.String({ format: "uri" }),
@@ -142,6 +145,7 @@ export const ConfigSchema = T.Object({
     userId: T.Integer({ minimum: 1 }),
     targetPrefix: T.Optional(str),
   }),
+  locale: T.Optional(LocaleEnum),
   testModelTypes: T.Optional(T.Array(ModelTypeEnum)),
   skipUnprofitableText: T.Optional(T.Boolean()),
   blacklist: T.Optional(T.Array(str)),

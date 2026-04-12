@@ -1,7 +1,4 @@
-import {
-  FormattedMessage,
-  useIntl,
-} from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import {
   Dialog,
@@ -25,7 +22,7 @@ function formatSince(value: string | Date): string {
 }
 
 export function KiroTable() {
-  const intl = useIntl();
+  const { t } = useIntl();
   const kiro = useKiroBlacklist();
   const deleteEntry = useDeleteKiroEntry();
   const query = useUiStore((s) => s.kiroQuery);
@@ -45,10 +42,7 @@ export function KiroTable() {
   if (kiro.error) {
     return (
       <p className="text-destructive text-sm">
-        {intl.formatMessage(
-          { id: "HISTORY.KIRO.LOAD_ERROR" },
-          { error: String(kiro.error) },
-        )}
+        {t("HISTORY.KIRO.LOAD_ERROR", { error: String(kiro.error) })}
       </p>
     );
   }
@@ -56,7 +50,7 @@ export function KiroTable() {
   if (!kiro.data || kiro.data.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
-        <FormattedMessage id="HISTORY.KIRO.EMPTY" />
+        {t("HISTORY.KIRO.EMPTY")}
       </p>
     );
   }
@@ -74,7 +68,7 @@ export function KiroTable() {
       <Input
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder={intl.formatMessage({ id: "HISTORY.KIRO.FILTER" })}
+        placeholder={t("HISTORY.KIRO.FILTER")}
         className="max-w-md"
       />
       <div className="overflow-x-auto rounded-md border">
@@ -82,19 +76,19 @@ export function KiroTable() {
           <thead className="bg-muted/50">
             <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-medium">
               <th>
-                <FormattedMessage id="HISTORY.KIRO.COL_PROVIDER" />
+                {t("HISTORY.KIRO.COL_PROVIDER")}
               </th>
               <th>
-                <FormattedMessage id="HISTORY.KIRO.COL_GROUP" />
+                {t("HISTORY.KIRO.COL_GROUP")}
               </th>
               <th>
-                <FormattedMessage id="HISTORY.KIRO.COL_MODEL" />
+                {t("HISTORY.KIRO.COL_MODEL")}
               </th>
               <th>
-                <FormattedMessage id="HISTORY.KIRO.COL_SINCE" />
+                {t("HISTORY.KIRO.COL_SINCE")}
               </th>
               <th>
-                <FormattedMessage id="HISTORY.KIRO.COL_REASON" />
+                {t("HISTORY.KIRO.COL_REASON")}
               </th>
               <th className="w-10" />
             </tr>
@@ -114,7 +108,7 @@ export function KiroTable() {
                     variant="ghost"
                     size="icon-xs"
                     onClick={() => setConfirmKey(entry.key)}
-                    aria-label="Remove"
+                    aria-label={t("CONFIG.FIELD.REMOVE")}
                   >
                     <Trash2Icon />
                   </Button>
@@ -134,10 +128,10 @@ export function KiroTable() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              <FormattedMessage id="HISTORY.KIRO.REMOVE_CONFIRM" />
+              {t("HISTORY.KIRO.REMOVE_CONFIRM")}
             </DialogTitle>
             <DialogDescription>
-              <FormattedMessage id="HISTORY.KIRO.REMOVE_CONFIRM_DESC" />
+              {t("HISTORY.KIRO.REMOVE_CONFIRM_DESC")}
             </DialogDescription>
           </DialogHeader>
           {confirmKey !== null ? (
@@ -147,7 +141,7 @@ export function KiroTable() {
           ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmKey(null)}>
-              <FormattedMessage id="HISTORY.KIRO.CANCEL" />
+              {t("HISTORY.KIRO.CANCEL")}
             </Button>
             <Button
               variant="destructive"
@@ -159,7 +153,7 @@ export function KiroTable() {
                 deleteEntry.mutate(key);
               }}
             >
-              <FormattedMessage id="HISTORY.KIRO.REMOVE" />
+              {t("HISTORY.KIRO.REMOVE")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,7 +1,7 @@
 import { KiroTable } from "./kiro-table";
 import { RunDetail } from "./run-detail";
 import { RunsTable } from "./runs-table";
-import { FormattedMessage } from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import {
   Card,
   CardContent,
@@ -18,6 +18,7 @@ import {
 import { useUiStore } from "@web/store/ui-store";
 
 export function HistoryPage() {
+  const { t } = useIntl();
   const historyTab = useUiStore((s) => s.historyTab);
   const setHistoryTab = useUiStore((s) => s.setHistoryTab);
   const selectedRunId = useUiStore((s) => s.selectedRunId);
@@ -27,10 +28,10 @@ export function HistoryPage() {
     <Card>
       <CardHeader>
         <CardTitle>
-          <FormattedMessage id="HISTORY.TITLE" />
+          {t("HISTORY.TITLE")}
         </CardTitle>
         <CardDescription>
-          <FormattedMessage id="HISTORY.DESCRIPTION" />
+          {t("HISTORY.DESCRIPTION")}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -44,10 +45,10 @@ export function HistoryPage() {
         >
           <TabsList>
             <TabsTrigger value="runs">
-              <FormattedMessage id="HISTORY.TABS.RUNS" />
+              {t("HISTORY.TABS.RUNS")}
             </TabsTrigger>
             <TabsTrigger value="kiro">
-              <FormattedMessage id="HISTORY.TABS.KIRO" />
+              {t("HISTORY.TABS.KIRO")}
             </TabsTrigger>
           </TabsList>
           <TabsContent value="runs" className="mt-4">

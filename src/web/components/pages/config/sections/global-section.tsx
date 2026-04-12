@@ -1,6 +1,6 @@
 import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
 import { MODEL_TYPES } from "@core/models/types";
-import { FormattedMessage } from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { MyFormCheckboxGroup } from "@web/components/elements/form/my-form-checkbox-group";
 import { MyFormSwitch } from "@web/components/elements/form/my-form-switch";
 import { Button } from "@web/components/ui/button";
@@ -29,6 +29,7 @@ const MODEL_TYPE_LABEL: Record<string, TranslationKey> = {
 };
 
 export function GlobalSection() {
+  const { t } = useIntl();
   const form = useFormContext<ConfigSchemaType>();
   const blacklist = useFieldArray({
     control: form.control,
@@ -39,39 +40,39 @@ export function GlobalSection() {
     <Card>
       <CardHeader>
         <CardTitle>
-          <FormattedMessage id="CONFIG.GLOBAL.TITLE" />
+          {t("CONFIG.GLOBAL.TITLE")}
         </CardTitle>
         <CardDescription>
-          <FormattedMessage id="CONFIG.GLOBAL.DESCRIPTION" />
+          {t("CONFIG.GLOBAL.DESCRIPTION")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <MyFormSwitch
           control={form.control}
           name="skipUnprofitableText"
-          label={<FormattedMessage id="CONFIG.GLOBAL.SKIP_UNPROFITABLE_TEXT" />}
+          label={t("CONFIG.GLOBAL.SKIP_UNPROFITABLE_TEXT")}
         />
 
         <MyFormCheckboxGroup
           control={form.control}
           name="testModelTypes"
           schema={globalSchema}
-          label={<FormattedMessage id="CONFIG.GLOBAL.TEST_MODEL_TYPES" />}
+          label={t("CONFIG.GLOBAL.TEST_MODEL_TYPES")}
           options={MODEL_TYPES.map((type) => ({
             value: type,
-            label: <FormattedMessage id={MODEL_TYPE_LABEL[type]!} />,
+            label: t(MODEL_TYPE_LABEL[type]! as TranslationKey),
           }))}
         />
         <p className="text-muted-foreground -mt-4 text-xs">
-          <FormattedMessage id="CONFIG.GLOBAL.TEST_MODEL_TYPES_HELP" />
+          {t("CONFIG.GLOBAL.TEST_MODEL_TYPES_HELP")}
         </p>
 
         <div className="grid gap-2">
           <Label>
-            <FormattedMessage id="CONFIG.GLOBAL.BLACKLIST" />
+            {t("CONFIG.GLOBAL.BLACKLIST")}
           </Label>
           <p className="text-muted-foreground text-xs">
-            <FormattedMessage id="CONFIG.GLOBAL.BLACKLIST_HELP" />
+            {t("CONFIG.GLOBAL.BLACKLIST_HELP")}
           </p>
           {blacklist.fields.map((field, index) => (
             <div key={field.id} className="flex items-center gap-2">
@@ -84,7 +85,7 @@ export function GlobalSection() {
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => blacklist.remove(index)}
-                aria-label="Remove"
+                aria-label={t("CONFIG.FIELD.REMOVE")}
               >
                 <Trash2Icon />
               </Button>
@@ -98,16 +99,16 @@ export function GlobalSection() {
             className="self-start"
           >
             <PlusIcon />
-            <FormattedMessage id="CONFIG.FIELD.ADD" />
+            {t("CONFIG.FIELD.ADD")}
           </Button>
         </div>
 
         <div className="grid gap-2">
           <Label>
-            <FormattedMessage id="CONFIG.GLOBAL.MODEL_MAPPING" />
+            {t("CONFIG.GLOBAL.MODEL_MAPPING")}
           </Label>
           <p className="text-muted-foreground text-xs">
-            <FormattedMessage id="CONFIG.GLOBAL.MODEL_MAPPING_HELP" />
+            {t("CONFIG.GLOBAL.MODEL_MAPPING_HELP")}
           </p>
           <Controller
             control={form.control}
@@ -138,6 +139,7 @@ function ModelMappingEditor(props: {
   value: Record<string, string>;
   onChange: (value: Record<string, string>) => void;
 }) {
+  const { t } = useIntl();
   const entries = Object.entries(props.value);
 
   const update = (index: number, patch: { key?: string; value?: string }) => {
@@ -191,7 +193,7 @@ function ModelMappingEditor(props: {
             variant="ghost"
             size="icon-sm"
             onClick={() => remove(i)}
-            aria-label="Remove"
+            aria-label={t("CONFIG.FIELD.REMOVE")}
           >
             <Trash2Icon />
           </Button>
@@ -199,7 +201,7 @@ function ModelMappingEditor(props: {
       ))}
       <Button type="button" variant="outline" size="sm" onClick={add}>
         <PlusIcon />
-        <FormattedMessage id="CONFIG.FIELD.ADD" />
+        {t("CONFIG.FIELD.ADD")}
       </Button>
     </div>
   );

@@ -12,7 +12,7 @@ import {
 import { useTheme } from "@web/components/provider/theme-provider";
 
 export function ThemeToggle() {
-  const intl = useIntl();
+  const { t } = useIntl();
   const setTheme = useTheme().setTheme;
 
   return (
@@ -22,7 +22,7 @@ export function ThemeToggle() {
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={intl.formatMessage({ id: "THEME.TOGGLE" })}
+            aria-label={t("THEME.TOGGLE")}
           />
         }
       >
@@ -32,15 +32,15 @@ export function ThemeToggle() {
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => setTheme("light")}>
           <Sun className="h-4 w-4" />
-          {intl.formatMessage({ id: "THEME.LIGHT" })}
+          {t("THEME.LIGHT")}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("dark")}>
           <Moon className="h-4 w-4" />
-          {intl.formatMessage({ id: "THEME.DARK" })}
+          {t("THEME.DARK")}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("system")}>
           <Monitor className="h-4 w-4" />
-          {intl.formatMessage({ id: "THEME.SYSTEM" })}
+          {t("THEME.SYSTEM")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

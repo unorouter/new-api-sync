@@ -16,15 +16,22 @@ export const LANGUAGES: {
 ];
 
 /**
- * Keys of the English message catalog. All translation lookups are constrained
- * to these keys at compile time via the typed `useIntl()` wrapper in
- * `@web/components/provider/intl-provider`. Other locales must implement the same key set.
+ * Dot-notation leaf paths of the English message catalog. Since the catalog
+ * is nested (use-intl requirement), `"CONFIG.TITLE"` means `en.CONFIG.TITLE`.
+ * All translation lookups are constrained to these paths at compile time via
+ * the typed `useIntl()` wrapper in `@web/components/provider/intl-provider`.
+ * Other locales must implement the same key set.
  */
-export type TranslationKey = keyof typeof en;
+type LeafPaths<T, Prefix extends string = ""> = {
+  [K in keyof T & string]: T[K] extends string
+    ? `${Prefix}${K}`
+    : LeafPaths<T[K], `${Prefix}${K}.`>;
+}[keyof T & string];
+
+export type TranslationKey = LeafPaths<typeof en>;
 
 /**
  * Pass-through helper for declaring translation keys in non-React code.
- * Exists for symmetry with unorouter's `msg()` helper; the type guarantees
- * the argument is a valid key.
+ * The type guarantees the argument is a valid key path.
  */
 export const msg = <T extends TranslationKey>(key: T): T => key;

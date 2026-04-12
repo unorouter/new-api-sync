@@ -1,5 +1,5 @@
 import { MODEL_TYPES } from "@core/models/types";
-import { FormattedMessage } from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import {
@@ -38,6 +38,7 @@ interface Props {
  * shapes.
  */
 export function EnabledModelsEditor(props: Props) {
+  const { t } = useIntl();
   const items = props.items ?? [];
   const keyCounter = useRef(0);
   const keysRef = useRef<number[]>([]);
@@ -127,7 +128,7 @@ export function EnabledModelsEditor(props: Props) {
                   size="icon-sm"
                   onClick={() => toggleShape(i)}
                   type="button"
-                  title="Switch to detailed pricing"
+                  title={t("CONFIG.ENABLED_MODELS.SWITCH_TO_PRICING")}
                 >
                   <SlidersIcon />
                 </Button>
@@ -139,7 +140,7 @@ export function EnabledModelsEditor(props: Props) {
                   size="icon-sm"
                   onClick={() => toggleExpanded(i)}
                   type="button"
-                  aria-label="Expand"
+                  aria-label={t("CONFIG.FIELD.EXPAND")}
                   className={expanded.has(i) ? "rotate-90" : ""}
                 >
                   <ChevronRightIcon />
@@ -175,7 +176,7 @@ export function EnabledModelsEditor(props: Props) {
                   size="icon-sm"
                   onClick={() => toggleShape(i)}
                   type="button"
-                  title="Switch to plain glob"
+                  title={t("CONFIG.ENABLED_MODELS.SWITCH_TO_GLOB")}
                 >
                   <FileTextIcon />
                 </Button>
@@ -186,7 +187,7 @@ export function EnabledModelsEditor(props: Props) {
               size="icon-sm"
               onClick={() => remove(i)}
               type="button"
-              aria-label="Remove"
+              aria-label={t("CONFIG.FIELD.REMOVE")}
             >
               <Trash2Icon />
             </Button>
@@ -210,11 +211,11 @@ export function EnabledModelsEditor(props: Props) {
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={addString} type="button">
           <PlusIcon />
-          <FormattedMessage id="CONFIG.ENABLED_MODELS.GLOB" />
+          {t("CONFIG.ENABLED_MODELS.GLOB")}
         </Button>
         <Button variant="outline" size="sm" onClick={addDetail} type="button">
           <PlusIcon />
-          <FormattedMessage id="CONFIG.ENABLED_MODELS.WITH_PRICING" />
+          {t("CONFIG.ENABLED_MODELS.WITH_PRICING")}
         </Button>
       </div>
     </div>

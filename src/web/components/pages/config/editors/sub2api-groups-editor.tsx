@@ -1,4 +1,4 @@
-import { FormattedMessage } from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import { PlusIcon, Trash2Icon } from "lucide-react";
@@ -17,6 +17,7 @@ interface Props {
 
 /** Repeater over sub2api { key, platform, name? } rows. */
 export function Sub2ApiGroupsEditor(props: Props) {
+  const { t } = useIntl();
   const groups = props.groups ?? [];
   const keyCounter = useRef(0);
   const keysRef = useRef<number[]>([]);
@@ -79,7 +80,7 @@ export function Sub2ApiGroupsEditor(props: Props) {
             size="icon-sm"
             onClick={() => remove(i)}
             type="button"
-            aria-label="Remove"
+            aria-label={t("CONFIG.FIELD.REMOVE")}
           >
             <Trash2Icon />
           </Button>
@@ -87,7 +88,7 @@ export function Sub2ApiGroupsEditor(props: Props) {
       ))}
       <Button variant="outline" size="sm" onClick={add} type="button">
         <PlusIcon />
-        <FormattedMessage id="CONFIG.FIELD.ADD" />
+        {t("CONFIG.FIELD.ADD")}
       </Button>
     </div>
   );

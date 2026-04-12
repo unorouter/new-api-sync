@@ -1,7 +1,4 @@
-import {
-  FormattedMessage,
-  useIntl,
-} from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Badge } from "@web/components/ui/badge";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { useHistoryRuns } from "@web/hooks/history-hook";
@@ -17,7 +14,7 @@ function formatSize(bytes: number): string {
 }
 
 export function RunsTable(props: Props) {
-  const intl = useIntl();
+  const { t } = useIntl();
   const runs = useHistoryRuns();
 
   if (runs.isPending) {
@@ -33,10 +30,7 @@ export function RunsTable(props: Props) {
   if (runs.error) {
     return (
       <p className="text-destructive text-sm">
-        {intl.formatMessage(
-          { id: "HISTORY.RUNS.LOAD_ERROR" },
-          { error: String(runs.error) },
-        )}
+        {t("HISTORY.RUNS.LOAD_ERROR", { error: String(runs.error) })}
       </p>
     );
   }
@@ -44,7 +38,7 @@ export function RunsTable(props: Props) {
   if (!runs.data || runs.data.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
-        <FormattedMessage id="HISTORY.RUNS.EMPTY" />
+        {t("HISTORY.RUNS.EMPTY")}
       </p>
     );
   }
@@ -55,19 +49,19 @@ export function RunsTable(props: Props) {
         <thead className="bg-muted/50">
           <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-medium">
             <th>
-              <FormattedMessage id="HISTORY.RUNS.COL_TIMESTAMP" />
+              {t("HISTORY.RUNS.COL_TIMESTAMP")}
             </th>
             <th className="text-right">
-              <FormattedMessage id="HISTORY.RUNS.COL_PASSED" />
+              {t("HISTORY.RUNS.COL_PASSED")}
             </th>
             <th className="text-right">
-              <FormattedMessage id="HISTORY.RUNS.COL_FAILED" />
+              {t("HISTORY.RUNS.COL_FAILED")}
             </th>
             <th className="text-right">
-              <FormattedMessage id="HISTORY.RUNS.COL_TOTAL" />
+              {t("HISTORY.RUNS.COL_TOTAL")}
             </th>
             <th className="text-right">
-              <FormattedMessage id="HISTORY.RUNS.COL_SIZE" />
+              {t("HISTORY.RUNS.COL_SIZE")}
             </th>
           </tr>
         </thead>

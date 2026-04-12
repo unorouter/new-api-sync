@@ -5,10 +5,7 @@ import { ProviderNewApiPanel } from "./provider-newapi-panel";
 import { ProviderNvidiaPanel } from "./provider-nvidia-panel";
 import { ProviderSub2ApiPanel } from "./provider-sub2api-panel";
 import { providerPath } from "./provider-path";
-import {
-  FormattedMessage,
-  useIntl,
-} from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Badge } from "@web/components/ui/badge";
 import { Button } from "@web/components/ui/button";
 import { Card } from "@web/components/ui/card";
@@ -35,7 +32,7 @@ interface Props {
 }
 
 export function ProviderCard(props: Props) {
-  const intl = useIntl();
+  const { t } = useIntl();
   const form = useFormContext<ConfigSchemaType>();
   const type = useWatch({
     control: form.control,
@@ -57,7 +54,7 @@ export function ProviderCard(props: Props) {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Expand"
+                aria-label={t("CONFIG.FIELD.EXPAND")}
                 className={
                   open
                     ? "rotate-90 transition-transform"
@@ -80,7 +77,7 @@ export function ProviderCard(props: Props) {
               variant="ghost"
               size="icon-sm"
               onClick={() => setConfirmOpen(true)}
-              aria-label="Delete"
+              aria-label={t("CONFIG.FIELD.DELETE")}
             >
               <Trash2Icon />
             </Button>
@@ -100,18 +97,15 @@ export function ProviderCard(props: Props) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {intl.formatMessage(
-                { id: "CONFIG.PROVIDERS.CONFIRM_DELETE" },
-                { name: name ?? "" },
-              )}
+              {t("CONFIG.PROVIDERS.CONFIRM_DELETE", { name: name ?? "" })}
             </DialogTitle>
             <DialogDescription>
-              <FormattedMessage id="CONFIG.PROVIDERS.CONFIRM_DELETE_DESC" />
+              {t("CONFIG.PROVIDERS.CONFIRM_DELETE_DESC")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-              <FormattedMessage id="CONFIG.PROVIDERS.CANCEL" />
+              {t("CONFIG.PROVIDERS.CANCEL")}
             </Button>
             <Button
               variant="destructive"
@@ -120,7 +114,7 @@ export function ProviderCard(props: Props) {
                 props.onDelete();
               }}
             >
-              <FormattedMessage id="CONFIG.PROVIDERS.DELETE" />
+              {t("CONFIG.PROVIDERS.DELETE")}
             </Button>
           </DialogFooter>
         </DialogContent>

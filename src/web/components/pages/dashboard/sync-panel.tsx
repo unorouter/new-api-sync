@@ -1,7 +1,4 @@
-import {
-  FormattedMessage,
-  useIntl,
-} from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Badge } from "@web/components/ui/badge";
 import { Button } from "@web/components/ui/button";
 import {
@@ -19,22 +16,23 @@ import type { TranslationKey } from "@web/lib/constants";
 import { PlayIcon, SquareIcon } from "lucide-react";
 
 function PhaseBadge(props: { phase: SyncPhase }) {
+  const { t } = useIntl();
   if (props.phase === "running")
     return (
       <Badge variant="secondary">
-        <FormattedMessage id="SYNC.PHASE.RUNNING" />
+        {t("SYNC.PHASE.RUNNING")}
       </Badge>
     );
   if (props.phase === "done")
     return (
       <Badge>
-        <FormattedMessage id="SYNC.PHASE.DONE" />
+        {t("SYNC.PHASE.DONE")}
       </Badge>
     );
   if (props.phase === "error")
     return (
       <Badge variant="destructive">
-        <FormattedMessage id="SYNC.PHASE.ERROR" />
+        {t("SYNC.PHASE.ERROR")}
       </Badge>
     );
   return null;
@@ -57,7 +55,7 @@ const MODE_LABELS: Record<PipelineMode, TranslationKey> = {
 const MODE_ORDER: PipelineMode[] = ["run", "test", "reset"];
 
 export function SyncPanel() {
-  const intl = useIntl();
+  const { t } = useIntl();
   const phase = useSyncStore((s) => s.phase);
   const mode = useSyncStore((s) => s.mode);
   const logs = useSyncStore((s) => s.logs);
@@ -74,7 +72,7 @@ export function SyncPanel() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FormattedMessage id="SYNC.TITLE" />
+          {t("SYNC.TITLE")}
           <PhaseBadge phase={phase} />
           {mode ? (
             <span className="text-muted-foreground text-xs font-normal">
@@ -83,7 +81,7 @@ export function SyncPanel() {
           ) : null}
         </CardTitle>
         <CardDescription>
-          <FormattedMessage id="SYNC.DESCRIPTION" />
+          {t("SYNC.DESCRIPTION")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -103,7 +101,7 @@ export function SyncPanel() {
                 data-disabled={busy ? "" : undefined}
               >
                 <RadioGroupItem value={m} disabled={busy} />
-                <FormattedMessage id={MODE_LABELS[m]} />
+                {t(MODE_LABELS[m] as TranslationKey)}
               </label>
             ))}
           </RadioGroup>
@@ -111,7 +109,7 @@ export function SyncPanel() {
           {busy ? (
             <Button variant="destructive" onClick={() => sync.stop()}>
               <SquareIcon />
-              <FormattedMessage id="SYNC.STOP" />
+              {t("SYNC.STOP")}
             </Button>
           ) : (
             <Button
@@ -119,7 +117,7 @@ export function SyncPanel() {
               variant={pipelineMode === "reset" ? "destructive" : "default"}
             >
               <PlayIcon />
-              <FormattedMessage id="SYNC.START" />
+              {t("SYNC.START")}
             </Button>
           )}
 
@@ -128,22 +126,20 @@ export function SyncPanel() {
             onClick={() => storeReset()}
             disabled={busy || phase === "idle"}
           >
-            <FormattedMessage id="SYNC.CLEAR_LOG" />
+            {t("SYNC.CLEAR_LOG")}
           </Button>
         </div>
 
         {error ? (
           <p className="text-destructive text-sm">
-            {intl.formatMessage({ id: "SYNC.ERROR" }, { error })}
+            {t("SYNC.ERROR", { error })}
           </p>
         ) : null}
 
         <div className="bg-muted/40 border-border max-h-96 overflow-auto rounded-md border p-3 font-mono text-xs">
           {logs.length === 0 ? (
             <p className="text-muted-foreground">
-              <FormattedMessage
-                id={phase === "idle" ? "SYNC.EMPTY_IDLE" : "SYNC.EMPTY_WAITING"}
-              />
+              {t(phase === "idle" ? "SYNC.EMPTY_IDLE" : "SYNC.EMPTY_WAITING" as TranslationKey)}
             </p>
           ) : (
             <ul className="space-y-0.5">

@@ -1,7 +1,4 @@
-import {
-  FormattedMessage,
-  useIntl,
-} from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import {
   Dialog,
@@ -34,7 +31,7 @@ import { useState } from "react";
 const MAIN_VALUE = "__main__";
 
 export function ConfigFilesDropdown() {
-  const intl = useIntl();
+  const { t } = useIntl();
   const selectedName = useUiStore((s) => s.selectedConfigName);
   const setSelectedName = useUiStore((s) => s.setSelectedConfigName);
   const files = useConfigFiles();
@@ -99,7 +96,7 @@ export function ConfigFilesDropdown() {
         <SelectTrigger className="w-44">
           <SelectValue>
             {selectedName === ""
-              ? intl.formatMessage({ id: "CONFIG.FILES.MAIN" })
+              ? t("CONFIG.FILES.MAIN")
               : selectedName}
           </SelectValue>
         </SelectTrigger>
@@ -109,7 +106,7 @@ export function ConfigFilesDropdown() {
               key={file.name || MAIN_VALUE}
               value={file.name || MAIN_VALUE}
             >
-              {file.name || intl.formatMessage({ id: "CONFIG.FILES.MAIN" })}
+              {file.name || t("CONFIG.FILES.MAIN")}
             </SelectItem>
           ))}
         </SelectContent>
@@ -122,7 +119,7 @@ export function ConfigFilesDropdown() {
           setCreateError(null);
           setCreateOpen(true);
         }}
-        title={intl.formatMessage({ id: "CONFIG.FILES.CREATE" })}
+        title={t("CONFIG.FILES.CREATE")}
       >
         <PlusIcon />
       </Button>
@@ -131,7 +128,7 @@ export function ConfigFilesDropdown() {
         size="icon-sm"
         onClick={() => setDeleteOpen(true)}
         disabled={selectedName === ""}
-        title={intl.formatMessage({ id: "CONFIG.FILES.DELETE" })}
+        title={t("CONFIG.FILES.DELETE")}
       >
         <Trash2Icon />
       </Button>
@@ -140,15 +137,15 @@ export function ConfigFilesDropdown() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              <FormattedMessage id="CONFIG.FILES.CREATE_TITLE" />
+              {t("CONFIG.FILES.CREATE_TITLE")}
             </DialogTitle>
             <DialogDescription>
-              <FormattedMessage id="CONFIG.FILES.CREATE_DESC" />
+              {t("CONFIG.FILES.CREATE_DESC")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
             <Label>
-              <FormattedMessage id="CONFIG.FILES.NAME" />
+              {t("CONFIG.FILES.NAME")}
             </Label>
             <Input
               value={createName}
@@ -168,13 +165,13 @@ export function ConfigFilesDropdown() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              <FormattedMessage id="CONFIG.FILES.CANCEL" />
+              {t("CONFIG.FILES.CANCEL")}
             </Button>
             <Button
               onClick={handleCreate}
               disabled={createMutation.isPending || createName.trim() === ""}
             >
-              <FormattedMessage id="CONFIG.FILES.CREATE" />
+              {t("CONFIG.FILES.CREATE")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -184,25 +181,22 @@ export function ConfigFilesDropdown() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {intl.formatMessage(
-                { id: "CONFIG.FILES.DELETE_TITLE" },
-                { name: selectedName },
-              )}
+              {t("CONFIG.FILES.DELETE_TITLE", { name: selectedName })}
             </DialogTitle>
             <DialogDescription>
-              <FormattedMessage id="CONFIG.FILES.DELETE_DESC" />
+              {t("CONFIG.FILES.DELETE_DESC")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-              <FormattedMessage id="CONFIG.FILES.CANCEL" />
+              {t("CONFIG.FILES.CANCEL")}
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={deleteMutation.isPending}
             >
-              <FormattedMessage id="CONFIG.FILES.DELETE" />
+              {t("CONFIG.FILES.DELETE")}
             </Button>
           </DialogFooter>
         </DialogContent>

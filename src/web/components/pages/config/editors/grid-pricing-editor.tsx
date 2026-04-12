@@ -1,4 +1,4 @@
-import { FormattedMessage } from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import { PlusIcon, Trash2Icon } from "lucide-react";
@@ -20,6 +20,7 @@ const PRICING_COLUMN = "Pricing";
  * propagates the key across every row.
  */
 export function GridPricingEditor(props: Props) {
+  const { t } = useIntl();
   const keyCounter = useRef(0);
   const rowKeysRef = useRef<number[]>([]);
 
@@ -128,7 +129,7 @@ export function GridPricingEditor(props: Props) {
                         size="icon-xs"
                         onClick={() => removeColumn(col)}
                         type="button"
-                        aria-label="Remove column"
+                        aria-label={t("CONFIG.ENABLED_MODELS.REMOVE_COLUMN")}
                       >
                         <Trash2Icon />
                       </Button>
@@ -161,7 +162,7 @@ export function GridPricingEditor(props: Props) {
                     size="icon-xs"
                     onClick={() => removeRow(i)}
                     type="button"
-                    aria-label="Remove row"
+                    aria-label={t("CONFIG.ENABLED_MODELS.REMOVE_ROW")}
                   >
                     <Trash2Icon />
                   </Button>
@@ -174,11 +175,11 @@ export function GridPricingEditor(props: Props) {
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={addRow} type="button">
           <PlusIcon />
-          <FormattedMessage id="CONFIG.FIELD.ADD" />
+          {t("CONFIG.FIELD.ADD")}
         </Button>
         <Button variant="outline" size="sm" onClick={addColumn} type="button">
           <PlusIcon />
-          <FormattedMessage id="CONFIG.ENABLED_MODELS.ADD_COLUMN" />
+          {t("CONFIG.ENABLED_MODELS.ADD_COLUMN")}
         </Button>
       </div>
     </div>

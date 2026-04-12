@@ -1,4 +1,4 @@
-import { FormattedMessage } from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Input } from "@web/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@web/components/ui/radio-group";
 import { KeyValueEditor } from "./key-value-editor";
@@ -18,6 +18,7 @@ type Mode = "none" | "single" | "per_key";
  * plain number input, "per_key" is a KeyValueEditor with "default" pinned.
  */
 export function PriceAdjustmentEditor(props: Props) {
+  const { t } = useIntl();
   const mode: Mode =
     props.value === undefined
       ? "none"
@@ -49,15 +50,15 @@ export function PriceAdjustmentEditor(props: Props) {
       >
         <label className="flex items-center gap-2 text-sm">
           <RadioGroupItem value="none" />
-          <FormattedMessage id="CONFIG.PRICE_ADJUSTMENT.NONE" />
+          {t("CONFIG.PRICE_ADJUSTMENT.NONE")}
         </label>
         <label className="flex items-center gap-2 text-sm">
           <RadioGroupItem value="single" />
-          <FormattedMessage id="CONFIG.PRICE_ADJUSTMENT.SINGLE" />
+          {t("CONFIG.PRICE_ADJUSTMENT.SINGLE")}
         </label>
         <label className="flex items-center gap-2 text-sm">
           <RadioGroupItem value="per_key" />
-          <FormattedMessage id="CONFIG.PRICE_ADJUSTMENT.PER_KEY" />
+          {t("CONFIG.PRICE_ADJUSTMENT.PER_KEY")}
         </label>
       </RadioGroup>
       {mode === "single" && typeof props.value === "number" ? (

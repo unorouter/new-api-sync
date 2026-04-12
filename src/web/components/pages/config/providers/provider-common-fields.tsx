@@ -5,7 +5,7 @@ import { PriceAdjustmentEditor } from "../editors/price-adjustment-editor";
 import { providerPath } from "./provider-path";
 import { MyFormCheckboxGroup } from "@web/components/elements/form/my-form-checkbox-group";
 import { MyFormInput } from "@web/components/elements/form/my-form-input";
-import { FormattedMessage } from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import { Label } from "@web/components/ui/label";
@@ -26,6 +26,7 @@ const MODEL_TYPE_LABEL: Record<string, TranslationKey> = {
 };
 
 export function ProviderCommonFields(props: { index: number }) {
+  const { t } = useIntl();
   const form = useFormContext<ConfigSchemaType>();
   const vendors = useFieldArray({
     control: form.control,
@@ -38,23 +39,23 @@ export function ProviderCommonFields(props: { index: number }) {
         control={form.control}
         name={providerPath(props.index, "name")}
         schema={variantSchema}
-        label={<FormattedMessage id="CONFIG.PROVIDER.NAME" />}
+        label={t("CONFIG.PROVIDER.NAME")}
       />
 
       <MyFormCheckboxGroup
         control={form.control}
         name={providerPath(props.index, "testModelTypes")}
         schema={variantSchema}
-        label={<FormattedMessage id="CONFIG.PROVIDER.TEST_MODEL_TYPES" />}
+        label={t("CONFIG.PROVIDER.TEST_MODEL_TYPES")}
         options={MODEL_TYPES.map((type) => ({
           value: type,
-          label: <FormattedMessage id={MODEL_TYPE_LABEL[type]!} />,
+          label: t(MODEL_TYPE_LABEL[type]! as TranslationKey),
         }))}
       />
 
       <div className="grid gap-2">
         <Label>
-          <FormattedMessage id="CONFIG.PROVIDER.ENABLED_VENDORS" />
+          {t("CONFIG.PROVIDER.ENABLED_VENDORS")}
         </Label>
         {vendors.fields.map((field, i) => (
           <div key={field.id} className="flex items-center gap-2">
@@ -69,7 +70,7 @@ export function ProviderCommonFields(props: { index: number }) {
               variant="ghost"
               size="icon-sm"
               onClick={() => vendors.remove(i)}
-              aria-label="Remove"
+              aria-label={t("CONFIG.FIELD.REMOVE")}
             >
               <Trash2Icon />
             </Button>
@@ -83,13 +84,13 @@ export function ProviderCommonFields(props: { index: number }) {
           className="self-start"
         >
           <PlusIcon />
-          <FormattedMessage id="CONFIG.FIELD.ADD" />
+          {t("CONFIG.FIELD.ADD")}
         </Button>
       </div>
 
       <div className="grid gap-2">
         <Label>
-          <FormattedMessage id="CONFIG.PROVIDER.ENABLED_MODELS" />
+          {t("CONFIG.PROVIDER.ENABLED_MODELS")}
         </Label>
         <Controller
           control={form.control}
@@ -109,7 +110,7 @@ export function ProviderCommonFields(props: { index: number }) {
 
       <div className="grid gap-2">
         <Label>
-          <FormattedMessage id="CONFIG.PROVIDER.PRICE_ADJUSTMENT" />
+          {t("CONFIG.PROVIDER.PRICE_ADJUSTMENT")}
         </Label>
         <Controller
           control={form.control}

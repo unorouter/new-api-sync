@@ -1,8 +1,5 @@
 import { SyncPanel } from "./sync-panel";
-import {
-  FormattedMessage,
-  useIntl,
-} from "@web/components/provider/intl-provider";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { Badge } from "@web/components/ui/badge";
 import {
   Card,
@@ -40,32 +37,27 @@ function Row(props: { label: React.ReactNode; children: React.ReactNode }) {
 }
 
 function HealthPanel() {
-  const intl = useIntl();
+  const { t } = useIntl();
   const health = useHealth();
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FormattedMessage id="HEALTH.TITLE" />
+          {t("HEALTH.TITLE")}
           {health.data ? (
             <Badge variant={health.data.ok ? "default" : "destructive"}>
-              <FormattedMessage
-                id={health.data.ok ? "HEALTH.OK" : "HEALTH.DOWN"}
-              />
+              {t(health.data.ok ? "HEALTH.OK" : "HEALTH.DOWN")}
             </Badge>
           ) : null}
           {health.data && health.data.activeRuns.length > 0 ? (
             <Badge variant="secondary">
-              <FormattedMessage
-                id="HEALTH.ACTIVE_RUNS"
-                values={{ count: health.data.activeRuns.length }}
-              />
+              {t("HEALTH.ACTIVE_RUNS", { count: health.data.activeRuns.length })}
             </Badge>
           ) : null}
         </CardTitle>
         <CardDescription>
-          <FormattedMessage id="HEALTH.DESCRIPTION" />
+          {t("HEALTH.DESCRIPTION")}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -77,42 +69,39 @@ function HealthPanel() {
           </div>
         ) : health.error ? (
           <p className="text-destructive text-sm">
-            {intl.formatMessage(
-              { id: "HEALTH.ERROR" },
-              { error: String(health.error) },
-            )}
+            {t("HEALTH.ERROR", { error: String(health.error) })}
           </p>
         ) : health.data ? (
           <div className="grid gap-6 md:grid-cols-2">
             <dl className="space-y-1 text-sm">
-              <Row label={<FormattedMessage id="HEALTH.VERSION" />}>
+              <Row label={t("HEALTH.VERSION")}>
                 {health.data.version}
               </Row>
-              <Row label={<FormattedMessage id="HEALTH.UPTIME" />}>
+              <Row label={t("HEALTH.UPTIME")}>
                 {formatUptime(health.data.uptime)}
               </Row>
-              <Row label={<FormattedMessage id="HEALTH.STARTED_AT" />}>
+              <Row label={t("HEALTH.STARTED_AT")}>
                 {new Date(health.data.startedAt).toLocaleString()}
               </Row>
-              <Row label={<FormattedMessage id="HEALTH.BUN" />}>
+              <Row label={t("HEALTH.BUN")}>
                 {health.data.runtime.bun}
               </Row>
-              <Row label={<FormattedMessage id="HEALTH.PLATFORM" />}>
+              <Row label={t("HEALTH.PLATFORM")}>
                 {health.data.runtime.platform} / {health.data.runtime.arch}
               </Row>
-              <Row label={<FormattedMessage id="HEALTH.PID" />}>
+              <Row label={t("HEALTH.PID")}>
                 {health.data.runtime.pid}
               </Row>
-              <Row label={<FormattedMessage id="HEALTH.MEMORY" />}>
+              <Row label={t("HEALTH.MEMORY")}>
                 {formatBytes(health.data.memory.rss)} rss /{" "}
                 {formatBytes(health.data.memory.heapUsed)} heap
               </Row>
             </dl>
             <dl className="space-y-1 text-sm">
-              <Row label={<FormattedMessage id="HEALTH.CONFIG_FILES" />}>
+              <Row label={t("HEALTH.CONFIG_FILES")}>
                 {health.data.config.files}
               </Row>
-              <Row label={<FormattedMessage id="HEALTH.PROVIDERS" />}>
+              <Row label={t("HEALTH.PROVIDERS")}>
                 {health.data.config.providers.total}
                 {health.data.config.providers.total > 0 ? (
                   <span className="text-muted-foreground ml-2 text-xs">
@@ -123,10 +112,10 @@ function HealthPanel() {
                   </span>
                 ) : null}
               </Row>
-              <Row label={<FormattedMessage id="HEALTH.KIRO_BLACKLIST" />}>
+              <Row label={t("HEALTH.KIRO_BLACKLIST")}>
                 {health.data.kiroBlacklistSize}
               </Row>
-              <Row label={<FormattedMessage id="HEALTH.LAST_RUN" />}>
+              <Row label={t("HEALTH.LAST_RUN")}>
                 {health.data.lastRun ? (
                   <>
                     {new Date(health.data.lastRun.timestamp).toLocaleString()}
@@ -138,7 +127,7 @@ function HealthPanel() {
                   </>
                 ) : (
                   <span className="text-muted-foreground">
-                    <FormattedMessage id="HEALTH.NO_RUNS" />
+                    {t("HEALTH.NO_RUNS")}
                   </span>
                 )}
               </Row>

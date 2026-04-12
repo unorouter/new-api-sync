@@ -16,7 +16,7 @@ type MyFormErrorProps = {
  * Falls back to the raw error string if the translation key is missing.
  */
 export function MyFormError(props: MyFormErrorProps) {
-  const intl = useIntl();
+  const { t } = useIntl();
   if (!props.error) return null;
 
   const leafName =
@@ -28,15 +28,12 @@ export function MyFormError(props: MyFormErrorProps) {
 
   let message: string;
   try {
-    message = intl.formatMessage(
-      { id: props.error as TranslationKey },
-      {
-        minLength: property?.minLength,
-        maxLength: property?.maxLength,
-        minimum: property?.minimum,
-        maximum: property?.maximum,
-      },
-    );
+    message = t(props.error as TranslationKey, {
+      minLength: property?.minLength,
+      maxLength: property?.maxLength,
+      minimum: property?.minimum,
+      maximum: property?.maximum,
+    });
   } catch {
     message = props.error;
   }
