@@ -1,5 +1,7 @@
 [English](README.md) | 中文
 
+> 友情链接：[LINUX DO](https://linux.do/) — 新的理想型社区
+
 # new-api-sync
 
 将上游提供商的定价、渠道和模型同步到你的 [new-api](https://github.com/unorouter/new-api) 实例。支持 [new-api](https://github.com/unorouter/new-api)、[sub2api](https://github.com/unorouter/sub2api)、厂商直连 API 以及 NVIDIA NIM。

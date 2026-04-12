@@ -1,5 +1,7 @@
 English | [中文](README.zh.md)
 
+> Friends: [LINUX DO](https://linux.do/) — 新的理想型社区
+
 # new-api-sync
 
 Sync pricing, channels, and models from upstream providers to your [new-api](https://github.com/unorouter/new-api) instance. Supports [new-api](https://github.com/unorouter/new-api), [sub2api](https://github.com/unorouter/sub2api), direct vendor APIs, and NVIDIA NIM.
