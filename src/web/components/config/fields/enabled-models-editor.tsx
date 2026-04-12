@@ -9,7 +9,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@web/components/ui/select";
-import { ChevronRightIcon, FileTextIcon, PlusIcon, SlidersIcon, Trash2Icon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  FileTextIcon,
+  PlusIcon,
+  SlidersIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { useRef, useState } from "react";
 import { GridPricingEditor } from "./grid-pricing-editor";
 
@@ -192,7 +198,8 @@ export function EnabledModelsEditor(props: Props) {
                 onChange={(rows) =>
                   updateItem(i, {
                     ...entry,
-                    modelPricingGrid: rows.length === 0 ? [{ Pricing: 0 }] : rows,
+                    modelPricingGrid:
+                      rows.length === 0 ? [{ Pricing: 0 }] : rows,
                   })
                 }
               />

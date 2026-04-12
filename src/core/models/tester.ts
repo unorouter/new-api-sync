@@ -3,7 +3,7 @@ import {
   CHANNEL_TYPES,
   inferModelType,
   isTestableModel,
-  TIMEOUTS
+  TIMEOUTS,
 } from "@core/models/constants";
 import { fetchJson, tryFetchJson } from "@core/http";
 import { consola } from "consola";
@@ -48,7 +48,7 @@ interface TestReport {
 
 const testReport: TestReport = {
   timestamp: new Date().toISOString(),
-  results: []
+  results: [],
 };
 
 const kiroProbeAccumulator = new Map<string, KiroProbeLog[]>();
@@ -67,10 +67,10 @@ function addTestResult(entry: ModelTestLog): void {
 export function setTestCost(
   provider: string,
   model: string,
-  cost: number
+  cost: number,
 ): void {
   const entry = testReport.results.find(
-    (r) => r.provider === provider && r.model === model
+    (r) => r.provider === provider && r.model === model,
   );
   if (entry) entry.cost = cost;
 }
@@ -122,7 +122,7 @@ function addToKiroBlacklist(key: string, reason: string): void {
   if (kiroBlacklist.has(key)) return;
   kiroBlacklist.set(key, {
     since: new Date().toISOString().slice(0, 10),
-    reason
+    reason,
   });
   consola.warn(`[kiro-blacklist] Added ${key}: ${reason}`);
 }
@@ -149,7 +149,7 @@ export function initTestReportForDate(): void {
     const existing = JSON.parse(raw) as TestReport;
     testReport.results = existing.results.filter((r) => r.http.pass);
     consola.info(
-      `[test-report] Resumed from ${path} (${testReport.results.length} already passed)`
+      `[test-report] Resumed from ${path} (${testReport.results.length} already passed)`,
     );
   } catch {
     // File doesn't exist yet — start fresh
@@ -164,7 +164,7 @@ export function writeTestReportForDate(): void {
   const path = join(logsDir, `${today}-model-tests.json`);
   writeFileSync(path, JSON.stringify(testReport, null, 2));
   consola.info(
-    `[test-report] Written to ${path} (${testReport.results.length} results)`
+    `[test-report] Written to ${path} (${testReport.results.length} results)`,
   );
   saveKiroBlacklist();
 }
@@ -212,12 +212,12 @@ function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
+        "anthropic-version": "2023-06-01",
       },
       body: {
         model,
         messages: [{ role: "user", content: testPrompt }],
-        max_tokens: 50
+        max_tokens: 50,
       },
       isSuccess: (data) => {
         const d = data as {
@@ -232,7 +232,7 @@ function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
           .toLowerCase();
         if (fullText.includes("kiro")) return false;
         return true;
-      }
+      },
     };
   }
   if (channelType === CHANNEL_TYPES.GEMINI) {
@@ -241,9 +241,9 @@ function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
       headers: { "Content-Type": "application/json" },
       body: {
         contents: [{ parts: [{ text: testPrompt }] }],
-        generationConfig: { maxOutputTokens: 3 }
+        generationConfig: { maxOutputTokens: 3 },
       },
-      isSuccess: (data) => !(data as { error?: unknown }).error
+      isSuccess: (data) => !(data as { error?: unknown }).error,
     };
   }
   if (useResponsesAPI) {
@@ -251,36 +251,36 @@ function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
       url: `${baseUrl}/v1/responses`,
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
+        Authorization: `Bearer ${apiKey}`,
       },
       body: {
         model,
         input: [
-          { role: "user", content: [{ type: "input_text", text: testPrompt }] }
+          { role: "user", content: [{ type: "input_text", text: testPrompt }] },
         ],
         max_output_tokens: 3,
-        store: false
+        store: false,
       },
-      isSuccess: (data) => !(data as { error?: unknown }).error
+      isSuccess: (data) => !(data as { error?: unknown }).error,
     };
   }
   return {
     url: `${baseUrl}/v1/chat/completions`,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
+      Authorization: `Bearer ${apiKey}`,
     },
     body: {
       model,
       messages: [{ role: "user", content: testPrompt }],
-      max_tokens: 3
+      max_tokens: 3,
     },
-    isSuccess: (data) => !(data as { error?: unknown }).error
+    isSuccess: (data) => !(data as { error?: unknown }).error,
   };
 }
 
 function getStreamRequestConfig(
-  opts: ModelRequestOpts
+  opts: ModelRequestOpts,
 ): StreamRequestConfig | null {
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
   const streamPrompt = "Reply with only the word ok.";
@@ -291,15 +291,15 @@ function getStreamRequestConfig(
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
+        "anthropic-version": "2023-06-01",
       },
       body: {
         model,
         messages: [{ role: "user", content: streamPrompt }],
         max_tokens: 5,
-        stream: true
+        stream: true,
       },
-      completionMarker: "message_stop"
+      completionMarker: "message_stop",
     };
   }
   if (channelType === CHANNEL_TYPES.GEMINI) {
@@ -312,15 +312,15 @@ function getStreamRequestConfig(
     url: `${baseUrl}/v1/chat/completions`,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
+      Authorization: `Bearer ${apiKey}`,
     },
     body: {
       model,
       messages: [{ role: "user", content: streamPrompt }],
       max_tokens: 5,
-      stream: true
+      stream: true,
     },
-    completionMarker: "data: [DONE]"
+    completionMarker: "data: [DONE]",
   };
 }
 
@@ -329,14 +329,14 @@ const TOOL_DESC = "Calculate a math expression";
 const TOOL_PARAMS = {
   type: "object" as const,
   properties: {
-    expression: { type: "string", description: "The math expression" }
+    expression: { type: "string", description: "The math expression" },
   },
-  required: ["expression"]
+  required: ["expression"],
 };
 const TOOL_PROMPT = "What is 2+2? You must use the calculator tool to answer.";
 
 function getToolCallConfig(
-  opts: ModelRequestOpts
+  opts: ModelRequestOpts,
 ): ToolCallRequestConfig | null {
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
 
@@ -349,16 +349,20 @@ function getToolCallConfig(
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
+        "anthropic-version": "2023-06-01",
       },
       body: {
         model,
         messages: [{ role: "user", content: TOOL_PROMPT }],
         tools: [
-          { name: TOOL_NAME, description: TOOL_DESC, input_schema: TOOL_PARAMS }
+          {
+            name: TOOL_NAME,
+            description: TOOL_DESC,
+            input_schema: TOOL_PARAMS,
+          },
         ],
         tool_choice: { type: "any" },
-        max_tokens: 100
+        max_tokens: 100,
       },
       isToolCallSuccess: (data) => {
         const d = data as {
@@ -370,7 +374,7 @@ function getToolCallConfig(
           Array.isArray(d.content) &&
           d.content.some((c) => c.type === "tool_use")
         );
-      }
+      },
     };
   }
 
@@ -386,13 +390,13 @@ function getToolCallConfig(
               {
                 name: TOOL_NAME,
                 description: TOOL_DESC,
-                parameters: TOOL_PARAMS
-              }
-            ]
-          }
+                parameters: TOOL_PARAMS,
+              },
+            ],
+          },
         ],
         toolConfig: { functionCallingConfig: { mode: "ANY" } },
-        generationConfig: { maxOutputTokens: 100 }
+        generationConfig: { maxOutputTokens: 100 },
       },
       isToolCallSuccess: (data) => {
         const d = data as {
@@ -405,10 +409,10 @@ function getToolCallConfig(
           d.candidates.some(
             (c) =>
               Array.isArray(c.content?.parts) &&
-              c.content!.parts.some((p) => p.functionCall != null)
+              c.content!.parts.some((p) => p.functionCall != null),
           )
         );
-      }
+      },
     };
   }
 
@@ -416,7 +420,7 @@ function getToolCallConfig(
     url: `${baseUrl}/v1/chat/completions`,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
+      Authorization: `Bearer ${apiKey}`,
     },
     body: {
       model,
@@ -427,12 +431,12 @@ function getToolCallConfig(
           function: {
             name: TOOL_NAME,
             description: TOOL_DESC,
-            parameters: TOOL_PARAMS
-          }
-        }
+            parameters: TOOL_PARAMS,
+          },
+        },
       ],
       tool_choice: "required",
-      max_tokens: 100
+      max_tokens: 100,
     },
     isToolCallSuccess: (data) => {
       const d = data as {
@@ -445,7 +449,7 @@ function getToolCallConfig(
       if (!choice) return false;
       if (choice.finish_reason === "tool_calls") return true;
       return (choice.message?.tool_calls?.length ?? 0) > 0;
-    }
+    },
   };
 }
 
@@ -458,15 +462,15 @@ function getImageTestConfig(opts: ModelRequestOpts): RequestConfig {
     url: `${opts.baseUrl}/v1/images/generations`,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${opts.apiKey}`
+      Authorization: `Bearer ${opts.apiKey}`,
     },
     body: {
       model: opts.model,
       prompt: "a tiny red circle",
       n: 1,
-      size: "256x256"
+      size: "256x256",
     },
-    isSuccess: (data) => !(data as { error?: unknown }).error
+    isSuccess: (data) => !(data as { error?: unknown }).error,
   };
 }
 
@@ -475,10 +479,10 @@ function getVideoTestConfig(opts: ModelRequestOpts): RequestConfig {
     url: `${opts.baseUrl}/v1/videos`,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${opts.apiKey}`
+      Authorization: `Bearer ${opts.apiKey}`,
     },
     body: { model: opts.model, prompt: "a slow pan over a landscape" },
-    isSuccess: (data) => !(data as { error?: unknown }).error
+    isSuccess: (data) => !(data as { error?: unknown }).error,
   };
 }
 
@@ -487,13 +491,13 @@ function getEmbeddingTestConfig(opts: ModelRequestOpts): RequestConfig {
     url: `${opts.baseUrl}/v1/embeddings`,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${opts.apiKey}`
+      Authorization: `Bearer ${opts.apiKey}`,
     },
     body: { model: opts.model, input: "test" },
     isSuccess: (data) => {
       const d = data as { error?: unknown; data?: unknown[] };
       return !d.error && Array.isArray(d.data);
-    }
+    },
   };
 }
 
@@ -502,10 +506,10 @@ function getAudioTestConfig(opts: ModelRequestOpts): RequestConfig {
     url: `${opts.baseUrl}/v1/audio/speech`,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${opts.apiKey}`
+      Authorization: `Bearer ${opts.apiKey}`,
     },
     body: { model: opts.model, input: "test", voice: "alloy" },
-    isSuccess: (data) => !(data as { error?: unknown }).error
+    isSuccess: (data) => !(data as { error?: unknown }).error,
   };
 }
 
@@ -515,7 +519,7 @@ function getAudioTestConfig(opts: ModelRequestOpts): RequestConfig {
 
 async function withRetry<T>(
   fn: () => Promise<T>,
-  isPass: (v: T) => boolean
+  isPass: (v: T) => boolean,
 ): Promise<T> {
   const result = await fn();
   if (isPass(result)) return result;
@@ -524,32 +528,32 @@ async function withRetry<T>(
 
 async function testRequest(
   config: RequestConfig,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<TestExchange> {
   const data = await tryFetchJson<unknown>(config.url, {
     method: "POST",
     headers: config.headers,
     body: config.body,
-    timeoutMs
+    timeoutMs,
   });
   if (data === null) {
     return {
       pass: false,
       request: { url: config.url, body: config.body },
       response: null,
-      error: "no response / timeout"
+      error: "no response / timeout",
     };
   }
   return {
     pass: config.isSuccess(data),
     request: { url: config.url, body: config.body },
-    response: data
+    response: data,
   };
 }
 
 async function testStreamRequest(
   config: StreamRequestConfig,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<TestExchange> {
   const reqInfo = { url: config.url, body: config.body };
   try {
@@ -557,14 +561,14 @@ async function testStreamRequest(
       method: "POST",
       headers: config.headers,
       body: JSON.stringify(config.body),
-      signal: AbortSignal.timeout(timeoutMs)
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok || !response.body) {
       return {
         pass: false,
         request: reqInfo,
         response: null,
-        error: `HTTP ${response.status}`
+        error: `HTTP ${response.status}`,
       };
     }
 
@@ -591,7 +595,7 @@ async function testStreamRequest(
           pass: false,
           request: reqInfo,
           response: buffer.slice(0, 500),
-          error: "error in stream"
+          error: "error in stream",
         };
       }
     }
@@ -599,40 +603,40 @@ async function testStreamRequest(
     return {
       pass: foundMarker,
       request: reqInfo,
-      response: buffer.slice(0, 500)
+      response: buffer.slice(0, 500),
     };
   } catch (err) {
     return {
       pass: false,
       request: reqInfo,
       response: null,
-      error: err instanceof Error ? err.message : String(err)
+      error: err instanceof Error ? err.message : String(err),
     };
   }
 }
 
 async function testToolCall(
   config: ToolCallRequestConfig,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<TestExchange> {
   const data = await tryFetchJson<unknown>(config.url, {
     method: "POST",
     headers: config.headers,
     body: config.body,
-    timeoutMs
+    timeoutMs,
   });
   if (data === null) {
     return {
       pass: false,
       request: { url: config.url, body: config.body },
       response: null,
-      error: "no response / timeout"
+      error: "no response / timeout",
     };
   }
   return {
     pass: config.isToolCallSuccess(data),
     request: { url: config.url, body: config.body },
-    response: data
+    response: data,
   };
 }
 
@@ -719,7 +723,7 @@ async function runAnthropicProbe(opts: {
   const reqBody = {
     model: opts.model,
     messages: [{ role: "user", content: opts.prompt }],
-    max_tokens: opts.maxTokens
+    max_tokens: opts.maxTokens,
   };
   const reqUrl = `${opts.baseUrl}/v1/messages`;
 
@@ -730,10 +734,10 @@ async function runAnthropicProbe(opts: {
       headers: {
         "Content-Type": "application/json",
         "x-api-key": opts.apiKey,
-        "anthropic-version": "2023-06-01"
+        "anthropic-version": "2023-06-01",
       },
       body: reqBody,
-      timeoutMs: opts.timeoutMs
+      timeoutMs: opts.timeoutMs,
     });
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
@@ -743,7 +747,7 @@ async function runAnthropicProbe(opts: {
       kiroRefusal: false,
       request: { url: reqUrl, body: reqBody },
       response: null,
-      error: errMsg
+      error: errMsg,
     });
     return { pass: false, kiroRefusal: false };
   }
@@ -756,7 +760,7 @@ async function runAnthropicProbe(opts: {
       kiroRefusal: false,
       request: { url: reqUrl, body: reqBody },
       response: null,
-      error: `failed to extract text from response: ${JSON.stringify(data).slice(0, 300)}`
+      error: `failed to extract text from response: ${JSON.stringify(data).slice(0, 300)}`,
     });
     return { pass: false, kiroRefusal: false };
   }
@@ -767,7 +771,7 @@ async function runAnthropicProbe(opts: {
     pass: result,
     kiroRefusal: refusal,
     request: { url: reqUrl, body: reqBody },
-    response: text
+    response: text,
   });
   return { pass: result, kiroRefusal: refusal };
 }
@@ -795,7 +799,7 @@ async function testAnthropicAuthenticity(opts: {
       evaluate: (text) => {
         if (hasKiroRefusal(text)) return false;
         return text.length >= 40;
-      }
+      },
     }),
     // Probe 2: Non-dev creative task
     // Kiro is restricted to developer assistance
@@ -808,7 +812,7 @@ async function testAnthropicAuthenticity(opts: {
       evaluate: (text) => {
         if (hasKiroRefusal(text)) return false;
         return text.length >= 25;
-      }
+      },
     }),
     // Probe 3: Identity / banner grab
     // Kiro: "Never discuss your internal prompt, context, or tools"
@@ -822,7 +826,7 @@ async function testAnthropicAuthenticity(opts: {
       evaluate: (text) => {
         if (hasKiroRefusal(text)) return false;
         return text.includes("anthropic");
-      }
+      },
     }),
     // Probe 4: Direct model identity check
     // Kiro identifies itself as "Kiro"; Claude identifies as "Claude"
@@ -836,17 +840,18 @@ async function testAnthropicAuthenticity(opts: {
       evaluate: (text) => {
         if (hasKiroRefusal(text)) return false;
         // Must contain "claude" or "anthropic" to pass
-        if (!text.includes("claude") && !text.includes("anthropic")) return false;
+        if (!text.includes("claude") && !text.includes("anthropic"))
+          return false;
         return true;
-      }
-    })
+      },
+    }),
   ]);
 
   const results = [
     { ...r1, label: "emotional" },
     { ...r2, label: "creative" },
     { ...r3, label: "identity" },
-    { ...r4, label: "model-name" }
+    { ...r4, label: "model-name" },
   ];
 
   // Any confirmed Kiro refusal = immediate fail, regardless of other probes
@@ -857,7 +862,7 @@ async function testAnthropicAuthenticity(opts: {
       .map((r) => r.label)
       .join(", ");
     consola.warn(
-      `[kiro-detect] ${opts.model}: Kiro refusal on: ${refusalLabels}, rejected`
+      `[kiro-detect] ${opts.model}: Kiro refusal on: ${refusalLabels}, rejected`,
     );
     addToKiroBlacklist(opts.logKey, `kiro-refusal: ${refusalLabels}`);
     return false;
@@ -869,7 +874,7 @@ async function testAnthropicAuthenticity(opts: {
   if (failed.length > 0) {
     const failedLabels = failed.map((r) => r.label).join(", ");
     consola.warn(
-      `[kiro-detect] ${opts.model}: ${passed}/4 probes passed (failed: ${failedLabels})`
+      `[kiro-detect] ${opts.model}: ${passed}/4 probes passed (failed: ${failedLabels})`,
     );
     addToKiroBlacklist(opts.logKey, `failed: ${failedLabels}`);
   }
@@ -921,7 +926,7 @@ export async function testModels(opts: {
       batch.map(async (model) => {
         // Skip if already passing from today's daily log (loaded by initTestReportForDate)
         const existingPass = testReport.results.find(
-          (r) => r.provider === prefix && r.model === model && r.http.pass
+          (r) => r.provider === prefix && r.model === model && r.http.pass,
         );
         if (existingPass) {
           consola.debug(`[${prefix}] ${model}: already passed, skipping`);
@@ -929,7 +934,7 @@ export async function testModels(opts: {
             model,
             success: true,
             streamSuccess: existingPass.stream?.pass ?? null,
-            toolCallSuccess: existingPass.toolCall?.pass ?? null
+            toolCallSuccess: existingPass.toolCall?.pass ?? null,
           };
         }
 
@@ -940,9 +945,7 @@ export async function testModels(opts: {
           model.startsWith("claude-") &&
           isKiroBlacklisted(blacklistKey)
         ) {
-          consola.debug(
-            `[${prefix}] ${model}: kiro-blacklisted, skipping`
-          );
+          consola.debug(`[${prefix}] ${model}: kiro-blacklisted, skipping`);
           addTestResult({
             provider: prefix,
             model,
@@ -951,17 +954,17 @@ export async function testModels(opts: {
               pass: false,
               request: { url: "", body: null },
               response: null,
-              error: "kiro-blacklisted"
+              error: "kiro-blacklisted",
             },
             stream: null,
             toolCall: null,
-            authentic: false
+            authentic: false,
           });
           return {
             model,
             success: false,
             streamSuccess: null,
-            toolCallSuccess: null
+            toolCallSuccess: null,
           };
         }
 
@@ -970,7 +973,7 @@ export async function testModels(opts: {
           apiKey,
           model,
           channelType,
-          useResponsesAPI
+          useResponsesAPI,
         };
 
         const modelType = inferModelType(model, undefined, opts.modelEndpoints);
@@ -980,27 +983,27 @@ export async function testModels(opts: {
         if (modelType === "image") {
           httpResult = await withRetry(
             () => testRequest(getImageTestConfig(reqOpts), timeoutMs),
-            (r) => r.pass
+            (r) => r.pass,
           );
         } else if (modelType === "video") {
           httpResult = await withRetry(
             () => testRequest(getVideoTestConfig(reqOpts), timeoutMs),
-            (r) => r.pass
+            (r) => r.pass,
           );
         } else if (modelType === "embedding") {
           httpResult = await withRetry(
             () => testRequest(getEmbeddingTestConfig(reqOpts), timeoutMs),
-            (r) => r.pass
+            (r) => r.pass,
           );
         } else if (modelType === "audio") {
           httpResult = await withRetry(
             () => testRequest(getAudioTestConfig(reqOpts), timeoutMs),
-            (r) => r.pass
+            (r) => r.pass,
           );
         } else {
           httpResult = await withRetry(
             () => testRequest(getRequestConfig(reqOpts), timeoutMs),
-            (r) => r.pass
+            (r) => r.pass,
           );
         }
 
@@ -1013,7 +1016,7 @@ export async function testModels(opts: {
         const streamResult = streamConfig
           ? await withRetry(
               () => testStreamRequest(streamConfig, timeoutMs),
-              (r) => r.pass
+              (r) => r.pass,
             )
           : null;
         const streamSuccess = streamResult?.pass ?? null;
@@ -1025,7 +1028,7 @@ export async function testModels(opts: {
           (success || streamSuccess) && toolCallConfig
             ? await withRetry(
                 () => testToolCall(toolCallConfig, timeoutMs),
-                (r) => r.pass
+                (r) => r.pass,
               )
             : null;
         const toolCallSuccess = toolResult?.pass ?? null;
@@ -1043,7 +1046,7 @@ export async function testModels(opts: {
             apiKey,
             model,
             timeoutMs,
-            logKey
+            logKey,
           });
         }
 
@@ -1062,7 +1065,7 @@ export async function testModels(opts: {
             channelType === CHANNEL_TYPES.ANTHROPIC &&
             model.startsWith("claude-")
               ? authentic
-              : null
+              : null,
         });
 
         const h = finalSuccess ? "✓" : "✗";
@@ -1076,9 +1079,9 @@ export async function testModels(opts: {
           model,
           success: finalSuccess,
           streamSuccess: finalStream,
-          toolCallSuccess
+          toolCallSuccess,
         };
-      })
+      }),
     );
     results.push(...batchResults);
     if (onModelTested) {
@@ -1092,7 +1095,7 @@ export async function testModels(opts: {
     workingModels: results
       .filter((r) => r.success || r.streamSuccess === true)
       .map((r) => r.model),
-    details: results
+    details: results,
   };
 }
 
@@ -1126,7 +1129,7 @@ export async function testAndFilterModels(opts: {
     return isTestableModel(m, undefined, opts.modelEndpoints);
   });
   const nonTestableModels = opts.allModels.filter(
-    (m) => !testableModels.includes(m)
+    (m) => !testableModels.includes(m),
   );
 
   consola.debug(
@@ -1144,7 +1147,7 @@ export async function testAndFilterModels(opts: {
   if (skipTesting) {
     testedWorkingModels = testableModels;
     consola.info(
-      `[${opts.providerLabel}] ${testableModels.length} models (testing skipped)`
+      `[${opts.providerLabel}] ${testableModels.length} models (testing skipped)`,
     );
   } else if (opts.apiKey && testableModels.length > 0) {
     const testResult = await testModels({
@@ -1155,14 +1158,14 @@ export async function testAndFilterModels(opts: {
       useResponsesAPI: opts.useResponsesAPI,
       modelEndpoints: opts.modelEndpoints,
       logPrefix: opts.providerLabel,
-      onModelTested: opts.onModelTested
+      onModelTested: opts.onModelTested,
     });
     testedWorkingModels = testResult.workingModels;
     details = testResult.details;
 
     const failedDetails = testResult.details.filter(
       (d) =>
-        !d.success || d.streamSuccess === false || d.toolCallSuccess === false
+        !d.success || d.streamSuccess === false || d.toolCallSuccess === false,
     );
     if (failedDetails.length > 0) {
       const labeled = failedDetails.map((d) => {
@@ -1189,13 +1192,13 @@ export async function testAndFilterModels(opts: {
 
   if (nonTestableModels.length > 0) {
     consola.info(
-      `[${opts.providerLabel}] Included without test: ${nonTestableModels.join(", ")}`
+      `[${opts.providerLabel}] Included without test: ${nonTestableModels.join(", ")}`,
     );
   }
 
   return {
     workingModels,
     testedCount: testableModels.length,
-    details
+    details,
   };
 }

@@ -24,7 +24,9 @@ async function ensureVendors(
   for (const [canonical, matcher] of Object.entries(VENDOR_MATCHERS)) {
     // Direct name match
     const direct = snap.vendors.find(
-      (v) => v.name.toLowerCase() === canonical || v.name.toLowerCase() === matcher.displayName?.toLowerCase(),
+      (v) =>
+        v.name.toLowerCase() === canonical ||
+        v.name.toLowerCase() === matcher.displayName?.toLowerCase(),
     );
     if (direct) {
       existingByCanonical.set(canonical, direct);
@@ -45,7 +47,8 @@ async function ensureVendors(
   let changed = 0;
   for (const vendor of neededVendors) {
     const matcher = VENDOR_MATCHERS[vendor];
-    const displayName = matcher?.displayName ?? vendor.charAt(0).toUpperCase() + vendor.slice(1);
+    const displayName =
+      matcher?.displayName ?? vendor.charAt(0).toUpperCase() + vendor.slice(1);
     const icon = matcher?.icon;
 
     const existing = existingByCanonical.get(vendor);
@@ -58,7 +61,9 @@ async function ensureVendors(
           icon,
         });
         if (ok) {
-          consola.info(`Updated vendor "${displayName}" (id=${existing.id}, icon=${icon ?? "none"})`);
+          consola.info(
+            `Updated vendor "${displayName}" (id=${existing.id}, icon=${icon ?? "none"})`,
+          );
           changed++;
         }
       }
@@ -68,7 +73,9 @@ async function ensureVendors(
     // Create new vendor
     const result = await client.createVendor({ name: displayName, icon });
     if (result) {
-      consola.info(`Created vendor "${displayName}" (id=${result.id}, icon=${icon ?? "none"})`);
+      consola.info(
+        `Created vendor "${displayName}" (id=${result.id}, icon=${icon ?? "none"})`,
+      );
       changed++;
     } else {
       consola.warn(`Failed to create vendor "${displayName}"`);

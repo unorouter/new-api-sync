@@ -1,4 +1,8 @@
-import { CHANNEL_TYPES, inferChannelType, PAGINATION } from "@core/models/constants";
+import {
+  CHANNEL_TYPES,
+  inferChannelType,
+  PAGINATION,
+} from "@core/models/constants";
 import { fetchJson, tryFetchJson } from "@core/http";
 import type { Channel, GroupInfo, ModelMeta, Vendor } from "@core/types";
 import { consola } from "consola";

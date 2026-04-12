@@ -48,7 +48,9 @@ export function NewApiPanel(props: {
           type="number"
           min={1}
           value={props.value.userId}
-          onChange={(event) => update("userId", Number(event.target.value) || 1)}
+          onChange={(event) =>
+            update("userId", Number(event.target.value) || 1)
+          }
         />
       </div>
     </div>
@@ -182,7 +184,10 @@ export function DirectPanel(props: {
             value={props.value.ratio ?? 1}
             onChange={(event) =>
               update({
-                ratio: event.target.value === "" ? undefined : Number(event.target.value),
+                ratio:
+                  event.target.value === ""
+                    ? undefined
+                    : Number(event.target.value),
               })
             }
           />
@@ -244,9 +249,7 @@ export function NvidiaPanel(props: {
           </Label>
           <Input
             value={props.value.imageBaseUrl ?? ""}
-            onChange={(event) =>
-              update({ imageBaseUrl: event.target.value })
-            }
+            onChange={(event) => update({ imageBaseUrl: event.target.value })}
             placeholder="https://ai.api.nvidia.com"
           />
         </div>
@@ -272,7 +275,10 @@ export function NvidiaPanel(props: {
           value={props.value.ratio ?? 1}
           onChange={(event) =>
             update({
-              ratio: event.target.value === "" ? undefined : Number(event.target.value),
+              ratio:
+                event.target.value === ""
+                  ? undefined
+                  : Number(event.target.value),
             })
           }
         />

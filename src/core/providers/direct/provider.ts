@@ -52,7 +52,8 @@ export async function processDirectProvider(
     // 2. Filter
     allModels = filterModels(allModels, config, providerConfig);
     if (allModels.length === 0) {
-      providerReport.error = "All models filtered out by blacklist/enabledModels";
+      providerReport.error =
+        "All models filtered out by blacklist/enabledModels";
       return providerReport;
     }
 

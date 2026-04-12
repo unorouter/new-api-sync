@@ -66,11 +66,15 @@ export function PriceAdjustmentEditor(props: Props) {
           step="any"
           value={props.value}
           onChange={(event) =>
-            props.onChange(event.target.value === "" ? 0 : Number(event.target.value))
+            props.onChange(
+              event.target.value === "" ? 0 : Number(event.target.value),
+            )
           }
         />
       ) : null}
-      {mode === "per_key" && typeof props.value === "object" && props.value !== null ? (
+      {mode === "per_key" &&
+      typeof props.value === "object" &&
+      props.value !== null ? (
         <KeyValueEditor
           pairs={props.value}
           onChange={(pairs) => props.onChange(pairs as Record<string, number>)}

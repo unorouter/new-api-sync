@@ -43,9 +43,7 @@ export function ProviderCommonFields(props: Props) {
         </Label>
         <ModelTypeMultiSelect
           value={props.value.testModelTypes as ModelType[] | undefined}
-          onChange={(next) =>
-            updateField("testModelTypes", next as never)
-          }
+          onChange={(next) => updateField("testModelTypes", next as never)}
         />
       </div>
 
@@ -71,9 +69,7 @@ export function ProviderCommonFields(props: Props) {
         </Label>
         <EnabledModelsEditor
           items={props.value.enabledModels as EnabledModelEntry[] | undefined}
-          onChange={(items) =>
-            updateField("enabledModels", items as never)
-          }
+          onChange={(items) => updateField("enabledModels", items as never)}
         />
       </div>
 
@@ -88,9 +84,7 @@ export function ProviderCommonFields(props: Props) {
               | Record<string, number>
               | undefined
           }
-          onChange={(next) =>
-            updateField("priceAdjustment", next as never)
-          }
+          onChange={(next) => updateField("priceAdjustment", next as never)}
         />
       </div>
     </div>

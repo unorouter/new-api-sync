@@ -139,9 +139,14 @@ function buildOptionMaps(
   const modelQuotaType: Record<string, number> = {};
   for (const [name, ratios] of state.mergedModels) {
     const mappedName = modelMapping?.[name] ?? name;
-    const isPerRequest = ratios.quotaType !== undefined && ratios.quotaType >= 1;
-    if ((ratios.modelPrice !== undefined && ratios.modelPrice > 0) || isPerRequest) {
-      modelPrice[mappedName] = Math.round((ratios.modelPrice ?? 0) * 10000) / 10000;
+    const isPerRequest =
+      ratios.quotaType !== undefined && ratios.quotaType >= 1;
+    if (
+      (ratios.modelPrice !== undefined && ratios.modelPrice > 0) ||
+      isPerRequest
+    ) {
+      modelPrice[mappedName] =
+        Math.round((ratios.modelPrice ?? 0) * 10000) / 10000;
     } else {
       modelRatio[mappedName] = Math.round(ratios.ratio * 10000) / 10000;
       completionRatio[mappedName] =
@@ -158,11 +163,18 @@ function buildOptionMaps(
   // Build grid pricing display metadata from config.
   // Grid pricing is independent of quota_type: video models use quota_type=4,
   // image models keep quota_type=1 (per-request) but still show a resolution grid.
-  const modelGridPricing: Record<string, import("@core/types").GridPricingInfo> = {};
+  const modelGridPricing: Record<
+    string,
+    import("@core/types").GridPricingInfo
+  > = {};
   for (const [modelName, rows] of Object.entries(configGridPricing)) {
     const mappedName = modelMapping?.[modelName] ?? modelName;
-    if (modelPrice[mappedName] !== undefined || modelRatio[mappedName] !== undefined) {
-      modelGridPricing[mappedName] = rows as import("@core/types").GridPricingInfo;
+    if (
+      modelPrice[mappedName] !== undefined ||
+      modelRatio[mappedName] !== undefined
+    ) {
+      modelGridPricing[mappedName] =
+        rows as import("@core/types").GridPricingInfo;
     }
   }
 
@@ -392,7 +404,12 @@ export async function runProviderPipeline(
   ]);
 
   // Process providers (newapi first, then direct, then sub2api last)
-  const typeOrder: Record<string, number> = { newapi: 0, nvidia: 1, direct: 2, sub2api: 3 };
+  const typeOrder: Record<string, number> = {
+    newapi: 0,
+    nvidia: 1,
+    direct: 2,
+    sub2api: 3,
+  };
   const sorted = [...config.providers].sort(
     (a, b) => (typeOrder[a.type] ?? 2) - (typeOrder[b.type] ?? 2),
   );
@@ -401,13 +418,29 @@ export async function runProviderPipeline(
     if (i > 0) console.log();
     let report: ProviderReport;
     if (provider.type === "newapi") {
-      report = await processNewApiProvider(provider as ProviderConfig, config, state);
+      report = await processNewApiProvider(
+        provider as ProviderConfig,
+        config,
+        state,
+      );
     } else if (provider.type === "nvidia") {
-      report = await processNvidiaProvider(provider as NvidiaProviderConfig, config, state);
+      report = await processNvidiaProvider(
+        provider as NvidiaProviderConfig,
+        config,
+        state,
+      );
     } else if (provider.type === "direct") {
-      report = await processDirectProvider(provider as DirectProviderConfig, config, state);
+      report = await processDirectProvider(
+        provider as DirectProviderConfig,
+        config,
+        state,
+      );
     } else {
-      report = await processSub2ApiProvider(provider as Sub2ApiProviderConfig, config, state);
+      report = await processSub2ApiProvider(
+        provider as Sub2ApiProviderConfig,
+        config,
+        state,
+      );
     }
     providerReports.push(report);
   }
@@ -437,7 +470,11 @@ export async function runProviderPipeline(
     Object.assign(allPricingGrids, grids);
   }
 
-  const optionMaps = buildOptionMaps(state, config.modelMapping, allPricingGrids);
+  const optionMaps = buildOptionMaps(
+    state,
+    config.modelMapping,
+    allPricingGrids,
+  );
 
   const reverseMapping = buildReverseMapping(config.modelMapping);
 

@@ -24,7 +24,7 @@ const TARGETS = [
   "bun-darwin-x64",
   "bun-darwin-arm64",
   "bun-windows-x64",
-  "bun-windows-arm64"
+  "bun-windows-arm64",
 ];
 
 // Minimal content-type lookup; anything not here falls back to octet-stream
@@ -42,7 +42,7 @@ const CONTENT_TYPES: Record<string, string> = {
   ".gif": "image/gif",
   ".ico": "image/x-icon",
   ".woff": "font/woff",
-  ".woff2": "font/woff2"
+  ".woff2": "font/woff2",
 };
 
 const binaryPath = (t: string) =>
@@ -87,7 +87,7 @@ const writeAssetManifest = (assets: string[]) => {
     "  base64: string;",
     "};",
     "",
-    "export const embeddedAssets: EmbeddedAsset[] = ["
+    "export const embeddedAssets: EmbeddedAsset[] = [",
   ];
   for (const asset of assets) {
     const full = `${DIST}/public/${asset}`;
@@ -118,7 +118,7 @@ await build({
   minify: true,
   // Sourcemaps are skipped intentionally: they'd bloat the js bundle
   // (2+ MB base64-encoded) for no user-facing benefit in a shipped build.
-  plugins: [tailwindPlugin]
+  plugins: [tailwindPlugin],
 });
 
 log("• asset manifest");
@@ -133,7 +133,7 @@ await build({
   target: "bun",
   format: "esm",
   minify: true,
-  packages: "bundle"
+  packages: "bundle",
 });
 
 for (const target of TARGETS) {
@@ -145,7 +145,7 @@ for (const target of TARGETS) {
     `--target=${target}`,
     "--minify",
     ENTRY,
-    `--outfile=${binaryPath(target)}`
+    `--outfile=${binaryPath(target)}`,
   ]);
 }
 

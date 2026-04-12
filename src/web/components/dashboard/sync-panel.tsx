@@ -1,4 +1,7 @@
-import { FormattedMessage, useIntl } from "@web/components/provider/intl-provider";
+import {
+  FormattedMessage,
+  useIntl,
+} from "@web/components/provider/intl-provider";
 import {
   Card,
   CardContent,
@@ -109,9 +112,7 @@ export function SyncPanel() {
           {logs.length === 0 ? (
             <p className="text-muted-foreground">
               <FormattedMessage
-                id={
-                  phase === "idle" ? "SYNC.EMPTY_IDLE" : "SYNC.EMPTY_WAITING"
-                }
+                id={phase === "idle" ? "SYNC.EMPTY_IDLE" : "SYNC.EMPTY_WAITING"}
               />
             </p>
           ) : (

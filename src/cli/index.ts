@@ -78,17 +78,19 @@ program
     [] as string[],
   )
   .option("-v, --verbose", "enable debug logging")
-  .action(async (options: { config?: string; only: string[]; verbose?: boolean }) => {
-    if (options.verbose) consola.level = 4;
-    const config = applyOnlyProviders(
-      await loadConfig(options.config),
-      options.only,
-    );
-    const success = await runTestPipeline(config);
-    if (!success) {
-      process.exitCode = 1;
-    }
-  });
+  .action(
+    async (options: { config?: string; only: string[]; verbose?: boolean }) => {
+      if (options.verbose) consola.level = 4;
+      const config = applyOnlyProviders(
+        await loadConfig(options.config),
+        options.only,
+      );
+      const success = await runTestPipeline(config);
+      if (!success) {
+        process.exitCode = 1;
+      }
+    },
+  );
 
 program.parseAsync(process.argv).catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));

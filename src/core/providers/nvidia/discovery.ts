@@ -1,4 +1,4 @@
- import { tryFetchJson } from "@core/http";
+import { tryFetchJson } from "@core/http";
 import { consola } from "consola";
 
 interface OpenAIModelList {

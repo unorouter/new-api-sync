@@ -33,67 +33,67 @@ bun sync test --verbose               # 以调试日志级别测试
 
 ### 目标 (target)
 
-| 字段                | 说明                              |
-| ------------------- | --------------------------------- |
-| `baseUrl`           | 你的 new-api 实例地址             |
-| `systemAccessToken` | 系统访问令牌（设置 > 其他）       |
-| `userId`            | 你的用户 ID                       |
-| `targetPrefix`      | 可选的同步资源前缀                |
+| 字段                | 说明                        |
+| ------------------- | --------------------------- |
+| `baseUrl`           | 你的 new-api 实例地址       |
+| `systemAccessToken` | 系统访问令牌（设置 > 其他） |
+| `userId`            | 你的用户 ID                 |
+| `targetPrefix`      | 可选的同步资源前缀          |
 
 ### 全局选项
 
-| 字段                   | 说明                                                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 字段                   | 说明                                                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `testModelTypes`       | 同步时测试的模型类型：`["text", "image", "video", "audio", "embedding"]`（默认：`["text"]`）。提供商级别设置可覆盖全局。 |
-| `skipUnprofitableText` | 跳过有效倍率 ≥ 1 的文本模型（默认：`true`）。详见下方"行为说明"。                                                         |
-| `blacklist`            | 排除匹配的文本模型（大小写不敏感）。支持 Glob 通配符和提供商作用域模式。详见下方"黑名单"。                              |
+| `skipUnprofitableText` | 跳过有效倍率 ≥ 1 的文本模型（默认：`true`）。详见下方"行为说明"。                                                        |
+| `blacklist`            | 排除匹配的文本模型（大小写不敏感）。支持 Glob 通配符和提供商作用域模式。详见下方"黑名单"。                               |
 | `modelMapping`         | 重命名模型：`{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                    |
 
 ### new-api 提供商 (`type: "newapi"`)
 
-| 字段                | 必填 | 说明                                            |
-| ------------------- | ---- | ----------------------------------------------- |
-| `name`              | 是   | 唯一标识符，用作渠道标签                        |
-| `baseUrl`           | 是   | 提供商地址                                      |
-| `systemAccessToken` | 是   | 提供商的系统访问令牌                            |
-| `userId`            | 是   | 你在提供商上的用户 ID                           |
-| `enabledVendors`    |      | 按厂商筛选：`anthropic`、`openai`、`google` 等  |
-| `enabledModels`     |      | Glob 模式：`["claude-*-4-5*", "gpt-5*"]`        |
-| `testModelTypes`    |      | 覆盖全局测试类型：`["text", "image"]`           |
-| `priceAdjustment`   |      | 数字或按键对象（见下方"价格调整"）              |
+| 字段                | 必填 | 说明                                           |
+| ------------------- | ---- | ---------------------------------------------- |
+| `name`              | 是   | 唯一标识符，用作渠道标签                       |
+| `baseUrl`           | 是   | 提供商地址                                     |
+| `systemAccessToken` | 是   | 提供商的系统访问令牌                           |
+| `userId`            | 是   | 你在提供商上的用户 ID                          |
+| `enabledVendors`    |      | 按厂商筛选：`anthropic`、`openai`、`google` 等 |
+| `enabledModels`     |      | Glob 模式：`["claude-*-4-5*", "gpt-5*"]`       |
+| `testModelTypes`    |      | 覆盖全局测试类型：`["text", "image"]`          |
+| `priceAdjustment`   |      | 数字或按键对象（见下方"价格调整"）             |
 
 ### 直连提供商 (`type: "direct"`)
 
 无需中间层，直接连接厂商 API（OpenAI、Anthropic、Google、Moonshot 等）。
 
-| 字段               | 必填 | 说明                                                         |
-| ------------------ | ---- | ------------------------------------------------------------ |
-| `name`             | 是   | 唯一标识符，用作渠道标签                                     |
-| `baseUrl`          | 是   | 厂商 API 基础地址                                            |
-| `apiKey`           | 是   | 厂商 API 密钥                                                |
-| `vendor`           | 是   | 厂商名称：`openai`、`anthropic`、`google`、`moonshot` 等     |
-| `models`           |      | 显式模型列表（跳过自动发现）                                 |
-| `enabledModels`    |      | 自动发现模型的 Glob 模式：`["kimi-*"]`                       |
-| `channelType`      |      | 覆盖推断的渠道类型编号                                       |
-| `ratio`            |      | 基础组倍率（默认 1.0）                                       |
-| `discoverEndpoint` |      | 自定义发现端点（默认 `/v1/models`）                          |
-| `testModelTypes`   |      | 覆盖全局测试类型                                             |
-| `priceAdjustment`  |      | 数字或按键对象（见下方"价格调整"）                           |
+| 字段               | 必填 | 说明                                                     |
+| ------------------ | ---- | -------------------------------------------------------- |
+| `name`             | 是   | 唯一标识符，用作渠道标签                                 |
+| `baseUrl`          | 是   | 厂商 API 基础地址                                        |
+| `apiKey`           | 是   | 厂商 API 密钥                                            |
+| `vendor`           | 是   | 厂商名称：`openai`、`anthropic`、`google`、`moonshot` 等 |
+| `models`           |      | 显式模型列表（跳过自动发现）                             |
+| `enabledModels`    |      | 自动发现模型的 Glob 模式：`["kimi-*"]`                   |
+| `channelType`      |      | 覆盖推断的渠道类型编号                                   |
+| `ratio`            |      | 基础组倍率（默认 1.0）                                   |
+| `discoverEndpoint` |      | 自定义发现端点（默认 `/v1/models`）                      |
+| `testModelTypes`   |      | 覆盖全局测试类型                                         |
+| `priceAdjustment`  |      | 数字或按键对象（见下方"价格调整"）                       |
 
 ### sub2api 提供商 (`type: "sub2api"`)
 
 提供 `adminApiKey`（自动发现组）或 `groups`（显式组 API 密钥）。
 
-| 字段             | 必填 | 说明                                                              |
-| ---------------- | ---- | ----------------------------------------------------------------- |
-| `name`           | 是   | 唯一标识符，用作渠道标签                                          |
-| `baseUrl`        | 是   | Sub2API 实例地址                                                  |
-| `adminApiKey`    |      | 管理员 API 密钥，自动发现组、账户和模型                           |
-| `groups`         |      | 显式组：`[{ "key": "sk-...", "platform": "anthropic" }]`          |
-| `enabledVendors` |      | 按厂商筛选：`anthropic`、`openai`、`google`                       |
-| `enabledModels`  |      | Glob 模式：`["claude-*-4-5*", "gpt-5*"]`                          |
-| `testModelTypes` |      | 覆盖全局测试类型                                                  |
-| `priceAdjustment`|      | 数字或按键对象（见下方"价格调整"）                                |
+| 字段              | 必填 | 说明                                                     |
+| ----------------- | ---- | -------------------------------------------------------- |
+| `name`            | 是   | 唯一标识符，用作渠道标签                                 |
+| `baseUrl`         | 是   | Sub2API 实例地址                                         |
+| `adminApiKey`     |      | 管理员 API 密钥，自动发现组、账户和模型                  |
+| `groups`          |      | 显式组：`[{ "key": "sk-...", "platform": "anthropic" }]` |
+| `enabledVendors`  |      | 按厂商筛选：`anthropic`、`openai`、`google`              |
+| `enabledModels`   |      | Glob 模式：`["claude-*-4-5*", "gpt-5*"]`                 |
+| `testModelTypes`  |      | 覆盖全局测试类型                                         |
+| `priceAdjustment` |      | 数字或按键对象（见下方"价格调整"）                       |
 
 ### 黑名单
 
@@ -105,10 +105,10 @@ bun sync test --verbose               # 以调试日志级别测试
 
   ```yml
   blacklist:
-    - nsfw               # 不限作用域：屏蔽任何提供商中包含 "nsfw" 的模型
-    - "*-preview"        # 不限作用域：屏蔽任何提供商的预览模型
-    - duck/gpt-5*        # 作用域：仅屏蔽 "duck" 提供商的 gpt-5* 模型
-    - yun/claude-*-opus  # 作用域：仅屏蔽 "yun" 提供商的 claude opus 模型
+    - nsfw # 不限作用域：屏蔽任何提供商中包含 "nsfw" 的模型
+    - "*-preview" # 不限作用域：屏蔽任何提供商的预览模型
+    - duck/gpt-5* # 作用域：仅屏蔽 "duck" 提供商的 gpt-5* 模型
+    - yun/claude-*-opus # 作用域：仅屏蔽 "yun" 提供商的 claude opus 模型
   ```
 
 ### 价格调整

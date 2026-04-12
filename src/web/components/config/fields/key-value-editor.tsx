@@ -34,7 +34,9 @@ export function KeyValueEditor(props: Props) {
   const requiredKeys = props.requiredKeys ?? [];
   const keyCounter = useRef(0);
 
-  const [rows, setRows] = useState<Row[]>(() => buildInitialRows(props.pairs, requiredKeys, keyCounter));
+  const [rows, setRows] = useState<Row[]>(() =>
+    buildInitialRows(props.pairs, requiredKeys, keyCounter),
+  );
 
   // Rebuild rows when incoming pairs diverge from our local view (e.g. Revert).
   const serialized = serializeRows(rows);
@@ -62,7 +64,8 @@ export function KeyValueEditor(props: Props) {
   };
 
   const updateValue = (id: number, raw: string) => {
-    const value: KVValue = valueType === "number" ? (raw === "" ? 0 : Number(raw)) : raw;
+    const value: KVValue =
+      valueType === "number" ? (raw === "" ? 0 : Number(raw)) : raw;
     commit(rows.map((r) => (r.id === id ? { ...r, value } : r)));
   };
 
@@ -72,7 +75,10 @@ export function KeyValueEditor(props: Props) {
 
   const add = () => {
     const id = keyCounter.current++;
-    commit([...rows, { id, key: "", value: valueType === "number" ? 0 : "", required: false }]);
+    commit([
+      ...rows,
+      { id, key: "", value: valueType === "number" ? 0 : "", required: false },
+    ]);
   };
 
   return (

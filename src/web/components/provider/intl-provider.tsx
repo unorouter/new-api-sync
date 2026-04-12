@@ -1,6 +1,11 @@
 "use client";
 
-import { createContext, useContext, useState, type ComponentProps } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  type ComponentProps,
+} from "react";
 import {
   FormattedMessage as ReactFormattedMessage,
   IntlProvider as ReactIntlProvider,

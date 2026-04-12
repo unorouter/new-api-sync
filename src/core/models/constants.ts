@@ -130,7 +130,9 @@ const TASK_MODEL_OVERRIDES: [string, TaskModelOverride][] = [
 /**
  * Get the task model override for a model, or undefined if no override needed.
  */
-export function getTaskModelOverride(modelName: string): TaskModelOverride | undefined {
+export function getTaskModelOverride(
+  modelName: string,
+): TaskModelOverride | undefined {
   const lower = modelName.toLowerCase();
   for (const [pattern, override] of TASK_MODEL_OVERRIDES) {
     if (lower.includes(pattern)) return override;
@@ -159,10 +161,11 @@ export const ENDPOINT_DEFAULT_PATHS: Record<string, string> = {
 };
 
 // Canonical endpoint type for each model type (used for normalization)
-export const MODEL_TYPE_CANONICAL_ENDPOINT: Partial<Record<ModelType, string>> = {
-  image: "image-generation",
-  video: "openai-video",
-};
+export const MODEL_TYPE_CANONICAL_ENDPOINT: Partial<Record<ModelType, string>> =
+  {
+    image: "image-generation",
+    video: "openai-video",
+  };
 
 /**
  * Normalize a non-standard endpoint type string to a canonical one.
@@ -244,7 +247,13 @@ const NAME_PATTERN_TYPES: [string, ModelType][] = [
 
 export const NON_TEXT_MODEL_PATTERNS = NAME_PATTERN_TYPES.map(([p]) => p);
 
-export const MODEL_TYPES = ["text", "image", "video", "audio", "embedding"] as const;
+export const MODEL_TYPES = [
+  "text",
+  "image",
+  "video",
+  "audio",
+  "embedding",
+] as const;
 export type ModelType = (typeof MODEL_TYPES)[number];
 
 // Exact endpoint type → model type mapping
@@ -663,4 +672,3 @@ export function sanitizeGroupName(name: string): string {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 }
-

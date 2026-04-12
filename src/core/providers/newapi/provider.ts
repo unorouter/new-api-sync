@@ -14,7 +14,11 @@ import {
   normalizeEndpointTypes,
   sanitizeGroupName,
 } from "@core/models/constants";
-import { setTestCost, testAndFilterModels, type ModelTestDetail } from "@core/models/tester";
+import {
+  setTestCost,
+  testAndFilterModels,
+  type ModelTestDetail,
+} from "@core/models/tester";
 import { resolvePriceAdjustment } from "@core/pricing";
 import type { GroupInfo, ProviderReport, SyncState } from "@core/types";
 import { consola } from "consola";
@@ -133,24 +137,35 @@ function buildGroupChannels(opts: {
     // Models needing a specific adaptor (sora, kling, veo, etc.) get separated;
     // the rest stay together with vendor-inferred channel type.
     // Key format: "channelType:suffix" or "default" for models without overrides.
-    const subGroups = new Map<string, { models: string[]; channelType?: number; baseUrlSuffix?: string }>();
+    const subGroups = new Map<
+      string,
+      { models: string[]; channelType?: number; baseUrlSuffix?: string }
+    >();
     for (const model of models) {
       const override = getTaskModelOverride(model);
-      const key = override ? `${override.channelType}:${override.baseUrlSuffix ?? ""}` : "default";
-      if (!subGroups.has(key)) subGroups.set(key, {
-        models: [],
-        channelType: override?.channelType,
-        baseUrlSuffix: override?.baseUrlSuffix,
-      });
+      const key = override
+        ? `${override.channelType}:${override.baseUrlSuffix ?? ""}`
+        : "default";
+      if (!subGroups.has(key))
+        subGroups.set(key, {
+          models: [],
+          channelType: override?.channelType,
+          baseUrlSuffix: override?.baseUrlSuffix,
+        });
       subGroups.get(key)!.models.push(model);
     }
 
     let subIdx = 0;
     for (const [, subGroup] of subGroups) {
-      const { models: subModels, channelType: overrideType, baseUrlSuffix } = subGroup;
-      const tierSuffix = ratioToModels.size > 1 || subGroups.size > 1
-        ? `-t${tierIdx}${subGroups.size > 1 ? String.fromCharCode(97 + subIdx) : ""}`
-        : "";
+      const {
+        models: subModels,
+        channelType: overrideType,
+        baseUrlSuffix,
+      } = subGroup;
+      const tierSuffix =
+        ratioToModels.size > 1 || subGroups.size > 1
+          ? `-t${tierIdx}${subGroups.size > 1 ? String.fromCharCode(97 + subIdx) : ""}`
+          : "";
       const tierName = `${opts.sanitizedName}${tierSuffix}`;
 
       opts.state.mergedGroups.push({
@@ -161,12 +176,13 @@ function buildGroupChannels(opts: {
       });
 
       // Use explicit task channel type, or infer from the sub-group's models
-      const channelType = overrideType
-        ?? inferChannelTypeFromModels(subModels, opts.state.modelEndpoints);
+      const channelType =
+        overrideType ??
+        inferChannelTypeFromModels(subModels, opts.state.modelEndpoints);
 
       // Apply base_url suffix for newapi providers with provider-specific paths
-      const baseUrl = opts.providerConfig.baseUrl.replace(/\/$/, "")
-        + (baseUrlSuffix ?? "");
+      const baseUrl =
+        opts.providerConfig.baseUrl.replace(/\/$/, "") + (baseUrlSuffix ?? "");
 
       // Build per-tier model_mapping: only include models in this tier that were mapped
       const tierModelMapping: Record<string, string> = {};
@@ -327,9 +343,7 @@ export async function processNewApiProvider(
     const enabledGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
     if (enabledGlobs?.length) {
       groups = groups.filter((g) =>
-        g.models.some((m) =>
-          matchesAnyPattern(m, enabledGlobs),
-        ),
+        g.models.some((m) => matchesAnyPattern(m, enabledGlobs)),
       );
     }
 
@@ -338,8 +352,16 @@ export async function processNewApiProvider(
     // (image/video/audio/embedding) are never affected by the blacklist.
     if (config.blacklist?.length) {
       for (const g of groups) {
-        const nameHit = matchesBlacklist(g.name, config.blacklist, providerConfig.name);
-        const descHit = matchesBlacklist(g.description, config.blacklist, providerConfig.name);
+        const nameHit = matchesBlacklist(
+          g.name,
+          config.blacklist,
+          providerConfig.name,
+        );
+        const descHit = matchesBlacklist(
+          g.description,
+          config.blacklist,
+          providerConfig.name,
+        );
         if (nameHit || descHit) {
           g.models = g.models.filter((m) => inferModelType(m) !== "text");
         }
@@ -448,7 +470,11 @@ export async function processNewApiProvider(
               (modelCosts.get(detail.model) ?? 0) + cost,
             );
             runningBalance = bal;
-            setTestCost(`${providerConfig.name}/${group.name}`, detail.model, cost);
+            setTestCost(
+              `${providerConfig.name}/${group.name}`,
+              detail.model,
+              cost,
+            );
           }
         },
       });
@@ -456,12 +482,10 @@ export async function processNewApiProvider(
       // Log cost summary for this group (use mapped names for display)
       let costStr = "";
       if (modelCosts.size > 0) {
-        const parts = [...modelCosts.entries()].map(
-          ([model, cost]) => {
-            const display = config.modelMapping?.[model] ?? model;
-            return `${display} ${colorize("yellow", `$${cost.toFixed(4)}`)}`;
-          },
-        );
+        const parts = [...modelCosts.entries()].map(([model, cost]) => {
+          const display = config.modelMapping?.[model] ?? model;
+          return `${display} ${colorize("yellow", `$${cost.toFixed(4)}`)}`;
+        });
         costStr = ` | ${parts.join(", ")}`;
       }
       if (filterResult.testedCount > 0) {

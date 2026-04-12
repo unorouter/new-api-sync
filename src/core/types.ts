@@ -96,7 +96,9 @@ export interface DesiredModelSpec {
 }
 
 /** A single row in a pricing grid. All keys except "Pricing" become display columns. "Pricing" is the price value. */
-export type GridPricingRow = Record<string, string | number> & { Pricing: number };
+export type GridPricingRow = Record<string, string | number> & {
+  Pricing: number;
+};
 
 /** Pricing grid: array of rows with arbitrary columns + required Pricing value. */
 export type GridPricingInfo = GridPricingRow[];

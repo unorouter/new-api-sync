@@ -310,7 +310,12 @@ export function buildMetadataMap(opts: {
   const addToBasellm = (key: string, entry: BasellmEntry) => {
     const existing = basellmMap.get(key);
     if (!existing) {
-      basellmMap.set(key, { description: entry.description ? stripMarkdown(entry.description) : undefined, tags: entry.tags });
+      basellmMap.set(key, {
+        description: entry.description
+          ? stripMarkdown(entry.description)
+          : undefined,
+        tags: entry.tags,
+      });
     } else {
       if (
         existing.description &&
@@ -318,7 +323,9 @@ export function buildMetadataMap(opts: {
         entry.description &&
         !TEMPLATE_DESCRIPTION_RE.test(entry.description)
       ) {
-        existing.description = entry.description ? stripMarkdown(entry.description) : entry.description;
+        existing.description = entry.description
+          ? stripMarkdown(entry.description)
+          : entry.description;
       }
       if (!existing.tags && entry.tags) existing.tags = entry.tags;
     }

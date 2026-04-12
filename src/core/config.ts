@@ -21,24 +21,38 @@ FormatRegistry.Set("uri", (value: string) => {
 
 const str = T.String({ minLength: 1 });
 
-const NON_TEXT_TYPES: Set<string> = new Set(MODEL_TYPES.filter((t) => t !== "text"));
+const NON_TEXT_TYPES: Set<string> = new Set(
+  MODEL_TYPES.filter((t) => t !== "text"),
+);
 
 // Bare number applies to all model types uniformly, so must stay below 1 to
 // avoid unprofitable text channels.
-const PriceAdjustmentNumberSchema = T.Number({ exclusiveMinimum: -1, exclusiveMaximum: 1 });
+const PriceAdjustmentNumberSchema = T.Number({
+  exclusiveMinimum: -1,
+  exclusiveMaximum: 1,
+});
 
 // Per-key value in a priceAdjustment object. Non-text keys can be up to 1;
 // text-type keys are checked below with a custom validator.
-const PriceAdjustmentValueSchema = T.Number({ exclusiveMinimum: -1, maximum: 1 });
+const PriceAdjustmentValueSchema = T.Number({
+  exclusiveMinimum: -1,
+  maximum: 1,
+});
 
-const PriceAdjustmentObjectSchema = T.Record(T.String(), PriceAdjustmentValueSchema);
+const PriceAdjustmentObjectSchema = T.Record(
+  T.String(),
+  PriceAdjustmentValueSchema,
+);
 
 const PriceAdjustmentSchema = T.Union([
   PriceAdjustmentNumberSchema,
   PriceAdjustmentObjectSchema,
 ]);
 
-const GridPricingRowSchema = T.Record(T.String(), T.Union([T.String(), T.Number()]));
+const GridPricingRowSchema = T.Record(
+  T.String(),
+  T.Union([T.String(), T.Number()]),
+);
 
 const ModelPricingDetailSchema = T.Object({
   type: str,
@@ -173,11 +187,10 @@ export const ConfigSchema = T.Object({
 export type ConfigSchemaType = Static<typeof ConfigSchema>;
 
 // Defaults applied post-parse to match the previous Zod .default() semantics.
-export interface RuntimeConfig
-  extends Omit<
-    ConfigSchemaType,
-    "blacklist" | "modelMapping" | "skipUnprofitableText" | "providers"
-  > {
+export interface RuntimeConfig extends Omit<
+  ConfigSchemaType,
+  "blacklist" | "modelMapping" | "skipUnprofitableText" | "providers"
+> {
   providers: AnyProviderConfig[];
   skipUnprofitableText: boolean;
   blacklist: string[];
@@ -227,8 +240,14 @@ export function customValidateConfig(config: ConfigSchemaType): string[] {
 
   // sub2api must have adminApiKey or groups
   for (const [i, p] of config.providers.entries()) {
-    if (p.type === "sub2api" && !p.adminApiKey && (!p.groups || p.groups.length === 0)) {
-      errors.push(`providers.${i}: sub2api provider requires adminApiKey or groups`);
+    if (
+      p.type === "sub2api" &&
+      !p.adminApiKey &&
+      (!p.groups || p.groups.length === 0)
+    ) {
+      errors.push(
+        `providers.${i}: sub2api provider requires adminApiKey or groups`,
+      );
     }
   }
 

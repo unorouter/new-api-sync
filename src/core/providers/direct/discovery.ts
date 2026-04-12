@@ -33,8 +33,12 @@ export async function discoverModels(
 
   if (vendor === "google") {
     const url = `${base}/v1beta/models?key=${apiKey}`;
-    consola.info(`[discovery] Fetching Gemini models from ${base}/v1beta/models`);
-    const data = await tryFetchJson<GeminiModelList>(url, { timeoutMs: 15_000 });
+    consola.info(
+      `[discovery] Fetching Gemini models from ${base}/v1beta/models`,
+    );
+    const data = await tryFetchJson<GeminiModelList>(url, {
+      timeoutMs: 15_000,
+    });
     if (!data?.models?.length) return [];
     return data.models.map((m) => m.name.replace(/^models\//, ""));
   }

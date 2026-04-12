@@ -1,9 +1,18 @@
 import { type RuntimeConfig } from "@core/config";
 import { runProviderPipeline } from "@core/sync/pipeline";
-import { initTestReportForDate, writeTestReportForDate } from "@core/models/tester";
+import {
+  initTestReportForDate,
+  writeTestReportForDate,
+} from "@core/models/tester";
 import { consola } from "consola";
 
-const ALL_MODEL_TYPES = ["text", "image", "video", "audio", "embedding"] as const;
+const ALL_MODEL_TYPES = [
+  "text",
+  "image",
+  "video",
+  "audio",
+  "embedding",
+] as const;
 
 export async function runTestPipeline(config: RuntimeConfig): Promise<boolean> {
   const start = Date.now();

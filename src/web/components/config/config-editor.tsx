@@ -1,6 +1,13 @@
-import { ConfigSchema, customValidateConfig, type ConfigSchemaType } from "@core/config";
+import {
+  ConfigSchema,
+  customValidateConfig,
+  type ConfigSchemaType,
+} from "@core/config";
 import { Value } from "@sinclair/typebox/value";
-import { FormattedMessage, useIntl } from "@web/components/provider/intl-provider";
+import {
+  FormattedMessage,
+  useIntl,
+} from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import {
   Card,
@@ -59,7 +66,9 @@ export function ConfigEditor() {
     setLastServerError(null);
     save.mutate(draft, {
       onError: (error) =>
-        setLastServerError(error instanceof Error ? error.message : String(error)),
+        setLastServerError(
+          error instanceof Error ? error.message : String(error),
+        ),
     });
   };
 

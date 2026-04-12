@@ -36,7 +36,9 @@ function mountAssets(app: Elysia) {
       app.get(
         route,
         () =>
-          new Response(body, { headers: { "content-type": asset.contentType } }),
+          new Response(body, {
+            headers: { "content-type": asset.contentType },
+          }),
       );
     }
     return app;

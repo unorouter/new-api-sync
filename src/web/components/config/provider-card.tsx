@@ -1,5 +1,8 @@
 import type { ConfigSchemaType } from "@core/config";
-import { FormattedMessage, useIntl } from "@web/components/provider/intl-provider";
+import {
+  FormattedMessage,
+  useIntl,
+} from "@web/components/provider/intl-provider";
 import { Badge } from "@web/components/ui/badge";
 import { Button } from "@web/components/ui/button";
 import { Card } from "@web/components/ui/card";
@@ -49,14 +52,22 @@ export function ProviderCard(props: Props) {
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Expand"
-                className={open ? "rotate-90 transition-transform" : "transition-transform"}
+                className={
+                  open
+                    ? "rotate-90 transition-transform"
+                    : "transition-transform"
+                }
               >
                 <ChevronRightIcon />
               </Button>
             }
           />
           <Badge variant="outline">{props.value.type}</Badge>
-          <span className="text-sm font-medium">{props.value.name || <span className="text-muted-foreground italic">unnamed</span>}</span>
+          <span className="text-sm font-medium">
+            {props.value.name || (
+              <span className="text-muted-foreground italic">unnamed</span>
+            )}
+          </span>
           <div className="ml-auto">
             <Button
               variant="ghost"

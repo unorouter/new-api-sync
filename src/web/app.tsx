@@ -3,7 +3,7 @@ import { ConfigEditor } from "@web/components/config/config-editor";
 import { SyncPanel } from "@web/components/dashboard/sync-panel";
 import {
   FormattedMessage,
-  useIntl
+  useIntl,
 } from "@web/components/provider/intl-provider";
 import { Badge } from "@web/components/ui/badge";
 import {
@@ -11,7 +11,7 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle
+  CardTitle,
 } from "@web/components/ui/card";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { Toaster } from "@web/components/ui/sonner";
@@ -19,7 +19,7 @@ import {
   Tabs,
   TabsContent,
   TabsList,
-  TabsTrigger
+  TabsTrigger,
 } from "@web/components/ui/tabs";
 import { useHealth } from "@web/hooks/health-hook";
 import getQueryClient from "@web/lib/react-query/client";
@@ -58,7 +58,7 @@ function HealthPanel() {
           <p className="text-destructive text-sm">
             {intl.formatMessage(
               { id: "HEALTH.ERROR" },
-              { error: String(health.error) }
+              { error: String(health.error) },
             )}
           </p>
         ) : health.data ? (

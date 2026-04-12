@@ -105,10 +105,10 @@ Provide either `adminApiKey` (auto-discovers groups) or `groups` (explicit group
 
   ```yml
   blacklist:
-    - nsfw               # unscoped: blocks any provider's model containing "nsfw"
-    - "*-preview"        # unscoped: blocks any provider's preview models
-    - duck/gpt-5*        # scoped: only blocks gpt-5* models from the "duck" provider
-    - yun/claude-*-opus  # scoped: only blocks claude opus models from "yun"
+    - nsfw # unscoped: blocks any provider's model containing "nsfw"
+    - "*-preview" # unscoped: blocks any provider's preview models
+    - duck/gpt-5* # scoped: only blocks gpt-5* models from the "duck" provider
+    - yun/claude-*-opus # scoped: only blocks claude opus models from "yun"
   ```
 
 ### Price Adjustment

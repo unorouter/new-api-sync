@@ -20,7 +20,10 @@ interface Props {
 }
 
 export function GlobalSection(props: Props) {
-  const modelMapping = (props.value.modelMapping ?? {}) as Record<string, string>;
+  const modelMapping = (props.value.modelMapping ?? {}) as Record<
+    string,
+    string
+  >;
 
   const updateField = <K extends keyof ConfigSchemaType>(
     key: K,

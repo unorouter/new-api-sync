@@ -116,7 +116,9 @@ export function GridPricingEditor(props: Props) {
                   <div className="flex items-center gap-1">
                     <Input
                       value={col}
-                      onChange={(event) => renameColumn(col, event.target.value)}
+                      onChange={(event) =>
+                        renameColumn(col, event.target.value)
+                      }
                       disabled={col === PRICING_COLUMN}
                       className="h-7 text-xs"
                     />
@@ -144,7 +146,9 @@ export function GridPricingEditor(props: Props) {
                   <td key={col} className="p-1">
                     <Input
                       value={String(row[col] ?? "")}
-                      onChange={(event) => updateCell(i, col, event.target.value)}
+                      onChange={(event) =>
+                        updateCell(i, col, event.target.value)
+                      }
                       type={col === PRICING_COLUMN ? "number" : "text"}
                       step={col === PRICING_COLUMN ? "any" : undefined}
                       className="h-7 text-xs"
