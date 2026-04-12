@@ -1,7 +1,9 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ConfigEditor } from "@web/components/config/config-editor";
+import { ConfigFilesDropdown } from "@web/components/config/config-files-dropdown";
 import { SyncPanel } from "@web/components/dashboard/sync-panel";
 import { HistoryPanel } from "@web/components/history/history-panel";
+import { useUiStore } from "@web/store/ui-store";
 import {
   FormattedMessage,
   useIntl,
@@ -101,6 +103,9 @@ function HistoryTab() {
 }
 
 export function App() {
+  const mainTab = useUiStore((s) => s.mainTab);
+  const setMainTab = useUiStore((s) => s.setMainTab);
+
   return (
     <QueryClientProvider client={queryClient}>
       <main className="mx-auto max-w-5xl p-8">
@@ -115,18 +120,28 @@ export function App() {
           </div>
           <div className="flex items-center gap-1"></div>
         </header>
-        <Tabs defaultValue="dashboard">
-          <TabsList>
-            <TabsTrigger value="dashboard">
-              <FormattedMessage id="TABS.DASHBOARD" />
-            </TabsTrigger>
-            <TabsTrigger value="config">
-              <FormattedMessage id="TABS.CONFIGURATION" />
-            </TabsTrigger>
-            <TabsTrigger value="history">
-              <FormattedMessage id="TABS.HISTORY" />
-            </TabsTrigger>
-          </TabsList>
+        <Tabs
+          value={mainTab}
+          onValueChange={(value) => {
+            if (typeof value === "string") {
+              setMainTab(value as "dashboard" | "config" | "history");
+            }
+          }}
+        >
+          <div className="flex items-center justify-between gap-4">
+            <TabsList>
+              <TabsTrigger value="dashboard">
+                <FormattedMessage id="TABS.DASHBOARD" />
+              </TabsTrigger>
+              <TabsTrigger value="config">
+                <FormattedMessage id="TABS.CONFIGURATION" />
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                <FormattedMessage id="TABS.HISTORY" />
+              </TabsTrigger>
+            </TabsList>
+            <ConfigFilesDropdown />
+          </div>
           <TabsContent value="dashboard" className="mt-6">
             <DashboardTab />
           </TabsContent>

@@ -14,8 +14,8 @@ import {
 } from "@web/components/ui/select";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { useHistoryRun } from "@web/hooks/history-hook";
+import { useUiStore } from "@web/store/ui-store";
 import { ChevronLeftIcon } from "lucide-react";
-import { useState } from "react";
 
 interface Props {
   id: string;
@@ -27,8 +27,10 @@ type Filter = "all" | "passed" | "failed";
 export function RunDetail(props: Props) {
   const intl = useIntl();
   const run = useHistoryRun(props.id);
-  const [filter, setFilter] = useState<Filter>("all");
-  const [query, setQuery] = useState("");
+  const filter = useUiStore((s) => s.runResultFilter);
+  const setFilter = useUiStore((s) => s.setRunResultFilter);
+  const query = useUiStore((s) => s.runQuery);
+  const setQuery = useUiStore((s) => s.setRunQuery);
 
   return (
     <div className="space-y-3">

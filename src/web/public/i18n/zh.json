@@ -27,6 +27,16 @@
   "SYNC.EMPTY_IDLE": "尚未运行。点击“运行”、“测试”或“重置”开始。",
   "SYNC.EMPTY_WAITING": "等待输出…",
 
+  "CONFIG.FILES.MAIN": "主配置",
+  "CONFIG.FILES.NAME": "名称",
+  "CONFIG.FILES.CREATE": "创建",
+  "CONFIG.FILES.CREATE_TITLE": "创建新配置",
+  "CONFIG.FILES.CREATE_DESC": "将创建 config.<name>.yml，内容从当前选中的配置复制。只能使用字母、数字、下划线或连字符。",
+  "CONFIG.FILES.DELETE": "删除",
+  "CONFIG.FILES.DELETE_TITLE": "删除配置“{name}”？",
+  "CONFIG.FILES.DELETE_DESC": "从磁盘中删除该配置文件。主配置 config.yml 无法删除。",
+  "CONFIG.FILES.CANCEL": "取消",
+
   "CONFIG.TITLE": "配置",
   "CONFIG.DESCRIPTION": "编辑提供商、定价和全局设置。保存时会重新校验 YAML；无效的文档会被自动回滚。",
   "CONFIG.LOAD_ERROR": "加载失败：{error}",

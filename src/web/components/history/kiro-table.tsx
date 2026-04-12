@@ -17,6 +17,7 @@ import {
   useDeleteKiroEntry,
   useKiroBlacklist,
 } from "@web/hooks/history-hook";
+import { useUiStore } from "@web/store/ui-store";
 import { Trash2Icon } from "lucide-react";
 import { useState } from "react";
 
@@ -30,7 +31,8 @@ export function KiroTable() {
   const intl = useIntl();
   const kiro = useKiroBlacklist();
   const deleteEntry = useDeleteKiroEntry();
-  const [query, setQuery] = useState("");
+  const query = useUiStore((s) => s.kiroQuery);
+  const setQuery = useUiStore((s) => s.setKiroQuery);
   const [confirmKey, setConfirmKey] = useState<string | null>(null);
 
   if (kiro.isPending) {

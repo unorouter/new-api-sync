@@ -17,6 +17,7 @@ import {
 } from "@web/components/ui/card";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { useConfig, useSaveConfig } from "@web/hooks/config-hook";
+import { useUiStore } from "@web/store/ui-store";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { GlobalSection } from "./global-section";
@@ -25,8 +26,9 @@ import { TargetSection } from "./target-section";
 
 export function ConfigEditor() {
   const intl = useIntl();
-  const config = useConfig();
-  const save = useSaveConfig();
+  const selectedName = useUiStore((s) => s.selectedConfigName);
+  const config = useConfig(selectedName);
+  const save = useSaveConfig(selectedName);
   const [draft, setDraft] = useState<ConfigSchemaType | null>(null);
   const [lastServerError, setLastServerError] = useState<string | null>(null);
 

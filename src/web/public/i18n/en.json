@@ -27,6 +27,16 @@
   "SYNC.EMPTY_IDLE": "No run yet. Click Run, Test, or Reset to start.",
   "SYNC.EMPTY_WAITING": "Waiting for output…",
 
+  "CONFIG.FILES.MAIN": "main",
+  "CONFIG.FILES.NAME": "Name",
+  "CONFIG.FILES.CREATE": "Create",
+  "CONFIG.FILES.CREATE_TITLE": "Create new config",
+  "CONFIG.FILES.CREATE_DESC": "Creates config.<name>.yml, seeded from the current selection. Use letters, numbers, hyphen, or underscore.",
+  "CONFIG.FILES.DELETE": "Delete",
+  "CONFIG.FILES.DELETE_TITLE": "Delete config '{name}'?",
+  "CONFIG.FILES.DELETE_DESC": "Removes the config file from disk. The main config.yml cannot be deleted.",
+  "CONFIG.FILES.CANCEL": "Cancel",
+
   "CONFIG.TITLE": "Configuration",
   "CONFIG.DESCRIPTION": "Edit providers, pricing, and global settings. Saving re-validates the YAML; an invalid document is rolled back automatically.",
   "CONFIG.LOAD_ERROR": "Failed to load: {error}",

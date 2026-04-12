@@ -12,13 +12,16 @@ import {
   TabsList,
   TabsTrigger,
 } from "@web/components/ui/tabs";
-import { useState } from "react";
+import { useUiStore } from "@web/store/ui-store";
 import { KiroTable } from "./kiro-table";
 import { RunDetail } from "./run-detail";
 import { RunsTable } from "./runs-table";
 
 export function HistoryPanel() {
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const historyTab = useUiStore((s) => s.historyTab);
+  const setHistoryTab = useUiStore((s) => s.setHistoryTab);
+  const selectedRunId = useUiStore((s) => s.selectedRunId);
+  const setSelectedRunId = useUiStore((s) => s.setSelectedRunId);
 
   return (
     <Card>
@@ -31,7 +34,14 @@ export function HistoryPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="runs">
+        <Tabs
+          value={historyTab}
+          onValueChange={(value) => {
+            if (typeof value === "string") {
+              setHistoryTab(value as "runs" | "kiro");
+            }
+          }}
+        >
           <TabsList>
             <TabsTrigger value="runs">
               <FormattedMessage id="HISTORY.TABS.RUNS" />

@@ -22,9 +22,11 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.production.local
 .env.local
 
-# config with secrets
-config.yml
-config.yaml
+# config with secrets — commit only the example template
+config*.yml
+config*.yaml
+!config.example.yml
+!config.example.yaml
 
 # caches
 .eslintcache
@@ -40,6 +42,4 @@ pnpm-lock.yaml
 package-lock.json
 yarn.lock
 bun.lock*
-config.debug.yml
 logs/*
-config copy.yml

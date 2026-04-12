@@ -1,10 +1,13 @@
 import { applyOnlyProviders, loadConfig } from "@core/config";
 import { runSync } from "@core/sync/run";
+import { configPath } from "@server/config/route";
 import { sseResponse } from "@server/lib/sse";
 import { Elysia, t } from "elysia";
 
 const BodySchema = t.Object({
   only: t.Optional(t.Array(t.String(), { default: [] })),
+  /** Config name — empty = main config.yml, else config.<name>.yml */
+  configName: t.Optional(t.String()),
 });
 
 /**
