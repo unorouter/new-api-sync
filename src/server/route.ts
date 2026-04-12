@@ -1,14 +1,11 @@
 import { staticPlugin } from "@elysiajs/static";
 import { existsSync } from "node:fs";
 import { Elysia } from "elysia";
-import { cancelRoute } from "./cancel/route";
 import { configRoute } from "./config/route";
 import { embeddedAssets } from "./embedded-assets";
 import { healthRoute } from "./health/route";
 import { historyRoute } from "./history/route";
-import { resetRoute } from "./reset/route";
-import { runRoute } from "./run/route";
-import { testRoute } from "./test/route";
+import { pipelineRoute } from "./pipeline/route";
 
 // `embeddedAssets` is populated at build time by src/build.ts with base64
 // bytes of every file in dist/public/. The stub checked into git is empty,
@@ -62,10 +59,7 @@ export const app = mountAssets(new Elysia()).group("/api", (api) =>
     .use(healthRoute)
     .use(configRoute)
     .use(historyRoute)
-    .use(resetRoute)
-    .use(runRoute)
-    .use(testRoute)
-    .use(cancelRoute),
+    .use(pipelineRoute),
 );
 
 export type App = typeof app;

@@ -10,5 +10,7 @@ export function useHealth() {
       if (res.error) throw res.error;
       return res.data.data;
     },
+    // Poll every 5s so uptime/memory/active-runs stay fresh without a refresh.
+    refetchInterval: 5000,
   });
 }

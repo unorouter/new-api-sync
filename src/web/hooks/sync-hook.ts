@@ -13,7 +13,7 @@ interface RunArgs {
 /**
  * Kick off a sync pipeline (run / test / reset) via SSE, streaming logs and
  * the terminal result into the Zustand store. Returns the mutation plus a
- * `stop()` that POSTs to `/api/cancel` with the active run id — the server
+ * `stop()` that POSTs to `/api/pipeline/cancel` with the active run id —
  * aborts the pipeline while keeping the SSE stream open, so the final
  * cleanup logs (summary, report-written) still reach the UI.
  */
@@ -29,10 +29,10 @@ export function useSyncPipeline() {
       const configName = useUiStore.getState().selectedConfigName;
       const url =
         args.mode === "run"
-          ? "/api/run"
+          ? "/api/pipeline/run"
           : args.mode === "test"
-            ? "/api/test"
-            : "/api/reset";
+            ? "/api/pipeline/test"
+            : "/api/pipeline/reset";
 
       try {
         await streamSse(url, { only: args.only ?? [], configName }, (evt) => {
@@ -91,7 +91,7 @@ export function useSyncPipeline() {
     }
     store.addLog("warn", "stop requested");
     try {
-      await fetch("/api/cancel", {
+      await fetch("/api/pipeline/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),

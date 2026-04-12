@@ -47,7 +47,7 @@ interface ConfigFileInfo {
   size: number;
 }
 
-function listConfigs(): ConfigFileInfo[] {
+export function listConfigs(): ConfigFileInfo[] {
   const files: ConfigFileInfo[] = [];
   // Main config — first existing candidate.
   for (const candidate of MAIN_CANDIDATES) {

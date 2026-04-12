@@ -1,10 +1,28 @@
-import {
-  newRunId,
-  registerActiveRun,
-  unregisterActiveRun,
-} from "@server/active-runs";
 import { consola } from "consola";
 import type { ConsolaReporter } from "consola";
+
+/**
+ * Per-process registry of in-flight pipeline runs so an explicit `/cancel`
+ * request can abort one by id without tearing down its SSE stream. That lets
+ * the server finish its cleanup phase (writing reports, printing summaries)
+ * and flush those final log events to the still-connected client.
+ *
+ * Keyed by run id; each entry holds the AbortController whose signal is fed
+ * into the run via AsyncLocalStorage (see `@core/abort`).
+ */
+const activeRuns = new Map<string, AbortController>();
+
+export function cancelActiveRun(id: string): boolean {
+  const controller = activeRuns.get(id);
+  if (!controller) return false;
+  controller.abort();
+  return true;
+}
+
+/** Surface which runs are currently in flight for the health card. */
+export function listActiveRuns(): string[] {
+  return [...activeRuns.keys()];
+}
 
 /**
  * Build an SSE ReadableStream around a long-running async task.
@@ -14,11 +32,11 @@ import type { ConsolaReporter } from "consola";
  * `emit()` helper passed to it. When the task resolves (or rejects) we send a
  * terminal `event: done` (or `event: error`) and close the stream.
  *
- * Each run is assigned a short id that is emitted as the first payload on the
- * `start` event. The id doubles as the key for `/api/cancel`: clients hit that
- * endpoint to request abort *without* tearing down the SSE stream, which lets
- * the server finish its cleanup phase (summary logs, report writes) and still
- * flush those final `event: log` messages to the UI.
+ * Each run is assigned a short id emitted as the first payload on `event: run`.
+ * The id doubles as the key for `/pipeline/cancel`: clients hit that endpoint
+ * to request abort *without* tearing down the SSE stream, which lets the
+ * server finish its cleanup phase and still flush the final `event: log`
+ * messages to the UI.
  */
 export type SseEmitter = (event: string, data: unknown) => void;
 
@@ -28,8 +46,8 @@ export function sseResponse(
 ): Response {
   const encoder = new TextEncoder();
   const controller = new AbortController();
-  const runId = newRunId();
-  registerActiveRun(runId, controller);
+  const runId = Bun.randomUUIDv7();
+  activeRuns.set(runId, controller);
 
   // Shared flag so both `cancel()` (client disconnect) and the task's
   // `finally` branch agree on whether the stream is already dead. Without
@@ -71,7 +89,7 @@ export function sseResponse(
       };
 
       // Announce the run id *before* the caller's `task` runs so the client
-      // knows what to POST to /api/cancel if they click Stop.
+      // knows what to POST to /pipeline/cancel if they click Stop.
       write("run", { id: runId });
 
       const reporter: ConsolaReporter = {
@@ -106,7 +124,7 @@ export function sseResponse(
         })
         .finally(() => {
           consola.removeReporter(reporter);
-          unregisterActiveRun(runId);
+          activeRuns.delete(runId);
           safeClose();
         });
     },
@@ -114,7 +132,7 @@ export function sseResponse(
       // Browser/client dropped the connection — propagate to the task.
       closed = true;
       controller.abort();
-      unregisterActiveRun(runId);
+      activeRuns.delete(runId);
     },
   });
 
