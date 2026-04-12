@@ -2,7 +2,7 @@
 /**
  * Produce the release artifacts under `dist/`:
  *
- *  1. Frontend bundle    → `dist/public/`          (html + chunked js + css)
+ *  1. Frontend bundle    → `dist/public/`          (html + chunked js + css, entry src/web/public/index.html)
  *  2. Server + CLI JS    → `dist/new-api-sync.js`  (single file, all deps inlined)
  *  3. Compiled binary    → `dist/new-api-sync`     (single file, embeds bun runtime)
  *
@@ -24,7 +24,7 @@ await rm(DIST, { recursive: true, force: true });
 
 console.log("• bundling frontend...");
 const frontend = await Bun.build({
-  entrypoints: ["src/ui/public/index.html"],
+  entrypoints: ["src/web/public/index.html"],
   outdir: PUBLIC_OUT,
   target: "browser",
   minify: true,

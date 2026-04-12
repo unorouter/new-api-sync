@@ -1,5 +1,5 @@
-import { streamSse } from "@ui/lib/sse-client";
-import { useSyncStore, type SyncMode } from "@ui/store/sync-store";
+import { streamSse } from "@web/lib/sse-client";
+import { useSyncStore, type SyncMode } from "@web/store/sync-store";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 

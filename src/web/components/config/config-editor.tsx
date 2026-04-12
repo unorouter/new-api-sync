@@ -4,11 +4,11 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@ui/components/ui/card";
-import { Button } from "@ui/components/ui/button";
-import { Textarea } from "@ui/components/ui/textarea";
-import { Skeleton } from "@ui/components/ui/skeleton";
-import { useConfig, useSaveConfig } from "@ui/hooks/config-hook";
+} from "@web/components/ui/card";
+import { Button } from "@web/components/ui/button";
+import { Textarea } from "@web/components/ui/textarea";
+import { Skeleton } from "@web/components/ui/skeleton";
+import { useConfig, useSaveConfig } from "@web/hooks/config-hook";
 import { useEffect, useState } from "react";
 
 export function ConfigEditor() {

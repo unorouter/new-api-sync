@@ -10,7 +10,7 @@ import { testRoute } from "./test/route";
 /**
  * Resolve the directory the static plugin should serve the frontend from.
  *
- * - **dev** (`bun run src/server/route.ts`): sources live at `src/ui/public/`
+ * - **dev** (`bun run src/server/route.ts`): sources live at `src/web/public/`
  *   and Bun's fullstack bundler transpiles `index.html` + `index.tsx` on the fly.
  * - **prod** (compiled binary): `scripts/build-binary.ts` bundles the frontend
  *   into `./public/` next to the binary, which is the default cwd path.
@@ -18,7 +18,7 @@ import { testRoute } from "./test/route";
  * We pick whichever exists.
  */
 function resolveAssetsDir(): string {
-  if (existsSync("./src/ui/public")) return "src/ui/public";
+  if (existsSync("./src/web/public")) return "src/web/public";
   return "public";
 }
 

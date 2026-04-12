@@ -4,12 +4,12 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@ui/components/ui/card";
-import { Button } from "@ui/components/ui/button";
-import { Badge } from "@ui/components/ui/badge";
-import { useResetPipeline } from "@ui/hooks/reset-hook";
-import { useSyncPipeline } from "@ui/hooks/sync-hook";
-import { useSyncStore, type SyncPhase } from "@ui/store/sync-store";
+} from "@web/components/ui/card";
+import { Button } from "@web/components/ui/button";
+import { Badge } from "@web/components/ui/badge";
+import { useResetPipeline } from "@web/hooks/reset-hook";
+import { useSyncPipeline } from "@web/hooks/sync-hook";
+import { useSyncStore, type SyncPhase } from "@web/store/sync-store";
 
 function phaseBadge(phase: SyncPhase) {
   if (phase === "running") return <Badge variant="secondary">running</Badge>;

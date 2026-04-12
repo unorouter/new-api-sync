@@ -5,15 +5,15 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@ui/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/components/ui/tabs";
-import { Badge } from "@ui/components/ui/badge";
-import { Skeleton } from "@ui/components/ui/skeleton";
-import { Toaster } from "@ui/components/ui/sonner";
-import { SyncPanel } from "@ui/components/dashboard/sync-panel";
-import { ConfigEditor } from "@ui/components/config/config-editor";
-import { useHealth } from "@ui/hooks/health-hook";
-import getQueryClient from "@ui/lib/react-query/client";
+} from "@web/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@web/components/ui/tabs";
+import { Badge } from "@web/components/ui/badge";
+import { Skeleton } from "@web/components/ui/skeleton";
+import { Toaster } from "@web/components/ui/sonner";
+import { SyncPanel } from "@web/components/dashboard/sync-panel";
+import { ConfigEditor } from "@web/components/config/config-editor";
+import { useHealth } from "@web/hooks/health-hook";
+import getQueryClient from "@web/lib/react-query/client";
 
 const queryClient = getQueryClient();
 

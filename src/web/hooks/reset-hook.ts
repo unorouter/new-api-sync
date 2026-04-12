@@ -1,6 +1,6 @@
-import { rpc } from "@ui/lib/rpc";
+import { rpc } from "@web/lib/rpc";
 import { handleElysia } from "@shared/base";
-import { useSyncStore } from "@ui/store/sync-store";
+import { useSyncStore } from "@web/store/sync-store";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 

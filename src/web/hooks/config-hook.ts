@@ -1,5 +1,5 @@
-import { rpc } from "@ui/lib/rpc";
-import { queryKeys } from "@ui/lib/react-query/keys";
+import { rpc } from "@web/lib/rpc";
+import { queryKeys } from "@web/lib/react-query/keys";
 import { handleElysia } from "@shared/base";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
