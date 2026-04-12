@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "sync": "bun run src/cli/index.ts",
-    "dev": "bun run src/server/route.ts",
+    "dev": "bun --watch run src/server/route.ts",
     "ui": "bun run src/cli/index.ts ui",
     "typecheck": "tsc",
     "build": "bun run src/build.ts",
