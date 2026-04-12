@@ -1,152 +1,16 @@
 import { MODEL_TYPES, type ModelType } from "@core/models/types";
 import {
-  FormatRegistry,
-  Type as T,
-  type Static,
-  type TSchema,
-} from "@sinclair/typebox";
+  ConfigSchema,
+  type AnyProviderConfig,
+  type ConfigSchemaType,
+  type EnabledModelEntry,
+} from "@core/validations/config";
+import { type TSchema } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-
-// Register the "uri" format so T.String({ format: "uri" }) works at runtime.
-FormatRegistry.Set("uri", (value: string) => {
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
-});
-
-// ============ Schema ============
-
-const str = T.String({ minLength: 1 });
 
 const NON_TEXT_TYPES: Set<string> = new Set(
   MODEL_TYPES.filter((t) => t !== "text"),
 );
-
-// Bare number applies to all model types uniformly, so must stay below 1 to
-// avoid unprofitable text channels.
-const PriceAdjustmentNumberSchema = T.Number({
-  exclusiveMinimum: -1,
-  exclusiveMaximum: 1,
-});
-
-// Per-key value in a priceAdjustment object. Non-text keys can be up to 1;
-// text-type keys are checked below with a custom validator.
-const PriceAdjustmentValueSchema = T.Number({
-  exclusiveMinimum: -1,
-  maximum: 1,
-});
-
-const PriceAdjustmentObjectSchema = T.Record(
-  T.String(),
-  PriceAdjustmentValueSchema,
-);
-
-const PriceAdjustmentSchema = T.Union([
-  PriceAdjustmentNumberSchema,
-  PriceAdjustmentObjectSchema,
-]);
-
-const GridPricingRowSchema = T.Record(
-  T.String(),
-  T.Union([T.String(), T.Number()]),
-);
-
-const ModelPricingDetailSchema = T.Object({
-  type: str,
-  model: str,
-  modelPricingGrid: T.Array(GridPricingRowSchema, { minItems: 1 }),
-});
-
-export const EnabledModelEntrySchema = T.Union([str, ModelPricingDetailSchema]);
-
-export const ModelTypeEnum = T.Union([
-  T.Literal("text"),
-  T.Literal("image"),
-  T.Literal("video"),
-  T.Literal("audio"),
-  T.Literal("embedding"),
-]);
-
-// Common provider fields — extended by each provider variant below.
-const ProviderCommonProps = {
-  name: str,
-  testModelTypes: T.Optional(T.Array(ModelTypeEnum)),
-  enabledVendors: T.Optional(T.Array(str)),
-  enabledModels: T.Optional(T.Array(EnabledModelEntrySchema)),
-  priceAdjustment: T.Optional(PriceAdjustmentSchema),
-} as const;
-
-const NewApiProviderSchema = T.Object({
-  type: T.Literal("newapi"),
-  ...ProviderCommonProps,
-  baseUrl: T.String({ format: "uri" }),
-  systemAccessToken: str,
-  userId: T.Integer({ minimum: 1 }),
-});
-
-export const Sub2ApiGroupSchema = T.Object({
-  key: str,
-  platform: str,
-  name: T.Optional(str),
-});
-
-const Sub2ApiProviderSchema = T.Object({
-  type: T.Literal("sub2api"),
-  ...ProviderCommonProps,
-  baseUrl: T.String({ format: "uri" }),
-  adminApiKey: T.Optional(str),
-  groups: T.Optional(T.Array(Sub2ApiGroupSchema, { minItems: 1 })),
-});
-
-const DirectProviderSchema = T.Object({
-  type: T.Literal("direct"),
-  ...ProviderCommonProps,
-  baseUrl: T.String({ format: "uri" }),
-  apiKey: str,
-  vendor: str,
-  models: T.Optional(T.Array(str, { minItems: 1 })),
-  channelType: T.Optional(T.Integer({ minimum: 1 })),
-  ratio: T.Optional(T.Number({ exclusiveMinimum: 0 })),
-  discoverEndpoint: T.Optional(str),
-});
-
-const NvidiaProviderSchema = T.Object({
-  type: T.Literal("nvidia"),
-  ...ProviderCommonProps,
-  baseUrl: T.Optional(T.String({ format: "uri" })),
-  imageBaseUrl: T.Optional(T.String({ format: "uri" })),
-  apiKey: str,
-  models: T.Optional(T.Array(str)),
-  ratio: T.Optional(T.Number({ exclusiveMinimum: 0 })),
-});
-
-export const AnyProviderSchema = T.Union([
-  NewApiProviderSchema,
-  Sub2ApiProviderSchema,
-  DirectProviderSchema,
-  NvidiaProviderSchema,
-]);
-
-export type ProviderConfig = Static<typeof NewApiProviderSchema>;
-export type Sub2ApiProviderConfig = Static<typeof Sub2ApiProviderSchema>;
-// Runtime types have defaults applied for `ratio` and the nvidia URLs.
-export type DirectProviderConfig = Static<typeof DirectProviderSchema> & {
-  ratio: number;
-};
-export type NvidiaProviderConfig = Static<typeof NvidiaProviderSchema> & {
-  baseUrl: string;
-  imageBaseUrl: string;
-  ratio: number;
-};
-export type AnyProviderConfig =
-  | ProviderConfig
-  | Sub2ApiProviderConfig
-  | DirectProviderConfig
-  | NvidiaProviderConfig;
-export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
 /** Extract model glob strings from enabledModels (ignoring grid pricing metadata). */
 export function getEnabledModelGlobs(
@@ -169,22 +33,6 @@ export function getPricingGridFromEnabledModels(
   }
   return result;
 }
-
-export const ConfigSchema = T.Object({
-  target: T.Object({
-    baseUrl: T.String({ format: "uri" }),
-    systemAccessToken: str,
-    userId: T.Integer({ minimum: 1 }),
-    targetPrefix: T.Optional(str),
-  }),
-  testModelTypes: T.Optional(T.Array(ModelTypeEnum)),
-  skipUnprofitableText: T.Optional(T.Boolean()),
-  blacklist: T.Optional(T.Array(str)),
-  modelMapping: T.Optional(T.Record(T.String(), T.String())),
-  providers: T.Array(AnyProviderSchema, { minItems: 1 }),
-});
-
-export type ConfigSchemaType = Static<typeof ConfigSchema>;
 
 // Defaults applied post-parse to match the previous Zod .default() semantics.
 export interface RuntimeConfig extends Omit<

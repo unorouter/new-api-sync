@@ -1,8 +1,5 @@
-import {
-  getTestModelTypes,
-  type DirectProviderConfig,
-  type RuntimeConfig,
-} from "@core/config";
+import { getTestModelTypes, type RuntimeConfig } from "@core/config";
+import type { DirectProviderConfig } from "@core/validations/config";
 import { CHANNEL_TYPES, VENDOR_CHANNEL_TYPES } from "@core/models/constants";
 import { filterModels } from "@core/models/filter";
 import { testAndFilterModels } from "@core/models/tester";

@@ -1,4 +1,4 @@
-import { ConfigSchema, type ConfigSchemaType } from "@core/config";
+import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
 import { FormattedMessage } from "@web/components/provider/intl-provider";
 import { MyFormInput } from "@web/components/elements/form/my-form-input";
 import { providerPath } from "@web/components/elements/config/provider-path";

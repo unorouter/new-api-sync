@@ -1,4 +1,4 @@
-import type { ConfigSchemaType } from "@core/config";
+import type { ConfigSchemaType } from "@core/validations/config";
 import { FormattedMessage } from "@web/components/provider/intl-provider";
 import { MyFormInput } from "@web/components/elements/form/my-form-input";
 import { providerPath } from "@web/components/elements/config/provider-path";
@@ -7,7 +7,7 @@ import { useFormContext } from "react-hook-form";
 
 // Schema for MyFormError metadata lookup — fields are shared, so leaf name
 // is enough; no need to thread the per-variant union.
-import { ConfigSchema } from "@core/config";
+import { ConfigSchema } from "@core/validations/config";
 // The providers array items are a TypeBox discriminated union, which isn't a
 // TObject. MyFormInput only reads `.properties[leafName]` for bound metadata;
 // a synthetic empty-properties object satisfies that without duplicating the

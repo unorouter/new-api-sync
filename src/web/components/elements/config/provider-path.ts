@@ -1,4 +1,4 @@
-import type { ConfigSchemaType } from "@core/config";
+import type { ConfigSchemaType } from "@core/validations/config";
 import type { FieldPath } from "react-hook-form";
 
 /**

@@ -1,4 +1,4 @@
-import { ConfigSchema, type ConfigSchemaType } from "@core/config";
+import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
 import { MODEL_TYPES } from "@core/models/types";
 import { EnabledModelsEditor } from "@web/components/elements/config/enabled-models-editor";
 import { PriceAdjustmentEditor } from "@web/components/elements/config/price-adjustment-editor";

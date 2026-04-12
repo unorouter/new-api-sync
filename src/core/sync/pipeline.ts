@@ -1,12 +1,14 @@
 import { throwIfRunAborted } from "@core/abort";
 import {
   getPricingGridFromEnabledModels,
-  type DirectProviderConfig,
-  type NvidiaProviderConfig,
-  type ProviderConfig,
   type RuntimeConfig,
-  type Sub2ApiProviderConfig,
 } from "@core/config";
+import type {
+  DirectProviderConfig,
+  NvidiaProviderConfig,
+  ProviderConfig,
+  Sub2ApiProviderConfig,
+} from "@core/validations/config";
 import {
   buildReverseMapping,
   ENDPOINT_DEFAULT_PATHS,

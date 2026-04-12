@@ -1,4 +1,4 @@
-import type { ConfigSchemaType } from "@core/config";
+import type { ConfigSchemaType } from "@core/validations/config";
 import { ProviderCommonFields } from "@web/components/elements/config/provider-common-fields";
 import { ProviderDirectPanel } from "@web/components/elements/config/provider-direct-panel";
 import { ProviderNewApiPanel } from "@web/components/elements/config/provider-newapi-panel";

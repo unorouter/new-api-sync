@@ -1,8 +1,5 @@
-import {
-  getTestModelTypes,
-  type RuntimeConfig,
-  type Sub2ApiProviderConfig,
-} from "@core/config";
+import { getTestModelTypes, type RuntimeConfig } from "@core/config";
+import type { Sub2ApiProviderConfig } from "@core/validations/config";
 import {
   CHANNEL_TYPES,
   SUB2API_PLATFORM_CHANNEL_TYPES,

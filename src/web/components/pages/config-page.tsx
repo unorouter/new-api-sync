@@ -1,8 +1,8 @@
+import { customValidateConfig } from "@core/config";
 import {
   ConfigSchema,
-  customValidateConfig,
   type ConfigSchemaType,
-} from "@core/config";
+} from "@core/validations/config";
 import { typeboxResolver } from "@hookform/resolvers/typebox";
 import { GlobalSection } from "@web/components/elements/config/global-section";
 import { ProvidersSection } from "@web/components/elements/config/providers-section";

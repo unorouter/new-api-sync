@@ -1,6 +1,18 @@
-import { ConfigSchema, loadConfig, type ConfigSchemaType } from "@core/config";
+import { loadConfig } from "@core/config";
+import { type ConfigSchemaType } from "@core/validations/config";
+import {
+  ConfigCreateBodySchema,
+  ConfigCreateResponseSchema,
+  ConfigDeleteResponseSchema,
+  ConfigFilesListResponseSchema,
+  ConfigGetResponsesSchema,
+  ConfigNameParamsSchema,
+  ConfigPutBodySchema,
+  ConfigPutResponsesSchema,
+  ConfigQuerySchema,
+} from "@core/validations/config-route";
+import { Elysia } from "elysia";
 import { readdirSync, unlinkSync } from "node:fs";
-import { Elysia, t } from "elysia";
 import { stringifyWithComments } from "./yaml-sync";
 
 /**
@@ -81,54 +93,9 @@ export function listConfigs(): ConfigFileInfo[] {
   return files;
 }
 
-const ConfigFileSchema = t.Object({
-  name: t.String(),
-  path: t.String(),
-  size: t.Number(),
-});
-
-const QuerySchema = t.Object({ name: t.Optional(t.String()) });
-
-const GetResponseSchema = t.Object({
-  success: t.Literal(true),
-  data: t.Object({
-    name: t.String(),
-    path: t.String(),
-    config: ConfigSchema,
-  }),
-});
-
-const PutBodySchema = t.Object({
-  config: ConfigSchema,
-});
-
-const PutResponseSchema = {
-  200: t.Object({
-    success: t.Literal(true),
-    data: t.Object({
-      name: t.String(),
-      path: t.String(),
-      config: ConfigSchema,
-    }),
-  }),
-  400: t.Object({
-    success: t.Literal(false),
-    message: t.String(),
-  }),
-};
-
-const CreateBodySchema = t.Object({
-  name: t.String({ minLength: 1, pattern: "^[a-zA-Z0-9_-]+$" }),
-  /** Optional: clone the body from this existing config name. Empty string = main. */
-  fromName: t.Optional(t.String()),
-});
-
 export const configRoute = new Elysia({ prefix: "/config" })
   .get("/files", () => ({ success: true as const, data: listConfigs() }), {
-    response: t.Object({
-      success: t.Literal(true),
-      data: t.Array(ConfigFileSchema),
-    }),
+    response: ConfigFilesListResponseSchema,
   })
   .post(
     "/files",
@@ -176,11 +143,8 @@ export const configRoute = new Elysia({ prefix: "/config" })
       };
     },
     {
-      body: CreateBodySchema,
-      response: {
-        200: t.Object({ success: t.Literal(true), data: ConfigFileSchema }),
-        400: t.Object({ success: t.Literal(false), message: t.String() }),
-      },
+      body: ConfigCreateBodySchema,
+      response: ConfigCreateResponseSchema,
     },
   )
   .delete(
@@ -205,15 +169,8 @@ export const configRoute = new Elysia({ prefix: "/config" })
       return { success: true as const, data: { deleted: params.name } };
     },
     {
-      params: t.Object({ name: t.String() }),
-      response: {
-        200: t.Object({
-          success: t.Literal(true),
-          data: t.Object({ deleted: t.String() }),
-        }),
-        400: t.Object({ success: t.Literal(false), message: t.String() }),
-        404: t.Object({ success: t.Literal(false), message: t.String() }),
-      },
+      params: ConfigNameParamsSchema,
+      response: ConfigDeleteResponseSchema,
     },
   )
   .get(
@@ -233,11 +190,8 @@ export const configRoute = new Elysia({ prefix: "/config" })
       return { success: true as const, data: { name, path, config } };
     },
     {
-      query: QuerySchema,
-      response: {
-        200: GetResponseSchema,
-        404: t.Object({ success: t.Literal(false), message: t.String() }),
-      },
+      query: ConfigQuerySchema,
+      response: ConfigGetResponsesSchema,
     },
   )
   .put(
@@ -277,11 +231,8 @@ export const configRoute = new Elysia({ prefix: "/config" })
       };
     },
     {
-      body: PutBodySchema,
-      query: QuerySchema,
-      response: {
-        ...PutResponseSchema,
-        404: t.Object({ success: t.Literal(false), message: t.String() }),
-      },
+      body: ConfigPutBodySchema,
+      query: ConfigQuerySchema,
+      response: ConfigPutResponsesSchema,
     },
   );

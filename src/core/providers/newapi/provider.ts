@@ -2,9 +2,9 @@ import { throwIfRunAborted } from "@core/abort";
 import {
   getEnabledModelGlobs,
   getTestModelTypes,
-  type ProviderConfig,
   type RuntimeConfig,
 } from "@core/config";
+import type { ProviderConfig } from "@core/validations/config";
 import {
   getTaskModelOverride,
   inferChannelTypeFromModels,

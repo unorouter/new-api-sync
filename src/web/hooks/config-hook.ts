@@ -1,4 +1,4 @@
-import type { ConfigSchemaType } from "@core/config";
+import type { ConfigSchemaType } from "@core/validations/config";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@web/lib/react-query/keys";
 import { rpc } from "@web/lib/rpc";

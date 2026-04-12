@@ -1,10 +1,9 @@
-import { getEnabledModelGlobs } from "@core/config";
+import { getEnabledModelGlobs, type RuntimeConfig } from "@core/config";
 import type {
   DirectProviderConfig,
   NvidiaProviderConfig,
-  RuntimeConfig,
   Sub2ApiProviderConfig,
-} from "@core/config";
+} from "@core/validations/config";
 import {
   inferModelType,
   matchesAnyPattern,

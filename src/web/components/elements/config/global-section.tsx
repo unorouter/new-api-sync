@@ -1,4 +1,4 @@
-import { ConfigSchema, type ConfigSchemaType } from "@core/config";
+import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
 import { MODEL_TYPES } from "@core/models/types";
 import { FormattedMessage } from "@web/components/provider/intl-provider";
 import { MyFormCheckboxGroup } from "@web/components/elements/form/my-form-checkbox-group";

@@ -1,9 +1,9 @@
 import {
   getEnabledModelGlobs,
   getTestModelTypes,
-  type NvidiaProviderConfig,
   type RuntimeConfig,
 } from "@core/config";
+import type { NvidiaProviderConfig } from "@core/validations/config";
 import { CHANNEL_TYPES, inferModelType } from "@core/models/constants";
 import { filterModels } from "@core/models/filter";
 import { testAndFilterModels } from "@core/models/tester";

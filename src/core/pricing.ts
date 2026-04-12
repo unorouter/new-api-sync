@@ -1,6 +1,6 @@
 import { matchesAnyPattern, parseModelList } from "@core/models/constants";
 import type { SyncState } from "@core/types";
-import type { AnyProviderConfig } from "@core/config";
+import type { AnyProviderConfig } from "@core/validations/config";
 import { consola } from "consola";
 
 /**

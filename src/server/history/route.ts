@@ -1,4 +1,12 @@
 import {
+  KiroDeleteResponsesSchema,
+  KiroKeyParamsSchema,
+  KiroListResponseSchema,
+  RunDetailResponsesSchema,
+  RunIdParamsSchema,
+  RunsListResponseSchema,
+} from "@core/validations/history";
+import {
   existsSync,
   readdirSync,
   readFileSync,
@@ -6,7 +14,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 
 /**
  * History routes — exposes the `logs/` directory.
@@ -22,48 +30,6 @@ import { Elysia, t } from "elysia";
 const LOGS_DIR = "logs";
 const TEST_FILE_RE = /^(.+)-model-tests\.json$/;
 const KIRO_FILE = "kiro-blacklist.json";
-
-const ResultHttpSchema = t.Object({
-  pass: t.Boolean(),
-  request: t.Object({ url: t.String(), body: t.Unknown() }),
-  response: t.Unknown(),
-  error: t.Optional(t.String()),
-});
-
-const ResultSchema = t.Object({
-  provider: t.String(),
-  model: t.String(),
-  cost: t.Union([t.Number(), t.Null()]),
-  http: ResultHttpSchema,
-  stream: t.Union([ResultHttpSchema, t.Null()]),
-  toolCall: t.Union([ResultHttpSchema, t.Null()]),
-  authentic: t.Union([t.Boolean(), t.Null()]),
-  kiroProbes: t.Optional(t.Array(t.Unknown())),
-});
-
-const RunSummarySchema = t.Object({
-  id: t.String(),
-  timestamp: t.String(),
-  size: t.Number(),
-  total: t.Number(),
-  passed: t.Number(),
-  failed: t.Number(),
-});
-
-const RunDetailSchema = t.Object({
-  id: t.String(),
-  timestamp: t.String(),
-  results: t.Array(ResultSchema),
-});
-
-const KiroEntrySchema = t.Object({
-  key: t.String(),
-  provider: t.String(),
-  group: t.String(),
-  model: t.String(),
-  since: t.String(),
-  reason: t.String(),
-});
 
 interface RawResult {
   provider: string;
@@ -173,12 +139,7 @@ export const historyRoute = new Elysia({ prefix: "/history" })
         );
       return { success: true as const, data: runs };
     },
-    {
-      response: t.Object({
-        success: t.Literal(true),
-        data: t.Array(RunSummarySchema),
-      }),
-    },
+    { response: RunsListResponseSchema },
   )
   .get(
     "/runs/:id",
@@ -198,11 +159,8 @@ export const historyRoute = new Elysia({ prefix: "/history" })
       };
     },
     {
-      params: t.Object({ id: t.String() }),
-      response: {
-        200: t.Object({ success: t.Literal(true), data: RunDetailSchema }),
-        404: t.Object({ success: t.Literal(false), message: t.String() }),
-      },
+      params: RunIdParamsSchema,
+      response: RunDetailResponsesSchema,
     },
   )
   .get(
@@ -217,12 +175,7 @@ export const historyRoute = new Elysia({ prefix: "/history" })
         .sort((a, b) => b.since.localeCompare(a.since));
       return { success: true as const, data: entries };
     },
-    {
-      response: t.Object({
-        success: t.Literal(true),
-        data: t.Array(KiroEntrySchema),
-      }),
-    },
+    { response: KiroListResponseSchema },
   )
   .delete(
     "/kiro/:key",
@@ -237,13 +190,7 @@ export const historyRoute = new Elysia({ prefix: "/history" })
       return { success: true as const, data: { deleted: params.key } };
     },
     {
-      params: t.Object({ key: t.String() }),
-      response: {
-        200: t.Object({
-          success: t.Literal(true),
-          data: t.Object({ deleted: t.String() }),
-        }),
-        404: t.Object({ success: t.Literal(false), message: t.String() }),
-      },
+      params: KiroKeyParamsSchema,
+      response: KiroDeleteResponsesSchema,
     },
   );

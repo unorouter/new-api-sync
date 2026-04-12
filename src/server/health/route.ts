@@ -1,62 +1,15 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { applyOnlyProviders, loadConfig } from "@core/config";
+import { HealthResponseSchema } from "@core/validations/health";
 import { configPath, listConfigs } from "@server/config/route";
 import { listActiveRuns } from "@server/sse";
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import pkg from "../../../package.json" with { type: "json" };
 
 const LOGS_DIR = "logs";
 const TEST_FILE_RE = /^(.+)-model-tests\.json$/;
 const KIRO_FILE = "kiro-blacklist.json";
-
-const ProviderCountsSchema = t.Object({
-  newapi: t.Number(),
-  sub2api: t.Number(),
-  direct: t.Number(),
-  nvidia: t.Number(),
-  total: t.Number(),
-});
-
-const LastRunSchema = t.Union([
-  t.Object({
-    id: t.String(),
-    timestamp: t.String(),
-    total: t.Number(),
-    passed: t.Number(),
-    failed: t.Number(),
-  }),
-  t.Null(),
-]);
-
-const ResponseSchema = t.Object({
-  success: t.Literal(true),
-  data: t.Object({
-    ok: t.Boolean(),
-    version: t.String(),
-    uptime: t.Number(),
-    startedAt: t.String(),
-    runtime: t.Object({
-      bun: t.String(),
-      platform: t.String(),
-      arch: t.String(),
-      pid: t.Number(),
-    }),
-    memory: t.Object({
-      rss: t.Number(),
-      heapUsed: t.Number(),
-      heapTotal: t.Number(),
-    }),
-    config: t.Object({
-      files: t.Number(),
-      selected: t.String(),
-      providers: ProviderCountsSchema,
-    }),
-    lastRun: LastRunSchema,
-    kiroBlacklistSize: t.Number(),
-    activeRuns: t.Array(t.String()),
-  }),
-});
 
 interface RawRun {
   timestamp?: string;
@@ -162,5 +115,5 @@ export const healthRoute = new Elysia({ prefix: "/health" }).get(
       },
     };
   },
-  { response: ResponseSchema },
+  { response: HealthResponseSchema },
 );

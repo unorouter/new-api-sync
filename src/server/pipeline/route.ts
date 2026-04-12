@@ -1,19 +1,12 @@
 import { runWithSignal } from "@core/abort";
-import { applyOnlyProviders, loadConfig } from "@core/config";
 import { runReset } from "@core/sync/reset";
 import { runSync } from "@core/sync/run";
 import { runTestPipeline } from "@core/sync/test-runner";
+import { applyOnlyProviders, loadConfig } from "@core/config";
+import { CancelBody, PipelineBody } from "@core/validations/pipeline";
 import { configPath } from "@server/config/route";
 import { cancelActiveRun, pipelineStream } from "@server/sse";
-import { Elysia, t } from "elysia";
-
-const PipelineBody = t.Object({
-  only: t.Optional(t.Array(t.String(), { default: [] })),
-  /** Config name — empty = main config.yml, else config.<name>.yml */
-  configName: t.Optional(t.String()),
-});
-
-const CancelBody = t.Object({ id: t.String() });
+import { Elysia } from "elysia";
 
 export const pipelineRoute = new Elysia({ prefix: "/pipeline" })
   .post(
