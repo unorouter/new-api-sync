@@ -1,14 +1,20 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
-import { IntlProvider as ReactIntlProvider } from "react-intl";
+import { createContext, useContext, useState, type ComponentProps } from "react";
+import {
+  FormattedMessage as ReactFormattedMessage,
+  IntlProvider as ReactIntlProvider,
+  useIntl as useReactIntl,
+} from "react-intl";
 import en from "@web/public/i18n/en.json";
 import zh from "@web/public/i18n/zh.json";
-import { LOCALES, type Locale } from "@web/lib/constants";
+import { LOCALES, type Locale, type TranslationKey } from "@web/lib/constants";
 
+// --- Message catalogs ----------------------------------------------------
 // `zh` is typed against `en`'s shape so the build fails if a key is missing.
 const MESSAGES: Record<Locale, typeof en> = { en, zh };
 
+// --- Locale context ------------------------------------------------------
 const STORAGE_KEY = "new-api-sync-locale";
 
 type LocaleState = {
@@ -26,7 +32,6 @@ function initialLocale(): Locale {
   if (typeof window === "undefined") return "en";
   const stored = localStorage.getItem(STORAGE_KEY);
   if (isLocale(stored)) return stored;
-  // Default based on browser language.
   return navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en";
 }
 
@@ -55,4 +60,30 @@ export function useLocale() {
   const ctx = useContext(LocaleContext);
   if (!ctx) throw new Error("useLocale must be used within IntlProvider");
   return ctx;
+}
+
+// --- Typed intl helpers --------------------------------------------------
+/**
+ * Typed wrapper around react-intl's `useIntl()`. All message IDs are constrained
+ * to `TranslationKey` (the keys of `en.json`), so typos become compile errors.
+ */
+export function useIntl() {
+  const intl = useReactIntl();
+  return {
+    ...intl,
+    formatMessage: (
+      descriptor: { id: TranslationKey },
+      values?: Record<string, string | number>,
+    ) => intl.formatMessage(descriptor, values),
+  };
+}
+
+/** Typed wrapper for `<FormattedMessage>`. Same narrowing as `useIntl`. */
+type TypedFormattedMessageProps = Omit<
+  ComponentProps<typeof ReactFormattedMessage>,
+  "id"
+> & { id: TranslationKey };
+
+export function FormattedMessage(props: TypedFormattedMessageProps) {
+  return <ReactFormattedMessage {...props} />;
 }

@@ -31,8 +31,7 @@
     "paths": {
       "@core/*": ["./src/core/*"],
       "@server/*": ["./src/server/*"],
-      "@web/*": ["./src/web/*"],
-      "@shared/*": ["./src/shared/*"]
+      "@web/*": ["./src/web/*"]
     }
   },
   "exclude": ["node_modules", "src/server/embedded-assets.ts"]

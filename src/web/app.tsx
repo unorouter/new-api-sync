@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { FormattedMessage, useIntl } from "@web/lib/intl";
+import { FormattedMessage, useIntl } from "@web/components/provider/intl-provider";
 import {
   Card,
   CardContent,

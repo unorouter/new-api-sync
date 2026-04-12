@@ -7,9 +7,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@web/components/ui/dropdown-menu";
-import { useLocale } from "@web/components/provider/intl-provider";
+import {
+  FormattedMessage,
+  useIntl,
+  useLocale,
+} from "@web/components/provider/intl-provider";
 import { LANGUAGES } from "@web/lib/constants";
-import { FormattedMessage, useIntl } from "@web/lib/intl";
 
 export function LanguageToggle() {
   const intl = useIntl();

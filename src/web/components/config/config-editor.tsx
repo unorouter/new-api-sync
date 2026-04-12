@@ -10,7 +10,7 @@ import { Textarea } from "@web/components/ui/textarea";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { useConfig, useSaveConfig } from "@web/hooks/config-hook";
 import { useEffect, useState } from "react";
-import { FormattedMessage, useIntl } from "@web/lib/intl";
+import { FormattedMessage, useIntl } from "@web/components/provider/intl-provider";
 
 export function ConfigEditor() {
   const intl = useIntl();

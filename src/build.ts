@@ -9,10 +9,11 @@
  * the generated `src/server/embedded-assets.ts` manifest as base64 strings,
  * so the js bundle and the native binaries pick them up uniformly.
  */
+import tailwindPlugin from "bun-plugin-tailwind";
+import { error, log } from "node:console";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { extname, relative } from "node:path";
-import tailwindPlugin from "bun-plugin-tailwind";
 
 const DIST = "dist";
 const ENTRY = "src/cli/index.ts";
@@ -23,7 +24,7 @@ const TARGETS = [
   "bun-darwin-x64",
   "bun-darwin-arm64",
   "bun-windows-x64",
-  "bun-windows-arm64",
+  "bun-windows-arm64"
 ];
 
 // Minimal content-type lookup; anything not here falls back to octet-stream
@@ -41,7 +42,7 @@ const CONTENT_TYPES: Record<string, string> = {
   ".gif": "image/gif",
   ".ico": "image/x-icon",
   ".woff": "font/woff",
-  ".woff2": "font/woff2",
+  ".woff2": "font/woff2"
 };
 
 const binaryPath = (t: string) =>
@@ -56,7 +57,7 @@ const run = async (cmd: string[]) => {
 const build = async (options: Parameters<typeof Bun.build>[0]) => {
   const result = await Bun.build(options);
   if (result.success) return;
-  console.error(result.logs);
+  error(result.logs);
   process.exit(1);
 };
 
@@ -86,7 +87,7 @@ const writeAssetManifest = (assets: string[]) => {
     "  base64: string;",
     "};",
     "",
-    "export const embeddedAssets: EmbeddedAsset[] = [",
+    "export const embeddedAssets: EmbeddedAsset[] = ["
   ];
   for (const asset of assets) {
     const full = `${DIST}/public/${asset}`;
@@ -106,10 +107,10 @@ const writeAssetManifest = (assets: string[]) => {
 
 await rm(DIST, { recursive: true, force: true });
 
-console.log("• typecheck");
+log("• typecheck");
 await run(["bun", "run", "tsc", "--noEmit"]);
 
-console.log("• frontend");
+log("• frontend");
 await build({
   entrypoints: ["src/web/public/index.html"],
   outdir: `${DIST}/public`,
@@ -117,14 +118,14 @@ await build({
   minify: true,
   // Sourcemaps are skipped intentionally: they'd bloat the js bundle
   // (2+ MB base64-encoded) for no user-facing benefit in a shipped build.
-  plugins: [tailwindPlugin],
+  plugins: [tailwindPlugin]
 });
 
-console.log("• asset manifest");
+log("• asset manifest");
 const assets = listAssets(`${DIST}/public`);
 writeAssetManifest(assets);
 
-console.log("• js bundle");
+log("• js bundle");
 await build({
   entrypoints: [ENTRY],
   outdir: DIST,
@@ -132,11 +133,11 @@ await build({
   target: "bun",
   format: "esm",
   minify: true,
-  packages: "bundle",
+  packages: "bundle"
 });
 
 for (const target of TARGETS) {
-  console.log(`• binary ${target}`);
+  log(`• binary ${target}`);
   await run([
     "bun",
     "build",
@@ -144,8 +145,8 @@ for (const target of TARGETS) {
     `--target=${target}`,
     "--minify",
     ENTRY,
-    `--outfile=${binaryPath(target)}`,
+    `--outfile=${binaryPath(target)}`
   ]);
 }
 
-console.log("✓ done");
+log("✓ done");

@@ -18,7 +18,7 @@ export const LANGUAGES: {
 /**
  * Keys of the English message catalog. All translation lookups are constrained
  * to these keys at compile time via the typed `useIntl()` wrapper in
- * `@web/lib/intl`. Other locales must implement the same key set.
+ * `@web/components/provider/intl-provider`. Other locales must implement the same key set.
  */
 export type TranslationKey = keyof typeof en;
 
