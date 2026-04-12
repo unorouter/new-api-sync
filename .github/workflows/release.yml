@@ -3,16 +3,16 @@ name: Release
 # Source of truth for the release version is `package.json`'s `version` field.
 # On every push to main we:
 #   1. Read the version
-#   2. Run `bun run build` which typechecks, bundles the frontend, generates
-#      the embedded-assets manifest, builds the portable JS bundle, and
-#      cross-compiles 6 native binaries (linux x64/arm64, darwin x64/arm64,
-#      windows x64/arm64) with the frontend baked in
-#   3. Rename artifacts with the version prefix + zip the js bundle with public/
+#   2. Run `bun run build` which typechecks, bundles the frontend, inlines it
+#      as base64 into the embedded-assets manifest, builds the portable JS
+#      bundle, and cross-compiles 6 native binaries (linux x64/arm64,
+#      darwin x64/arm64, windows x64/arm64)
+#   3. Rename artifacts with the version prefix
 #   4. Delete any existing release + tag at v<version>
 #   5. Create a fresh release and upload the artifacts
 #
-# Native binaries are fully self-contained — no public/ extraction required.
-# The -js.zip is only for users who want to run with Bun directly.
+# Every artifact — js bundle and all 6 native binaries — is a single file
+# with the frontend baked in. Nothing to extract, no public/ dir required.
 #
 # To cut a new release: bump "version" in package.json, merge to main.
 
@@ -46,12 +46,12 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      # Builds: typecheck → frontend (tailwind) → js bundle → 6 native binaries.
-      # See src/build.ts for the full pipeline.
+      # Builds: typecheck → frontend (tailwind) → asset manifest (base64
+      # inlined) → js bundle → 6 native binaries. See src/build.ts.
       - name: Build all artifacts
         run: bun run build
 
-      # --- Rename binaries with version prefix + zip the public/ dir ----------
+      # --- Rename artifacts with version prefix ------------------------------
       - name: Stage release artifacts
         id: stage
         run: |
@@ -60,9 +60,8 @@ jobs:
           OUT="release"
           mkdir -p "$OUT"
 
-          # Native binaries — fully self-contained, frontend assets baked in
-          # via Bun's `with { type: "file" }` embedding. Just rename with the
-          # version prefix. macOS / Linux users `chmod +x` then run directly.
+          # Native binaries — single file each, frontend baked in via base64
+          # through Bun's `--compile`. macOS/Linux users `chmod +x` then run.
           cp dist/new-api-sync-linux-x64         "$OUT/${PREFIX}-linux-x64"
           cp dist/new-api-sync-linux-arm64       "$OUT/${PREFIX}-linux-arm64"
           cp dist/new-api-sync-darwin-x64        "$OUT/${PREFIX}-darwin-x64"
@@ -70,13 +69,9 @@ jobs:
           cp dist/new-api-sync-windows-x64.exe   "$OUT/${PREFIX}-windows-x64.exe"
           cp dist/new-api-sync-windows-arm64.exe "$OUT/${PREFIX}-windows-arm64.exe"
 
-          # Zip for Bun users: portable js bundle + compiled public/ dir. The
-          # js bundle reads public/ from disk at runtime (embedding only works
-          # with --compile, not the js bundle).
-          JS_STAGE=$(mktemp -d)
-          cp dist/new-api-sync.js "$JS_STAGE/"
-          cp -r dist/public "$JS_STAGE/"
-          (cd "$JS_STAGE" && zip -qr "$GITHUB_WORKSPACE/$OUT/${PREFIX}-js.zip" .)
+          # JS bundle — single portable file, frontend inlined the same way.
+          # Runs on any platform with Bun installed.
+          cp dist/new-api-sync.js "$OUT/${PREFIX}.js"
 
           ls -lh "$OUT/"
           echo "prefix=$PREFIX" >> $GITHUB_OUTPUT
@@ -98,7 +93,7 @@ jobs:
           body: |
             ## Downloads
 
-            Pick the native binary for your platform (single file, frontend baked in) or grab the js bundle if you already have [Bun](https://bun.sh).
+            Every artifact is a single file with the frontend baked in. Pick the native binary for your platform, or the js bundle if you already have [Bun](https://bun.sh).
 
             | Platform | File |
             |---|---|
@@ -108,11 +103,9 @@ jobs:
             | macOS Intel | `${{ steps.stage.outputs.prefix }}-darwin-x64` |
             | Windows x64 | `${{ steps.stage.outputs.prefix }}-windows-x64.exe` |
             | Windows arm64 | `${{ steps.stage.outputs.prefix }}-windows-arm64.exe` |
-            | JS bundle (requires Bun) | `${{ steps.stage.outputs.prefix }}-js.zip` |
+            | JS bundle (requires Bun) | `${{ steps.stage.outputs.prefix }}.js` |
 
             ### Run a native binary (no runtime required)
-
-            Single file, fully self-contained.
 
             ```sh
             curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.pkg.outputs.tag }}/${{ steps.stage.outputs.prefix }}-linux-x64
@@ -122,12 +115,9 @@ jobs:
 
             ### Run the JS bundle (any platform, just needs [Bun](https://bun.sh))
 
-            Works on Linux, macOS, and Windows — one command set.
-
             ```sh
-            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.pkg.outputs.tag }}/${{ steps.stage.outputs.prefix }}-js.zip
-            unzip ${{ steps.stage.outputs.prefix }}-js.zip
-            bun new-api-sync.js ui --port 3000
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.pkg.outputs.tag }}/${{ steps.stage.outputs.prefix }}.js
+            bun ${{ steps.stage.outputs.prefix }}.js ui --port 3000
             ```
           files: |
             release/${{ steps.stage.outputs.prefix }}-linux-x64
@@ -136,4 +126,4 @@ jobs:
             release/${{ steps.stage.outputs.prefix }}-darwin-arm64
             release/${{ steps.stage.outputs.prefix }}-windows-x64.exe
             release/${{ steps.stage.outputs.prefix }}-windows-arm64.exe
-            release/${{ steps.stage.outputs.prefix }}-js.zip
+            release/${{ steps.stage.outputs.prefix }}.js

@@ -2,30 +2,42 @@ import { staticPlugin } from "@elysiajs/static";
 import { existsSync } from "node:fs";
 import { Elysia } from "elysia";
 import { configRoute } from "./config/route";
-import { embeddedAssetPaths } from "./embedded-assets";
+import { embeddedAssets } from "./embedded-assets";
 import { healthRoute } from "./health/route";
 import { resetRoute } from "./reset/route";
 import { runRoute } from "./run/route";
 import { testRoute } from "./test/route";
 
-// `embeddedAssetPaths` is populated at build time by src/build.ts with static
-// `import ... with { type: "file" }` entries. Those imports tell
-// `bun build --compile` to bundle each asset into the binary. The stub version
-// checked into git is empty, so dev mode falls through to disk-based serving.
+// `embeddedAssets` is populated at build time by src/build.ts with base64
+// bytes of every file in dist/public/. The stub checked into git is empty,
+// so dev falls through to disk-based serving via @elysiajs/static.
 
 /**
  * Register routes for frontend assets.
  *
- * - **compiled binary**: `embeddedAssetPaths` is populated, so we register
- *   one GET handler per embedded file. Nothing is read from disk.
- * - **dev / js bundle**: fall back to `@elysiajs/static` pointing at whichever
- *   `public/` dir exists relative to cwd.
+ * - **production** (compiled binary or js bundle): serve from in-memory bytes
+ *   decoded once at startup. No disk, no separate public/ dir.
+ * - **dev**: serve from `src/web/public/` via `@elysiajs/static` (Bun fullstack
+ *   mode transpiles index.html + tsx on the fly).
  */
 function mountAssets(app: Elysia) {
-  if (embeddedAssetPaths.length > 0) {
-    for (const [name, path] of embeddedAssetPaths) {
-      const route = name === "index.html" ? "/" : `/${name}`;
-      app.get(route, () => Bun.file(path));
+  if (embeddedAssets.length > 0) {
+    const bodies = new Map<string, ArrayBuffer>();
+    for (const asset of embeddedAssets) {
+      const binary = atob(asset.base64);
+      const buf = new ArrayBuffer(binary.length);
+      const view = new Uint8Array(buf);
+      for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+      bodies.set(asset.path, buf);
+    }
+    for (const asset of embeddedAssets) {
+      const route = asset.path === "index.html" ? "/" : `/${asset.path}`;
+      const body = bodies.get(asset.path)!;
+      app.get(
+        route,
+        () =>
+          new Response(body, { headers: { "content-type": asset.contentType } }),
+      );
     }
     return app;
   }
@@ -38,8 +50,7 @@ function mountAssets(app: Elysia) {
 /**
  * Main Elysia app.
  *
- * - Frontend assets served either from embedded bundles (native binary) or
- *   from disk (dev / js bundle).
+ * - Frontend assets served from embedded base64 bytes (prod) or disk (dev).
  * - API routes live under `/api/*`.
  */
 export const app = mountAssets(new Elysia()).group("/api", (api) =>
