@@ -11,11 +11,10 @@ interface RunArgs {
 }
 
 /**
- * Kick off a sync pipeline (run / test / reset) via Eden's streamed generator
- * route, draining typed frames into the Zustand store. Returns the mutation
- * plus a `stop()` that calls `/api/pipeline/cancel` with the active run id —
- * aborts the pipeline while keeping the stream open, so the final cleanup
- * frames (summary, report-written) still reach the UI.
+ * `stop()` aborts the server-side task via `/pipeline/cancel` but leaves the
+ * SSE stream open so final cleanup frames (summary, report-written) still
+ * reach the UI — that's why it's a separate POST rather than closing the
+ * stream.
  */
 export function useSyncPipeline() {
   const store = useSyncStore();
@@ -42,7 +41,6 @@ export function useSyncPipeline() {
 
         for await (const envelope of res.data) {
           const frame = envelope.data;
-          if (!frame) continue;
           if (frame.kind === "run") {
             runIdRef.current = frame.id;
           } else if (frame.kind === "start") {

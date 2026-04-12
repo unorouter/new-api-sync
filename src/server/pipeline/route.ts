@@ -15,20 +15,11 @@ const PipelineBody = t.Object({
 
 const CancelBody = t.Object({ id: t.String() });
 
-/**
- * All pipeline endpoints live under `/api/pipeline`. The three run modes
- * (run / test / reset) stream SSE as async generators — each yields a
- * `kind: "run"` frame first (with the run id), then `start`, any number of
- * `log` frames, and a terminal `done` or `error`. Cancel takes the run id
- * and aborts the active run without tearing down the stream, so the final
- * summary logs still reach the UI.
- */
 export const pipelineRoute = new Elysia({ prefix: "/pipeline" })
   .post(
     "/run",
     ({ body, request }) =>
-      pipelineStream(async (emit, signal) => {
-        emit({ kind: "start", at: new Date().toISOString() });
+      pipelineStream(async (signal) => {
         const path = configPath(body.configName);
         const config = applyOnlyProviders(
           await loadConfig(path),
@@ -57,8 +48,7 @@ export const pipelineRoute = new Elysia({ prefix: "/pipeline" })
   .post(
     "/test",
     ({ body, request }) =>
-      pipelineStream(async (emit, signal) => {
-        emit({ kind: "start", at: new Date().toISOString() });
+      pipelineStream(async (signal) => {
         const path = configPath(body.configName);
         const config = applyOnlyProviders(
           await loadConfig(path),
@@ -72,8 +62,7 @@ export const pipelineRoute = new Elysia({ prefix: "/pipeline" })
   .post(
     "/reset",
     ({ body, request }) =>
-      pipelineStream(async (emit, signal) => {
-        emit({ kind: "start", at: new Date().toISOString() });
+      pipelineStream(async (signal) => {
         const path = configPath(body.configName);
         const config = applyOnlyProviders(
           await loadConfig(path),
