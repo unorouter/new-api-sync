@@ -4,11 +4,11 @@ import {
   type NvidiaProviderConfig,
   type RuntimeConfig,
 } from "@core/config";
-import { CHANNEL_TYPES, inferModelType } from "@core/lib/constants";
-import { filterModels } from "@core/lib/model-filter";
-import { testAndFilterModels } from "@core/lib/model-tester";
-import { buildPriceTiers, pushTieredChannels } from "@core/lib/pricing";
-import type { ProviderReport, SyncState } from "@core/lib/types";
+import { CHANNEL_TYPES, inferModelType } from "@core/models/constants";
+import { filterModels } from "@core/models/filter";
+import { testAndFilterModels } from "@core/models/tester";
+import { buildPriceTiers, pushTieredChannels } from "@core/pricing";
+import type { ProviderReport, SyncState } from "@core/types";
 import { consola } from "consola";
 import { discoverNvidiaModels } from "./discovery";
 

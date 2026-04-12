@@ -14,13 +14,13 @@ import {
   MODEL_TYPE_CANONICAL_ENDPOINT,
   normalizeEndpointType,
   parseModelList,
-} from "@core/lib/constants";
+} from "@core/models/constants";
 import {
   type BasellmEntry,
   buildMetadataMap,
   fetchBasellmEntries,
   fetchOpenRouterDescriptions,
-} from "@core/lib/metadata";
+} from "@core/models/metadata";
 import type {
   Channel,
   DesiredModelSpec,
@@ -29,7 +29,7 @@ import type {
   ProviderReport,
   SyncState,
   TargetSnapshot,
-} from "@core/lib/types";
+} from "@core/types";
 import { NewApiClient } from "@core/providers/newapi/client";
 import { processDirectProvider } from "@core/providers/direct/provider";
 import { processNewApiProvider } from "@core/providers/newapi/provider";
@@ -158,11 +158,11 @@ function buildOptionMaps(
   // Build grid pricing display metadata from config.
   // Grid pricing is independent of quota_type: video models use quota_type=4,
   // image models keep quota_type=1 (per-request) but still show a resolution grid.
-  const modelGridPricing: Record<string, import("@core/lib/types").GridPricingInfo> = {};
+  const modelGridPricing: Record<string, import("@core/types").GridPricingInfo> = {};
   for (const [modelName, rows] of Object.entries(configGridPricing)) {
     const mappedName = modelMapping?.[modelName] ?? modelName;
     if (modelPrice[mappedName] !== undefined || modelRatio[mappedName] !== undefined) {
-      modelGridPricing[mappedName] = rows as import("@core/lib/types").GridPricingInfo;
+      modelGridPricing[mappedName] = rows as import("@core/types").GridPricingInfo;
     }
   }
 

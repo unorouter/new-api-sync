@@ -1,11 +1,11 @@
-import type { ModelType } from "@core/lib/constants";
+import type { ModelType } from "@core/models/constants";
 import {
   CHANNEL_TYPES,
   inferModelType,
   isTestableModel,
   TIMEOUTS
-} from "@core/lib/constants";
-import { fetchJson, tryFetchJson } from "@core/lib/http";
+} from "@core/models/constants";
+import { fetchJson, tryFetchJson } from "@core/http";
 import { consola } from "consola";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";

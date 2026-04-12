@@ -1,7 +1,7 @@
 import { applyOnlyProviders, loadConfig } from "@core/config";
-import { runReset } from "@core/reset";
-import { printResetSummary, printRunSummary, runSync } from "@core/run";
-import { runTestPipeline } from "@core/test-runner";
+import { runReset } from "@core/sync/reset";
+import { printResetSummary, printRunSummary, runSync } from "@core/sync/run";
+import { runTestPipeline } from "@core/sync/test-runner";
 import { Command } from "commander";
 import { consola } from "consola";
 

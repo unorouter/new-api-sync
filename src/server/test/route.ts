@@ -1,5 +1,5 @@
 import { applyOnlyProviders, loadConfig } from "@core/config";
-import { runTestPipeline } from "@core/test-runner";
+import { runTestPipeline } from "@core/sync/test-runner";
 import { sseResponse } from "@server/lib/sse";
 import { Elysia, t } from "elysia";
 

@@ -8,11 +8,11 @@ import {
   SUB2API_PLATFORM_CHANNEL_TYPES,
   SUB2API_PLATFORM_TO_VENDOR,
   VENDOR_TO_SUB2API_PLATFORMS,
-} from "@core/lib/constants";
-import { filterModels } from "@core/lib/model-filter";
-import { testAndFilterModels } from "@core/lib/model-tester";
-import { buildPriceTiers, pushTieredChannels } from "@core/lib/pricing";
-import type { ProviderReport, SyncState } from "@core/lib/types";
+} from "@core/models/constants";
+import { filterModels } from "@core/models/filter";
+import { testAndFilterModels } from "@core/models/tester";
+import { buildPriceTiers, pushTieredChannels } from "@core/pricing";
+import type { ProviderReport, SyncState } from "@core/types";
 import { consola } from "consola";
 import { Sub2ApiClient } from "./client";
 

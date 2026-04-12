@@ -13,10 +13,10 @@ import {
   matchesBlacklist,
   normalizeEndpointTypes,
   sanitizeGroupName,
-} from "@core/lib/constants";
-import { setTestCost, testAndFilterModels, type ModelTestDetail } from "@core/lib/model-tester";
-import { resolvePriceAdjustment } from "@core/lib/pricing";
-import type { GroupInfo, ProviderReport, SyncState } from "@core/lib/types";
+} from "@core/models/constants";
+import { setTestCost, testAndFilterModels, type ModelTestDetail } from "@core/models/tester";
+import { resolvePriceAdjustment } from "@core/pricing";
+import type { GroupInfo, ProviderReport, SyncState } from "@core/types";
 import { consola } from "consola";
 import { colorize } from "consola/utils";
 import { NewApiClient } from "./client";

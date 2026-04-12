@@ -1,5 +1,5 @@
 import { applyOnlyProviders, loadConfig } from "@core/config";
-import { runSync } from "@core/run";
+import { runSync } from "@core/sync/run";
 import { sseResponse } from "@server/lib/sse";
 import { Elysia, t } from "elysia";
 

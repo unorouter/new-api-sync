@@ -1,5 +1,5 @@
-import { matchesAnyPattern, parseModelList } from "@core/lib/constants";
-import type { SyncState } from "@core/lib/types";
+import { matchesAnyPattern, parseModelList } from "@core/models/constants";
+import type { SyncState } from "@core/types";
 import type { AnyProviderConfig } from "@core/config";
 import { consola } from "consola";
 

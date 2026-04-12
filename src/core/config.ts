@@ -1,4 +1,4 @@
-import { MODEL_TYPES, type ModelType } from "@core/lib/constants";
+import { MODEL_TYPES, type ModelType } from "@core/models/constants";
 import {
   FormatRegistry,
   Type as T,

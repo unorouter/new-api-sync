@@ -1,5 +1,5 @@
 import type { Sub2ApiProviderConfig } from "@core/config";
-import { fetchJson } from "@core/lib/http";
+import { fetchJson } from "@core/http";
 import { consola } from "consola";
 import type {
   PaginatedData,

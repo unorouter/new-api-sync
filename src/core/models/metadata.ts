@@ -1,5 +1,5 @@
-import { buildReverseMapping } from "@core/lib/constants";
-import { tryFetchJson } from "@core/lib/http";
+import { buildReverseMapping } from "@core/models/constants";
+import { tryFetchJson } from "@core/http";
 import { consola } from "consola";
 
 const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";

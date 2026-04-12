@@ -1,4 +1,4 @@
-import type { GroupInfo } from "@core/lib/types";
+import type { GroupInfo } from "@core/types";
 
 export interface ApiResponse<T = unknown> {
   success: boolean;

@@ -3,7 +3,7 @@ import type {
   ApplyReport,
   DiffOperation,
   SyncDiff,
-} from "@core/lib/types";
+} from "@core/types";
 import type { NewApiClient } from "@core/providers/newapi/client";
 
 async function applyEntityOps<T extends { id?: number }>(

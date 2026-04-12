@@ -1,11 +1,11 @@
 import type { RuntimeConfig } from "@core/config";
-import { applySyncDiff } from "@core/apply";
-import { buildSyncDiff } from "@core/diff";
-import { runProviderPipeline } from "@core/pipeline";
-import type { ResetResult } from "@core/reset";
-import { MANAGED_OPTION_KEYS, VENDOR_MATCHERS } from "@core/lib/constants";
-import { loadKiroBlacklist, writeTestReport } from "@core/lib/model-tester";
-import type { DesiredState, SyncRunResult, TargetSnapshot } from "@core/lib/types";
+import { applySyncDiff } from "@core/sync/apply";
+import { buildSyncDiff } from "@core/sync/diff";
+import { runProviderPipeline } from "@core/sync/pipeline";
+import type { ResetResult } from "@core/sync/reset";
+import { MANAGED_OPTION_KEYS, VENDOR_MATCHERS } from "@core/models/constants";
+import { loadKiroBlacklist, writeTestReport } from "@core/models/tester";
+import type { DesiredState, SyncRunResult, TargetSnapshot } from "@core/types";
 import { NewApiClient } from "@core/providers/newapi/client";
 import { consola } from "consola";
 

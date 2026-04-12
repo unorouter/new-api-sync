@@ -1,5 +1,5 @@
 import { applyOnlyProviders, loadConfig } from "@core/config";
-import { runReset } from "@core/reset";
+import { runReset } from "@core/sync/reset";
 import { Elysia, t } from "elysia";
 
 const BodySchema = t.Object({

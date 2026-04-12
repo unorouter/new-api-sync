@@ -1,6 +1,6 @@
 import { getEnabledModelGlobs } from "@core/config";
 import type { DirectProviderConfig, NvidiaProviderConfig, RuntimeConfig, Sub2ApiProviderConfig } from "@core/config";
-import { inferModelType, matchesAnyPattern, matchesBlacklist } from "@core/lib/constants";
+import { inferModelType, matchesAnyPattern, matchesBlacklist } from "@core/models/constants";
 
 export function filterModels(
   models: string[],
