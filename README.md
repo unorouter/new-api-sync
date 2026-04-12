@@ -6,34 +6,7 @@ English | [中文](README.zh.md)
 
 Sync pricing, channels, and models from upstream providers to your [new-api](https://github.com/QuantumNous/new-api) instance. Supports [new-api](https://github.com/QuantumNous/new-api), [sub2api](https://github.com/Wei-Shaw/sub2api), and direct vendor APIs.
 
-## Install
-
-### From a release (any platform, just needs [Bun](https://bun.sh))
-
-Grab `new-api-sync-v<VERSION>-js.zip` from the [latest release](https://github.com/unorouter/new-api-sync/releases/latest), write a `config.yml`, and run:
-
-```bash
-# replace <VERSION> with the release version
-curl -LO https://github.com/unorouter/new-api-sync/releases/latest/download/new-api-sync-v<VERSION>-js.zip
-unzip new-api-sync-v<VERSION>-js.zip   # → new-api-sync.js + public/
-cp config.example.yml config.yml       # edit with your config
-bun new-api-sync.js run                # run sync
-bun new-api-sync.js ui --port 3000     # launch the web UI
-```
-
-Works on Linux, macOS, and Windows. Keep `public/` next to `new-api-sync.js`.
-
-### Native binary (no runtime required)
-
-Download the binary for your platform plus the matching `-js.zip` (for the `public/` directory) from the [latest release](https://github.com/unorouter/new-api-sync/releases/latest), then:
-
-```bash
-unzip -o new-api-sync-v<VERSION>-js.zip 'public/*'   # extract only public/
-chmod +x new-api-sync-v<VERSION>-linux-x64           # Linux/macOS only
-./new-api-sync-v<VERSION>-linux-x64 ui --port 3000
-```
-
-### From source
+## Quick Start
 
 ```bash
 bun install

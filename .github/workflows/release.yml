@@ -105,7 +105,17 @@ jobs:
             | Windows arm64 | `${{ steps.stage.outputs.prefix }}-windows-arm64.exe` |
             | **Frontend + JS bundle** | `${{ steps.stage.outputs.prefix }}-js.zip` *(required for every install)* |
 
-            Quick start (Linux/macOS):
+            ### Run the JS bundle (any platform, just needs [Bun](https://bun.sh))
+
+            Works on Linux, macOS, and Windows — one command set.
+
+            ```sh
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.pkg.outputs.tag }}/${{ steps.stage.outputs.prefix }}-js.zip
+            unzip ${{ steps.stage.outputs.prefix }}-js.zip
+            bun new-api-sync.js ui --port 3000
+            ```
+
+            ### Run a native binary (no runtime required)
 
             ```sh
             curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.pkg.outputs.tag }}/${{ steps.stage.outputs.prefix }}-linux-x64
