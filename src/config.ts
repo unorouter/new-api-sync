@@ -139,6 +139,7 @@ const ConfigSchema = z
       targetPrefix: str.optional(),
     }),
     testModelTypes: z.array(ModelTypeEnum).optional(),
+    skipUnprofitableText: z.boolean().default(true),
     blacklist: z.array(str).default([]),
     modelMapping: z.record(z.string(), z.string()).default({}),
     providers: z

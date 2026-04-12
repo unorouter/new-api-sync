@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 # new-api-sync
 
-Sync pricing, channels, and models from upstream providers to your [new-api](https://github.com/unorouter/new-api) instance. Supports [new-api](https://github.com/unorouter/new-api), [sub2api](https://github.com/unorouter/sub2api), and direct vendor APIs.
+Sync pricing, channels, and models from upstream providers to your [new-api](https://github.com/QuantumNous/new-api) instance. Supports [new-api](https://github.com/QuantumNous/new-api), [sub2api](https://github.com/Wei-Shaw/sub2api), and direct vendor APIs.
 
 ## Quick Start
 
@@ -42,11 +42,12 @@ Testing ignores `enabledVendors`, `enabledModels`, and the ratio-gate filters (s
 
 ### Global Options
 
-| Field            | Description                                                                                                                                     |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `testModelTypes` | Model types to test during sync: `["text", "image", "video", "audio", "embedding"]` (default: `["text"]`). Per-provider setting overrides this. |
-| `blacklist`      | Exclude matching groups/models (text only, case-insensitive). Supports glob wildcards and provider-scoped patterns. See Blacklist below.        |
-| `modelMapping`   | Rename models: `{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                                        |
+| Field                  | Description                                                                                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `testModelTypes`       | Model types to test during sync: `["text", "image", "video", "audio", "embedding"]` (default: `["text"]`). Per-provider setting overrides this. |
+| `skipUnprofitableText` | Drop text models whose effective ratio ≥ 1 (default: `true`). See Behaviors to Know.                                                            |
+| `blacklist`            | Exclude matching groups/models (text only, case-insensitive). Supports glob wildcards and provider-scoped patterns. See Blacklist below.        |
+| `modelMapping`         | Rename models: `{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                                        |
 
 ### new-api Provider (`type: "newapi"`)
 
@@ -140,25 +141,14 @@ Channels are named `{group}-{provider}`. When a provider's models split into mul
 
 ## Behaviors to Know
 
-### Text Models with Effective Ratio ≥ 1 Are Skipped
+### Unprofitable Text Models Are Skipped (default on)
 
-A text model tier whose effective group ratio (base group ratio × per-model price adjustment) is greater than or equal to 1.0 is **silently dropped** and no channel is created for it. The idea is to keep your sync from creating channels that are more expensive than buying the model directly.
+By default, text models whose effective ratio (group ratio × `priceAdjustment`) is ≥ 1.0 are skipped so sync never creates channels more expensive than calling the upstream directly. Non-text types (image, video, audio, embedding) are unaffected. Test mode bypasses this gate.
 
-Non-text model types (image, video, audio, embedding) are **not** subject to this gate and can sync at any ratio.
-
-If a text model you expect to see is missing after a sync:
-
-1. Check its effective ratio. Either lower the provider's `ratio` or apply a negative `priceAdjustment` so the result is below 1.0.
-2. Or check model classification: a model misclassified as text when it's actually image/video will hit this filter. See `inferModelType()` in `src/lib/constants.ts`.
-
-Test mode (`bun sync test`) bypasses this gate so you can see raw test results for all tiers.
-
-### `-thinking` Models Are Filtered Out
-
-Models ending with `-thinking` or containing `-thinking-` are skipped during testing and channel creation. If the upstream exposes a thinking variant you want to keep as a regular model, use `modelMapping` to rename it:
+Disable via global config:
 
 ```jsonc
-{ "modelMapping": { "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" } }
+{ "skipUnprofitableText": false }
 ```
 
 ### Task Model Channel Pinning
@@ -167,7 +157,12 @@ Certain video/image models are pinned to specific channel types in new-api: `sor
 
 ### Model Metadata Enrichment
 
-During sync, model descriptions are fetched from [OpenRouter](https://openrouter.ai) and [basellm](https://github.com/basellm/basellm) to enrich the metadata shown in new-api. These calls are best-effort: failures are logged as warnings and do not block the sync.
+During sync, model descriptions and tags are fetched from two public feeds to enrich the metadata shown in new-api:
+
+- [OpenRouter `/api/v1/models`](https://openrouter.ai/api/v1/models) — descriptions (preferred)
+- [basellm `llm-metadata`](https://basellm.github.io/llm-metadata/api/newapi/models.json) — descriptions (fallback) and tags
+
+These calls are best-effort: failures are logged as warnings and do not block the sync. Fuzzy name matching handles version/date-suffix variants (`claude-sonnet-4-5-20250929` → `claude-sonnet-4.5`).
 
 ### Kiro Auto-Blacklist
 

@@ -121,10 +121,13 @@ function buildGroupChannels(opts: {
 
   // Create a channel per distinct ratio tier, splitting by required channel type
   // so video/image models that need specific adaptors get their own channels.
+  const skipUnprofitable =
+    opts.config.skipUnprofitableText && !opts.config.isTestMode;
   let tierIdx = 0;
   for (const [effectiveRatio, { models, nonText }] of ratioToModels) {
-    // Skip text model tiers that end up >= 1 after adjustment; non-text (image, video, etc.) are allowed above 1
-    if (effectiveRatio >= 1 && !nonText) continue;
+    // Skip text model tiers that end up >= 1 after adjustment; non-text (image, video, etc.) are allowed above 1.
+    // Disabled via config.skipUnprofitableText: false.
+    if (skipUnprofitable && effectiveRatio >= 1 && !nonText) continue;
 
     // Sub-split models by required task channel type and base_url suffix.
     // Models needing a specific adaptor (sora, kling, veo, etc.) get separated;
@@ -348,7 +351,8 @@ export async function processNewApiProvider(
     // With per-vendor adjustments, use the lowest adjustment (biggest discount) to decide
     // whether the entire group is too expensive. Per-vendor filtering happens later.
     // In test mode this filter is bypassed so all groups get tested regardless of cost.
-    if (!config.isTestMode) {
+    // Disabled via config.skipUnprofitableText: false.
+    if (!config.isTestMode && config.skipUnprofitableText) {
       const adj = providerConfig.priceAdjustment;
       const minAdjustment =
         adj === undefined

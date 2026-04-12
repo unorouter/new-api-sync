@@ -4,7 +4,7 @@
 
 # new-api-sync
 
-将上游提供商的定价、渠道和模型同步到你的 [new-api](https://github.com/unorouter/new-api) 实例。支持 [new-api](https://github.com/unorouter/new-api)、[sub2api](https://github.com/unorouter/sub2api) 以及厂商直连 API。
+将上游提供商的定价、渠道和模型同步到你的 [new-api](https://github.com/QuantumNous/new-api) 实例。支持 [new-api](https://github.com/QuantumNous/new-api)、[sub2api](https://github.com/Wei-Shaw/sub2api) 以及厂商直连 API。
 
 ## 快速开始
 
@@ -42,11 +42,12 @@ bun sync test --verbose               # 以调试日志级别测试
 
 ### 全局选项
 
-| 字段             | 说明                                                                                                     |
-| ---------------- | -------------------------------------------------------------------------------------------------------- |
-| `testModelTypes` | 同步时测试的模型类型：`["text", "image", "video", "audio", "embedding"]`（默认：`["text"]`）。提供商级别设置可覆盖全局。 |
-| `blacklist`      | 排除匹配的文本模型（大小写不敏感）。支持 Glob 通配符和提供商作用域模式。详见下方"黑名单"。             |
-| `modelMapping`   | 重命名模型：`{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                     |
+| 字段                   | 说明                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `testModelTypes`       | 同步时测试的模型类型：`["text", "image", "video", "audio", "embedding"]`（默认：`["text"]`）。提供商级别设置可覆盖全局。 |
+| `skipUnprofitableText` | 跳过有效倍率 ≥ 1 的文本模型（默认：`true`）。详见下方"行为说明"。                                                         |
+| `blacklist`            | 排除匹配的文本模型（大小写不敏感）。支持 Glob 通配符和提供商作用域模式。详见下方"黑名单"。                              |
+| `modelMapping`         | 重命名模型：`{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                    |
 
 ### new-api 提供商 (`type: "newapi"`)
 
@@ -140,25 +141,14 @@ bun sync test --verbose               # 以调试日志级别测试
 
 ## 行为说明
 
-### 有效倍率 ≥ 1 的文本模型会被跳过
+### 无利润文本模型会被跳过（默认开启）
 
-当文本模型的有效组倍率（基础组倍率 × 单模型 `priceAdjustment`）大于或等于 1.0 时，会被静默丢弃，不会创建渠道。其目的是避免同步产生比直接调用上游还贵的渠道。
+默认情况下，有效倍率（组倍率 × `priceAdjustment`）≥ 1.0 的文本模型会被跳过，避免同步产生比直接调用上游还贵的渠道。非文本类型（图像、视频、音频、嵌入）不受此限制。测试模式绕过此阈值。
 
-非文本模型类型（图像、视频、音频、嵌入）不受此限制，任何倍率都可同步。
-
-如果同步后某个文本模型消失：
-
-1. 检查其有效倍率。可降低提供商的 `ratio` 或施加负值 `priceAdjustment`，使结果低于 1.0。
-2. 或检查模型分类：误判为 text 的图像/视频模型会被此过滤器吃掉。参见 `src/lib/constants.ts` 中的 `inferModelType()`。
-
-测试模式（`bun sync test`）会绕过此阈值，方便查看所有层级的原始测试结果。
-
-### `-thinking` 模型会被过滤
-
-以 `-thinking` 结尾或名称中包含 `-thinking-` 的模型会在测试与渠道创建阶段被跳过。如果需要把上游的 thinking 变体当作普通模型保留，请使用 `modelMapping` 重命名：
+通过全局配置关闭：
 
 ```jsonc
-{ "modelMapping": { "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" } }
+{ "skipUnprofitableText": false }
 ```
 
 ### 任务模型渠道固定
@@ -167,7 +157,12 @@ bun sync test --verbose               # 以调试日志级别测试
 
 ### 模型元数据补全
 
-同步过程中，会从 [OpenRouter](https://openrouter.ai) 与 [basellm](https://github.com/basellm/basellm) 拉取模型描述，用于丰富 new-api 中展示的元数据。此为尽力而为：失败仅记录警告，不会阻塞同步。
+同步过程中，会从两个公开数据源拉取模型描述和标签，用于丰富 new-api 中展示的元数据：
+
+- [OpenRouter `/api/v1/models`](https://openrouter.ai/api/v1/models)：描述（优先）
+- [basellm `llm-metadata`](https://basellm.github.io/llm-metadata/api/newapi/models.json)：描述（备用）与标签
+
+此为尽力而为：失败仅记录警告，不会阻塞同步。模糊名称匹配会处理版本与日期后缀的变体（`claude-sonnet-4-5-20250929` → `claude-sonnet-4.5`）。
 
 ### Kiro 自动黑名单
 
