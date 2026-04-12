@@ -1,0 +1,110 @@
+name: Release
+
+# Source of truth for the release version is `package.json`'s `version` field.
+# On every push to main we:
+#   1. Read the version
+#   2. Run `bun run build -- --all` which typechecks, bundles the frontend
+#      (with tailwind), builds the portable JS bundle, and cross-compiles 3
+#      native binaries (linux-x64, linux-arm64, darwin-arm64)
+#   3. Package each artifact + public/ into a tar.gz
+#   4. Delete any existing release + tag at v<version>
+#   5. Create a fresh release and upload the artifacts
+#
+# To cut a new release: bump "version" in package.json, merge to main.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Read version from package.json
+        id: pkg
+        run: |
+          VERSION=$(bun -e 'console.log(require("./package.json").version)')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Releasing v$VERSION"
+
+      - run: bun install --frozen-lockfile
+
+      # Builds: typecheck → frontend (tailwind) → js bundle → 3 native binaries.
+      # See src/build.ts for the full pipeline.
+      - name: Build all artifacts
+        run: bun run build --all
+
+      # --- Package each artifact + public/ into its own tar.gz ---------------
+      - name: Package release artifacts
+        run: |
+          VERSION=${{ steps.pkg.outputs.version }}
+
+          pack() {
+            local suffix=$1      # e.g. linux-x64, darwin-arm64, js
+            local runtime=$2     # binary filename under dist/ (without path)
+            local stage=$(mktemp -d)
+
+            cp "dist/$runtime" "$stage/"
+
+            # All archives ship the frontend next to the runtime.
+            cp -r dist/public "$stage/"
+
+            cat > "$stage/README.txt" <<EOF
+          new-api-sync v${VERSION} — ${suffix}
+
+          Usage:
+            ./new-api-sync ui --port 3000     (binary)
+            bun new-api-sync.js ui --port 3000 (js bundle, requires bun)
+
+          The ./public/ directory next to the runtime must remain alongside it.
+          EOF
+
+            # Normalise the runtime filename inside the archive so users can
+            # script against a predictable name regardless of which they pulled.
+            local target_name="new-api-sync"
+            [[ "$suffix" == "js" ]] && target_name="new-api-sync.js"
+            if [[ "$runtime" != "$target_name" ]]; then
+              mv "$stage/$runtime" "$stage/$target_name"
+            fi
+
+            tar -czf "new-api-sync-v${VERSION}-${suffix}.tar.gz" -C "$stage" .
+            ls -lh "new-api-sync-v${VERSION}-${suffix}.tar.gz"
+          }
+
+          pack linux-x64    new-api-sync-linux-x64
+          pack linux-arm64  new-api-sync-linux-arm64
+          pack darwin-arm64 new-api-sync-darwin-arm64
+          pack js           new-api-sync.js
+
+      # --- Release ------------------------------------------------------------
+      - name: Delete existing release and tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "${{ steps.pkg.outputs.tag }}" \
+            --yes --cleanup-tag 2>/dev/null || true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.pkg.outputs.tag }}
+          name: ${{ steps.pkg.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            new-api-sync-v${{ steps.pkg.outputs.version }}-linux-x64.tar.gz
+            new-api-sync-v${{ steps.pkg.outputs.version }}-linux-arm64.tar.gz
+            new-api-sync-v${{ steps.pkg.outputs.version }}-darwin-arm64.tar.gz
+            new-api-sync-v${{ steps.pkg.outputs.version }}-js.tar.gz

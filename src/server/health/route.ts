@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia";
+import pkg from "../../../package.json" with { type: "json" };
 
 const ResponseSchema = t.Object({
   success: t.Literal(true),
@@ -9,15 +10,13 @@ const ResponseSchema = t.Object({
   }),
 });
 
-const VERSION = "0.1.0";
-
 export const healthRoute = new Elysia({ prefix: "/health" }).get(
   "/",
   () => ({
     success: true as const,
     data: {
       ok: true,
-      version: VERSION,
+      version: pkg.version,
       uptime: process.uptime(),
     },
   }),
