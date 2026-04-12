@@ -1,5 +1,6 @@
 import { consola } from "consola";
 import type { ConsolaReporter } from "consola";
+import { sse } from "elysia";
 
 /**
  * Per-process registry of in-flight pipeline runs so an explicit `/cancel`
@@ -25,122 +26,132 @@ export function listActiveRuns(): string[] {
 }
 
 /**
- * Build an SSE ReadableStream around a long-running async task.
- *
- * While the task runs, a consola reporter is attached that forwards log entries
- * as `event: log` messages. The task can also push custom events via the
- * `emit()` helper passed to it. When the task resolves (or rejects) we send a
- * terminal `event: done` (or `event: error`) and close the stream.
- *
- * Each run is assigned a short id emitted as the first payload on `event: run`.
- * The id doubles as the key for `/pipeline/cancel`: clients hit that endpoint
- * to request abort *without* tearing down the SSE stream, which lets the
- * server finish its cleanup phase and still flush the final `event: log`
- * messages to the UI.
+ * Discriminated union of every frame a pipeline stream can yield. Elysia
+ * serialises each yielded value as an SSE `data:` payload, and Eden Treaty
+ * exposes the stream on the client as `AsyncIterable<PipelineFrame>` — no
+ * manual `JSON.parse` or event-name dispatch required.
  */
-export type SseEmitter = (event: string, data: unknown) => void;
+export type PipelineFrame =
+  | { kind: "run"; id: string }
+  | { kind: "start"; at: string }
+  | { kind: "log"; level: string; message: string }
+  | { kind: "done"; result: unknown }
+  | { kind: "error"; message: string };
 
-export function sseResponse(
-  task: (emit: SseEmitter, signal: AbortSignal) => Promise<unknown>,
+export type PipelineEmitter = (frame: Extract<PipelineFrame, { kind: "start" }>) => void;
+
+/**
+ * Wrap a long-running pipeline task as an async generator that yields typed
+ * SSE frames. Elysia detects the generator return and streams each yielded
+ * value as a `text/event-stream` `data:` chunk.
+ *
+ * While the task runs, a consola reporter captures log lines and pushes them
+ * into an internal queue which the generator drains between task-completion
+ * checks. The task's own `emit()` helper feeds non-log frames (e.g. `start`)
+ * into the same queue. When the task resolves we yield `done`; on rejection
+ * we yield `error`. Either way the `run` frame is emitted first so the client
+ * can capture the id for `/pipeline/cancel`.
+ */
+export async function* pipelineStream(
+  task: (emit: PipelineEmitter, signal: AbortSignal) => Promise<unknown>,
   request?: { signal?: AbortSignal },
-): Response {
-  const encoder = new TextEncoder();
+): AsyncGenerator<{ readonly data: PipelineFrame }> {
   const controller = new AbortController();
   const runId = Bun.randomUUIDv7();
   activeRuns.set(runId, controller);
 
-  // Shared flag so both `cancel()` (client disconnect) and the task's
-  // `finally` branch agree on whether the stream is already dead. Without
-  // this, the second close attempt throws ERR_INVALID_STATE and crashes Bun.
-  let closed = false;
-
   // Forward request-level aborts (client disconnect) into the task signal.
   const upstream = request?.signal;
+  const onUpstreamAbort = () => controller.abort();
   if (upstream) {
     if (upstream.aborted) controller.abort();
-    else
-      upstream.addEventListener("abort", () => controller.abort(), {
-        once: true,
-      });
+    else upstream.addEventListener("abort", onUpstreamAbort, { once: true });
   }
 
-  const stream = new ReadableStream<Uint8Array>({
-    start(streamController) {
-      const safeClose = () => {
-        if (closed) return;
-        closed = true;
-        try {
-          streamController.close();
-        } catch {
-          // Stream may already be torn down by cancel(); ignore.
-        }
-      };
+  // Bounded async queue bridging the push-based consola reporter to the
+  // pull-based generator. `waiter` is resolved whenever new frames arrive so
+  // the generator can `await` it without busy-looping.
+  const queue: PipelineFrame[] = [];
+  let waiter: (() => void) | null = null;
+  const wake = () => {
+    const w = waiter;
+    waiter = null;
+    w?.();
+  };
+  const push = (frame: PipelineFrame) => {
+    queue.push(frame);
+    wake();
+  };
 
-      const write = (event: string, data: unknown): void => {
-        if (closed) return;
-        const payload = typeof data === "string" ? data : JSON.stringify(data);
-        try {
-          streamController.enqueue(
-            encoder.encode(`event: ${event}\ndata: ${payload}\n\n`),
-          );
-        } catch {
-          closed = true;
-        }
-      };
-
-      // Announce the run id *before* the caller's `task` runs so the client
-      // knows what to POST to /pipeline/cancel if they click Stop.
-      write("run", { id: runId });
-
-      const reporter: ConsolaReporter = {
-        log: (logObj) => {
-          const message = [logObj.message, ...(logObj.args ?? [])]
-            .filter((part) => part !== undefined)
-            .map((part) =>
-              typeof part === "string" ? part : JSON.stringify(part),
-            )
-            .join(" ");
-          write("log", { level: logObj.type, message });
-        },
-      };
-
-      consola.addReporter(reporter);
-
-      task(write, controller.signal)
-        .then((result) => {
-          write("done", result ?? null);
-        })
-        .catch((error: unknown) => {
-          const aborted =
-            controller.signal.aborted ||
-            (error instanceof DOMException && error.name === "AbortError");
-          write("error", {
-            message: aborted
-              ? "cancelled by user"
-              : error instanceof Error
-                ? error.message
-                : String(error),
-          });
-        })
-        .finally(() => {
-          consola.removeReporter(reporter);
-          activeRuns.delete(runId);
-          safeClose();
-        });
+  const reporter: ConsolaReporter = {
+    log: (logObj) => {
+      const message = [logObj.message, ...(logObj.args ?? [])]
+        .filter((part) => part !== undefined)
+        .map((part) =>
+          typeof part === "string" ? part : JSON.stringify(part),
+        )
+        .join(" ");
+      push({ kind: "log", level: logObj.type, message });
     },
-    cancel() {
-      // Browser/client dropped the connection — propagate to the task.
-      closed = true;
-      controller.abort();
-      activeRuns.delete(runId);
-    },
-  });
+  };
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-    },
-  });
+  consola.addReporter(reporter);
+
+  // Kick off the task; its settlement triggers a final wake so the generator
+  // drains any pending log frames and then yields the terminal frame.
+  let settled = false;
+  let terminal: PipelineFrame;
+  const taskPromise = task(
+    (frame) => push(frame),
+    controller.signal,
+  )
+    .then((result): void => {
+      terminal = { kind: "done", result: result ?? null };
+    })
+    .catch((error: unknown): void => {
+      const aborted =
+        controller.signal.aborted ||
+        (error instanceof DOMException && error.name === "AbortError");
+      terminal = {
+        kind: "error",
+        message: aborted
+          ? "cancelled by user"
+          : error instanceof Error
+            ? error.message
+            : String(error),
+      };
+    })
+    .finally(() => {
+      settled = true;
+      wake();
+    });
+
+  // Announce the run id before anything else so the client can wire Stop.
+  yield sse({ data: { kind: "run", id: runId } as PipelineFrame });
+
+  try {
+    while (true) {
+      while (queue.length > 0) {
+        yield sse({ data: queue.shift()! });
+      }
+      if (settled) break;
+      await new Promise<void>((resolve) => {
+        waiter = resolve;
+      });
+    }
+    // Drain any frames pushed between the last shift and the settle signal.
+    while (queue.length > 0) {
+      yield sse({ data: queue.shift()! });
+    }
+    // `terminal` is always assigned once `settled` is true.
+    yield sse({ data: terminal! });
+  } finally {
+    consola.removeReporter(reporter);
+    activeRuns.delete(runId);
+    if (upstream) upstream.removeEventListener("abort", onUpstreamAbort);
+    // If the client disconnected mid-stream, propagate to the task so
+    // downstream work (HTTP requests, DB writes) stops promptly.
+    if (!settled) controller.abort();
+    await taskPromise;
+  }
 }

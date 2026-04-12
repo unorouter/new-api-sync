@@ -1,4 +1,4 @@
-import { streamSse } from "@web/lib/sse-client";
+import { rpc } from "@web/lib/rpc";
 import { useSyncStore, type SyncMode } from "@web/store/sync-store";
 import { useUiStore } from "@web/store/ui-store";
 import { useMutation } from "@tanstack/react-query";
@@ -11,11 +11,11 @@ interface RunArgs {
 }
 
 /**
- * Kick off a sync pipeline (run / test / reset) via SSE, streaming logs and
- * the terminal result into the Zustand store. Returns the mutation plus a
- * `stop()` that POSTs to `/api/pipeline/cancel` with the active run id —
- * aborts the pipeline while keeping the SSE stream open, so the final
- * cleanup logs (summary, report-written) still reach the UI.
+ * Kick off a sync pipeline (run / test / reset) via Eden's streamed generator
+ * route, draining typed frames into the Zustand store. Returns the mutation
+ * plus a `stop()` that calls `/api/pipeline/cancel` with the active run id —
+ * aborts the pipeline while keeping the stream open, so the final cleanup
+ * frames (summary, report-written) still reach the UI.
  */
 export function useSyncPipeline() {
   const store = useSyncStore();
@@ -27,49 +27,34 @@ export function useSyncPipeline() {
       runIdRef.current = null;
 
       const configName = useUiStore.getState().selectedConfigName;
-      const url =
+      const payload = { only: args.only ?? [], configName };
+
+      const call =
         args.mode === "run"
-          ? "/api/pipeline/run"
+          ? rpc.api.pipeline.run.post(payload)
           : args.mode === "test"
-            ? "/api/pipeline/test"
-            : "/api/pipeline/reset";
+            ? rpc.api.pipeline.test.post(payload)
+            : rpc.api.pipeline.reset.post(payload);
 
       try {
-        await streamSse(url, { only: args.only ?? [], configName }, (evt) => {
-          if (evt.event === "run") {
-            try {
-              const parsed = JSON.parse(evt.data) as { id?: string };
-              if (parsed.id) runIdRef.current = parsed.id;
-            } catch {
-              // ignore malformed id frame
-            }
-          } else if (evt.event === "log") {
-            try {
-              const parsed = JSON.parse(evt.data) as {
-                level: string;
-                message: string;
-              };
-              store.addLog(parsed.level, parsed.message);
-            } catch {
-              store.addLog("info", evt.data);
-            }
-          } else if (evt.event === "done") {
-            try {
-              store.finish(JSON.parse(evt.data));
-            } catch {
-              store.finish(evt.data);
-            }
-          } else if (evt.event === "error") {
-            try {
-              const parsed = JSON.parse(evt.data) as { message?: string };
-              store.fail(parsed.message ?? "Unknown error");
-            } catch {
-              store.fail(evt.data);
-            }
-          } else if (evt.event === "start") {
+        const res = await call;
+        if (res.error) throw new Error(String(res.error.value));
+
+        for await (const envelope of res.data) {
+          const frame = envelope.data;
+          if (!frame) continue;
+          if (frame.kind === "run") {
+            runIdRef.current = frame.id;
+          } else if (frame.kind === "start") {
             store.addLog("info", "pipeline started");
+          } else if (frame.kind === "log") {
+            store.addLog(frame.level, frame.message);
+          } else if (frame.kind === "done") {
+            store.finish(frame.result);
+          } else if (frame.kind === "error") {
+            store.fail(frame.message);
           }
-        });
+        }
       } finally {
         runIdRef.current = null;
       }
@@ -91,13 +76,9 @@ export function useSyncPipeline() {
     }
     store.addLog("warn", "stop requested");
     try {
-      await fetch("/api/pipeline/cancel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
+      await rpc.api.pipeline.cancel.post({ id });
     } catch (error) {
-      // If the cancel POST fails we still want the UI to reflect intent;
+      // If the cancel call fails we still want the UI to reflect intent;
       // the server-side pipeline will run to completion but that's a network
       // fault the user can retry.
       const message = error instanceof Error ? error.message : String(error);
