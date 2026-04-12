@@ -2,7 +2,7 @@ import { staticPlugin } from "@elysiajs/static";
 import { existsSync } from "node:fs";
 import { Elysia } from "elysia";
 import { configRoute } from "./config/route";
-import { embeddedAssets } from "./embedded-assets";
+import { embeddedAssets } from "../embedded-assets";
 import { healthRoute } from "./health/route";
 import { historyRoute } from "./history/route";
 import { pipelineRoute } from "./pipeline/route";

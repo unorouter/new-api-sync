@@ -6,7 +6,7 @@
  *   dist/new-api-sync-<t>  — native binary per target, frontend inlined
  *
  * Both artifact types are single-file. The frontend assets are inlined into
- * the generated `src/server/embedded-assets.ts` manifest as base64 strings,
+ * the generated `src/embedded-assets.ts` manifest as base64 strings,
  * so the js bundle and the native binaries pick them up uniformly.
  */
 import tailwindPlugin from "bun-plugin-tailwind";
@@ -17,7 +17,7 @@ import { extname, relative } from "node:path";
 
 const DIST = "dist";
 const ENTRY = "src/cli/index.ts";
-const ASSETS_MANIFEST = "src/server/embedded-assets.ts";
+const ASSETS_MANIFEST = "src/embedded-assets.ts";
 const TARGETS = [
   "bun-linux-x64",
   "bun-linux-arm64",

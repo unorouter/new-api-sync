@@ -34,5 +34,5 @@
       "@web/*": ["./src/web/*"]
     }
   },
-  "exclude": ["node_modules", "src/server/embedded-assets.ts"]
+  "exclude": ["node_modules"]
 }
