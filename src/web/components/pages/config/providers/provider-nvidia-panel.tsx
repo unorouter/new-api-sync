@@ -49,7 +49,7 @@ export function ProviderNvidiaPanel(props: { index: number }) {
         schema={variantSchema}
         label={t("CONFIG.PROVIDER.API_KEY")}
         type="password"
-        placeholder="nvapi-…"
+        placeholder={t("CONFIG.PROVIDER.API_KEY_PLACEHOLDER_NVIDIA")}
       />
       <MyFormInput
         control={form.control}

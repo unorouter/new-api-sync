@@ -25,7 +25,7 @@ export function ProviderSub2ApiPanel(props: { index: number }) {
         name={providerPath(props.index, "baseUrl")}
         schema={variantSchema}
         label={t("CONFIG.PROVIDER.BASE_URL")}
-        placeholder="https://…"
+        placeholder={t("CONFIG.PROVIDER.BASE_URL_PLACEHOLDER")}
       />
       <MyFormInput
         control={form.control}
@@ -40,7 +40,7 @@ export function ProviderSub2ApiPanel(props: { index: number }) {
           </>
         }
         type="password"
-        placeholder="admin-…"
+        placeholder={t("CONFIG.PROVIDER.ADMIN_API_KEY_PLACEHOLDER")}
       />
       <div className="grid gap-2">
         <Label>

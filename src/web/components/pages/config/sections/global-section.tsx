@@ -78,7 +78,7 @@ export function GlobalSection() {
             <div key={field.id} className="flex items-center gap-2">
               <Input
                 {...form.register(`blacklist.${index}` as never)}
-                placeholder="model name or glob"
+                placeholder={t("CONFIG.GLOBAL.BLACKLIST_PLACEHOLDER")}
               />
               <Button
                 type="button"
@@ -179,13 +179,13 @@ function ModelMappingEditor(props: {
           <Input
             value={key}
             onChange={(event) => update(i, { key: event.target.value })}
-            placeholder="upstream model"
+            placeholder={t("CONFIG.GLOBAL.UPSTREAM_MODEL_PLACEHOLDER")}
             className="flex-1"
           />
           <Input
             value={value}
             onChange={(event) => update(i, { value: event.target.value })}
-            placeholder="target model"
+            placeholder={t("CONFIG.GLOBAL.TARGET_MODEL_PLACEHOLDER")}
             className="flex-1"
           />
           <Button

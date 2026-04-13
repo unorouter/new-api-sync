@@ -1,3 +1,4 @@
+import { useIntl } from "@web/components/provider/intl-provider";
 import { rpc } from "@web/lib/rpc";
 import { useSyncStore, type SyncMode } from "@web/store/sync-store";
 import { useUiStore } from "@web/store/ui-store";
@@ -18,6 +19,7 @@ interface RunArgs {
  */
 export function useSyncPipeline() {
   const store = useSyncStore();
+  const { t } = useIntl();
   const runIdRef = useRef<string | null>(null);
 
   const mutation = useMutation({
@@ -44,7 +46,7 @@ export function useSyncPipeline() {
           if (frame.kind === "run") {
             runIdRef.current = frame.id;
           } else if (frame.kind === "start") {
-            store.addLog("info", "pipeline started");
+            store.addLog("info", t("SYNC.PIPELINE_STARTED"));
           } else if (frame.kind === "log") {
             store.addLog(frame.level, frame.message);
           } else if (frame.kind === "done") {
@@ -69,10 +71,10 @@ export function useSyncPipeline() {
     if (!id) {
       // Orphaned `running` state (page refresh, server restart). Nothing to
       // cancel on the server — just clear the stuck phase locally.
-      store.fail("stopped (no active connection)");
+      store.fail(t("SYNC.STOPPED_NO_CONNECTION"));
       return;
     }
-    store.addLog("warn", "stop requested");
+    store.addLog("warn", t("SYNC.STOP_REQUESTED"));
     try {
       await rpc.api.pipeline.cancel.post({ id });
     } catch (error) {
@@ -80,7 +82,7 @@ export function useSyncPipeline() {
       // the server-side pipeline will run to completion but that's a network
       // fault the user can retry.
       const message = error instanceof Error ? error.message : String(error);
-      toast.error(`cancel failed: ${message}`);
+      toast.error(t("SYNC.CANCEL_FAILED", { message }));
     }
   };
 

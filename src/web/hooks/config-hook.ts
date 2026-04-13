@@ -1,6 +1,7 @@
-import type { ConfigSchemaType, LocaleValue } from "@core/validations/config";
+import type { ConfigSchemaType } from "@core/validations/config";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "@web/components/provider/intl-provider";
+import { msg } from "@web/lib/constants";
 import { queryKeys } from "@web/lib/react-query/keys";
 import { rpc } from "@web/lib/rpc";
 import { toast } from "sonner";
@@ -29,7 +30,7 @@ export function useSaveConfig(name: string) {
         throw new Error(
           value && typeof value === "object" && "message" in value
             ? String(value.message)
-            : "Failed to save config",
+            : t(msg("TOAST.CONFIG_SAVE_FAILED")),
         );
       }
       return res.data.data;
@@ -67,7 +68,7 @@ export function useCreateConfigFile() {
         throw new Error(
           value && typeof value === "object" && "message" in value
             ? String(value.message)
-            : "Failed to create config",
+            : t(msg("TOAST.CONFIG_CREATE_FAILED")),
         );
       }
       return res.data.data;
@@ -102,45 +103,3 @@ export function useDeleteConfigFile() {
   });
 }
 
-/** Fetch the UI locale from the given config (empty = main). */
-export function useConfigLocale(name: string) {
-  return useQuery({
-    queryKey: [...queryKeys.configLocale(), name],
-    queryFn: async () => {
-      const res = await rpc.api.config.locale.get({ query: { name } });
-      if (res.error) throw res.error;
-      return res.data.data.locale;
-    },
-  });
-}
-
-export function useSetConfigLocale(name: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (locale: LocaleValue) => {
-      const res = await rpc.api.config.locale.patch(
-        { locale },
-        { query: { name } },
-      );
-      if (res.error) {
-        const value = res.error.value;
-        throw new Error(
-          value && typeof value === "object" && "message" in value
-            ? String(value.message)
-            : "Failed to update locale",
-        );
-      }
-      return res.data.data.locale;
-    },
-    onSuccess: (locale) => {
-      queryClient.setQueryData([...queryKeys.configLocale(), name], locale);
-      // The full config also carries `locale`; invalidate so it's fresh next read.
-      queryClient.invalidateQueries({
-        queryKey: [...queryKeys.config(), name],
-      });
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : String(error));
-    },
-  });
-}

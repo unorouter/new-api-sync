@@ -49,15 +49,22 @@
     },
     "ERROR": "错误：{error}",
     "EMPTY_IDLE": "尚未运行。选择模式后点击“开始”。",
-    "EMPTY_WAITING": "等待输出…"
+    "EMPTY_WAITING": "等待输出…",
+    "STOPPED_NO_CONNECTION": "已停止（没有活动连接）",
+    "CANCEL_FAILED": "取消失败：{message}",
+    "PIPELINE_STARTED": "流水线已启动",
+    "STOP_REQUESTED": "已请求停止"
   },
   "CONFIG": {
     "FILES": {
       "MAIN": "主配置",
       "NAME": "名称",
+      "NAME_PLACEHOLDER": "debug",
       "CREATE": "创建",
       "CREATE_TITLE": "创建新配置",
       "CREATE_DESC": "将创建 config.<name>.yml，内容从当前选中的配置复制。只能使用字母、数字、下划线或连字符。",
+      "INVALID_NAME": "只能使用字母、数字、连字符或下划线。",
+      "ALREADY_EXISTS": "配置“{name}”已存在。",
       "DELETE": "删除",
       "DELETE_TITLE": "删除配置“{name}”？",
       "DELETE_DESC": "从磁盘中删除该配置文件。主配置 config.yml 无法删除。",
@@ -74,9 +81,11 @@
       "TITLE": "目标实例",
       "DESCRIPTION": "接收同步后渠道与模型的 new-api 实例。",
       "BASE_URL": "基础地址",
+      "BASE_URL_PLACEHOLDER": "https://api.example.com",
       "SYSTEM_ACCESS_TOKEN": "系统访问令牌",
       "USER_ID": "用户 ID",
-      "TARGET_PREFIX": "目标前缀"
+      "TARGET_PREFIX": "目标前缀",
+      "TARGET_PREFIX_PLACEHOLDER": "prod"
     },
     "GLOBAL": {
       "TITLE": "全局设置",
@@ -86,8 +95,20 @@
       "SKIP_UNPROFITABLE_TEXT": "跳过无利润的文本渠道",
       "BLACKLIST": "黑名单",
       "BLACKLIST_HELP": "从所有提供商中排除的模型名或通配符。",
+      "BLACKLIST_PLACEHOLDER": "模型名或通配符",
       "MODEL_MAPPING": "模型重命名",
-      "MODEL_MAPPING_HELP": "在写入目标前，将上游模型重命名。"
+      "MODEL_MAPPING_HELP": "在写入目标前，将上游模型重命名。",
+      "UPSTREAM_MODEL_PLACEHOLDER": "上游模型",
+      "TARGET_MODEL_PLACEHOLDER": "目标模型"
+    },
+    "GLOBAL_SETTINGS": {
+      "TITLE": "跨配置设置",
+      "DESCRIPTION": "保存在 config.global.yml 中，对每个配置都生效。此处的黑名单和模型重命名会与各个配置的值合并（同键冲突时以全局为准）。",
+      "BLACKLIST_HELP": "从所有配置、所有提供商中排除的模型。",
+      "MODEL_MAPPING_HELP": "对所有配置都生效的模型重命名。若同一键在配置中也存在，以全局为准。",
+      "SAVE": "保存全局设置",
+      "SAVING": "保存中…",
+      "SAVED": "全局设置已保存"
     },
     "PROVIDERS": {
       "TITLE": "提供商",
@@ -104,29 +125,40 @@
       "NAME": "名称",
       "TYPE": "类型",
       "BASE_URL": "基础地址",
+      "BASE_URL_PLACEHOLDER": "https://…",
       "API_KEY": "API 密钥",
+      "API_KEY_PLACEHOLDER_NVIDIA": "nvapi-…",
       "SYSTEM_ACCESS_TOKEN": "系统访问令牌",
       "USER_ID": "用户 ID",
       "VENDOR": "厂商",
+      "VENDOR_PLACEHOLDER": "moonshot、zhipu 等",
       "MODELS": "模型",
       "CHANNEL_TYPE": "渠道类型",
       "RATIO": "倍率",
       "DISCOVER_ENDPOINT": "发现接口",
+      "DISCOVER_ENDPOINT_PLACEHOLDER": "/v1/models",
       "ADMIN_API_KEY": "管理员 API 密钥",
+      "ADMIN_API_KEY_PLACEHOLDER": "admin-…",
       "GROUPS": "分组",
       "IMAGE_BASE_URL": "图片基础地址",
       "ENABLED_VENDORS": "启用的厂商",
+      "ENABLED_VENDORS_PLACEHOLDER": "anthropic、openai 等",
       "ENABLED_MODELS": "启用的模型",
       "PRICE_ADJUSTMENT": "价格调整",
-      "TEST_MODEL_TYPES": "测试的模型类型"
+      "TEST_MODEL_TYPES": "测试的模型类型",
+      "UNNAMED": "未命名"
     },
     "PRICE_ADJUSTMENT": {
       "NONE": "未设置",
       "SINGLE": "统一值",
-      "PER_KEY": "按厂商或类型"
+      "PER_KEY": "按厂商或类型",
+      "KEY_PLACEHOLDER": "厂商、模型类型或通配符",
+      "VALUE_PLACEHOLDER": "-0.5"
     },
     "ENABLED_MODELS": {
       "GLOB": "添加通配符",
+      "GLOB_PLACEHOLDER": "claude-*-4-5*",
+      "MODEL_NAME_PLACEHOLDER": "模型名",
       "WITH_PRICING": "添加带价格",
       "ADD_COLUMN": "添加列",
       "PRICING_COLUMN": "价格",
@@ -135,6 +167,11 @@
       "DEFAULT_COLUMN": "列",
       "REMOVE_COLUMN": "移除列",
       "REMOVE_ROW": "移除行"
+    },
+    "SUB2API": {
+      "KEY_PLACEHOLDER": "键",
+      "PLATFORM_PLACEHOLDER": "平台",
+      "NAME_PLACEHOLDER": "名称（可选）"
     },
     "FIELD": {
       "ADD": "添加",
@@ -151,8 +188,11 @@
   },
   "TOAST": {
     "CONFIG_SAVED": "配置已保存",
+    "CONFIG_SAVE_FAILED": "保存配置失败",
     "CONFIG_CREATED": "配置已创建",
+    "CONFIG_CREATE_FAILED": "创建配置失败",
     "CONFIG_DELETED": "配置已删除",
+    "GLOBAL_CONFIG_SAVE_FAILED": "保存全局配置失败",
     "KIRO_REMOVED": "已移除 Kiro 条目"
   },
   "SERVER": {
@@ -194,6 +234,7 @@
       "FILTER_ALL": "全部",
       "FILTER_PASSED": "通过",
       "FILTER_FAILED": "失败",
+      "FILTER_PLACEHOLDER": "提供商或模型",
       "COL_PROVIDER": "提供商",
       "COL_MODEL": "模型",
       "COL_STATUS": "状态",
@@ -201,7 +242,9 @@
       "COL_ERROR": "错误",
       "COL_AUTHENTIC": "真实性",
       "STATUS_PASS": "通过",
-      "STATUS_FAIL": "失败"
+      "STATUS_FAIL": "失败",
+      "BADGE_YES": "是",
+      "BADGE_NO": "否"
     },
     "KIRO": {
       "EMPTY": "Kiro 黑名单为空。",

@@ -60,19 +60,19 @@ export function Sub2ApiGroupsEditor(props: Props) {
           <Input
             value={group.key}
             onChange={(event) => update(i, { key: event.target.value })}
-            placeholder="key"
+            placeholder={t("CONFIG.SUB2API.KEY_PLACEHOLDER")}
             className="flex-1"
           />
           <Input
             value={group.platform}
             onChange={(event) => update(i, { platform: event.target.value })}
-            placeholder="platform"
+            placeholder={t("CONFIG.SUB2API.PLATFORM_PLACEHOLDER")}
             className="flex-1"
           />
           <Input
             value={group.name ?? ""}
             onChange={(event) => update(i, { name: event.target.value })}
-            placeholder="name (optional)"
+            placeholder={t("CONFIG.SUB2API.NAME_PLACEHOLDER")}
             className="flex-1"
           />
           <Button

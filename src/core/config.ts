@@ -1,3 +1,4 @@
+import { loadGlobalConfig } from "@core/global-config";
 import { MODEL_TYPES, type ModelType } from "@core/models/types";
 import {
   ConfigSchema,
@@ -171,12 +172,24 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
     return p;
   });
 
+  // Merge in cross-config settings from `config.global.yml`. Missing file is
+  // treated as empty. For `blacklist` we union+dedupe; for `modelMapping` we
+  // let global win on key collisions (per user's "global wins" directive).
+  const global = await loadGlobalConfig();
+  const mergedBlacklist = [
+    ...new Set([...(global.blacklist ?? []), ...(typed.blacklist ?? [])]),
+  ];
+  const mergedMapping: Record<string, string> = {
+    ...(typed.modelMapping ?? {}),
+    ...(global.modelMapping ?? {}),
+  };
+
   return {
     ...typed,
     providers,
     skipUnprofitableText: typed.skipUnprofitableText ?? true,
-    blacklist: typed.blacklist ?? [],
-    modelMapping: typed.modelMapping ?? {},
+    blacklist: mergedBlacklist,
+    modelMapping: mergedMapping,
   };
 }
 

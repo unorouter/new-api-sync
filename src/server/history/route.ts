@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { Elysia } from "elysia";
-import { readLocaleFromPath, translatorFor } from "../i18n";
+import { readLocaleFromGlobal, translatorFor } from "../i18n";
 
 /**
  * History routes — exposes the `logs/` directory.
@@ -148,7 +148,7 @@ export const historyRoute = new Elysia({ prefix: "/history" })
       const run = readRun(params.id);
       if (!run) {
         set.status = 404;
-        const t = translatorFor(await readLocaleFromPath("./config.yml"));
+        const t = translatorFor(await readLocaleFromGlobal());
         return { success: false as const, message: t("SERVER.RUN_NOT_FOUND") };
       }
       return {
@@ -185,7 +185,7 @@ export const historyRoute = new Elysia({ prefix: "/history" })
       const map = readKiro();
       if (!(params.key in map)) {
         set.status = 404;
-        const t = translatorFor(await readLocaleFromPath("./config.yml"));
+        const t = translatorFor(await readLocaleFromGlobal());
         return {
           success: false as const,
           message: t("SERVER.ENTRY_NOT_FOUND"),

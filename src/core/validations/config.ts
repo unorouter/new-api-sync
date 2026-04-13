@@ -138,6 +138,27 @@ export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 export const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);
 export type LocaleValue = Static<typeof LocaleEnum>;
 
+export const ThemeEnum = T.Union([
+  T.Literal("light"),
+  T.Literal("dark"),
+  T.Literal("system"),
+]);
+export type ThemeValue = Static<typeof ThemeEnum>;
+
+/**
+ * Cross-config settings that live in `config.global.yml`. All fields optional —
+ * missing file is treated as an empty object. Locale/theme are global-only
+ * (scalar, global wins). blacklist/modelMapping merge with per-config values
+ * inside `loadConfig()`.
+ */
+export const GlobalConfigSchema = T.Object({
+  locale: T.Optional(LocaleEnum),
+  theme: T.Optional(ThemeEnum),
+  blacklist: T.Optional(T.Array(str)),
+  modelMapping: T.Optional(T.Record(T.String(), T.String())),
+});
+export type GlobalConfigType = Static<typeof GlobalConfigSchema>;
+
 export const ConfigSchema = T.Object({
   target: T.Object({
     baseUrl: T.String({ format: "uri" }),
@@ -145,7 +166,6 @@ export const ConfigSchema = T.Object({
     userId: T.Integer({ minimum: 1 }),
     targetPrefix: T.Optional(str),
   }),
-  locale: T.Optional(LocaleEnum),
   testModelTypes: T.Optional(T.Array(ModelTypeEnum)),
   skipUnprofitableText: T.Optional(T.Boolean()),
   blacklist: T.Optional(T.Array(str)),

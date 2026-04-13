@@ -5,6 +5,7 @@ import {
 } from "@core/validations/config";
 import { typeboxResolver } from "@hookform/resolvers/typebox";
 import { GlobalSection } from "./sections/global-section";
+import { GlobalSettingsSection } from "./sections/global-settings-section";
 import { ProvidersSection } from "./sections/providers-section";
 import { TargetSection } from "./sections/target-section";
 import { useIntl } from "@web/components/provider/intl-provider";
@@ -145,6 +146,7 @@ function ConfigForm(props: {
       <form onSubmit={onSubmit} className="space-y-4 pb-20">
         <TargetSection />
         <GlobalSection />
+        <GlobalSettingsSection />
         <ProvidersSection />
 
         {showBar ? (

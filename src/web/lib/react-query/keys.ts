@@ -7,8 +7,8 @@
 export const queryKeys = {
   health: () => ["health"] as const,
   config: () => ["config"] as const,
-  configLocale: () => ["config", "locale"] as const,
   configFiles: () => ["config-files"] as const,
+  globalConfig: () => ["global-config"] as const,
   runHistory: () => ["run-history"] as const,
   historyRuns: () => ["history", "runs"] as const,
   historyRun: (id: string) => ["history", "runs", id] as const,

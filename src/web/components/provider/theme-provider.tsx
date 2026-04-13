@@ -1,15 +1,18 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import type { ThemeValue } from "@core/validations/config";
+import {
+  useGlobalConfig,
+  useSetGlobalTheme,
+} from "@web/hooks/global-config-hook";
+import { createContext, useContext, useEffect } from "react";
 
-type Theme = "light" | "dark" | "system";
+type Theme = ThemeValue;
 
 type ThemeState = {
   theme: Theme;
   setTheme: (theme: Theme) => void;
 };
-
-const STORAGE_KEY = "new-api-sync-theme";
 
 const ThemeContext = createContext<ThemeState | null>(null);
 
@@ -26,10 +29,12 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider(props: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "system";
-    return (localStorage.getItem(STORAGE_KEY) as Theme) || "system";
-  });
+  // Theme lives in `config.global.yml` (not localStorage) so it follows the
+  // user across browsers. Fall back to "system" while the query is loading
+  // or when the field is absent.
+  const globalQuery = useGlobalConfig();
+  const theme: Theme = globalQuery.data?.theme ?? "system";
+  const setThemeMutation = useSetGlobalTheme();
 
   useEffect(() => {
     applyTheme(theme);
@@ -45,8 +50,7 @@ export function ThemeProvider(props: { children: React.ReactNode }) {
   }, [theme]);
 
   const setTheme = (next: Theme) => {
-    localStorage.setItem(STORAGE_KEY, next);
-    setThemeState(next);
+    setThemeMutation.mutate(next);
   };
 
   return (

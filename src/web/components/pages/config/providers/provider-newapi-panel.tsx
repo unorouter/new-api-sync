@@ -26,7 +26,7 @@ export function ProviderNewApiPanel(props: { index: number }) {
         name={providerPath(props.index, "baseUrl")}
         schema={variantSchema}
         label={t("CONFIG.PROVIDER.BASE_URL")}
-        placeholder="https://…"
+        placeholder={t("CONFIG.PROVIDER.BASE_URL_PLACEHOLDER")}
       />
       <MyFormInput
         control={form.control}

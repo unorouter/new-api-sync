@@ -9,17 +9,15 @@ import {
   DropdownMenuTrigger,
 } from "@web/components/ui/dropdown-menu";
 import {
-  useConfigLocale,
-  useSetConfigLocale,
-} from "@web/hooks/config-hook";
-import { LANGUAGES } from "@web/lib/constants";
-import { useUiStore } from "@web/store/ui-store";
+  useGlobalConfig,
+  useSetGlobalLocale,
+} from "@web/hooks/global-config-hook";
+import { LANGUAGES, LOCALES } from "@web/lib/constants";
 
 export function LanguageToggle() {
   const { t } = useIntl();
-  const selectedName = useUiStore((s) => s.selectedConfigName);
-  const locale = useConfigLocale(selectedName).data ?? "en";
-  const setLocale = useSetConfigLocale(selectedName);
+  const locale = useGlobalConfig().data?.locale ?? LOCALES[0];
+  const setLocale = useSetGlobalLocale();
   const current = LANGUAGES.find((lang) => lang.locale === locale);
 
   return (
@@ -44,7 +42,7 @@ export function LanguageToggle() {
             className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm"
           >
             <lang.Flag className="h-3.5 w-5 rounded-sm" />
-            {t(`LANGUAGE.${lang.code}` as const)}
+            {t(`LANGUAGE.${lang.code}`)}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

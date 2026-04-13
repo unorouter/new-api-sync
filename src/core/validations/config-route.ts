@@ -3,7 +3,7 @@ import {
   ErrorResponseSchema,
   successResponse,
 } from "@core/validations/common";
-import { ConfigSchema, LocaleEnum } from "@core/validations/config";
+import { ConfigSchema, GlobalConfigSchema } from "@core/validations/config";
 import { Type as T } from "@sinclair/typebox";
 
 export const ConfigFileSchema = T.Object({
@@ -65,14 +65,20 @@ export const ConfigPutResponsesSchema = {
   404: ErrorResponseSchema,
 };
 
-const LocaleDataSchema = T.Object({ locale: LocaleEnum });
+const GlobalConfigDataSchema = T.Object({
+  path: T.String(),
+  config: GlobalConfigSchema,
+});
 
-export const ConfigLocaleGetResponseSchema = successResponse(LocaleDataSchema);
+export const GlobalConfigGetResponseSchema = successResponse(
+  GlobalConfigDataSchema,
+);
 
-export const ConfigLocalePatchBodySchema = T.Object({ locale: LocaleEnum });
+export const GlobalConfigPutBodySchema = T.Object({
+  config: GlobalConfigSchema,
+});
 
-export const ConfigLocalePatchResponsesSchema = {
-  200: successResponse(LocaleDataSchema),
+export const GlobalConfigPutResponsesSchema = {
+  200: successResponse(GlobalConfigDataSchema),
   400: ErrorResponseSchema,
-  404: ErrorResponseSchema,
 };

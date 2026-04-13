@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIntl } from "@web/components/provider/intl-provider";
 import { queryKeys } from "@web/lib/react-query/keys";
 import { rpc } from "@web/lib/rpc";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ export function useKiroBlacklist() {
 
 export function useDeleteKiroEntry() {
   const queryClient = useQueryClient();
+  const { t } = useIntl();
   return useMutation({
     mutationFn: async (key: string) => {
       const res = await rpc.api.history.kiro({ key }).delete();
@@ -52,7 +54,7 @@ export function useDeleteKiroEntry() {
         (prev: { key: string }[] | undefined) =>
           prev?.filter((entry) => entry.key !== key) ?? [],
       );
-      toast.success("Kiro entry removed");
+      toast.success(t("TOAST.KIRO_REMOVED"));
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : String(error));

@@ -68,7 +68,9 @@ export function ProviderCard(props: Props) {
           <Badge variant="outline">{type}</Badge>
           <span className="text-sm font-medium">
             {name || (
-              <span className="text-muted-foreground italic">unnamed</span>
+              <span className="text-muted-foreground italic">
+                {t("CONFIG.PROVIDER.UNNAMED")}
+              </span>
             )}
           </span>
           <div className="ml-auto">

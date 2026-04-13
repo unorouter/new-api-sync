@@ -1,4 +1,3 @@
-import type { ConfigSchemaType } from "@core/validations/config";
 import en from "../web/public/i18n/en.json";
 import zh from "../web/public/i18n/zh.json";
 import { createTranslator } from "use-intl/core";
@@ -17,18 +16,13 @@ type LeafPaths<T, Prefix extends string = ""> = {
 export type ServerTranslationKey = LeafPaths<typeof en>;
 
 /**
- * Build a translator for a given request. Pass the already-loaded config
- * (or its `locale` field) so we don't re-read YAML on every translation.
- * Falls back to English if the locale is missing or unknown.
+ * Build a translator for the given locale. Falls back to English if the
+ * locale is missing or unknown. The locale is sourced from
+ * `config.global.yml` via `readLocaleFromGlobal()`.
  */
-export function translatorFor(
-  configOrLocale: ConfigSchemaType | Locale | undefined,
-) {
-  const locale: Locale =
-    typeof configOrLocale === "string"
-      ? configOrLocale
-      : (configOrLocale?.locale ?? "en");
-  const safeLocale: Locale = locale in MESSAGES ? locale : "en";
+export function translatorFor(locale: Locale | undefined) {
+  const safeLocale: Locale =
+    locale && locale in MESSAGES ? locale : "en";
   const t = createTranslator({
     locale: safeLocale,
     messages: MESSAGES[safeLocale],
@@ -40,16 +34,16 @@ export function translatorFor(
 }
 
 /**
- * Convenience: read the locale from the main config.yml (or a specific
- * config by path) without throwing. Returns "en" if anything fails.
+ * Convenience: read the UI locale from `config.global.yml` without throwing.
+ * Returns "en" if the file is missing, malformed, or has no `locale` field.
  */
-export async function readLocaleFromPath(path: string): Promise<Locale> {
+export async function readLocaleFromGlobal(): Promise<Locale> {
   try {
-    const file = Bun.file(path);
-    if (!(file.size > 0)) return "en";
+    const file = Bun.file("./config.global.yml");
+    if (!(await file.exists())) return "en";
     const text = await file.text();
-    const parsed = Bun.YAML.parse(text) as { locale?: unknown };
-    const locale = parsed.locale;
+    const parsed = Bun.YAML.parse(text) as { locale?: unknown } | null;
+    const locale = parsed?.locale;
     return locale === "zh" ? "zh" : "en";
   } catch {
     return "en";

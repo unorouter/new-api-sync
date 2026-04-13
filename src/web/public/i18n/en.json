@@ -49,15 +49,22 @@
     },
     "ERROR": "Error: {error}",
     "EMPTY_IDLE": "No run yet. Pick a mode and click Start.",
-    "EMPTY_WAITING": "Waiting for output…"
+    "EMPTY_WAITING": "Waiting for output…",
+    "STOPPED_NO_CONNECTION": "stopped (no active connection)",
+    "CANCEL_FAILED": "cancel failed: {message}",
+    "PIPELINE_STARTED": "pipeline started",
+    "STOP_REQUESTED": "stop requested"
   },
   "CONFIG": {
     "FILES": {
       "MAIN": "main",
       "NAME": "Name",
+      "NAME_PLACEHOLDER": "debug",
       "CREATE": "Create",
       "CREATE_TITLE": "Create new config",
       "CREATE_DESC": "Creates config.<name>.yml, seeded from the current selection. Use letters, numbers, hyphen, or underscore.",
+      "INVALID_NAME": "Use letters, numbers, hyphen, or underscore only.",
+      "ALREADY_EXISTS": "Config '{name}' already exists.",
       "DELETE": "Delete",
       "DELETE_TITLE": "Delete config '{name}'?",
       "DELETE_DESC": "Removes the config file from disk. The main config.yml cannot be deleted.",
@@ -74,9 +81,11 @@
       "TITLE": "Target",
       "DESCRIPTION": "The new-api instance that receives the synced channels and models.",
       "BASE_URL": "Base URL",
+      "BASE_URL_PLACEHOLDER": "https://api.example.com",
       "SYSTEM_ACCESS_TOKEN": "System access token",
       "USER_ID": "User ID",
-      "TARGET_PREFIX": "Target prefix"
+      "TARGET_PREFIX": "Target prefix",
+      "TARGET_PREFIX_PLACEHOLDER": "prod"
     },
     "GLOBAL": {
       "TITLE": "Global settings",
@@ -86,8 +95,20 @@
       "SKIP_UNPROFITABLE_TEXT": "Skip unprofitable text channels",
       "BLACKLIST": "Blacklist",
       "BLACKLIST_HELP": "Model names or globs to exclude from every provider.",
+      "BLACKLIST_PLACEHOLDER": "model name or glob",
       "MODEL_MAPPING": "Model mapping",
-      "MODEL_MAPPING_HELP": "Rename upstream models before they land in the target."
+      "MODEL_MAPPING_HELP": "Rename upstream models before they land in the target.",
+      "UPSTREAM_MODEL_PLACEHOLDER": "upstream model",
+      "TARGET_MODEL_PLACEHOLDER": "target model"
+    },
+    "GLOBAL_SETTINGS": {
+      "TITLE": "Cross-config settings",
+      "DESCRIPTION": "Stored in config.global.yml. Applies to every config. Blacklist and model mapping here merge with per-config values (global wins on conflicts).",
+      "BLACKLIST_HELP": "Models excluded from every provider in every config.",
+      "MODEL_MAPPING_HELP": "Renames applied to every config. Global entries override per-config entries on the same key.",
+      "SAVE": "Save global settings",
+      "SAVING": "Saving\u2026",
+      "SAVED": "Global settings saved"
     },
     "PROVIDERS": {
       "TITLE": "Providers",
@@ -104,29 +125,40 @@
       "NAME": "Name",
       "TYPE": "Type",
       "BASE_URL": "Base URL",
+      "BASE_URL_PLACEHOLDER": "https://…",
       "API_KEY": "API key",
+      "API_KEY_PLACEHOLDER_NVIDIA": "nvapi-…",
       "SYSTEM_ACCESS_TOKEN": "System access token",
       "USER_ID": "User ID",
       "VENDOR": "Vendor",
+      "VENDOR_PLACEHOLDER": "moonshot, zhipu, …",
       "MODELS": "Models",
       "CHANNEL_TYPE": "Channel type",
       "RATIO": "Ratio",
       "DISCOVER_ENDPOINT": "Discover endpoint",
+      "DISCOVER_ENDPOINT_PLACEHOLDER": "/v1/models",
       "ADMIN_API_KEY": "Admin API key",
+      "ADMIN_API_KEY_PLACEHOLDER": "admin-…",
       "GROUPS": "Groups",
       "IMAGE_BASE_URL": "Image base URL",
       "ENABLED_VENDORS": "Enabled vendors",
+      "ENABLED_VENDORS_PLACEHOLDER": "anthropic, openai, …",
       "ENABLED_MODELS": "Enabled models",
       "PRICE_ADJUSTMENT": "Price adjustment",
-      "TEST_MODEL_TYPES": "Test model types"
+      "TEST_MODEL_TYPES": "Test model types",
+      "UNNAMED": "unnamed"
     },
     "PRICE_ADJUSTMENT": {
       "NONE": "Unset",
       "SINGLE": "Single value",
-      "PER_KEY": "Per vendor / type"
+      "PER_KEY": "Per vendor / type",
+      "KEY_PLACEHOLDER": "vendor / model type / glob",
+      "VALUE_PLACEHOLDER": "-0.5"
     },
     "ENABLED_MODELS": {
       "GLOB": "Add glob",
+      "GLOB_PLACEHOLDER": "claude-*-4-5*",
+      "MODEL_NAME_PLACEHOLDER": "model name",
       "WITH_PRICING": "Add with pricing",
       "ADD_COLUMN": "Add column",
       "PRICING_COLUMN": "Pricing",
@@ -135,6 +167,11 @@
       "DEFAULT_COLUMN": "Column",
       "REMOVE_COLUMN": "Remove column",
       "REMOVE_ROW": "Remove row"
+    },
+    "SUB2API": {
+      "KEY_PLACEHOLDER": "key",
+      "PLATFORM_PLACEHOLDER": "platform",
+      "NAME_PLACEHOLDER": "name (optional)"
     },
     "FIELD": {
       "ADD": "Add",
@@ -151,8 +188,11 @@
   },
   "TOAST": {
     "CONFIG_SAVED": "Config saved",
+    "CONFIG_SAVE_FAILED": "Failed to save config",
     "CONFIG_CREATED": "Config created",
+    "CONFIG_CREATE_FAILED": "Failed to create config",
     "CONFIG_DELETED": "Config deleted",
+    "GLOBAL_CONFIG_SAVE_FAILED": "Failed to save global config",
     "KIRO_REMOVED": "Kiro entry removed"
   },
   "SERVER": {
@@ -194,6 +234,7 @@
       "FILTER_ALL": "All",
       "FILTER_PASSED": "Passed",
       "FILTER_FAILED": "Failed",
+      "FILTER_PLACEHOLDER": "provider / model",
       "COL_PROVIDER": "Provider",
       "COL_MODEL": "Model",
       "COL_STATUS": "Status",
@@ -201,7 +242,9 @@
       "COL_ERROR": "Error",
       "COL_AUTHENTIC": "Authentic",
       "STATUS_PASS": "pass",
-      "STATUS_FAIL": "fail"
+      "STATUS_FAIL": "fail",
+      "BADGE_YES": "yes",
+      "BADGE_NO": "no"
     },
     "KIRO": {
       "EMPTY": "The kiro blacklist is empty.",

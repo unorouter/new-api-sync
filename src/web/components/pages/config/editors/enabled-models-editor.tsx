@@ -120,7 +120,7 @@ export function EnabledModelsEditor(props: Props) {
                 <Input
                   value={entry}
                   onChange={(event) => updateItem(i, event.target.value)}
-                  placeholder="claude-*-4-5*"
+                  placeholder={t("CONFIG.ENABLED_MODELS.GLOB_PLACEHOLDER")}
                   className="flex-1"
                 />
                 <Button
@@ -168,7 +168,7 @@ export function EnabledModelsEditor(props: Props) {
                   onChange={(event) =>
                     updateItem(i, { ...entry, model: event.target.value })
                   }
-                  placeholder="model name"
+                  placeholder={t("CONFIG.ENABLED_MODELS.MODEL_NAME_PLACEHOLDER")}
                   className="flex-1"
                 />
                 <Button

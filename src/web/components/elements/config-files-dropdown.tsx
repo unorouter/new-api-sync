@@ -48,11 +48,11 @@ export function ConfigFilesDropdown() {
   const handleCreate = () => {
     const trimmed = createName.trim();
     if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
-      setCreateError("Use letters, numbers, hyphen, or underscore only.");
+      setCreateError(t("CONFIG.FILES.INVALID_NAME"));
       return;
     }
     if (files.data?.some((f) => f.name === trimmed)) {
-      setCreateError(`Config '${trimmed}' already exists.`);
+      setCreateError(t("CONFIG.FILES.ALREADY_EXISTS", { name: trimmed }));
       return;
     }
     createMutation.mutate(
@@ -153,7 +153,7 @@ export function ConfigFilesDropdown() {
                 setCreateName(event.target.value);
                 setCreateError(null);
               }}
-              placeholder="debug"
+              placeholder={t("CONFIG.FILES.NAME_PLACEHOLDER")}
               autoFocus
               onKeyDown={(event) => {
                 if (event.key === "Enter") handleCreate();

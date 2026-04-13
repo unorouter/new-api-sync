@@ -18,7 +18,7 @@ export function ProviderDirectPanel(props: { index: number }) {
         name={providerPath(props.index, "baseUrl")}
         schema={variantSchema}
         label={t("CONFIG.PROVIDER.BASE_URL")}
-        placeholder="https://…"
+        placeholder={t("CONFIG.PROVIDER.BASE_URL_PLACEHOLDER")}
       />
       <div className="grid grid-cols-2 gap-4">
         <MyFormInput
@@ -26,7 +26,7 @@ export function ProviderDirectPanel(props: { index: number }) {
           name={providerPath(props.index, "vendor")}
           schema={variantSchema}
           label={t("CONFIG.PROVIDER.VENDOR")}
-          placeholder="moonshot, zhipu, …"
+          placeholder={t("CONFIG.PROVIDER.VENDOR_PLACEHOLDER")}
         />
         <MyFormInput
           control={form.control}
@@ -72,7 +72,7 @@ export function ProviderDirectPanel(props: { index: number }) {
               </span>
             </>
           }
-          placeholder="/v1/models"
+          placeholder={t("CONFIG.PROVIDER.DISCOVER_ENDPOINT_PLACEHOLDER")}
         />
       </div>
     </div>

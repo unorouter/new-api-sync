@@ -81,8 +81,8 @@ export function PriceAdjustmentEditor(props: Props) {
           onChange={(pairs) => props.onChange(pairs as Record<string, number>)}
           valueType="number"
           requiredKeys={["default"]}
-          keyPlaceholder="vendor / model type / glob"
-          valuePlaceholder="-0.5"
+          keyPlaceholder={t("CONFIG.PRICE_ADJUSTMENT.KEY_PLACEHOLDER")}
+          valuePlaceholder={t("CONFIG.PRICE_ADJUSTMENT.VALUE_PLACEHOLDER")}
         />
       ) : null}
     </div>

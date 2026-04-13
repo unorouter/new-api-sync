@@ -63,7 +63,7 @@ export function ProviderCommonFields(props: { index: number }) {
               {...form.register(
                 `${providerPath(props.index, "enabledVendors")}.${i}` as never,
               )}
-              placeholder="anthropic, openai, …"
+              placeholder={t("CONFIG.PROVIDER.ENABLED_VENDORS_PLACEHOLDER")}
             />
             <Button
               type="button"

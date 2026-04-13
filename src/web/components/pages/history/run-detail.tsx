@@ -79,7 +79,7 @@ export function RunDetail(props: Props) {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="provider / model"
+              placeholder={t("HISTORY.RUN.FILTER_PLACEHOLDER")}
               className="max-w-80"
             />
           </div>
@@ -169,9 +169,9 @@ function ResultsTable(props: {
               </td>
               <td>
                 {r.authentic === true ? (
-                  <Badge variant="default">yes</Badge>
+                  <Badge variant="default">{t("HISTORY.RUN.BADGE_YES")}</Badge>
                 ) : r.authentic === false ? (
-                  <Badge variant="destructive">no</Badge>
+                  <Badge variant="destructive">{t("HISTORY.RUN.BADGE_NO")}</Badge>
                 ) : null}
               </td>
               <td className="text-muted-foreground max-w-96 truncate text-xs">

@@ -33,7 +33,7 @@ export function TargetSection() {
           name="target.baseUrl"
           schema={targetSchema}
           label={t("CONFIG.TARGET.BASE_URL")}
-          placeholder="https://api.example.com"
+          placeholder={t("CONFIG.TARGET.BASE_URL_PLACEHOLDER")}
         />
         <MyFormInput
           control={form.control}
@@ -63,7 +63,7 @@ export function TargetSection() {
                 </span>
               </>
             }
-            placeholder="prod"
+            placeholder={t("CONFIG.TARGET.TARGET_PREFIX_PLACEHOLDER")}
           />
         </div>
       </CardContent>

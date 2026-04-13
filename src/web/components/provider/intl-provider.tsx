@@ -1,30 +1,27 @@
 "use client";
 
-import en from "@web/public/i18n/en.json";
-import zh from "@web/public/i18n/zh.json";
-import { type Locale, type TranslationKey } from "@web/lib/constants";
-import { useConfigLocale } from "@web/hooks/config-hook";
-import { useUiStore } from "@web/store/ui-store";
+import { useGlobalConfig } from "@web/hooks/global-config-hook";
+import {
+  LOCALES,
+  MESSAGES,
+  type Locale,
+  type TranslationKey,
+} from "@web/lib/constants";
 import {
   IntlProvider as UseIntlProvider,
-  useTranslations,
   useLocale as useUseIntlLocale,
+  useTranslations,
 } from "use-intl";
 
-// --- Message catalogs ----------------------------------------------------
-// `zh` is typed against `en`'s shape so the build fails if a key is missing.
-const MESSAGES: Record<Locale, typeof en> = { en, zh };
-
 /**
- * Wraps the app in use-intl's provider. The locale is pulled from the
- * currently-selected config via `useConfigLocale`. While the config is
- * loading we render children against `en` so the tree never flashes
- * untranslated IDs, and a locale change re-renders the whole subtree.
+ * Wraps the app in use-intl's provider. Locale is pulled from
+ * `config.global.yml` so the chosen language is app-wide (not per-config).
+ * While the query is loading we render against English so the tree never
+ * flashes untranslated IDs; a locale change re-renders the whole subtree.
  */
 export function IntlProvider(props: { children: React.ReactNode }) {
-  const selectedName = useUiStore((s) => s.selectedConfigName);
-  const localeQuery = useConfigLocale(selectedName);
-  const locale: Locale = localeQuery.data ?? "en";
+  const globalQuery = useGlobalConfig();
+  const locale: Locale = globalQuery.data?.locale ?? LOCALES[0];
 
   return (
     <UseIntlProvider locale={locale} messages={MESSAGES[locale]}>
@@ -33,16 +30,10 @@ export function IntlProvider(props: { children: React.ReactNode }) {
   );
 }
 
-// --- Typed intl helpers --------------------------------------------------
 /**
  * Typed wrapper around use-intl's `useTranslations()`. All message keys
  * are constrained to `TranslationKey` (the dotted leaf paths of `en.json`),
  * so typos become compile errors.
- *
- * Usage:
- *   const { t } = useIntl();
- *   t("CONFIG.TITLE");
- *   t("HEALTH.ERROR", { error: "boom" });
  */
 export function useIntl() {
   const t = useTranslations();
