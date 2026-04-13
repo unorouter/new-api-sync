@@ -436,6 +436,12 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   },
   yi: { modelPatterns: ["yi-"], displayName: "Yi", icon: "Yi.Color" },
   ai360: { modelPatterns: ["360gpt"], displayName: "360 AI", icon: "Ai360" },
+  xiaomi: {
+    modelPatterns: ["mimo-"],
+    nameAliases: ["xiaomi", "小米"],
+    displayName: "Xiaomi",
+    icon: "Xiaomi",
+  },
 };
 
 export const SUB2API_PLATFORM_CHANNEL_TYPES: Record<string, number> = {

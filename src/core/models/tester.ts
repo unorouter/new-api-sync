@@ -892,6 +892,7 @@ export interface ModelTestDetail {
   success: boolean;
   streamSuccess: boolean | null;
   toolCallSuccess: boolean | null;
+  kiroProbed: boolean;
 }
 
 export async function testModels(opts: {
@@ -937,6 +938,7 @@ export async function testModels(opts: {
             success: true,
             streamSuccess: existingPass.stream?.pass ?? null,
             toolCallSuccess: existingPass.toolCall?.pass ?? null,
+            kiroProbed: false,
           };
         }
 
@@ -967,6 +969,7 @@ export async function testModels(opts: {
             success: false,
             streamSuccess: null,
             toolCallSuccess: null,
+            kiroProbed: false,
           };
         }
 
@@ -1082,6 +1085,10 @@ export async function testModels(opts: {
           success: finalSuccess,
           streamSuccess: finalStream,
           toolCallSuccess,
+          kiroProbed:
+            channelType === CHANNEL_TYPES.ANTHROPIC &&
+            model.startsWith("claude-") &&
+            (success || streamSuccess === true),
         };
       }),
     );
