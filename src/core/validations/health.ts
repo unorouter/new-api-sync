@@ -1,4 +1,4 @@
-import { Type as T } from "@sinclair/typebox";
+import { Type as T, type Static } from "@sinclair/typebox";
 
 export const ProviderCountsSchema = T.Object({
   newapi: T.Number(),
@@ -47,3 +47,6 @@ export const HealthResponseSchema = T.Object({
     activeRuns: T.Array(T.String()),
   }),
 });
+
+export type HealthResponseType = Static<typeof HealthResponseSchema>;
+export type HealthData = HealthResponseType["data"];

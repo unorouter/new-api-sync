@@ -6,7 +6,7 @@ import { CurrentConfigCard } from "./current-config-card";
 import { ServerHealthCard } from "./server-health-card";
 
 export function HealthPanel() {
-  const intl = useIntl();
+  const { t } = useIntl();
   const health = useHealth();
   const selectedConfigName = useUiStore((state) => state.selectedConfigName);
   const dashboardConfig = useDashboardConfigMetrics(selectedConfigName);
@@ -15,15 +15,14 @@ export function HealthPanel() {
 
   const selectedConfigLabel =
     selectedConfigName === ""
-      ? intl.t("CONFIG.FILES.MAIN")
+      ? t("CONFIG.FILES.MAIN")
       : selectedConfigName;
   const metrics = dashboardConfig.metrics;
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <ServerHealthCard intl={intl} healthData={health.data} />
+      <ServerHealthCard healthData={health.data} />
       <CurrentConfigCard
-        intl={intl}
         selectedConfigLabel={selectedConfigLabel}
         selectedConfigPending={dashboardConfig.selectedConfig.isPending}
         metrics={metrics}
