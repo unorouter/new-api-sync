@@ -1,6 +1,6 @@
 import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
 import { MODEL_TYPES } from "@core/models/types";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { MyFormCheckboxGroup } from "@web/components/elements/form/my-form-checkbox-group";
 import { MyFormSwitch } from "@web/components/elements/form/my-form-switch";
 import { Button } from "@web/components/ui/button";
@@ -29,7 +29,7 @@ const MODEL_TYPE_LABEL: Record<string, TranslationKey> = {
 };
 
 export function GlobalSection() {
-  const { t } = useIntl();
+  const t = useTranslations();
   const form = useFormContext<ConfigSchemaType>();
   const blacklist = useFieldArray({
     control: form.control,
@@ -139,7 +139,7 @@ function ModelMappingEditor(props: {
   value: Record<string, string>;
   onChange: (value: Record<string, string>) => void;
 }) {
-  const { t } = useIntl();
+  const t = useTranslations();
   const entries = Object.entries(props.value);
 
   const update = (index: number, patch: { key?: string; value?: string }) => {

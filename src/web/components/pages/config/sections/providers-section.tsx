@@ -1,6 +1,6 @@
 import type { ConfigSchemaType } from "@core/validations/config";
 import { ProviderCard } from "../providers/provider-card";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import {
   Card,
@@ -53,7 +53,7 @@ const TEMPLATES: Record<ProviderType, () => Provider> = {
 const TYPE_ORDER: ProviderType[] = ["newapi", "sub2api", "direct", "nvidia"];
 
 export function ProvidersSection() {
-  const { t } = useIntl();
+  const t = useTranslations();
   const form = useFormContext<ConfigSchemaType>();
   const providers = useFieldArray({
     control: form.control,

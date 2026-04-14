@@ -1,4 +1,4 @@
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { rpc } from "@web/lib/rpc";
 import { useSyncStore, type SyncMode } from "@web/store/sync-store";
 import { useUiStore } from "@web/store/ui-store";
@@ -19,7 +19,7 @@ interface RunArgs {
  */
 export function useSyncPipeline() {
   const store = useSyncStore();
-  const { t } = useIntl();
+  const t = useTranslations();
   const selectedConfigName = useUiStore((s) => s.selectedConfigName);
   const runIdRef = useRef<string | null>(null);
 

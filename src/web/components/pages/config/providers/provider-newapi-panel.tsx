@@ -1,5 +1,5 @@
 import type { ConfigSchemaType } from "@core/validations/config";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { MyFormInput } from "@web/components/elements/form/my-form-input";
 import { providerPath } from "./provider-path";
 import type { TObject } from "@sinclair/typebox/type";
@@ -17,7 +17,7 @@ const variantSchema = { properties: {} } as unknown as TObject;
 void ConfigSchema;
 
 export function ProviderNewApiPanel(props: { index: number }) {
-  const { t } = useIntl();
+  const t = useTranslations();
   const form = useFormContext<ConfigSchemaType>();
   return (
     <div className="space-y-4">

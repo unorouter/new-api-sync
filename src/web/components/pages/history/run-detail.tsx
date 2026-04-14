@@ -1,4 +1,4 @@
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Badge } from "@web/components/ui/badge";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
@@ -22,7 +22,7 @@ interface Props {
 type Filter = "all" | "passed" | "failed";
 
 export function RunDetail(props: Props) {
-  const { t } = useIntl();
+  const t = useTranslations();
   const run = useHistoryRun(props.id);
   const filter = useUiStore((s) => s.runResultFilter);
   const setFilter = useUiStore((s) => s.setRunResultFilter);
@@ -107,7 +107,7 @@ function ResultsTable(props: {
   filter: Filter;
   query: string;
 }) {
-  const { t } = useIntl();
+  const t = useTranslations();
   const q = props.query.trim().toLowerCase();
   const filtered = props.results.filter((r) => {
     if (props.filter === "passed" && !r.http.pass) return false;

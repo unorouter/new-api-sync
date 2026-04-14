@@ -1,4 +1,4 @@
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Badge } from "@web/components/ui/badge";
 import { Button } from "@web/components/ui/button";
 import {
@@ -16,7 +16,7 @@ import type { TranslationKey } from "@web/lib/constants";
 import { PlayIcon, SquareIcon } from "lucide-react";
 
 function PhaseBadge(props: { phase: SyncPhase }) {
-  const { t } = useIntl();
+  const t = useTranslations();
   if (props.phase === "running")
     return (
       <Badge variant="secondary">
@@ -55,7 +55,7 @@ const MODE_LABELS: Record<PipelineMode, TranslationKey> = {
 const MODE_ORDER: PipelineMode[] = ["run", "test", "reset"];
 
 export function SyncPanel() {
-  const { t } = useIntl();
+  const t = useTranslations();
   const phase = useSyncStore((s) => s.phase);
   const mode = useSyncStore((s) => s.mode);
   const logs = useSyncStore((s) => s.logs);

@@ -1,7 +1,7 @@
 import { KiroTable } from "./kiro-table";
 import { RunDetail } from "./run-detail";
 import { RunsTable } from "./runs-table";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import {
   Card,
   CardContent,
@@ -18,7 +18,7 @@ import {
 import { useUiStore } from "@web/store/ui-store";
 
 export function HistoryPage() {
-  const { t } = useIntl();
+  const t = useTranslations();
   const historyTab = useUiStore((s) => s.historyTab);
   const setHistoryTab = useUiStore((s) => s.setHistoryTab);
   const selectedRunId = useUiStore((s) => s.selectedRunId);

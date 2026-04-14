@@ -1,4 +1,4 @@
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import {
   Dialog,
@@ -31,7 +31,7 @@ import { useEffect, useState } from "react";
 const MAIN_VALUE = "__main__";
 
 export function ConfigFilesDropdown() {
-  const { t } = useIntl();
+  const t = useTranslations();
   const selectedName = useUiStore((s) => s.selectedConfigName);
   const hasHydrated = useUiStore((s) => s.hasHydrated);
   const setSelectedName = useUiStore((s) => s.setSelectedConfigName);

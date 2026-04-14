@@ -1,4 +1,4 @@
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Badge } from "@web/components/ui/badge";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { useHistoryRuns } from "@web/hooks/history-hook";
@@ -14,7 +14,7 @@ function formatSize(bytes: number): string {
 }
 
 export function RunsTable(props: Props) {
-  const { t } = useIntl();
+  const t = useTranslations();
   const runs = useHistoryRuns();
 
   if (runs.isPending) {

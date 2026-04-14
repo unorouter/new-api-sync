@@ -1,6 +1,6 @@
 import type { ConfigSchemaType } from "@core/validations/config";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { msg } from "@web/lib/constants";
 import { queryKeys } from "@web/lib/react-query/keys";
 import { rpc } from "@web/lib/rpc";
@@ -20,7 +20,7 @@ export function useConfig(name: string) {
 
 export function useSaveConfig(name: string) {
   const queryClient = useQueryClient();
-  const { t } = useIntl();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async (config: ConfigSchemaType) => {
@@ -59,7 +59,7 @@ export function useConfigFiles() {
 
 export function useCreateConfigFile() {
   const queryClient = useQueryClient();
-  const { t } = useIntl();
+  const t = useTranslations();
   return useMutation({
     mutationFn: async (input: { name: string; fromName?: string }) => {
       const res = await rpc.api.config.files.post(input);
@@ -85,7 +85,7 @@ export function useCreateConfigFile() {
 
 export function useDeleteConfigFile() {
   const queryClient = useQueryClient();
-  const { t } = useIntl();
+  const t = useTranslations();
   return useMutation({
     mutationFn: async (name: string) => {
       const res = await rpc.api.config.files({ name }).delete();

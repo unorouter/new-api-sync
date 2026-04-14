@@ -1,4 +1,4 @@
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import {
   Dialog,
@@ -22,7 +22,7 @@ function formatSince(value: string | Date): string {
 }
 
 export function KiroTable() {
-  const { t } = useIntl();
+  const t = useTranslations();
   const kiro = useKiroBlacklist();
   const deleteEntry = useDeleteKiroEntry();
   const query = useUiStore((s) => s.kiroQuery);

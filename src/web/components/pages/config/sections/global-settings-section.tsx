@@ -1,5 +1,5 @@
 import type { GlobalConfigType } from "@core/validations/config";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import {
   Card,
@@ -30,7 +30,7 @@ import { toast } from "sonner";
  * dirty/submit bar.
  */
 export function GlobalSettingsSection() {
-  const { t } = useIntl();
+  const t = useTranslations();
   const query = useGlobalConfig();
   const save = useSaveGlobalConfig();
 

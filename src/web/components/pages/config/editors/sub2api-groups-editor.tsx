@@ -1,4 +1,4 @@
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import { PlusIcon, Trash2Icon } from "lucide-react";
@@ -17,7 +17,7 @@ interface Props {
 
 /** Repeater over sub2api { key, platform, name? } rows. */
 export function Sub2ApiGroupsEditor(props: Props) {
-  const { t } = useIntl();
+  const t = useTranslations();
   const groups = props.groups ?? [];
   const keyCounter = useRef(0);
   const keysRef = useRef<number[]>([]);

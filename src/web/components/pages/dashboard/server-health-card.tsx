@@ -1,6 +1,6 @@
 import type { HealthData } from "@core/validations/health";
 import { Row } from "@web/components/elements/row";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Badge } from "@web/components/ui/badge";
 import {
   Card,
@@ -12,7 +12,7 @@ import {
 import { formatBytes, formatUptime } from "@web/lib/constants";
 
 export function ServerHealthCard(props: { healthData: HealthData }) {
-  const { t } = useIntl();
+  const t = useTranslations();
 
   return (
     <Card>

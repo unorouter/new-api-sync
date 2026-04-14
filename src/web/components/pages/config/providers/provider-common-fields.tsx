@@ -5,7 +5,7 @@ import { PriceAdjustmentEditor } from "../editors/price-adjustment-editor";
 import { providerPath } from "./provider-path";
 import { MyFormCheckboxGroup } from "@web/components/elements/form/my-form-checkbox-group";
 import { MyFormInput } from "@web/components/elements/form/my-form-input";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import { Label } from "@web/components/ui/label";
@@ -26,7 +26,7 @@ const MODEL_TYPE_LABEL: Record<string, TranslationKey> = {
 };
 
 export function ProviderCommonFields(props: { index: number }) {
-  const { t } = useIntl();
+  const t = useTranslations();
   const form = useFormContext<ConfigSchemaType>();
   const vendors = useFieldArray({
     control: form.control,

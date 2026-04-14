@@ -4,7 +4,7 @@ import type {
   ThemeValue,
 } from "@core/validations/config";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { msg } from "@web/lib/constants";
 import { queryKeys } from "@web/lib/react-query/keys";
 import { rpc } from "@web/lib/rpc";
@@ -25,7 +25,7 @@ export function useGlobalConfig() {
 /** Overwrite the whole global-config file. */
 export function useSaveGlobalConfig() {
   const queryClient = useQueryClient();
-  const { t } = useIntl();
+  const t = useTranslations();
   return useMutation({
     mutationFn: async (config: GlobalConfigType) => {
       const res = await rpc.api.config.global.put({ config });

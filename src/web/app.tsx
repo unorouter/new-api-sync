@@ -2,7 +2,7 @@ import { ConfigFilesDropdown } from "@web/components/elements/config-files-dropd
 import { ConfigPage } from "@web/components/pages/config/config-page";
 import { DashboardPage } from "@web/components/pages/dashboard/dashboard-page";
 import { HistoryPage } from "@web/components/pages/history/history-page";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { LanguageToggle } from "@web/components/toggle/language-toggle";
 import { ThemeToggle } from "@web/components/toggle/theme-toggle";
 import { Toaster } from "@web/components/ui/sonner";
@@ -15,7 +15,7 @@ import {
 import { useUiStore, type MainTab } from "@web/store/ui-store";
 
 export function App() {
-  const { t } = useIntl();
+  const t = useTranslations();
   const mainTab = useUiStore((s) => s.mainTab);
   const setMainTab = useUiStore((s) => s.setMainTab);
 

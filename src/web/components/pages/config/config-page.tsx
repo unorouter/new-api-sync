@@ -1,7 +1,7 @@
 import { customValidateConfig } from "@core/config";
 import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
 import { typeboxResolver } from "@hookform/resolvers/typebox";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import {
   Card,
@@ -29,7 +29,7 @@ import { TargetSection } from "./sections/target-section";
  * whenever the user swaps configs.
  */
 export function ConfigPage() {
-  const { t } = useIntl();
+  const t = useTranslations();
   const selectedName = useUiStore((s) => s.selectedConfigName);
   const config = useConfig(selectedName);
 
@@ -79,7 +79,7 @@ function ConfigForm(props: {
   path: string;
   defaults: ConfigSchemaType;
 }) {
-  const { t } = useIntl();
+  const t = useTranslations();
   const save = useSaveConfig(props.name);
   const [lastServerError, setLastServerError] = useState<string | null>(null);
 

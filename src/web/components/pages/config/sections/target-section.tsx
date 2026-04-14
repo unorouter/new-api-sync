@@ -1,5 +1,5 @@
 import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { MyFormInput } from "@web/components/elements/form/my-form-input";
 import {
   Card,
@@ -14,7 +14,7 @@ import { useFormContext } from "react-hook-form";
 const targetSchema = ConfigSchema.properties.target as TObject;
 
 export function TargetSection() {
-  const { t } = useIntl();
+  const t = useTranslations();
   const form = useFormContext<ConfigSchemaType>();
 
   return (

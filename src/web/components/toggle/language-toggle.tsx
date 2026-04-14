@@ -1,6 +1,6 @@
 "use client";
 
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import {
   DropdownMenu,
@@ -15,7 +15,7 @@ import {
 import { LANGUAGES, LOCALES } from "@web/lib/constants";
 
 export function LanguageToggle() {
-  const { t } = useIntl();
+  const t = useTranslations();
   const locale = useGlobalConfig().data?.locale ?? LOCALES[0];
   const setLocale = useSetGlobalLocale();
   const current = LANGUAGES.find((lang) => lang.locale === locale);

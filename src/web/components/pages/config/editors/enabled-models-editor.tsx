@@ -1,5 +1,5 @@
 import { MODEL_TYPES } from "@core/models/types";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import {
@@ -38,7 +38,7 @@ interface Props {
  * shapes.
  */
 export function EnabledModelsEditor(props: Props) {
-  const { t } = useIntl();
+  const t = useTranslations();
   const items = props.items ?? [];
   const keyCounter = useRef(0);
   const keysRef = useRef<number[]>([]);

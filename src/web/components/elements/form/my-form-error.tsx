@@ -1,5 +1,5 @@
 import { FormMessage } from "@web/components/ui/form";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import type { TranslationKey } from "@web/lib/constants";
 import type { TObject } from "@sinclair/typebox/type";
 
@@ -16,7 +16,7 @@ type MyFormErrorProps = {
  * Falls back to the raw error string if the translation key is missing.
  */
 export function MyFormError(props: MyFormErrorProps) {
-  const { t } = useIntl();
+  const t = useTranslations();
   if (!props.error) return null;
 
   const leafName =

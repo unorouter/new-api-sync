@@ -1,4 +1,4 @@
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Input } from "@web/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@web/components/ui/radio-group";
 import { KeyValueEditor } from "./key-value-editor";
@@ -18,7 +18,7 @@ type Mode = "none" | "single" | "per_key";
  * plain number input, "per_key" is a KeyValueEditor with "default" pinned.
  */
 export function PriceAdjustmentEditor(props: Props) {
-  const { t } = useIntl();
+  const t = useTranslations();
   const mode: Mode =
     props.value === undefined
       ? "none"

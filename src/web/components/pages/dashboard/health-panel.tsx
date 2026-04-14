@@ -1,4 +1,4 @@
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { useHealth } from "@web/hooks/health-hook";
 import { useDashboardConfigMetrics } from "@web/hooks/ui/dashboard-config-metrics-hook";
 import { useUiStore } from "@web/store/ui-store";
@@ -6,7 +6,7 @@ import { CurrentConfigCard } from "./current-config-card";
 import { ServerHealthCard } from "./server-health-card";
 
 export function HealthPanel() {
-  const { t } = useIntl();
+  const t = useTranslations();
   const health = useHealth();
   const selectedConfigName = useUiStore((state) => state.selectedConfigName);
   const dashboardConfig = useDashboardConfigMetrics(selectedConfigName);

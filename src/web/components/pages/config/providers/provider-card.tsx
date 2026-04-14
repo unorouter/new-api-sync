@@ -5,7 +5,7 @@ import { ProviderNewApiPanel } from "./provider-newapi-panel";
 import { ProviderNvidiaPanel } from "./provider-nvidia-panel";
 import { ProviderSub2ApiPanel } from "./provider-sub2api-panel";
 import { providerPath } from "./provider-path";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Badge } from "@web/components/ui/badge";
 import { Button } from "@web/components/ui/button";
 import { Card } from "@web/components/ui/card";
@@ -32,7 +32,7 @@ interface Props {
 }
 
 export function ProviderCard(props: Props) {
-  const { t } = useIntl();
+  const t = useTranslations();
   const form = useFormContext<ConfigSchemaType>();
   const type = useWatch({
     control: form.control,

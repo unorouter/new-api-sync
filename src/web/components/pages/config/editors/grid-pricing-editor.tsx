@@ -1,4 +1,4 @@
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import { PlusIcon, Trash2Icon } from "lucide-react";
@@ -20,7 +20,7 @@ const PRICING_COLUMN = "Pricing";
  * propagates the key across every row.
  */
 export function GridPricingEditor(props: Props) {
-  const { t } = useIntl();
+  const t = useTranslations();
   const keyCounter = useRef(0);
   const rowKeysRef = useRef<number[]>([]);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { Monitor, Moon, Sun } from "lucide-react";
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import {
   DropdownMenu,
@@ -12,7 +12,7 @@ import {
 import { useTheme } from "@web/components/provider/theme-provider";
 
 export function ThemeToggle() {
-  const { t } = useIntl();
+  const t = useTranslations();
   const setTheme = useTheme().setTheme;
 
   return (

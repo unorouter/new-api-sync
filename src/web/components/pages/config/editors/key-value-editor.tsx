@@ -1,4 +1,4 @@
-import { useIntl } from "@web/components/provider/intl-provider";
+import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import { PlusIcon, Trash2Icon } from "lucide-react";
@@ -30,7 +30,7 @@ interface Row {
  * data; the parent is only updated after each valid edit.
  */
 export function KeyValueEditor(props: Props) {
-  const { t } = useIntl();
+  const t = useTranslations();
   const valueType = props.valueType ?? "string";
   const requiredKeys = props.requiredKeys ?? [];
   const keyCounter = useRef(0);
