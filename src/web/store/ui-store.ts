@@ -16,7 +16,7 @@ import {
   type StorageValue,
 } from "zustand/middleware";
 
-export interface UiStore {
+export interface UiState {
   locale: Locale;
   theme: Theme;
   mainTab: MainTab;
@@ -27,7 +27,9 @@ export interface UiStore {
   kiroQuery: string;
   selectedConfigName: string;
   pipelineMode: PipelineMode;
+}
 
+export interface UiActions {
   setLocale: (locale: Locale) => void;
   setTheme: (theme: Theme) => void;
   setMainTab: (tab: MainTab) => void;
@@ -40,21 +42,9 @@ export interface UiStore {
   setPipelineMode: (mode: PipelineMode) => void;
 }
 
-export type PersistedUiState = Pick<
-  UiStore,
-  | "locale"
-  | "theme"
-  | "mainTab"
-  | "historyTab"
-  | "selectedRunId"
-  | "runResultFilter"
-  | "runQuery"
-  | "kiroQuery"
-  | "selectedConfigName"
-  | "pipelineMode"
->;
+export type UiStore = UiState & UiActions;
 
-const defaultPersistedUiState: PersistedUiState = {
+const defaultPersistedUiState: UiState = {
   locale: "en",
   theme: "system",
   mainTab: "dashboard",
@@ -73,21 +63,21 @@ const globalConfigStorage: StateStorage = {
     if (res.error) return null;
     const globalConfig = res.data.data.config;
 
-    const state: PersistedUiState = {
+    const state: UiState = {
       ...defaultPersistedUiState,
       ...(globalConfig ?? {}),
       selectedConfigName: globalConfig.selectedConfigName ?? "",
     };
 
-    const stored: StorageValue<PersistedUiState> = {
+    const stored: StorageValue<UiState> = {
       state,
       version: 1,
     };
     return JSON.stringify(stored);
   },
   setItem: async (_name, value) => {
-    const parsed = JSON.parse(value) as StorageValue<PersistedUiState>;
-    const nextUi: PersistedUiState = {
+    const parsed = JSON.parse(value) as StorageValue<UiState>;
+    const nextUi: UiState = {
       ...defaultPersistedUiState,
       ...(parsed.state ?? {}),
     };
