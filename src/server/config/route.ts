@@ -88,8 +88,8 @@ export function listConfigs(): ConfigFileInfo[] {
     const match = NAMED_RE.exec(entry);
     if (!match) continue;
     const name = match[1]!;
-    // Skip "example" — it's shipped documentation, not a user-editable config.
-    if (name === "example") continue;
+    // Skip reserved files that are not user-selectable runtime configs.
+    if (name === "example" || name === "global") continue;
     const path = `./${entry}`;
     files.push({ name, path, size: Bun.file(path).size });
   }
@@ -161,7 +161,7 @@ export const configRoute = new Elysia({ prefix: "/config" })
     "/files/:name",
     async ({ params, set }) => {
       const t = translatorFor(await readLocaleFromGlobal());
-      if (!params.name || params.name === "example") {
+      if (!params.name || params.name === "example" || params.name === "global") {
         set.status = 400;
         return {
           success: false as const,

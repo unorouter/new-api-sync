@@ -24,7 +24,7 @@ import {
 } from "@web/hooks/config-hook";
 import { useUiStore } from "@web/store/ui-store";
 import { PlusIcon, Trash2Icon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // Select uses "" internally for "no value selected"; base-ui complains when
 // you use the empty string as an item value, so main maps to this sentinel.
@@ -44,6 +44,13 @@ export function ConfigFilesDropdown() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const selectValue = selectedName === "" ? MAIN_VALUE : selectedName;
+
+  useEffect(() => {
+    const names = (files.data ?? []).map((f) => f.name);
+    if (selectedName !== "" && !names.includes(selectedName)) {
+      setSelectedName("");
+    }
+  }, [files.data, selectedName, setSelectedName]);
 
   const handleCreate = () => {
     const trimmed = createName.trim();

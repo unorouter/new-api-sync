@@ -34,6 +34,7 @@ import { toast } from "sonner";
 export function ConfigPage() {
   const { t } = useIntl();
   const selectedName = useUiStore((s) => s.selectedConfigName);
+
   const config = useConfig(selectedName);
 
   if (config.isPending) {
