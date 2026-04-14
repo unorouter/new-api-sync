@@ -22,8 +22,6 @@ interface UiStore {
   runResultFilter: RunResultFilter;
   runQuery: string;
   kiroQuery: string;
-  /** Name of the active config file; "" = main (config.yml), else config.<name>.yml */
-  selectedConfigName: string;
   /** Which pipeline mode the Start button will launch. */
   pipelineMode: PipelineMode;
 
@@ -33,7 +31,6 @@ interface UiStore {
   setRunResultFilter: (filter: RunResultFilter) => void;
   setRunQuery: (query: string) => void;
   setKiroQuery: (query: string) => void;
-  setSelectedConfigName: (name: string) => void;
   setPipelineMode: (mode: PipelineMode) => void;
 }
 
@@ -46,7 +43,6 @@ export const useUiStore = create<UiStore>()(
       runResultFilter: "all",
       runQuery: "",
       kiroQuery: "",
-      selectedConfigName: "",
       pipelineMode: "run",
 
       setMainTab: (mainTab) => set({ mainTab }),
@@ -55,8 +51,6 @@ export const useUiStore = create<UiStore>()(
       setRunResultFilter: (runResultFilter) => set({ runResultFilter }),
       setRunQuery: (runQuery) => set({ runQuery }),
       setKiroQuery: (kiroQuery) => set({ kiroQuery }),
-      setSelectedConfigName: (selectedConfigName) =>
-        set({ selectedConfigName }),
       setPipelineMode: (pipelineMode) => set({ pipelineMode }),
     }),
     { name: "new-api-sync-ui" },

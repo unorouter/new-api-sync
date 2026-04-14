@@ -19,7 +19,7 @@ import {
 import { Form } from "@web/components/ui/form";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { useConfig, useSaveConfig } from "@web/hooks/config-hook";
-import { useUiStore } from "@web/store/ui-store";
+import { useGlobalConfig } from "@web/hooks/global-config-hook";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -33,7 +33,8 @@ import { toast } from "sonner";
  */
 export function ConfigPage() {
   const { t } = useIntl();
-  const selectedName = useUiStore((s) => s.selectedConfigName);
+  const globalConfigQuery = useGlobalConfig();
+  const selectedName = globalConfigQuery.data?.selectedConfigName ?? "";
 
   const config = useConfig(selectedName);
 

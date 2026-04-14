@@ -81,3 +81,18 @@ export function useSetGlobalTheme() {
     },
   });
 }
+
+/** Read-modify-write the selected config name on the global config. */
+export function useSetGlobalSelectedConfig() {
+  const queryClient = useQueryClient();
+  const save = useSaveGlobalConfig();
+  return useMutation({
+    mutationFn: async (selectedConfigName: string) => {
+      const current =
+        queryClient.getQueryData<GlobalConfigType>(queryKeys.globalConfig()) ??
+        {};
+      const next: GlobalConfigType = { ...current, selectedConfigName };
+      return save.mutateAsync(next);
+    },
+  });
+}

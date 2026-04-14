@@ -154,6 +154,7 @@ export type ThemeValue = Static<typeof ThemeEnum>;
 export const GlobalConfigSchema = T.Object({
   locale: T.Optional(LocaleEnum),
   theme: T.Optional(ThemeEnum),
+  selectedConfigName: T.Optional(T.String()),
   blacklist: T.Optional(T.Array(str)),
   modelMapping: T.Optional(T.Record(T.String(), T.String())),
 });
