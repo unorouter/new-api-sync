@@ -63,7 +63,7 @@
     "STOPPED_NO_CONNECTION": "已停止（没有活动连接）",
     "CANCEL_FAILED": "取消失败：{message}",
     "PIPELINE_STARTED": "流水线已启动",
-    "STOP_REQUESTED": "已请求停止"
+    "STOP_REQUESTED": "已请求停止，可能需要一些时间"
   },
   "CONFIG": {
     "FILES": {

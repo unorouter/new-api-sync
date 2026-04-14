@@ -63,7 +63,7 @@
     "STOPPED_NO_CONNECTION": "stopped (no active connection)",
     "CANCEL_FAILED": "cancel failed: {message}",
     "PIPELINE_STARTED": "pipeline started",
-    "STOP_REQUESTED": "stop requested"
+    "STOP_REQUESTED": "stop requested, this can take some time"
   },
   "CONFIG": {
     "FILES": {
