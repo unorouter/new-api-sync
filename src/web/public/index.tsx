@@ -15,11 +15,11 @@ const queryClient = getQueryClient();
 createRoot(container).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <IntlProvider>
+      <IntlProvider>
+        <ThemeProvider>
           <App />
-        </IntlProvider>
-      </ThemeProvider>
+        </ThemeProvider>
+      </IntlProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

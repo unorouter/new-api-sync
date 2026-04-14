@@ -62,7 +62,7 @@
       "NAME_PLACEHOLDER": "debug",
       "CREATE": "Create",
       "CREATE_TITLE": "Create new config",
-      "CREATE_DESC": "Creates config.<name>.yml, seeded from the current selection. Use letters, numbers, hyphen, or underscore.",
+      "CREATE_DESC": "Creates config.name.yml, seeded from the current selection. Use letters, numbers, hyphen, or underscore.",
       "INVALID_NAME": "Use letters, numbers, hyphen, or underscore only.",
       "ALREADY_EXISTS": "Config '{name}' already exists.",
       "DELETE": "Delete",
