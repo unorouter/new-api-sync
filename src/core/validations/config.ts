@@ -145,6 +145,28 @@ export const ThemeEnum = T.Union([
 ]);
 export type ThemeValue = Static<typeof ThemeEnum>;
 
+export const MainTabEnum = T.Union([
+  T.Literal("dashboard"),
+  T.Literal("config"),
+  T.Literal("history"),
+]);
+export const HistoryTabEnum = T.Union([T.Literal("runs"), T.Literal("kiro")]);
+export const RunResultFilterEnum = T.Union([
+  T.Literal("all"),
+  T.Literal("passed"),
+  T.Literal("failed"),
+]);
+export const PipelineModeEnum = T.Union([
+  T.Literal("run"),
+  T.Literal("test"),
+  T.Literal("reset"),
+]);
+
+export type MainTabValue = Static<typeof MainTabEnum>;
+export type HistoryTabValue = Static<typeof HistoryTabEnum>;
+export type RunResultFilterValue = Static<typeof RunResultFilterEnum>;
+export type PipelineModeValue = Static<typeof PipelineModeEnum>;
+
 /**
  * Cross-config settings that live in `config.global.yml`. All fields optional —
  * missing file is treated as an empty object. Locale/theme are global-only
@@ -154,7 +176,14 @@ export type ThemeValue = Static<typeof ThemeEnum>;
 export const GlobalConfigSchema = T.Object({
   locale: T.Optional(LocaleEnum),
   theme: T.Optional(ThemeEnum),
+  mainTab: T.Optional(MainTabEnum),
+  historyTab: T.Optional(HistoryTabEnum),
+  selectedRunId: T.Optional(T.Union([T.String(), T.Null()])),
+  runResultFilter: T.Optional(RunResultFilterEnum),
+  runQuery: T.Optional(T.String()),
+  kiroQuery: T.Optional(T.String()),
   selectedConfigName: T.Optional(T.String()),
+  pipelineMode: T.Optional(PipelineModeEnum),
   blacklist: T.Optional(T.Array(str)),
   modelMapping: T.Optional(T.Record(T.String(), T.String())),
 });

@@ -1,7 +1,7 @@
 import { useIntl } from "@web/components/provider/intl-provider";
-import { useGlobalConfig } from "@web/hooks/global-config-hook";
 import { rpc } from "@web/lib/rpc";
 import { useSyncStore, type SyncMode } from "@web/store/sync-store";
+import { useUiStore } from "@web/store/ui-store";
 import { useMutation } from "@tanstack/react-query";
 import { useRef } from "react";
 import { toast } from "sonner";
@@ -20,7 +20,7 @@ interface RunArgs {
 export function useSyncPipeline() {
   const store = useSyncStore();
   const { t } = useIntl();
-  const globalConfigQuery = useGlobalConfig();
+  const selectedConfigName = useUiStore((s) => s.selectedConfigName);
   const runIdRef = useRef<string | null>(null);
 
   const mutation = useMutation({
@@ -28,8 +28,7 @@ export function useSyncPipeline() {
       store.start(args.mode);
       runIdRef.current = null;
 
-      const configName = globalConfigQuery.data?.selectedConfigName ?? "";
-      const payload = { only: args.only ?? [], configName };
+      const payload = { only: args.only ?? [], configName: selectedConfigName };
 
       const call =
         args.mode === "run"

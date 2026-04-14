@@ -22,10 +22,7 @@ import {
   useCreateConfigFile,
   useDeleteConfigFile,
 } from "@web/hooks/config-hook";
-import {
-  useGlobalConfig,
-  useSetGlobalSelectedConfig,
-} from "@web/hooks/global-config-hook";
+import { useUiStore } from "@web/store/ui-store";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -35,9 +32,9 @@ const MAIN_VALUE = "__main__";
 
 export function ConfigFilesDropdown() {
   const { t } = useIntl();
-  const globalConfigQuery = useGlobalConfig();
-  const setSelectedConfigMutation = useSetGlobalSelectedConfig();
-  const selectedName = globalConfigQuery.data?.selectedConfigName ?? "";
+  const selectedName = useUiStore((s) => s.selectedConfigName);
+  const hasHydrated = useUiStore((s) => s.hasHydrated);
+  const setSelectedName = useUiStore((s) => s.setSelectedConfigName);
   const files = useConfigFiles();
   const createMutation = useCreateConfigFile();
   const deleteMutation = useDeleteConfigFile();
@@ -49,24 +46,18 @@ export function ConfigFilesDropdown() {
 
   const selectValue = selectedName === "" ? MAIN_VALUE : selectedName;
 
-  const setSelectedName = (name: string) => {
-    setSelectedConfigMutation.mutate(name);
-  };
-
   useEffect(() => {
-    const names = (files.data ?? []).map((f) => f.name);
-    if (
-      selectedName !== "" &&
-      !names.includes(selectedName) &&
-      !setSelectedConfigMutation.isPending
-    ) {
-      setSelectedConfigMutation.mutate("");
+    if (!hasHydrated || files.isPending || !files.data) return;
+    const names = files.data.map((f) => f.name);
+    if (selectedName !== "" && !names.includes(selectedName)) {
+      setSelectedName("");
     }
   }, [
     files.data,
+    files.isPending,
+    hasHydrated,
     selectedName,
-    setSelectedConfigMutation,
-    setSelectedConfigMutation.isPending,
+    setSelectedName,
   ]);
 
   const handleCreate = () => {

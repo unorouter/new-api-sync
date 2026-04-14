@@ -6,11 +6,14 @@ import { App } from "@web/app";
 import { IntlProvider } from "@web/components/provider/intl-provider";
 import { ThemeProvider } from "@web/components/provider/theme-provider";
 import getQueryClient from "@web/lib/react-query/client";
+import { useUiStore } from "@web/store/ui-store";
 
 const container = document.getElementById("root");
 if (!container) throw new Error("root element not found");
 
 const queryClient = getQueryClient();
+
+await useUiStore.persist.rehydrate();
 
 createRoot(container).render(
   <StrictMode>

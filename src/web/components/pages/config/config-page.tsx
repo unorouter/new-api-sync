@@ -1,13 +1,6 @@
 import { customValidateConfig } from "@core/config";
-import {
-  ConfigSchema,
-  type ConfigSchemaType,
-} from "@core/validations/config";
+import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
 import { typeboxResolver } from "@hookform/resolvers/typebox";
-import { GlobalSection } from "./sections/global-section";
-import { GlobalSettingsSection } from "./sections/global-settings-section";
-import { ProvidersSection } from "./sections/providers-section";
-import { TargetSection } from "./sections/target-section";
 import { useIntl } from "@web/components/provider/intl-provider";
 import { Button } from "@web/components/ui/button";
 import {
@@ -19,10 +12,14 @@ import {
 import { Form } from "@web/components/ui/form";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { useConfig, useSaveConfig } from "@web/hooks/config-hook";
-import { useGlobalConfig } from "@web/hooks/global-config-hook";
+import { useUiStore } from "@web/store/ui-store";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { GlobalSection } from "./sections/global-section";
+import { GlobalSettingsSection } from "./sections/global-settings-section";
+import { ProvidersSection } from "./sections/providers-section";
+import { TargetSection } from "./sections/target-section";
 
 /**
  * Structured editor for a config file. Outer component loads the server data
@@ -33,18 +30,14 @@ import { toast } from "sonner";
  */
 export function ConfigPage() {
   const { t } = useIntl();
-  const globalConfigQuery = useGlobalConfig();
-  const selectedName = globalConfigQuery.data?.selectedConfigName ?? "";
-
+  const selectedName = useUiStore((s) => s.selectedConfigName);
   const config = useConfig(selectedName);
 
   if (config.isPending) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>
-            {t("CONFIG.TITLE")}
-          </CardTitle>
+          <CardTitle>{t("CONFIG.TITLE")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <Skeleton className="h-8 w-64" />
@@ -58,9 +51,7 @@ export function ConfigPage() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>
-            {t("CONFIG.TITLE")}
-          </CardTitle>
+          <CardTitle>{t("CONFIG.TITLE")}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-destructive text-sm">

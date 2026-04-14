@@ -3,6 +3,7 @@ import {
   type GlobalConfigType,
 } from "@core/validations/config";
 import { Value } from "@sinclair/typebox/value";
+import YAML from "yaml";
 
 /**
  * Loader/writer for `config.global.yml` — the cross-config file that holds
@@ -34,9 +35,10 @@ export async function loadGlobalConfig(): Promise<GlobalConfigType> {
   return parsedRaw as GlobalConfigType;
 }
 
-export async function writeGlobalConfig(
-  next: GlobalConfigType,
-): Promise<void> {
-  const yaml = Bun.YAML.stringify(next);
+export async function writeGlobalConfig(next: GlobalConfigType): Promise<void> {
+  const yaml = YAML.stringify(next, {
+    lineWidth: 0,
+    defaultStringType: "QUOTE_DOUBLE",
+  });
   await Bun.write(GLOBAL_CONFIG_PATH, yaml);
 }

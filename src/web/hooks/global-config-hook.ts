@@ -82,7 +82,7 @@ export function useSetGlobalTheme() {
   });
 }
 
-/** Read-modify-write the selected config name on the global config. */
+/** Read-modify-write selected config on the global config. */
 export function useSetGlobalSelectedConfig() {
   const queryClient = useQueryClient();
   const save = useSaveGlobalConfig();
