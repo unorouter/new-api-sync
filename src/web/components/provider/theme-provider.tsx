@@ -1,10 +1,7 @@
 "use client";
 
 import type { ThemeValue } from "@core/validations/config";
-import {
-  useGlobalConfig,
-  useSetGlobalTheme,
-} from "@web/hooks/global-config-hook";
+import { useUiStore } from "@web/store/ui-store";
 import { createContext, useContext, useEffect } from "react";
 
 type Theme = ThemeValue;
@@ -29,12 +26,8 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider(props: { children: React.ReactNode }) {
-  // Theme lives in `config.global.yml` (not localStorage) so it follows the
-  // user across browsers. Fall back to "system" while the query is loading
-  // or when the field is absent.
-  const globalQuery = useGlobalConfig();
-  const theme: Theme = globalQuery.data?.theme ?? "system";
-  const setThemeMutation = useSetGlobalTheme();
+  const theme: Theme = useUiStore((state) => state.theme);
+  const setThemeInStore = useUiStore((state) => state.setTheme);
 
   useEffect(() => {
     applyTheme(theme);
@@ -50,7 +43,7 @@ export function ThemeProvider(props: { children: React.ReactNode }) {
   }, [theme]);
 
   const setTheme = (next: Theme) => {
-    setThemeMutation.mutate(next);
+    setThemeInStore(next);
   };
 
   return (

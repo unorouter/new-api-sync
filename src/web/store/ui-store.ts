@@ -1,5 +1,13 @@
 import type { GlobalConfigType } from "@core/validations/config";
 import { rpc } from "@web/lib/rpc";
+import type {
+  HistoryTab,
+  Locale,
+  MainTab,
+  PipelineMode,
+  RunResultFilter,
+  Theme,
+} from "@web/types";
 import { create } from "zustand";
 import {
   createJSONStorage,
@@ -8,32 +16,20 @@ import {
   type StorageValue,
 } from "zustand/middleware";
 
-/**
- * Persistent UI state — tabs + filters that should survive a page refresh.
- * Mirrors what the user was looking at so they land back where they were.
- *
- * Does not hold server data. Non-persistent ephemeral state (sync logs,
- * dialog open/close) lives in other stores or local useState.
- */
-
-export type MainTab = "dashboard" | "config" | "history";
-export type HistoryTab = "runs" | "kiro";
-export type RunResultFilter = "all" | "passed" | "failed";
-export type PipelineMode = "run" | "test" | "reset";
-
-interface UiStore {
+export interface UiStore {
+  locale: Locale;
+  theme: Theme;
   mainTab: MainTab;
   historyTab: HistoryTab;
-  /** `null` = show run list; string = show run detail for that id */
   selectedRunId: string | null;
   runResultFilter: RunResultFilter;
   runQuery: string;
   kiroQuery: string;
   selectedConfigName: string;
-  hasHydrated: boolean;
-  /** Which pipeline mode the Start button will launch. */
   pipelineMode: PipelineMode;
 
+  setLocale: (locale: Locale) => void;
+  setTheme: (theme: Theme) => void;
   setMainTab: (tab: MainTab) => void;
   setHistoryTab: (tab: HistoryTab) => void;
   setSelectedRunId: (id: string | null) => void;
@@ -41,12 +37,13 @@ interface UiStore {
   setRunQuery: (query: string) => void;
   setKiroQuery: (query: string) => void;
   setSelectedConfigName: (name: string) => void;
-  setHasHydrated: (hasHydrated: boolean) => void;
   setPipelineMode: (mode: PipelineMode) => void;
 }
 
-type PersistedUiState = Pick<
+export type PersistedUiState = Pick<
   UiStore,
+  | "locale"
+  | "theme"
   | "mainTab"
   | "historyTab"
   | "selectedRunId"
@@ -58,6 +55,8 @@ type PersistedUiState = Pick<
 >;
 
 const defaultPersistedUiState: PersistedUiState = {
+  locale: "en",
+  theme: "system",
   mainTab: "dashboard",
   historyTab: "runs",
   selectedRunId: null,
@@ -82,7 +81,7 @@ const globalConfigStorage: StateStorage = {
 
     const stored: StorageValue<PersistedUiState> = {
       state,
-      version: 2,
+      version: 1,
     };
     return JSON.stringify(stored);
   },
@@ -123,23 +122,25 @@ export const useUiStore = create<UiStore>()(
   persist(
     (set) => ({
       ...defaultPersistedUiState,
-      hasHydrated: false,
-
+      setLocale: (locale) => set({ locale }),
+      setTheme: (theme) => set({ theme }),
       setMainTab: (mainTab) => set({ mainTab }),
       setHistoryTab: (historyTab) => set({ historyTab }),
       setSelectedRunId: (selectedRunId) => set({ selectedRunId }),
       setRunResultFilter: (runResultFilter) => set({ runResultFilter }),
       setRunQuery: (runQuery) => set({ runQuery }),
       setKiroQuery: (kiroQuery) => set({ kiroQuery }),
-      setSelectedConfigName: (selectedConfigName) => set({ selectedConfigName }),
-      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+      setSelectedConfigName: (selectedConfigName) =>
+        set({ selectedConfigName }),
       setPipelineMode: (pipelineMode) => set({ pipelineMode }),
     }),
     {
       name: "new-api-sync-ui",
-      version: 2,
+      version: 1,
       storage: createJSONStorage(() => globalConfigStorage),
       partialize: (state) => ({
+        locale: state.locale,
+        theme: state.theme,
         mainTab: state.mainTab,
         historyTab: state.historyTab,
         selectedRunId: state.selectedRunId,
@@ -149,13 +150,6 @@ export const useUiStore = create<UiStore>()(
         selectedConfigName: state.selectedConfigName,
         pipelineMode: state.pipelineMode,
       }),
-      skipHydration: true,
-      onRehydrateStorage: (state) => {
-        state.setHasHydrated(false);
-        return (nextState) => {
-          nextState?.setHasHydrated(true);
-        };
-      },
     },
   ),
 );

@@ -1,15 +1,6 @@
+import type { LogEntry, SyncMode, SyncPhase } from "@web/types";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-
-export type SyncMode = "run" | "test" | "reset";
-
-export interface LogEntry {
-  id: number;
-  level: string;
-  message: string;
-}
-
-export type SyncPhase = "idle" | "running" | "done" | "error";
 
 interface SyncStore {
   mode: SyncMode | null;

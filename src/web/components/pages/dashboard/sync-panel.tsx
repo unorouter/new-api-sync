@@ -10,8 +10,9 @@ import {
 } from "@web/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@web/components/ui/radio-group";
 import { useSyncPipeline } from "@web/hooks/sync-hook";
-import { useSyncStore, type SyncPhase } from "@web/store/sync-store";
-import { useUiStore, type PipelineMode } from "@web/store/ui-store";
+import { useSyncStore } from "@web/store/sync-store";
+import { useUiStore } from "@web/store/ui-store";
+import type { PipelineMode, SyncPhase } from "@web/types";
 import type { TranslationKey } from "@web/lib/constants";
 import { PlayIcon, SquareIcon } from "lucide-react";
 

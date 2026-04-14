@@ -12,7 +12,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@web/components/ui/tabs";
-import { useUiStore, type MainTab } from "@web/store/ui-store";
+import { useUiStore } from "@web/store/ui-store";
+import type { MainTab } from "@web/types";
 
 export function App() {
   const t = useTranslations();

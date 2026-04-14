@@ -1,7 +1,8 @@
 import { useTranslations } from "use-intl";
 import { rpc } from "@web/lib/rpc";
-import { useSyncStore, type SyncMode } from "@web/store/sync-store";
+import { useSyncStore } from "@web/store/sync-store";
 import { useUiStore } from "@web/store/ui-store";
+import type { SyncMode } from "@web/types";
 import { useMutation } from "@tanstack/react-query";
 import { useRef } from "react";
 import { toast } from "sonner";

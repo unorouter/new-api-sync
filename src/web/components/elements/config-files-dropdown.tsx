@@ -33,7 +33,6 @@ const MAIN_VALUE = "__main__";
 export function ConfigFilesDropdown() {
   const t = useTranslations();
   const selectedName = useUiStore((s) => s.selectedConfigName);
-  const hasHydrated = useUiStore((s) => s.hasHydrated);
   const setSelectedName = useUiStore((s) => s.setSelectedConfigName);
   const files = useConfigFiles();
   const createMutation = useCreateConfigFile();
@@ -47,7 +46,7 @@ export function ConfigFilesDropdown() {
   const selectValue = selectedName === "" ? MAIN_VALUE : selectedName;
 
   useEffect(() => {
-    if (!hasHydrated || files.isPending || !files.data) return;
+    if (files.isPending || !files.data) return;
     const names = files.data.map((f) => f.name);
     if (selectedName !== "" && !names.includes(selectedName)) {
       setSelectedName("");
@@ -55,7 +54,6 @@ export function ConfigFilesDropdown() {
   }, [
     files.data,
     files.isPending,
-    hasHydrated,
     selectedName,
     setSelectedName,
   ]);
