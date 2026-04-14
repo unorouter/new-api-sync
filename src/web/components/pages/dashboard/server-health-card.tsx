@@ -1,4 +1,4 @@
-import  { Row } from "@web/components/elements/row";
+import { Row } from "@web/components/elements/row";
 import { useIntl } from "@web/components/provider/intl-provider";
 import { Badge } from "@web/components/ui/badge";
 import {
@@ -8,22 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@web/components/ui/card";
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
-
-function formatUptime(seconds: number): string {
-  if (seconds < 60) return `${seconds.toFixed(1)}s`;
-  const mins = Math.floor(seconds / 60);
-  if (mins < 60) return `${mins}m ${Math.floor(seconds % 60)}s`;
-  const hours = Math.floor(mins / 60);
-  return `${hours}h ${mins % 60}m`;
-}
+import { formatBytes, formatUptime } from "@web/lib/constants";
 
 export function ServerHealthCard(props: {
   intl: ReturnType<typeof useIntl>;
