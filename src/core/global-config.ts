@@ -2,6 +2,7 @@ import {
   GlobalConfigSchema,
   type GlobalConfigType,
 } from "@core/validations/config";
+import { t } from "@server/i18n";
 import { Value } from "@sinclair/typebox/value";
 import YAML from "yaml";
 
@@ -20,8 +21,12 @@ export async function loadGlobalConfig(): Promise<GlobalConfigType> {
   try {
     parsedRaw = Bun.YAML.parse(await file.text());
   } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `Invalid YAML in ${GLOBAL_CONFIG_PATH}: ${error instanceof Error ? error.message : String(error)}`,
+      t("ERROR.GLOBAL_CONFIG_INVALID_YAML", {
+        path: GLOBAL_CONFIG_PATH,
+        detail,
+      }),
     );
   }
   // Treat an empty document (null) as "no settings".
@@ -30,7 +35,9 @@ export async function loadGlobalConfig(): Promise<GlobalConfigType> {
     const errors = [...Value.Errors(GlobalConfigSchema, parsedRaw)]
       .map((e) => `${e.path || "root"}: ${e.message}`)
       .join("\n");
-    throw new Error(`${GLOBAL_CONFIG_PATH} validation failed:\n${errors}`);
+    throw new Error(
+      t("ERROR.GLOBAL_CONFIG_VALIDATION_FAILED", { detail: errors }),
+    );
   }
   return parsedRaw as GlobalConfigType;
 }

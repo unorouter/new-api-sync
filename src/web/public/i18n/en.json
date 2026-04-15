@@ -213,6 +213,65 @@
     "CANNOT_DELETE_MAIN": "cannot delete main or reserved configs",
     "CONFIG_NOT_FOUND": "config '{name}' not found"
   },
+  "ERROR": {
+    "CONFIG_NO_FILE_FOUND": "No config file found (tried {tried})",
+    "CONFIG_FILE_NOT_FOUND": "Config file not found: {path}",
+    "CONFIG_INVALID_YAML": "Invalid YAML in {path}: {detail}",
+    "CONFIG_VALIDATION_FAILED": "Config validation failed:\n{detail}",
+    "CONFIG_UNKNOWN_PROVIDERS": "Unknown provider(s): {unknown}. Available: {available}",
+    "GLOBAL_CONFIG_INVALID_YAML": "Invalid YAML in {path}: {detail}",
+    "GLOBAL_CONFIG_VALIDATION_FAILED": "{detail}",
+    "HTTP_ERROR": "HTTP {status} {statusText}",
+    "DIRECT_ANTHROPIC_NO_LIST_ENDPOINT": "Anthropic has no model listing endpoint. Please provide an explicit 'models' array in the provider config.",
+    "SUB2API_ACCOUNT_LIST_FAILED": "Account list failed: {detail}",
+    "SUB2API_GET_MODELS_FAILED": "Get models failed: {detail}",
+    "SUB2API_GROUP_LIST_FAILED": "Group list failed: {detail}",
+    "SUB2API_GET_GROUP_API_KEYS_FAILED": "Get group API keys failed: {detail}",
+    "NEWAPI_FETCH_PRICING_FAILED": "Failed to fetch pricing from both /api/pricing_new and /api/pricing",
+    "NEWAPI_TOKEN_LIST_API_FAILED": "Token list API returned success: false{detail}",
+    "NEWAPI_CHANNEL_LIST_API_FAILED": "Channel list API returned success: false",
+    "TARGET_HEALTH_CHECK_FAILED": "Target health check failed: {detail}",
+    "CANCELLED_BY_USER": "cancelled by user"
+  },
+  "CLI": {
+    "APP_DESCRIPTION": "new-api-sync",
+    "COMMAND": {
+      "RUN_DESC": "run sync pipeline",
+      "RESET_DESC": "delete sync managed resources",
+      "UI_DESC": "launch the web UI (Elysia and React dashboard)",
+      "TEST_DESC": "test models without applying changes to the target"
+    },
+    "OPTION": {
+      "CONFIG_PATH": "config file path",
+      "ONLY_PROVIDERS": "comma separated provider names",
+      "VERBOSE": "enable debug logging",
+      "PORT": "port to listen on"
+    },
+    "STATUS": {
+      "UI_RUNNING": "new-api-sync UI running at http://localhost:{port}"
+    },
+    "ERROR": {
+      "UNKNOWN": "Error: {message}",
+      "UNKNOWN_SHORT": "unknown error"
+    },
+    "SUMMARY": {
+      "PROVIDERS": "Providers: {passed}/{total}",
+      "CHANNELS": "Channels: +{created} ~{updated} -{deleted}",
+      "MODELS": "Models: +{created} ~{updated} -{deleted} | Orphans: -{orphans}",
+      "OPTIONS_UPDATED": "Options updated: {count}",
+      "PROVIDER_ERROR": "[{name}] {error}",
+      "APPLY_ERROR": "[{phase}/{key}] {message}",
+      "COMPLETED": "Completed in {elapsed}s",
+      "COMPLETED_WITH_ERRORS": "Completed with errors in {elapsed}s",
+      "RESET_COMPLETE": "Reset complete | Channels: -{channels} | Models: -{models} | Orphans: -{orphans} | Tokens: -{tokens} | Options: {options}",
+      "TEST_STATUS_PASS": "✓",
+      "TEST_STATUS_FAIL": "✗",
+      "TEST_PROVIDER": "  {status} {name}: {models} models",
+      "TEST_PROVIDER_ERROR": "    {error}",
+      "TEST_COMPLETED": "Test completed in {elapsed}s",
+      "TEST_COMPLETED_WITH_ERRORS": "Test completed with errors in {elapsed}s"
+    }
+  },
   "MODEL_TYPE": {
     "TEXT": "text",
     "IMAGE": "image",

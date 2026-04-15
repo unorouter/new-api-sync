@@ -1,13 +1,14 @@
 import { throwIfRunAborted } from "@core/abort";
 import type { RuntimeConfig } from "@core/config";
+import { MANAGED_OPTION_KEYS, VENDOR_MATCHERS } from "@core/models/constants";
+import { loadKiroBlacklist, writeTestReport } from "@core/models/tester";
+import { NewApiClient } from "@core/providers/newapi/client";
 import { applySyncDiff } from "@core/sync/apply";
 import { buildSyncDiff } from "@core/sync/diff";
 import { runProviderPipeline } from "@core/sync/pipeline";
 import type { ResetResult } from "@core/sync/reset";
-import { MANAGED_OPTION_KEYS, VENDOR_MATCHERS } from "@core/models/constants";
-import { loadKiroBlacklist, writeTestReport } from "@core/models/tester";
 import type { DesiredState, SyncRunResult, TargetSnapshot } from "@core/types";
-import { NewApiClient } from "@core/providers/newapi/client";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 
 async function ensureVendors(
@@ -102,7 +103,11 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
 
   const health = await target.healthCheck();
   if (!health.ok) {
-    throw new Error(`Target health check failed: ${health.error ?? "unknown"}`);
+    throw new Error(
+      t("ERROR.TARGET_HEALTH_CHECK_FAILED", {
+        detail: health.error ?? "unknown",
+      }),
+    );
   }
 
   throwIfRunAborted();
@@ -143,36 +148,70 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
 export function printRunSummary(result: SyncRunResult): void {
   const elapsed = (result.elapsedMs / 1000).toFixed(2);
   consola.info(
-    `Providers: ${result.providerReports.filter((provider) => provider.success).length}/${result.providerReports.length}`,
+    t("CLI.SUMMARY.PROVIDERS", {
+      passed: result.providerReports.filter((provider) => provider.success)
+        .length,
+      total: result.providerReports.length,
+    }),
   );
   consola.info(
-    `Channels: +${result.apply.channels.created} ~${result.apply.channels.updated} -${result.apply.channels.deleted}`,
+    t("CLI.SUMMARY.CHANNELS", {
+      created: result.apply.channels.created,
+      updated: result.apply.channels.updated,
+      deleted: result.apply.channels.deleted,
+    }),
   );
   consola.info(
-    `Models: +${result.apply.models.created} ~${result.apply.models.updated} -${result.apply.models.deleted} | Orphans: -${result.apply.models.orphansDeleted}`,
+    t("CLI.SUMMARY.MODELS", {
+      created: result.apply.models.created,
+      updated: result.apply.models.updated,
+      deleted: result.apply.models.deleted,
+      orphans: result.apply.models.orphansDeleted,
+    }),
   );
-  consola.info(`Options updated: ${result.apply.options.updated.length}`);
+  consola.info(
+    t("CLI.SUMMARY.OPTIONS_UPDATED", {
+      count: result.apply.options.updated.length,
+    }),
+  );
 
   for (const provider of result.providerReports) {
     if (provider.success) continue;
-    consola.warn(`[${provider.name}] ${provider.error ?? "unknown error"}`);
+    consola.warn(
+      t("CLI.SUMMARY.PROVIDER_ERROR", {
+        name: provider.name,
+        error: provider.error ?? t("CLI.ERROR.UNKNOWN_SHORT"),
+      }),
+    );
   }
 
   for (const error of result.apply.errors) {
-    consola.error(`[${error.phase}/${error.key}] ${error.message}`);
+    consola.error(
+      t("CLI.SUMMARY.APPLY_ERROR", {
+        phase: error.phase,
+        key: error.key,
+        message: error.message,
+      }),
+    );
   }
 
   writeTestReport();
 
   if (result.success) {
-    consola.success(`Completed in ${elapsed}s`);
+    consola.success(t("CLI.SUMMARY.COMPLETED", { elapsed }));
   } else {
-    consola.error(`Completed with errors in ${elapsed}s`);
+    consola.error(t("CLI.SUMMARY.COMPLETED_WITH_ERRORS", { elapsed }));
   }
 }
 
 export function printResetSummary(result: ResetResult): void {
   consola.info(
-    `Reset complete | Channels: -${result.channelsDeleted} | Models: -${result.modelsDeleted} | Orphans: -${result.orphanModelsDeleted} | Tokens: -${result.tokensDeleted} | Options: ${result.optionsUpdated.length}`,
+    t("CLI.SUMMARY.RESET_COMPLETE", {
+      channels: result.channelsDeleted,
+      models: result.modelsDeleted,
+      orphans: result.orphanModelsDeleted,
+      tokens: result.tokensDeleted,
+      options: result.optionsUpdated.length,
+    }),
   );
 }

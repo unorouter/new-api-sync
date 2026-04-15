@@ -1,5 +1,6 @@
-import type { Sub2ApiProviderConfig } from "@core/validations/config";
 import { fetchJson } from "@core/http";
+import type { Sub2ApiProviderConfig } from "@core/validations/config";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 import type {
   PaginatedData,
@@ -41,7 +42,11 @@ export class Sub2ApiClient {
         { headers: this.adminHeaders },
       );
       if (response.code !== 0 || !response.data) {
-        throw new Error(`Account list failed: ${response.message}`);
+        throw new Error(
+          t("ERROR.SUB2API_ACCOUNT_LIST_FAILED", {
+            detail: response.message ?? "unknown",
+          }),
+        );
       }
       const data = response.data;
 
@@ -60,7 +65,11 @@ export class Sub2ApiClient {
       { headers: this.adminHeaders },
     );
     if (response.code !== 0) {
-      throw new Error(`Get models failed: ${response.message}`);
+      throw new Error(
+        t("ERROR.SUB2API_GET_MODELS_FAILED", {
+          detail: response.message ?? "unknown",
+        }),
+      );
     }
     return response.data ?? [];
   }
@@ -78,7 +87,11 @@ export class Sub2ApiClient {
         { headers: this.adminHeaders },
       );
       if (response.code !== 0 || !response.data) {
-        throw new Error(`Group list failed: ${response.message}`);
+        throw new Error(
+          t("ERROR.SUB2API_GROUP_LIST_FAILED", {
+            detail: response.message ?? "unknown",
+          }),
+        );
       }
       const data = response.data;
 
@@ -98,7 +111,11 @@ export class Sub2ApiClient {
       { headers: this.adminHeaders },
     );
     if (response.code !== 0 || !response.data) {
-      throw new Error(`Get group API keys failed: ${response.message}`);
+      throw new Error(
+        t("ERROR.SUB2API_GET_GROUP_API_KEYS_FAILED", {
+          detail: response.message ?? "unknown",
+        }),
+      );
     }
     const data = response.data;
 

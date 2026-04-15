@@ -1,3 +1,5 @@
+import { t } from "@server/i18n";
+
 interface FetchOptions {
   headers?: Record<string, string>;
   method?: string;
@@ -27,7 +29,12 @@ export async function fetchJson<T>(
 ): Promise<T> {
   const response = await fetch(...buildRequest(url, options));
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    throw new Error(
+      t("ERROR.HTTP_ERROR", {
+        status: response.status,
+        statusText: response.statusText,
+      }),
+    );
   }
   return response.json() as Promise<T>;
 }

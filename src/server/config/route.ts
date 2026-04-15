@@ -19,9 +19,9 @@ import {
   GlobalConfigPutBodySchema,
   GlobalConfigPutResponsesSchema,
 } from "@core/validations/config-route";
+import { t } from "@server/i18n";
 import { Elysia } from "elysia";
 import { readdirSync, unlinkSync } from "node:fs";
-import { readLocaleFromGlobal, translatorFor } from "../i18n";
 import { stringifyWithComments } from "./yaml-sync";
 
 /**
@@ -109,7 +109,6 @@ export const configRoute = new Elysia({ prefix: "/config" })
   .post(
     "/files",
     async ({ body, set }) => {
-      const t = translatorFor(await readLocaleFromGlobal());
       if (body.name === "example") {
         set.status = 400;
         return {
@@ -160,8 +159,11 @@ export const configRoute = new Elysia({ prefix: "/config" })
   .delete(
     "/files/:name",
     async ({ params, set }) => {
-      const t = translatorFor(await readLocaleFromGlobal());
-      if (!params.name || params.name === "example" || params.name === "global") {
+      if (
+        !params.name ||
+        params.name === "example" ||
+        params.name === "global"
+      ) {
         set.status = 400;
         return {
           success: false as const,
@@ -191,7 +193,7 @@ export const configRoute = new Elysia({ prefix: "/config" })
       const path = configPath(name);
       if (!(Bun.file(path).size > 0)) {
         set.status = 404;
-        const t = translatorFor(await readLocaleFromGlobal());
+
         return {
           success: false as const,
           message: t("SERVER.CONFIG_NOT_FOUND", { name: name || "main" }),
@@ -213,7 +215,6 @@ export const configRoute = new Elysia({ prefix: "/config" })
       const path = configPath(name);
       if (!(Bun.file(path).size > 0)) {
         set.status = 404;
-        const t = translatorFor(await readLocaleFromGlobal());
         return {
           success: false as const,
           message: t("SERVER.CONFIG_NOT_FOUND", { name: name || "main" }),

@@ -1,5 +1,6 @@
-import { consola } from "consola";
+import { t } from "@server/i18n";
 import type { ConsolaReporter } from "consola";
+import { consola } from "consola";
 import { sse } from "elysia";
 
 /**
@@ -70,9 +71,7 @@ export async function* pipelineStream(
     log: (logObj) => {
       const message = [logObj.message, ...(logObj.args ?? [])]
         .filter((part) => part !== undefined)
-        .map((part) =>
-          typeof part === "string" ? part : JSON.stringify(part),
-        )
+        .map((part) => (typeof part === "string" ? part : JSON.stringify(part)))
         .join(" ");
       push({ kind: "log", level: logObj.type, message });
     },
@@ -88,14 +87,12 @@ export async function* pipelineStream(
       const aborted =
         controller.signal.aborted ||
         (error instanceof DOMException && error.name === "AbortError");
-      push({
-        kind: "error",
-        message: aborted
-          ? "cancelled by user"
-          : error instanceof Error
-            ? error.message
-            : String(error),
-      });
+      const message = aborted
+        ? t("ERROR.CANCELLED_BY_USER")
+        : error instanceof Error
+          ? error.message
+          : String(error);
+      push({ kind: "error", message });
     })
     .finally(() => {
       done = true;

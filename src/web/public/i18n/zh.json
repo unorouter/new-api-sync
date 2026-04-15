@@ -213,6 +213,65 @@
     "CANNOT_DELETE_MAIN": "无法删除主配置或保留配置",
     "CONFIG_NOT_FOUND": "未找到配置“{name}”"
   },
+  "ERROR": {
+    "CONFIG_NO_FILE_FOUND": "未找到配置文件（尝试过：{tried}）",
+    "CONFIG_FILE_NOT_FOUND": "未找到配置文件：{path}",
+    "CONFIG_INVALID_YAML": "{path} 中的 YAML 无效：{detail}",
+    "CONFIG_VALIDATION_FAILED": "配置校验失败：\n{detail}",
+    "CONFIG_UNKNOWN_PROVIDERS": "未知提供商：{unknown}。可用提供商：{available}",
+    "GLOBAL_CONFIG_INVALID_YAML": "{path} 中的 YAML 无效：{detail}",
+    "GLOBAL_CONFIG_VALIDATION_FAILED": "{detail}",
+    "HTTP_ERROR": "HTTP {status} {statusText}",
+    "DIRECT_ANTHROPIC_NO_LIST_ENDPOINT": "Anthropic 没有模型列表接口。请在提供商配置中显式提供 models 数组。",
+    "SUB2API_ACCOUNT_LIST_FAILED": "获取账号列表失败：{detail}",
+    "SUB2API_GET_MODELS_FAILED": "获取模型失败：{detail}",
+    "SUB2API_GROUP_LIST_FAILED": "获取分组列表失败：{detail}",
+    "SUB2API_GET_GROUP_API_KEYS_FAILED": "获取分组 API 密钥失败：{detail}",
+    "NEWAPI_FETCH_PRICING_FAILED": "从 /api/pricing_new 和 /api/pricing 获取定价失败",
+    "NEWAPI_TOKEN_LIST_API_FAILED": "Token 列表接口返回 success=false{detail}",
+    "NEWAPI_CHANNEL_LIST_API_FAILED": "Channel 列表接口返回 success=false",
+    "TARGET_HEALTH_CHECK_FAILED": "目标健康检查失败：{detail}",
+    "CANCELLED_BY_USER": "已由用户取消"
+  },
+  "CLI": {
+    "APP_DESCRIPTION": "new-api-sync",
+    "COMMAND": {
+      "RUN_DESC": "运行同步流水线",
+      "RESET_DESC": "删除同步管理的资源",
+      "UI_DESC": "启动 Web 界面（Elysia 和 React 仪表盘）",
+      "TEST_DESC": "测试模型但不将变更应用到目标端"
+    },
+    "OPTION": {
+      "CONFIG_PATH": "配置文件路径",
+      "ONLY_PROVIDERS": "逗号分隔的提供商名称",
+      "VERBOSE": "启用调试日志",
+      "PORT": "监听端口"
+    },
+    "STATUS": {
+      "UI_RUNNING": "new-api-sync 界面运行于 http://localhost:{port}"
+    },
+    "ERROR": {
+      "UNKNOWN": "错误：{message}",
+      "UNKNOWN_SHORT": "未知错误"
+    },
+    "SUMMARY": {
+      "PROVIDERS": "提供商：{passed}/{total}",
+      "CHANNELS": "渠道：+{created} ~{updated} -{deleted}",
+      "MODELS": "模型：+{created} ~{updated} -{deleted} | 孤儿：-{orphans}",
+      "OPTIONS_UPDATED": "已更新选项：{count}",
+      "PROVIDER_ERROR": "[{name}] {error}",
+      "APPLY_ERROR": "[{phase}/{key}] {message}",
+      "COMPLETED": "已在 {elapsed}s 内完成",
+      "COMPLETED_WITH_ERRORS": "已在 {elapsed}s 内完成，存在错误",
+      "RESET_COMPLETE": "重置完成 | 渠道：-{channels} | 模型：-{models} | 孤儿：-{orphans} | 令牌：-{tokens} | 选项：{options}",
+      "TEST_STATUS_PASS": "✓",
+      "TEST_STATUS_FAIL": "✗",
+      "TEST_PROVIDER": "  {status} {name}: {models} 个模型",
+      "TEST_PROVIDER_ERROR": "    {error}",
+      "TEST_COMPLETED": "测试已在 {elapsed}s 内完成",
+      "TEST_COMPLETED_WITH_ERRORS": "测试已在 {elapsed}s 内完成，存在错误"
+    }
+  },
   "MODEL_TYPE": {
     "TEXT": "文本",
     "IMAGE": "图像",

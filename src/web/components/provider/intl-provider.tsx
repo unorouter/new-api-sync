@@ -1,6 +1,6 @@
 "use client";
 
-import { LOCALES, MESSAGES, type Locale } from "@web/lib/constants";
+import { LOCALES, MESSAGES } from "@web/lib/constants";
 import { useUiStore } from "@web/store/ui-store";
 import { IntlProvider as UseIntlProvider } from "use-intl";
 
@@ -9,7 +9,7 @@ import { IntlProvider as UseIntlProvider } from "use-intl";
  * which is persisted through `config.global.yml` via globalConfigStorage.
  */
 export function IntlProvider(props: { children: React.ReactNode }) {
-  const locale: Locale = useUiStore((state) => state.locale) ?? LOCALES[0];
+  const locale = useUiStore((state) => state.locale) ?? LOCALES[0];
 
   return (
     <UseIntlProvider locale={locale} messages={MESSAGES[locale]}>
@@ -17,4 +17,3 @@ export function IntlProvider(props: { children: React.ReactNode }) {
     </UseIntlProvider>
   );
 }
-

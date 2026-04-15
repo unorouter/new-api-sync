@@ -1,11 +1,12 @@
 import { throwIfRunAborted } from "@core/abort";
+import { fetchJson, tryFetchJson } from "@core/http";
 import {
   CHANNEL_TYPES,
   inferChannelType,
   PAGINATION,
 } from "@core/models/constants";
-import { fetchJson, tryFetchJson } from "@core/http";
 import type { Channel, GroupInfo, ModelMeta, Vendor } from "@core/types";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 import type {
   ApiResponse,
@@ -103,9 +104,7 @@ export class NewApiClient {
       break;
     }
     if (!raw) {
-      throw new Error(
-        "Failed to fetch pricing from both /api/pricing_new and /api/pricing",
-      );
+      throw new Error(t("ERROR.NEWAPI_FETCH_PRICING_FAILED"));
     }
 
     // Extract supported_endpoint before format dispatch (both V1 and V2 may have it)
@@ -268,7 +267,9 @@ export class NewApiClient {
       );
       if (!data.success) {
         throw new Error(
-          `Token list API returned success: false${data.message ? ` (${data.message})` : ""}`,
+          t("ERROR.NEWAPI_TOKEN_LIST_API_FAILED", {
+            detail: data.message ? ` (${data.message})` : "",
+          }),
         );
       }
       const tokens = Array.isArray(data.data)
@@ -476,8 +477,9 @@ export class NewApiClient {
         `${this.baseUrl}/api/channel/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
         { headers: this.headers },
       );
-      if (!data.success)
-        throw new Error("Channel list API returned success: false");
+      if (!data.success) {
+        throw new Error(t("ERROR.NEWAPI_CHANNEL_LIST_API_FAILED"));
+      }
       const items = Array.isArray(data.data)
         ? data.data
         : (data.data?.items ?? data.data?.data ?? []);

@@ -6,6 +6,7 @@ import {
   type ConfigSchemaType,
   type EnabledModelEntry,
 } from "@core/validations/config";
+import { t } from "@server/i18n";
 import { type TSchema } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 
@@ -125,35 +126,44 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
     }
     if (!resolvedPath) {
       throw new Error(
-        `No config file found (tried ${CONFIG_CANDIDATES.join(", ")})`,
+        t("ERROR.CONFIG_NO_FILE_FOUND", {
+          tried: CONFIG_CANDIDATES.join(", "),
+        }),
       );
     }
   }
 
   const file = Bun.file(resolvedPath);
   if (!(await file.exists())) {
-    throw new Error(`Config file not found: ${resolvedPath}`);
+    throw new Error(t("ERROR.CONFIG_FILE_NOT_FOUND", { path: resolvedPath }));
   }
 
   let parsedRaw: unknown;
   try {
     parsedRaw = Bun.YAML.parse(await file.text());
   } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `Invalid YAML in ${resolvedPath}: ${error instanceof Error ? error.message : String(error)}`,
+      t("ERROR.CONFIG_INVALID_YAML", { path: resolvedPath, detail }),
     );
   }
 
   if (!Value.Check(ConfigSchema, parsedRaw)) {
     throw new Error(
-      `Config validation failed:\n${formatTypeBoxErrors(ConfigSchema, parsedRaw)}`,
+      t("ERROR.CONFIG_VALIDATION_FAILED", {
+        detail: formatTypeBoxErrors(ConfigSchema, parsedRaw),
+      }),
     );
   }
 
   const typed = parsedRaw as ConfigSchemaType;
   const customErrors = customValidateConfig(typed);
   if (customErrors.length > 0) {
-    throw new Error(`Config validation failed:\n${customErrors.join("\n")}`);
+    throw new Error(
+      t("ERROR.CONFIG_VALIDATION_FAILED", {
+        detail: customErrors.join("\n"),
+      }),
+    );
   }
 
   // Apply provider-level defaults that Zod's .default() used to handle
@@ -222,7 +232,10 @@ export function applyOnlyProviders(
   const unknown = normalized.filter((name) => !available.has(name));
   if (unknown.length > 0) {
     throw new Error(
-      `Unknown provider(s): ${unknown.join(", ")}. Available: ${[...available].join(", ")}`,
+      t("ERROR.CONFIG_UNKNOWN_PROVIDERS", {
+        unknown: unknown.join(", "),
+        available: [...available].join(", "),
+      }),
     );
   }
 

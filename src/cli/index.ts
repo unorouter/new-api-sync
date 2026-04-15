@@ -2,23 +2,25 @@ import { applyOnlyProviders, loadConfig } from "@core/config";
 import { runReset } from "@core/sync/reset";
 import { printResetSummary, printRunSummary, runSync } from "@core/sync/run";
 import { runTestPipeline } from "@core/sync/test-runner";
+import { readLocaleFromGlobal, setLocale, t } from "@server/i18n";
 import { Command } from "commander";
 import { consola } from "consola";
 
+setLocale(await readLocaleFromGlobal());
 const program = new Command();
-program.name("sync").description("new-api-sync").showHelpAfterError();
+program.name("sync").description(t("CLI.APP_DESCRIPTION")).showHelpAfterError();
 
 program
   .command("run")
-  .description("run sync pipeline")
-  .option("-c, --config <path>", "config file path")
+  .description(t("CLI.COMMAND.RUN_DESC"))
+  .option("-c, --config <path>", t("CLI.OPTION.CONFIG_PATH"))
   .option(
     "--only <providers>",
-    "comma-separated provider names",
+    t("CLI.OPTION.ONLY_PROVIDERS"),
     (value: string, prev: string[]) => [...prev, value],
     [] as string[],
   )
-  .option("-v, --verbose", "enable debug logging")
+  .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
   .action(
     async (options: { config?: string; only: string[]; verbose?: boolean }) => {
       if (options.verbose) consola.level = 4;
@@ -37,11 +39,11 @@ program
 
 program
   .command("reset")
-  .description("delete sync-managed resources")
-  .option("-c, --config <path>", "config file path")
+  .description(t("CLI.COMMAND.RESET_DESC"))
+  .option("-c, --config <path>", t("CLI.OPTION.CONFIG_PATH"))
   .option(
     "--only <providers>",
-    "comma-separated provider names",
+    t("CLI.OPTION.ONLY_PROVIDERS"),
     (value: string, prev: string[]) => [...prev, value],
     [] as string[],
   )
@@ -56,28 +58,26 @@ program
 
 program
   .command("ui")
-  .description("launch the web UI (Elysia + React dashboard)")
-  .option("-p, --port <port>", "port to listen on", "3000")
+  .description(t("CLI.COMMAND.UI_DESC"))
+  .option("-p, --port <port>", t("CLI.OPTION.PORT"), "3000")
   .action(async (options: { port: string }) => {
     process.env.PORT = options.port;
     const { app } = await import("@server/route");
     app.listen(Number(options.port));
-    consola.success(
-      `new-api-sync UI running at http://localhost:${options.port}`,
-    );
+    consola.success(t("CLI.STATUS.UI_RUNNING", { port: options.port }));
   });
 
 program
   .command("test")
-  .description("test models without applying changes to the target")
-  .option("-c, --config <path>", "config file path")
+  .description(t("CLI.COMMAND.TEST_DESC"))
+  .option("-c, --config <path>", t("CLI.OPTION.CONFIG_PATH"))
   .option(
     "--only <providers>",
-    "comma-separated provider names",
+    t("CLI.OPTION.ONLY_PROVIDERS"),
     (value: string, prev: string[]) => [...prev, value],
     [] as string[],
   )
-  .option("-v, --verbose", "enable debug logging")
+  .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
   .action(
     async (options: { config?: string; only: string[]; verbose?: boolean }) => {
       if (options.verbose) consola.level = 4;

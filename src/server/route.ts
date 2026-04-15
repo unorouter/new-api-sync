@@ -1,11 +1,14 @@
 import { staticPlugin } from "@elysiajs/static";
-import { existsSync } from "node:fs";
+import { readLocaleFromGlobal, setLocale } from "@server/i18n";
 import { Elysia } from "elysia";
-import { configRoute } from "./config/route";
+import { existsSync } from "node:fs";
 import { embeddedAssets } from "../embedded-assets";
+import { configRoute } from "./config/route";
 import { healthRoute } from "./health/route";
 import { historyRoute } from "./history/route";
 import { pipelineRoute } from "./pipeline/route";
+
+setLocale(await readLocaleFromGlobal());
 
 // `embeddedAssets` is populated at build time by src/build.ts with base64
 // bytes of every file in dist/public/. The stub checked into git is empty,
@@ -55,11 +58,7 @@ function mountAssets(app: Elysia) {
  * - API routes live under `/api/*`.
  */
 export const app = mountAssets(new Elysia()).group("/api", (api) =>
-  api
-    .use(healthRoute)
-    .use(configRoute)
-    .use(historyRoute)
-    .use(pipelineRoute),
+  api.use(healthRoute).use(configRoute).use(historyRoute).use(pipelineRoute),
 );
 
 export type App = typeof app;

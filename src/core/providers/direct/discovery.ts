@@ -1,4 +1,5 @@
 import { tryFetchJson } from "@core/http";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 
 interface OpenAIModelList {
@@ -26,9 +27,7 @@ export async function discoverModels(
   const base = baseUrl.replace(/\/$/, "");
 
   if (vendor === "anthropic") {
-    throw new Error(
-      "Anthropic has no model listing endpoint. Please provide an explicit 'models' array in the provider config.",
-    );
+    throw new Error(t("ERROR.DIRECT_ANTHROPIC_NO_LIST_ENDPOINT"));
   }
 
   if (vendor === "google") {
