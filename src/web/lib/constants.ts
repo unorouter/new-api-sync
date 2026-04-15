@@ -7,10 +7,6 @@ import type { useTranslations } from "use-intl";
 export const LOCALES = ["en", "zh"] as const;
 export type Locale = (typeof LOCALES)[number];
 
-export type TranslationKey = Parameters<
-  ReturnType<typeof useTranslations<never>>
->[0];
-
 /**
  * Message catalogs keyed by locale. `zh` is typed against `en`'s shape so the
  * build fails if a key is missing.
@@ -25,6 +21,10 @@ export const LANGUAGES: {
   { code: "EN", locale: "en", Flag: US },
   { code: "ZH", locale: "zh", Flag: CN },
 ];
+
+export type TranslationKey = Parameters<
+  ReturnType<typeof useTranslations<never>>
+>[0];
 
 /**
  * Pass-through helper for declaring translation keys in non-React code.

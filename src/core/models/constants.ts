@@ -119,6 +119,8 @@ interface TaskModelOverride {
 }
 
 const TASK_MODEL_OVERRIDES: [string, TaskModelOverride][] = [
+  ["grok-imagine-video", { channelType: CHANNEL_TYPES.XAI }],
+  ["grok-video", { channelType: CHANNEL_TYPES.XAI }],
   ["sora", { channelType: CHANNEL_TYPES.SORA }],
   ["kling", { channelType: CHANNEL_TYPES.KLING }],
   ["vidu", { channelType: CHANNEL_TYPES.VIDU }],
