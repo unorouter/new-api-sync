@@ -138,12 +138,21 @@ function buildGroupChannels(opts: {
     // Models needing a specific adaptor (sora, kling, veo, etc.) get separated;
     // the rest stay together with vendor-inferred channel type.
     // Key format: "channelType:suffix" or "default" for models without overrides.
+    //
+    // The name-based override only fires when the upstream actually exposes the
+    // model as a task endpoint (`openai-video`). Some providers (e.g. aigcbest)
+    // resell task-branded models like `grok-imagine-video` through plain
+    // `/v1/chat/completions`; forcing them into a task channel there yields 404s
+    // because new-api's task adaptor posts to `/v1/video/create`. When no
+    // endpoint data exists at all we still apply the override as a best guess.
     const subGroups = new Map<
       string,
       { models: string[]; channelType?: number; baseUrlSuffix?: string }
     >();
     for (const model of models) {
-      const override = getTaskModelOverride(model);
+      const eps = opts.state.modelEndpoints.get(model);
+      const isTaskUpstream = eps ? eps.includes("openai-video") : true;
+      const override = isTaskUpstream ? getTaskModelOverride(model) : undefined;
       const key = override
         ? `${override.channelType}:${override.baseUrlSuffix ?? ""}`
         : "default";

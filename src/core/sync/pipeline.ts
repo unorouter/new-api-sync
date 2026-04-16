@@ -12,6 +12,7 @@ import type {
 import {
   buildReverseMapping,
   ENDPOINT_DEFAULT_PATHS,
+  getTaskModelOverride,
   inferModelType,
   inferVendorFromModelName,
   MODEL_TYPE_CANONICAL_ENDPOINT,
@@ -255,7 +256,12 @@ function buildDesiredModels(opts: {
     }
   }
 
-  // Add model type tag and deduplicate
+  // Add model type tag (and a `Task` tag for async task models) and deduplicate.
+  // The `Task` tag lets downstream consumers (unorouter) tell async task models
+  // apart from regular streaming models without re-encoding the override list.
+  // Gate `Task` on the upstream actually exposing `openai-video`; a name like
+  // `grok-imagine-video` can also be resold as chat-completions, in which case
+  // it is not a task model for this channel.
   for (const [modelName, spec] of models) {
     const originalName = opts.reverseMapping.get(modelName) ?? modelName;
     const eps =
@@ -263,7 +269,11 @@ function buildDesiredModels(opts: {
       opts.state.modelEndpoints.get(originalName);
     const modelType = inferModelType(modelName, eps);
     const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
-    const rawTags = spec.tags ? `${typeTag},${spec.tags}` : typeTag;
+    const isTaskModel =
+      eps?.includes("openai-video") ||
+      (!eps && getTaskModelOverride(modelName) !== undefined);
+    const prefix = isTaskModel ? `${typeTag},Task` : typeTag;
+    const rawTags = spec.tags ? `${prefix},${spec.tags}` : prefix;
     const seen = new Set<string>();
     const deduped = rawTags
       .split(",")
