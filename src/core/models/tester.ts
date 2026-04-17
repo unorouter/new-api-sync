@@ -685,6 +685,8 @@ const KIRO_REFUSAL_PATTERNS = [
   "i'm here to help with software",
   "i'm here for coding",
   "i'm droid",
+  "development workflows, cli commands",
+  "here to help with coding, development workflows",
 ];
 
 function hasKiroRefusal(text: string): boolean {
