@@ -689,8 +689,57 @@ const KIRO_REFUSAL_PATTERNS = [
 
 function hasKiroRefusal(text: string): boolean {
   return (
-    text.includes("kiro") || KIRO_REFUSAL_PATTERNS.some((p) => text.includes(p))
+    text.includes("kiro") ||
+    text.includes("cascade") ||
+    text.includes("codeium") ||
+    KIRO_REFUSAL_PATTERNS.some((p) => text.includes(p))
   );
+}
+
+// Token-theft scam pages observed on Chinese relays. Response is an
+// administrator warning injected instead of a real completion.
+const SCAM_PAGE_PATTERNS = [
+  "token被盗",
+  "token被人盗刷",
+  "本站token",
+  "盗取token",
+  "微信jemes",
+];
+
+function hasScamPage(text: string): boolean {
+  return SCAM_PAGE_PATTERNS.some((p) => text.includes(p));
+}
+
+// Foreign-provider identity leaks on the identity/model-name probes.
+// These are relays that forward Claude-shaped requests to a non-Claude model.
+const FOREIGN_IDENTITY_PATTERNS = [
+  "amazon",
+  "aws",
+  "bedrock",
+  "google",
+  "deepmind",
+  "gemini",
+  "openai",
+  "chatgpt",
+  "gpt-3",
+  "gpt-4",
+  "gpt-5",
+  "o1-",
+  "o3-",
+  "o4-",
+  "deepseek",
+  "qwen",
+  "moonshot",
+  "kimi",
+  "mistral",
+  "llama",
+  "meta",
+  "grok",
+  "xai",
+];
+
+function hasForeignIdentity(text: string): boolean {
+  return FOREIGN_IDENTITY_PATTERNS.some((p) => text.includes(p));
 }
 
 type AnthropicResponse = {
@@ -708,7 +757,20 @@ function extractAnthropicText(data: unknown): string | null {
     .toLowerCase();
 }
 
-type ProbeResult = { pass: boolean; kiroRefusal: boolean };
+type ProbeSignal = "kiro" | "scam" | "foreign" | "blank" | null;
+type ProbeResult = {
+  pass: boolean;
+  kiroRefusal: boolean;
+  signal: ProbeSignal;
+};
+
+function detectSignal(text: string): ProbeSignal {
+  if (text.length === 0) return "blank";
+  if (hasKiroRefusal(text)) return "kiro";
+  if (hasScamPage(text)) return "scam";
+  if (hasForeignIdentity(text)) return "foreign";
+  return null;
+}
 
 async function runAnthropicProbe(opts: {
   baseUrl: string;
@@ -750,7 +812,7 @@ async function runAnthropicProbe(opts: {
       response: null,
       error: errMsg,
     });
-    return { pass: false, kiroRefusal: false };
+    return { pass: false, kiroRefusal: false, signal: null };
   }
 
   const text = extractAnthropicText(data);
@@ -763,9 +825,10 @@ async function runAnthropicProbe(opts: {
       response: null,
       error: `failed to extract text from response: ${JSON.stringify(data).slice(0, 300)}`,
     });
-    return { pass: false, kiroRefusal: false };
+    return { pass: false, kiroRefusal: false, signal: null };
   }
-  const refusal = hasKiroRefusal(text);
+  const signal = detectSignal(text);
+  const refusal = signal === "kiro";
   const result = opts.evaluate(text);
   addKiroProbe(opts.logKey, {
     probe: opts.label,
@@ -774,7 +837,7 @@ async function runAnthropicProbe(opts: {
     request: { url: reqUrl, body: reqBody },
     response: text,
   });
-  return { pass: result, kiroRefusal: refusal };
+  return { pass: result, kiroRefusal: refusal, signal };
 }
 
 /**
@@ -826,12 +889,16 @@ async function testAnthropicAuthenticity(opts: {
       maxTokens: 30,
       evaluate: (text) => {
         if (hasKiroRefusal(text)) return false;
-        return text.includes("anthropic");
+        if (hasScamPage(text)) return false;
+        if (!text.includes("anthropic")) return false;
+        // Reject hedge responses like "anthropic, but actually amazon"
+        if (hasForeignIdentity(text)) return false;
+        return true;
       },
     }),
     // Probe 4: Direct model identity check
     // Kiro identifies itself as "Kiro"; Claude identifies as "Claude"
-    // Also catches other wrappers (Droid, ChatGPT, o4-mini)
+    // Also catches other wrappers (Droid, ChatGPT, o4-mini, DeepSeek, Gemini)
     runAnthropicProbe({
       ...opts,
       label: "model-name",
@@ -840,9 +907,11 @@ async function testAnthropicAuthenticity(opts: {
       maxTokens: 50,
       evaluate: (text) => {
         if (hasKiroRefusal(text)) return false;
-        // Must contain "claude" or "anthropic" to pass
+        if (hasScamPage(text)) return false;
         if (!text.includes("claude") && !text.includes("anthropic"))
           return false;
+        // Reject hedge responses like "claude-sonnet powered by deepseek"
+        if (hasForeignIdentity(text)) return false;
         return true;
       },
     }),
@@ -856,10 +925,10 @@ async function testAnthropicAuthenticity(opts: {
   ];
 
   // Any confirmed Kiro refusal = immediate fail, regardless of other probes
-  const kiroDetected = results.some((r) => r.kiroRefusal);
+  const kiroDetected = results.some((r) => r.signal === "kiro");
   if (kiroDetected) {
     const refusalLabels = results
-      .filter((r) => r.kiroRefusal)
+      .filter((r) => r.signal === "kiro")
       .map((r) => r.label)
       .join(", ");
     consola.warn(
@@ -869,15 +938,54 @@ async function testAnthropicAuthenticity(opts: {
     return false;
   }
 
+  // Scam-page injection = immediate fail (admin warnings instead of completions)
+  const scamDetected = results.some((r) => r.signal === "scam");
+  if (scamDetected) {
+    const scamLabels = results
+      .filter((r) => r.signal === "scam")
+      .map((r) => r.label)
+      .join(", ");
+    consola.warn(
+      `[kiro-detect] ${opts.model}: scam page on: ${scamLabels}, rejected`,
+    );
+    addToKiroBlacklist(opts.logKey, `scam-page: ${scamLabels}`);
+    return false;
+  }
+
+  // Foreign-provider leak on identity/model-name = immediate fail
+  const foreignDetected = results.some(
+    (r) =>
+      r.signal === "foreign" &&
+      (r.label === "identity" || r.label === "model-name"),
+  );
+  if (foreignDetected) {
+    const foreignLabels = results
+      .filter((r) => r.signal === "foreign")
+      .map((r) => r.label)
+      .join(", ");
+    consola.warn(
+      `[kiro-detect] ${opts.model}: foreign identity on: ${foreignLabels}, rejected`,
+    );
+    addToKiroBlacklist(opts.logKey, `foreign-identity: ${foreignLabels}`);
+    return false;
+  }
+
   // All 4 probes must pass for the model to be considered authentic
   const passed = results.filter((r) => r.pass).length;
   const failed = results.filter((r) => !r.pass);
   if (failed.length > 0) {
     const failedLabels = failed.map((r) => r.label).join(", ");
+    const blankCount = failed.filter((r) => r.signal === "blank").length;
+    const suffix = blankCount === failed.length ? " [blank-response]" : "";
     consola.warn(
-      `[kiro-detect] ${opts.model}: ${passed}/4 probes passed (failed: ${failedLabels})`,
+      `[kiro-detect] ${opts.model}: ${passed}/4 probes passed (failed: ${failedLabels})${suffix}`,
     );
-    addToKiroBlacklist(opts.logKey, `failed: ${failedLabels}`);
+    addToKiroBlacklist(
+      opts.logKey,
+      blankCount === failed.length
+        ? `blank-response: ${failedLabels}`
+        : `failed: ${failedLabels}`,
+    );
   }
 
   return passed >= 4;
