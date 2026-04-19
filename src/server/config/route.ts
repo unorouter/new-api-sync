@@ -192,12 +192,22 @@ export const configRoute = new Elysia({ prefix: "/config" })
       const name = query.name ?? "";
       const path = configPath(name);
       if (!(Bun.file(path).size > 0)) {
-        set.status = 404;
-
-        return {
-          success: false as const,
-          message: t("SERVER.CONFIG_NOT_FOUND", { name: name || "main" }),
-        };
+        // Main config missing: seed it from config.example.yml so the UI has
+        // something to render on a fresh checkout. Named configs still 404 —
+        // the user must create them explicitly via POST /files.
+        if (!name) {
+          const example = Bun.file("./config.example.yml");
+          if (example.size > 0) {
+            await Bun.write(path, await example.text());
+          }
+        }
+        if (!(Bun.file(path).size > 0)) {
+          set.status = 404;
+          return {
+            success: false as const,
+            message: t("SERVER.CONFIG_NOT_FOUND", { name: name || "main" }),
+          };
+        }
       }
       const text = await Bun.file(path).text();
       const config = Bun.YAML.parse(text) as ConfigSchemaType;
