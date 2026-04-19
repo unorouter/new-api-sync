@@ -1,4 +1,5 @@
 import { useTranslations } from "use-intl";
+import { ProvidersFilter } from "@web/components/elements/providers-filter";
 import { Badge } from "@web/components/ui/badge";
 import { Button } from "@web/components/ui/button";
 import {
@@ -8,7 +9,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@web/components/ui/card";
+import { Input } from "@web/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@web/components/ui/radio-group";
+import { useConfig } from "@web/hooks/config-hook";
 import { useSyncPipeline } from "@web/hooks/sync-hook";
 import { useSyncStore } from "@web/store/sync-store";
 import { useUiStore } from "@web/store/ui-store";
@@ -64,6 +67,27 @@ export function SyncPanel() {
   const storeReset = useSyncStore((s) => s.reset);
   const pipelineMode = useUiStore((s) => s.pipelineMode);
   const setPipelineMode = useUiStore((s) => s.setPipelineMode);
+  const selectedConfigName = useUiStore((s) => s.selectedConfigName);
+  const onlyProvidersMap = useUiStore((s) => s.onlyProviders);
+  const setOnlyProviders = useUiStore((s) => s.setOnlyProviders);
+  const modelFilterMap = useUiStore((s) => s.modelFilter);
+  const setModelFilter = useUiStore((s) => s.setModelFilter);
+
+  const configQuery = useConfig(selectedConfigName);
+  const providerOptions =
+    configQuery.data?.config.providers.map((p) => ({
+      name: p.name,
+      type: p.type,
+    })) ?? [];
+  const availableNames = new Set(providerOptions.map((p) => p.name));
+  const onlyProviders = (onlyProvidersMap[selectedConfigName] ?? []).filter(
+    (name) => availableNames.has(name),
+  );
+  const modelFilterRaw = modelFilterMap[selectedConfigName] ?? "";
+  const modelFilterList = modelFilterRaw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 
   const sync = useSyncPipeline();
 
@@ -107,6 +131,23 @@ export function SyncPanel() {
             ))}
           </RadioGroup>
 
+          <ProvidersFilter
+            options={providerOptions}
+            selected={onlyProviders}
+            onChange={setOnlyProviders}
+            disabled={busy}
+          />
+        </div>
+
+        <Input
+          value={modelFilterRaw}
+          onChange={(event) => setModelFilter(event.target.value)}
+          placeholder={t("SYNC.FILTER.MODELS_PLACEHOLDER")}
+          disabled={busy}
+          className="font-mono"
+        />
+
+        <div className="flex flex-wrap items-center gap-4">
           {busy ? (
             <Button variant="destructive" onClick={() => sync.stop()}>
               <SquareIcon />
@@ -114,7 +155,13 @@ export function SyncPanel() {
             </Button>
           ) : (
             <Button
-              onClick={() => sync.mutate({ mode: pipelineMode })}
+              onClick={() =>
+                sync.mutate({
+                  mode: pipelineMode,
+                  only: onlyProviders,
+                  models: modelFilterList,
+                })
+              }
               variant={pipelineMode === "reset" ? "destructive" : "default"}
             >
               <PlayIcon />

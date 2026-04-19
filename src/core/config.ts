@@ -46,6 +46,7 @@ export interface RuntimeConfig extends Omit<
   blacklist: string[];
   modelMapping: Record<string, string>;
   onlyProviders?: Set<string>;
+  modelFilter?: string[];
   isTestMode?: boolean;
 }
 
@@ -245,4 +246,20 @@ export function applyOnlyProviders(
     providers: config.providers.filter((p) => onlySet.has(p.name)),
     onlyProviders: onlySet,
   };
+}
+
+export function applyModelFilter(
+  config: RuntimeConfig,
+  raw: string[],
+): RuntimeConfig {
+  if (raw.length === 0) return config;
+
+  const normalized = raw
+    .flatMap((entry) => entry.split(","))
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if (normalized.length === 0) return config;
+
+  return { ...config, modelFilter: normalized };
 }

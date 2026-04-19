@@ -52,6 +52,14 @@
       "RESET": "Reset"
     },
     "CLEAR_LOG": "Clear log",
+    "FILTER": {
+      "PROVIDER_MULTI": "Providers",
+      "SEARCH_PROVIDERS": "Search providers...",
+      "NO_PROVIDERS": "No providers found.",
+      "SELECTED": "{count} selected",
+      "CLEAR": "Clear ({total} across {types} types)",
+      "MODELS_PLACEHOLDER": "Models filter, e.g. claude-*, gpt-4*, gemini-2.0-*"
+    },
     "PHASE": {
       "RUNNING": "running",
       "DONE": "done",
@@ -244,6 +252,7 @@
     "OPTION": {
       "CONFIG_PATH": "config file path",
       "ONLY_PROVIDERS": "comma separated provider names",
+      "ONLY_MODELS": "comma separated model globs (wildcards supported)",
       "VERBOSE": "enable debug logging",
       "PORT": "port to listen on"
     },

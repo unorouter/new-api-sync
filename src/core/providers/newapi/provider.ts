@@ -76,6 +76,19 @@ function filterGroupModels(
     }
   }
 
+  if (config.modelFilter?.length) {
+    const before = result;
+    result = result.filter((modelName) =>
+      matchesAnyPattern(modelName, config.modelFilter!),
+    );
+    const cliFiltered = before.filter((m) => !result.includes(m));
+    if (cliFiltered.length > 0) {
+      consola.debug(
+        `[${providerConfig.name}/${groupName}] CLI model filter (not matching [${config.modelFilter.join(", ")}]): ${cliFiltered.join(", ")}`,
+      );
+    }
+  }
+
   consola.debug(
     `[${providerConfig.name}/${groupName}] ${models.length} → ${result.length} models after filters: ${result.join(", ") || "(none)"}`,
   );

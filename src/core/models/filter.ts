@@ -29,6 +29,9 @@ export function filterModels(
     if (modelGlobs?.length) {
       if (!matchesAnyPattern(id, modelGlobs)) return false;
     }
+    if (config.modelFilter?.length) {
+      if (!matchesAnyPattern(id, config.modelFilter)) return false;
+    }
     return true;
   });
 }

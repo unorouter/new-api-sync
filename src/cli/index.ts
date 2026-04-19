@@ -1,4 +1,4 @@
-import { applyOnlyProviders, loadConfig } from "@core/config";
+import { applyModelFilter, applyOnlyProviders, loadConfig } from "@core/config";
 import { runReset } from "@core/sync/reset";
 import { printResetSummary, printRunSummary, runSync } from "@core/sync/run";
 import { runTestPipeline } from "@core/sync/test-runner";
@@ -20,13 +20,24 @@ program
     (value: string, prev: string[]) => [...prev, value],
     [] as string[],
   )
+  .option(
+    "--models <globs>",
+    t("CLI.OPTION.ONLY_MODELS"),
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[],
+  )
   .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
   .action(
-    async (options: { config?: string; only: string[]; verbose?: boolean }) => {
+    async (options: {
+      config?: string;
+      only: string[];
+      models: string[];
+      verbose?: boolean;
+    }) => {
       if (options.verbose) consola.level = 4;
-      const config = applyOnlyProviders(
-        await loadConfig(options.config),
-        options.only,
+      const config = applyModelFilter(
+        applyOnlyProviders(await loadConfig(options.config), options.only),
+        options.models,
       );
       const result = await runSync(config);
       printRunSummary(result);
@@ -47,14 +58,22 @@ program
     (value: string, prev: string[]) => [...prev, value],
     [] as string[],
   )
-  .action(async (options: { config?: string; only: string[] }) => {
-    const config = applyOnlyProviders(
-      await loadConfig(options.config),
-      options.only,
-    );
-    const result = await runReset(config);
-    printResetSummary(result);
-  });
+  .option(
+    "--models <globs>",
+    t("CLI.OPTION.ONLY_MODELS"),
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[],
+  )
+  .action(
+    async (options: { config?: string; only: string[]; models: string[] }) => {
+      const config = applyModelFilter(
+        applyOnlyProviders(await loadConfig(options.config), options.only),
+        options.models,
+      );
+      const result = await runReset(config);
+      printResetSummary(result);
+    },
+  );
 
 program
   .command("ui")
@@ -77,13 +96,24 @@ program
     (value: string, prev: string[]) => [...prev, value],
     [] as string[],
   )
+  .option(
+    "--models <globs>",
+    t("CLI.OPTION.ONLY_MODELS"),
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[],
+  )
   .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
   .action(
-    async (options: { config?: string; only: string[]; verbose?: boolean }) => {
+    async (options: {
+      config?: string;
+      only: string[];
+      models: string[];
+      verbose?: boolean;
+    }) => {
       if (options.verbose) consola.level = 4;
-      const config = applyOnlyProviders(
-        await loadConfig(options.config),
-        options.only,
+      const config = applyModelFilter(
+        applyOnlyProviders(await loadConfig(options.config), options.only),
+        options.models,
       );
       const success = await runTestPipeline(config);
       if (!success) {

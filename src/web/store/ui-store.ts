@@ -27,6 +27,8 @@ export interface UiState {
   kiroQuery: string;
   selectedConfigName: string;
   pipelineMode: PipelineMode;
+  onlyProviders: Record<string, string[]>;
+  modelFilter: Record<string, string>;
 }
 
 export interface UiActions {
@@ -40,6 +42,8 @@ export interface UiActions {
   setKiroQuery: (query: string) => void;
   setSelectedConfigName: (name: string) => void;
   setPipelineMode: (mode: PipelineMode) => void;
+  setOnlyProviders: (providers: string[]) => void;
+  setModelFilter: (value: string) => void;
 }
 
 export type UiStore = UiState & UiActions;
@@ -55,6 +59,8 @@ const defaultPersistedUiState: UiState = {
   kiroQuery: "",
   selectedConfigName: "",
   pipelineMode: "run",
+  onlyProviders: {},
+  modelFilter: {},
 };
 
 const globalConfigStorage: StateStorage = {
@@ -123,6 +129,20 @@ export const useUiStore = create<UiStore>()(
       setSelectedConfigName: (selectedConfigName) =>
         set({ selectedConfigName }),
       setPipelineMode: (pipelineMode) => set({ pipelineMode }),
+      setOnlyProviders: (providers) =>
+        set((state) => ({
+          onlyProviders: {
+            ...state.onlyProviders,
+            [state.selectedConfigName]: providers,
+          },
+        })),
+      setModelFilter: (value) =>
+        set((state) => ({
+          modelFilter: {
+            ...state.modelFilter,
+            [state.selectedConfigName]: value,
+          },
+        })),
     }),
     {
       name: "new-api-sync-ui",
@@ -139,6 +159,8 @@ export const useUiStore = create<UiStore>()(
         kiroQuery: state.kiroQuery,
         selectedConfigName: state.selectedConfigName,
         pipelineMode: state.pipelineMode,
+        onlyProviders: state.onlyProviders,
+        modelFilter: state.modelFilter,
       }),
     },
   ),

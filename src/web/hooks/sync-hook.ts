@@ -10,6 +10,7 @@ import { toast } from "sonner";
 interface RunArgs {
   mode: SyncMode;
   only?: string[];
+  models?: string[];
 }
 
 /**
@@ -29,7 +30,11 @@ export function useSyncPipeline() {
       store.start(args.mode);
       runIdRef.current = null;
 
-      const payload = { only: args.only ?? [], configName: selectedConfigName };
+      const payload = {
+        only: args.only ?? [],
+        models: args.models ?? [],
+        configName: selectedConfigName,
+      };
 
       const call =
         args.mode === "run"

@@ -2,7 +2,7 @@ import { runWithSignal } from "@core/abort";
 import { runReset } from "@core/sync/reset";
 import { runSync } from "@core/sync/run";
 import { runTestPipeline } from "@core/sync/test-runner";
-import { applyOnlyProviders, loadConfig } from "@core/config";
+import { applyModelFilter, applyOnlyProviders, loadConfig } from "@core/config";
 import { CancelBody, PipelineBody } from "@core/validations/pipeline";
 import { configPath } from "@server/config/route";
 import { cancelActiveRun, pipelineStream } from "@server/sse";
@@ -14,9 +14,9 @@ export const pipelineRoute = new Elysia({ prefix: "/pipeline" })
     ({ body, request }) =>
       pipelineStream(async (signal) => {
         const path = configPath(body.configName);
-        const config = applyOnlyProviders(
-          await loadConfig(path),
-          body.only ?? [],
+        const config = applyModelFilter(
+          applyOnlyProviders(await loadConfig(path), body.only ?? []),
+          body.models ?? [],
         );
         const result = await runWithSignal(signal, () => runSync(config));
         return {
@@ -43,9 +43,9 @@ export const pipelineRoute = new Elysia({ prefix: "/pipeline" })
     ({ body, request }) =>
       pipelineStream(async (signal) => {
         const path = configPath(body.configName);
-        const config = applyOnlyProviders(
-          await loadConfig(path),
-          body.only ?? [],
+        const config = applyModelFilter(
+          applyOnlyProviders(await loadConfig(path), body.only ?? []),
+          body.models ?? [],
         );
         const ok = await runWithSignal(signal, () => runTestPipeline(config));
         return { success: ok };
@@ -57,9 +57,9 @@ export const pipelineRoute = new Elysia({ prefix: "/pipeline" })
     ({ body, request }) =>
       pipelineStream(async (signal) => {
         const path = configPath(body.configName);
-        const config = applyOnlyProviders(
-          await loadConfig(path),
-          body.only ?? [],
+        const config = applyModelFilter(
+          applyOnlyProviders(await loadConfig(path), body.only ?? []),
+          body.models ?? [],
         );
         return await runWithSignal(signal, () => runReset(config));
       }, request),
