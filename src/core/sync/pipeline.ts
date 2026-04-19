@@ -3,12 +3,6 @@ import {
   getPricingGridFromEnabledModels,
   type RuntimeConfig,
 } from "@core/config";
-import type {
-  DirectProviderConfig,
-  NvidiaProviderConfig,
-  ProviderConfig,
-  Sub2ApiProviderConfig,
-} from "@core/validations/config";
 import {
   buildReverseMapping,
   ENDPOINT_DEFAULT_PATHS,
@@ -21,10 +15,17 @@ import {
 } from "@core/models/constants";
 import {
   type BasellmEntry,
+  buildFuzzyIndex,
   buildMetadataMap,
   fetchBasellmEntries,
   fetchOpenRouterDescriptions,
+  lookup,
 } from "@core/models/metadata";
+import { processDirectProvider } from "@core/providers/direct/provider";
+import { NewApiClient } from "@core/providers/newapi/client";
+import { processNewApiProvider } from "@core/providers/newapi/provider";
+import { processNvidiaProvider } from "@core/providers/nvidia/provider";
+import { processSub2ApiProvider } from "@core/providers/sub2api/provider";
 import type {
   Channel,
   DesiredModelSpec,
@@ -34,16 +35,20 @@ import type {
   SyncState,
   TargetSnapshot,
 } from "@core/types";
-import { NewApiClient } from "@core/providers/newapi/client";
-import { processDirectProvider } from "@core/providers/direct/provider";
-import { processNewApiProvider } from "@core/providers/newapi/provider";
-import { processNvidiaProvider } from "@core/providers/nvidia/provider";
-import { processSub2ApiProvider } from "@core/providers/sub2api/provider";
+import type {
+  DirectProviderConfig,
+  NvidiaProviderConfig,
+  ProviderConfig,
+  Sub2ApiProviderConfig,
+} from "@core/validations/config";
 import { consola } from "consola";
 
 /**
- * Backfill model ratios from pre-fetched basellm entries for models
- * present in channels but missing from state.mergedModels.
+ * Apply basellm ratios to all channel models.
+ * basellm is the source of truth: when it has an entry, it overrides any
+ * value seeded from the upstream target (whose ModelRatio/CompletionRatio
+ * may be stale manual entries). Upstream-seeded values only survive for
+ * models basellm doesn't cover.
  */
 function backfillModelRatios(
   state: SyncState,
@@ -51,69 +56,85 @@ function backfillModelRatios(
   modelMapping: Record<string, string>,
   basellmEntries: BasellmEntry[],
 ): void {
-  // Collect all model names used in channels
   const channelModels = new Set<string>();
   for (const ch of channels) {
     for (const m of parseModelList(ch.models)) channelModels.add(m);
   }
-
-  // Find models missing ratio data
-  const missing = [...channelModels].filter((m) => !state.mergedModels.has(m));
-  if (missing.length === 0) return;
+  if (channelModels.size === 0) return;
 
   if (basellmEntries.length === 0) {
     consola.warn("No basellm entries available for ratio backfill");
     return;
   }
 
-  // Build a map of model_name → cheapest ratios (lowest ratio_model wins)
-  const upstreamRatios = new Map<
+  // Build a map of model_name → cheapest ratios (lowest ratio_model wins).
+  // Variants like "deepseek/deepseek-v3.2" and "deepseek-v3.2" collapse onto
+  // the same base name via normalize() inside buildFuzzyIndex.
+  const basellmRatios = new Map<
     string,
     { ratio: number; completionRatio: number }
   >();
   for (const entry of basellmEntries) {
     if (!entry.model_name || entry.ratio_model == null) continue;
-    const existing = upstreamRatios.get(entry.model_name);
+    const existing = basellmRatios.get(entry.model_name);
     if (!existing || entry.ratio_model < existing.ratio) {
-      upstreamRatios.set(entry.model_name, {
+      basellmRatios.set(entry.model_name, {
         ratio: entry.ratio_model,
         completionRatio: entry.ratio_completion ?? 1,
       });
     }
   }
-
+  const ratioIndex = buildFuzzyIndex(basellmRatios);
   const reverseMapping = buildReverseMapping(modelMapping);
 
-  let filled = 0;
-  for (const model of missing) {
-    // Try mapped name first, then original
-    const lookupName = reverseMapping.get(model) ?? model;
-    const upstream =
-      upstreamRatios.get(lookupName) ?? upstreamRatios.get(model);
-    if (upstream) {
+  let applied = 0;
+  let overridden = 0;
+  let missing = 0;
+  const overrides: string[] = [];
+  for (const model of channelModels) {
+    const hit = lookup(model, ratioIndex, reverseMapping);
+    const fromBasellm = hit?.value;
+    const existing = state.mergedModels.get(model);
+
+    if (fromBasellm) {
+      if (
+        existing &&
+        (existing.ratio !== fromBasellm.ratio ||
+          existing.completionRatio !== fromBasellm.completionRatio)
+      ) {
+        overridden++;
+        overrides.push(
+          `${model}: ${existing.ratio}/${existing.completionRatio} → ${fromBasellm.ratio}/${fromBasellm.completionRatio}`,
+        );
+      }
       state.mergedModels.set(model, {
-        ratio: upstream.ratio,
-        completionRatio: upstream.completionRatio,
+        ...existing,
+        ratio: fromBasellm.ratio,
+        completionRatio: fromBasellm.completionRatio,
       });
-      filled++;
+      applied++;
+    } else if (!existing) {
+      missing++;
     }
   }
 
-  if (filled > 0) {
-    consola.info(
-      `Backfilled ${filled}/${missing.length} model ratios from upstream library`,
-    );
+  consola.info(
+    `Applied basellm ratios to ${applied}/${channelModels.size} models (overrode ${overridden} stale upstream values)`,
+  );
+  if (overrides.length > 0) {
+    for (const o of overrides) consola.debug(`  ${o}`);
   }
-  if (filled < missing.length) {
-    const unfilled = missing.filter((m) => !state.mergedModels.has(m));
-    // Show which channels reference each unfilled model
+  if (missing > 0) {
+    const unfilled = [...channelModels].filter(
+      (m) => !state.mergedModels.has(m),
+    );
     const details = unfilled.map((m) => {
       const refs = channels
         .filter((ch) => parseModelList(ch.models).includes(m))
         .map((ch) => ch.tag ?? ch.name);
       return refs.length > 0 ? `${m} (${refs.join(", ")})` : m;
     });
-    consola.warn(`No upstream ratios for: ${details.join(", ")}`);
+    consola.warn(`No ratios (basellm or upstream) for: ${details.join(", ")}`);
   }
 }
 

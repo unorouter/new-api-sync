@@ -185,12 +185,12 @@ function similarity(a: string, b: string): number {
   return dice * (1 - sizePenalty * 0.3);
 }
 
-interface FuzzyIndex<T> {
+export interface FuzzyIndex<T> {
   candidates: Map<string, T>;
   normalized: Map<string, string[]>; // normalize(key) -> original keys
 }
 
-function buildFuzzyIndex<T>(candidates: Map<string, T>): FuzzyIndex<T> {
+export function buildFuzzyIndex<T>(candidates: Map<string, T>): FuzzyIndex<T> {
   const normalized = new Map<string, string[]>();
   for (const key of candidates.keys()) {
     const norm = normalize(key);
@@ -278,7 +278,7 @@ function fuzzyLookup<T>(
  * Lookup a value from a fuzzy index, trying the model name and optionally
  * the original (reverse-mapped) name.
  */
-function lookup<T>(
+export function lookup<T>(
   modelName: string,
   index: FuzzyIndex<T>,
   reverseMapping: Map<string, string>,
