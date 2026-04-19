@@ -22,7 +22,7 @@ setLocale(await readLocaleFromGlobal());
  * - **dev**: serve from `src/web/public/` via `@elysiajs/static` (Bun fullstack
  *   mode transpiles index.html + tsx on the fly).
  */
-function mountAssets(app: Elysia) {
+async function mountAssets(app: Elysia) {
   if (embeddedAssets.length > 0) {
     const bodies = new Map<string, ArrayBuffer>();
     for (const asset of embeddedAssets) {
@@ -48,7 +48,7 @@ function mountAssets(app: Elysia) {
   const assetsDir = existsSync("./src/web/public")
     ? "src/web/public"
     : "public";
-  return app.use(staticPlugin({ prefix: "/", assets: assetsDir }));
+  return app.use(await staticPlugin({ prefix: "/", assets: assetsDir }));
 }
 
 /**
@@ -57,7 +57,7 @@ function mountAssets(app: Elysia) {
  * - Frontend assets served from embedded base64 bytes (prod) or disk (dev).
  * - API routes live under `/api/*`.
  */
-export const app = mountAssets(new Elysia()).group("/api", (api) =>
+export const app = (await mountAssets(new Elysia())).group("/api", (api) =>
   api.use(healthRoute).use(configRoute).use(historyRoute).use(pipelineRoute),
 );
 

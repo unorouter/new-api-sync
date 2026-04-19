@@ -1,3 +1,4 @@
+import type { TObject } from "@sinclair/typebox/type";
 import { MyFormError } from "@web/components/elements/form/my-form-error";
 import {
   FormControl,
@@ -7,8 +8,8 @@ import {
 } from "@web/components/ui/form";
 import { Input } from "@web/components/ui/input";
 import { cn } from "@web/lib/utils";
-import type { TObject } from "@sinclair/typebox/type";
-import type { ComponentProps, ReactNode } from "react";
+import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 import type {
   Control,
   FieldValues,
@@ -29,6 +30,8 @@ export function MyFormInput<T extends FieldValues>(props: MyFormInputProps<T>) {
   const { control, label, name, schema, symbol, validate, ...rest } = props;
   const leafName = name.split(".").pop() ?? name;
   const schemaProp = schema.properties[leafName];
+  const isPassword = rest.type === "password";
+  const [revealed, setRevealed] = useState(false);
 
   return (
     <FormField
@@ -51,6 +54,7 @@ export function MyFormInput<T extends FieldValues>(props: MyFormInputProps<T>) {
                 <Input
                   {...field}
                   {...rest}
+                  type={isPassword && revealed ? "text" : rest.type}
                   value={field.value ?? ""}
                   onChange={(e) =>
                     field.onChange(
@@ -59,13 +63,31 @@ export function MyFormInput<T extends FieldValues>(props: MyFormInputProps<T>) {
                         : e,
                     )
                   }
-                  className={cn(symbol && "pl-6", rest.className)}
+                  className={cn(
+                    symbol && "pl-6",
+                    isPassword && "pr-9",
+                    rest.className,
+                  )}
                   minLength={rest.minLength ?? schemaProp?.minLength}
                   maxLength={rest.maxLength ?? schemaProp?.maxLength}
                   min={rest.min ?? schemaProp?.minimum}
                   max={rest.max ?? schemaProp?.maximum}
                 />
               </FormControl>
+              {isPassword ? (
+                <button
+                  type="button"
+                  onClick={() => setRevealed((v) => !v)}
+                  className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
+                  tabIndex={-1}
+                >
+                  {revealed ? (
+                    <EyeOffIcon className="size-4" />
+                  ) : (
+                    <EyeIcon className="size-4" />
+                  )}
+                </button>
+              ) : null}
             </div>
             <MyFormError name={name} schema={schema} error={error} />
           </FormItem>
