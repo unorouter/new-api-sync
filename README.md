@@ -8,13 +8,41 @@ Sync pricing, channels, and models from upstream providers to your [new-api](htt
 
 ## Quick Start
 
+First install [Bun](https://bun.com/docs/installation) if you don't have it.
+
 ```bash
 bun install
 cp config.example.yml config.yml      # edit with your config
 bun sync run                          # run sync
 bun sync run --only myprovider        # sync one provider
+bun sync run --models "claude-*,gpt-4*"  # sync only matching models
 bun sync run --verbose                # run with debug logging
 bun sync reset                        # delete all synced data
+```
+
+## Web UI
+
+If you'd rather click than type, launch the bundled dashboard:
+
+```bash
+bun ui                                # shortcut for `bun sync ui`
+bun sync ui --port 4000               # custom port (default 3000)
+```
+
+Then open `http://localhost:3000`. Everything the CLI can do is exposed through the UI, no YAML editing required:
+
+- **Dashboard** — run, test, and reset pipelines live. A streaming log panel shows every provider, model, and price in real time, with colors preserved from the CLI output. Pick which providers to touch (`--only`), restrict to specific models with glob wildcards (`--models`, e.g. `claude-*, gpt-4*`), and hit **Start**. The models filter persists per config, so switching between configs restores your last selection.
+- **Configuration** — edit every provider, target, blacklist, price adjustment, and model mapping through structured forms. Invalid YAML is validated before save and rolled back if it fails.
+- **Multiple configs** — create named variants (`debug`, `staging`, `prod`) from the dropdown next to the tabs. Each is stored as `config.<name>.yml` in the project root and can be switched, duplicated, or deleted without touching the filesystem directly.
+- **History** — browse past runs (`logs/YYYY-MM-DD-*.json`) with per-model pass/fail results, costs, and authenticity status. Kiro auto-blacklist entries are manageable from the same tab.
+- **Themes & locales** — toggle dark/light/system and switch between English and 中文; both are remembered across sessions.
+
+The UI is bundled as a single-file binary for every platform — no Bun install needed on the target machine. Grab the right one from `dist/` after `bun run build` (or release artifacts) and run it directly:
+
+```bash
+./new-api-sync-linux-x64 ui         # Linux
+./new-api-sync-darwin-arm64 ui      # macOS (Apple silicon)
+new-api-sync-windows-x64.exe ui     # Windows
 ```
 
 ## Model Testing

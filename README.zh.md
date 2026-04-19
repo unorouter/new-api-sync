@@ -8,13 +8,41 @@
 
 ## 快速开始
 
+如果还没有安装 [Bun](https://bun.com/docs/installation)，先安装它。
+
 ```bash
 bun install
 cp config.example.yml config.yml      # 编辑你的配置
 bun sync run                          # 运行同步
 bun sync run --only myprovider        # 仅同步指定提供商
+bun sync run --models "claude-*,gpt-4*"  # 仅同步匹配的模型
 bun sync run --verbose                # 以调试日志级别运行
 bun sync reset                        # 删除所有已同步数据
+```
+
+## Web 界面
+
+如果你更喜欢点击而不是敲命令，可以启动内置的可视化面板：
+
+```bash
+bun ui                                # `bun sync ui` 的简写
+bun sync ui --port 4000               # 自定义端口（默认 3000）
+```
+
+随后在浏览器打开 `http://localhost:3000`。命令行能做的事，界面里都能做，不用手改 YAML：
+
+- **Dashboard（仪表板）**：实时运行、测试、重置同步流水线。流式日志面板按提供商、模型、价格逐条打印，保留命令行里的彩色输出。可选中要执行的提供商（对应 `--only`），也可以用通配符限定模型（对应 `--models`，例如 `claude-*, gpt-4*`）然后点击 **Start** 启动。模型过滤器按配置记忆：切换配置时会自动恢复上一次的选择。
+- **Configuration（配置）**：通过结构化表单编辑所有提供商、目标、黑名单、价格调整以及模型映射。保存前会校验 YAML，失败时自动回滚。
+- **多份配置**：在标签旁边的下拉框中创建命名变体（`debug`、`staging`、`prod`）。每份会保存为项目根目录下的 `config.<名称>.yml`，可以切换、复制或删除，不需要直接操作文件系统。
+- **History（历史）**：浏览过往运行记录（`logs/YYYY-MM-DD-*.json`），包含每个模型的通过或失败结果、费用和真伪校验状态。Kiro 自动黑名单条目也能在同一标签里管理。
+- **主题与语言**：切换深色、浅色、跟随系统三种模式，中英文可一键互换；设置会在会话之间保留。
+
+该界面被打包为各平台的单文件二进制，目标机器无需安装 Bun。`bun run build` 之后可在 `dist/` 中取对应平台的产物（或从发布页下载），直接执行即可：
+
+```bash
+./new-api-sync-linux-x64 ui         # Linux
+./new-api-sync-darwin-arm64 ui      # macOS（Apple 芯片）
+new-api-sync-windows-x64.exe ui     # Windows
 ```
 
 ## 模型测试

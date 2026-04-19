@@ -1,3 +1,4 @@
+import { AnsiUp } from "ansi_up";
 import { useTranslations } from "use-intl";
 import { ProvidersFilter } from "@web/components/elements/providers-filter";
 import { Badge } from "@web/components/ui/badge";
@@ -48,6 +49,13 @@ function levelClass(level: string): string {
   if (level === "success") return "text-green-600 dark:text-green-400";
   if (level === "debug") return "text-muted-foreground";
   return "";
+}
+
+const ansi = new AnsiUp();
+ansi.use_classes = false;
+
+function renderAnsi(message: string): string {
+  return ansi.ansi_to_html(message);
 }
 
 const MODE_LABELS: Record<PipelineMode, TranslationKey> = {
@@ -196,7 +204,11 @@ export function SyncPanel() {
                   <span className="text-muted-foreground mr-2">
                     [{log.level}]
                   </span>
-                  {log.message}
+                  <span
+                    dangerouslySetInnerHTML={{
+                      __html: renderAnsi(log.message),
+                    }}
+                  />
                 </li>
               ))}
             </ul>
