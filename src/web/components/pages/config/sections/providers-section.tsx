@@ -48,9 +48,20 @@ const TEMPLATES: Record<ProviderType, () => Provider> = {
     name: "",
     apiKey: "",
   }),
+  openrouter: () => ({
+    type: "openrouter",
+    name: "",
+    apiKey: "",
+  }),
 };
 
-const TYPE_ORDER: ProviderType[] = ["newapi", "sub2api", "direct", "nvidia"];
+const TYPE_ORDER: ProviderType[] = [
+  "newapi",
+  "sub2api",
+  "direct",
+  "nvidia",
+  "openrouter",
+];
 
 export function ProvidersSection() {
   const t = useTranslations();

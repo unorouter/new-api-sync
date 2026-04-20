@@ -69,7 +69,14 @@ function kiroBlacklistCount(): number {
 async function configSummary() {
   const files = listConfigs();
   const path = configPath("");
-  const counts = { newapi: 0, sub2api: 0, direct: 0, nvidia: 0, total: 0 };
+  const counts = {
+    newapi: 0,
+    sub2api: 0,
+    direct: 0,
+    nvidia: 0,
+    openrouter: 0,
+    total: 0,
+  };
   try {
     const config = applyOnlyProviders(await loadConfig(path), []);
     for (const provider of config.providers) {

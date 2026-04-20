@@ -25,6 +25,7 @@ import { processDirectProvider } from "@core/providers/direct/provider";
 import { NewApiClient } from "@core/providers/newapi/client";
 import { processNewApiProvider } from "@core/providers/newapi/provider";
 import { processNvidiaProvider } from "@core/providers/nvidia/provider";
+import { processOpenRouterProvider } from "@core/providers/openrouter/provider";
 import { processSub2ApiProvider } from "@core/providers/sub2api/provider";
 import type {
   Channel,
@@ -38,6 +39,7 @@ import type {
 import type {
   DirectProviderConfig,
   NvidiaProviderConfig,
+  OpenRouterProviderConfig,
   ProviderConfig,
   Sub2ApiProviderConfig,
 } from "@core/validations/config";
@@ -441,8 +443,9 @@ export async function runProviderPipeline(
   const typeOrder: Record<string, number> = {
     newapi: 0,
     nvidia: 1,
-    direct: 2,
-    sub2api: 3,
+    openrouter: 2,
+    direct: 3,
+    sub2api: 4,
   };
   const sorted = [...config.providers].sort(
     (a, b) => (typeOrder[a.type] ?? 2) - (typeOrder[b.type] ?? 2),
@@ -461,6 +464,12 @@ export async function runProviderPipeline(
     } else if (provider.type === "nvidia") {
       report = await processNvidiaProvider(
         provider as NvidiaProviderConfig,
+        config,
+        state,
+      );
+    } else if (provider.type === "openrouter") {
+      report = await processOpenRouterProvider(
+        provider as OpenRouterProviderConfig,
         config,
         state,
       );

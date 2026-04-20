@@ -110,11 +110,21 @@ const NvidiaProviderSchema = T.Object({
   ratio: T.Optional(T.Number({ exclusiveMinimum: 0 })),
 });
 
+const OpenRouterProviderSchema = T.Object({
+  type: T.Literal("openrouter"),
+  ...ProviderCommonProps,
+  baseUrl: T.Optional(T.String({ format: "uri" })),
+  apiKey: str,
+  models: T.Optional(T.Array(str)),
+  ratio: T.Optional(T.Number({ minimum: 0 })),
+});
+
 export const AnyProviderSchema = T.Union([
   NewApiProviderSchema,
   Sub2ApiProviderSchema,
   DirectProviderSchema,
   NvidiaProviderSchema,
+  OpenRouterProviderSchema,
 ]);
 
 export type ProviderConfig = Static<typeof NewApiProviderSchema>;
@@ -128,11 +138,18 @@ export type NvidiaProviderConfig = Static<typeof NvidiaProviderSchema> & {
   imageBaseUrl: string;
   ratio: number;
 };
+export type OpenRouterProviderConfig = Static<
+  typeof OpenRouterProviderSchema
+> & {
+  baseUrl: string;
+  ratio: number;
+};
 export type AnyProviderConfig =
   | ProviderConfig
   | Sub2ApiProviderConfig
   | DirectProviderConfig
-  | NvidiaProviderConfig;
+  | NvidiaProviderConfig
+  | OpenRouterProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
 export const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);
