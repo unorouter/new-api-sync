@@ -22,6 +22,7 @@ import {
 import { t } from "@server/i18n";
 import { Elysia } from "elysia";
 import { readdirSync, unlinkSync } from "node:fs";
+import { embeddedConfigExample } from "../../embedded-assets";
 import { stringifyWithComments } from "./yaml-sync";
 
 /**
@@ -193,13 +194,15 @@ export const configRoute = new Elysia({ prefix: "/config" })
       const path = configPath(name);
       if (!(Bun.file(path).size > 0)) {
         // Main config missing: seed it from config.example.yml so the UI has
-        // something to render on a fresh checkout. Named configs still 404 —
-        // the user must create them explicitly via POST /files.
+        // something to render on a fresh checkout. Dev mode reads the file
+        // from disk; the compiled binary uses the string inlined at build
+        // time (src/build.ts). Named configs still 404 — the user must create
+        // them explicitly via POST /files.
         if (!name) {
-          const example = Bun.file("./config.example.yml");
-          if (example.size > 0) {
-            await Bun.write(path, await example.text());
-          }
+          const onDisk = Bun.file("./config.example.yml");
+          const example =
+            onDisk.size > 0 ? await onDisk.text() : embeddedConfigExample;
+          if (example) await Bun.write(path, example);
         }
         if (!(Bun.file(path).size > 0)) {
           set.status = 404;

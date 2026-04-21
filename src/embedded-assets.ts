@@ -13,3 +13,5 @@ export type EmbeddedAsset = {
 };
 
 export const embeddedAssets: EmbeddedAsset[] = [];
+
+export const embeddedConfigExample = "";
