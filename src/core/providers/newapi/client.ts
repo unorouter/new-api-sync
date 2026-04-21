@@ -33,9 +33,11 @@ export class NewApiClient {
   }
 
   private get headers(): Record<string, string> {
+    const userId = String(this.config.userId);
     return {
       Authorization: `Bearer ${this.config.systemAccessToken}`,
-      "New-Api-User": String(this.config.userId),
+      "New-Api-User": userId,
+      "X-Api-User": userId,
       "Content-Type": "application/json",
     };
   }
@@ -129,19 +131,20 @@ export class NewApiClient {
     const groupModels = new Map<string, Set<string>>();
     const groupEndpoints = new Map<string, Set<string>>();
     for (const model of data.data) {
+      const endpoints = model.supported_endpoint_types ?? model.endpoints ?? [];
       for (const group of model.enable_groups) {
         if (!groupModels.has(group)) {
           groupModels.set(group, new Set());
           groupEndpoints.set(group, new Set());
         }
         groupModels.get(group)!.add(model.model_name);
-        for (const endpoint of model.supported_endpoint_types) {
+        for (const endpoint of endpoints) {
           groupEndpoints.get(group)!.add(endpoint);
         }
       }
     }
 
-    const groups: GroupInfo[] = Object.entries(data.usable_group)
+    const groups: GroupInfo[] = Object.entries(data.usable_group ?? data.group_names ?? {})
       .filter(([name]) => name !== "")
       .map(([name, description]) => ({
         name,
@@ -159,7 +162,7 @@ export class NewApiClient {
       completionRatio: m.completion_ratio,
       groups: m.enable_groups,
       vendorId: m.vendor_id,
-      supportedEndpoints: m.supported_endpoint_types,
+      supportedEndpoints: m.supported_endpoint_types ?? m.endpoints ?? [],
       modelPrice:
         m.quota_type !== 0 && m.model_price > 0 ? m.model_price : undefined,
       quotaType: m.quota_type >= 2 ? m.quota_type : undefined,

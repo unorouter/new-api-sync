@@ -50,10 +50,12 @@ export interface PricingResponse {
     model_price: number;
     completion_ratio: number;
     enable_groups: string[];
-    supported_endpoint_types: string[];
+    supported_endpoint_types?: string[];
+    endpoints?: string[];
   }>;
   group_ratio: Record<string, number>;
-  usable_group: Record<string, string>;
+  usable_group?: Record<string, string>;
+  group_names?: Record<string, string>;
   vendors?: Array<{ id: number; name: string }>;
   supported_endpoint?: Record<string, EndpointInfo>;
 }

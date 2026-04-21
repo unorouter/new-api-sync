@@ -1148,14 +1148,12 @@ export async function testModels(opts: {
             : null;
         const toolCallSuccess = toolResult?.pass ?? null;
 
-        // Kiro substitution detection for Anthropic channels with Claude models
+        // Kiro substitution detection for Claude models on any channel type —
+        // some new-api forks expose Claude via OpenAI-compatible endpoints and
+        // report no endpoint metadata, so fall back to model-name matching.
         let authentic = true;
         const logKey = `${prefix}|${model}`;
-        if (
-          channelType === CHANNEL_TYPES.ANTHROPIC &&
-          model.startsWith("claude-") &&
-          (success || streamSuccess)
-        ) {
+        if (model.startsWith("claude-") && (success || streamSuccess)) {
           authentic = await testAnthropicAuthenticity({
             baseUrl,
             apiKey,
@@ -1176,11 +1174,7 @@ export async function testModels(opts: {
           http: httpResult,
           stream: streamResult,
           toolCall: toolResult,
-          authentic:
-            channelType === CHANNEL_TYPES.ANTHROPIC &&
-            model.startsWith("claude-")
-              ? authentic
-              : null,
+          authentic: model.startsWith("claude-") ? authentic : null,
         });
 
         const h = finalSuccess ? "✓" : "✗";
@@ -1196,7 +1190,6 @@ export async function testModels(opts: {
           streamSuccess: finalStream,
           toolCallSuccess,
           kiroProbed:
-            channelType === CHANNEL_TYPES.ANTHROPIC &&
             model.startsWith("claude-") &&
             (success || streamSuccess === true),
         };
