@@ -101,8 +101,10 @@ export function ProvidersFilter(props: {
               />
             </div>
             <Combobox.List className="max-h-64 overflow-y-auto p-1">
-              <Combobox.Empty className="text-muted-foreground py-4 text-center text-xs">
-                {t("SYNC.FILTER.NO_PROVIDERS")}
+              <Combobox.Empty>
+                <div className="text-muted-foreground py-4 text-center text-xs">
+                  {t("SYNC.FILTER.NO_PROVIDERS")}
+                </div>
               </Combobox.Empty>
               <Combobox.Collection>
                 {(item: ProviderOption) => (
