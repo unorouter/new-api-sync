@@ -70,7 +70,9 @@ program
         applyOnlyProviders(await loadConfig(options.config), options.only),
         options.models,
       );
-      const result = await runReset(config);
+      const result = await runReset(config, {
+        onlyProviders: options.only.length > 0,
+      });
       printResetSummary(result);
     },
   );

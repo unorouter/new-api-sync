@@ -201,6 +201,7 @@ export const GlobalConfigSchema = T.Object({
   kiroQuery: T.Optional(T.String()),
   selectedConfigName: T.Optional(T.String()),
   pipelineMode: T.Optional(PipelineModeEnum),
+  verbose: T.Optional(T.Boolean()),
   onlyProviders: T.Optional(T.Record(T.String(), T.Array(T.String()))),
   modelFilter: T.Optional(T.Record(T.String(), T.String())),
   blacklist: T.Optional(T.Array(str)),

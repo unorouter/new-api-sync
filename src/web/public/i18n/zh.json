@@ -52,6 +52,7 @@
       "RESET": "重置"
     },
     "CLEAR_LOG": "清除日志",
+    "VERBOSE": "详细日志",
     "FILTER": {
       "PROVIDER_MULTI": "提供商",
       "SEARCH_PROVIDERS": "搜索提供商……",
@@ -272,7 +273,7 @@
       "APPLY_ERROR": "[{phase}/{key}] {message}",
       "COMPLETED": "已在 {elapsed}s 内完成",
       "COMPLETED_WITH_ERRORS": "已在 {elapsed}s 内完成，存在错误",
-      "RESET_COMPLETE": "重置完成 | 渠道：-{channels} | 模型：-{models} | 孤儿：-{orphans} | 令牌：-{tokens} | 选项：{options}",
+      "RESET_COMPLETE": "重置完成 | 渠道：-{channels} / ~{channelsUpdated} | 模型：-{models} | 孤儿：-{orphans} | 令牌：-{tokens} | 选项：{options}",
       "TEST_STATUS_PASS": "✓",
       "TEST_STATUS_FAIL": "✗",
       "TEST_PROVIDER": "  {status} {name}: {models} 个模型",

@@ -27,6 +27,7 @@ export interface UiState {
   kiroQuery: string;
   selectedConfigName: string;
   pipelineMode: PipelineMode;
+  verbose: boolean;
   onlyProviders: Record<string, string[]>;
   modelFilter: Record<string, string>;
 }
@@ -42,6 +43,7 @@ export interface UiActions {
   setKiroQuery: (query: string) => void;
   setSelectedConfigName: (name: string) => void;
   setPipelineMode: (mode: PipelineMode) => void;
+  setVerbose: (verbose: boolean) => void;
   setOnlyProviders: (providers: string[]) => void;
   setModelFilter: (value: string) => void;
 }
@@ -59,6 +61,7 @@ const defaultPersistedUiState: UiState = {
   kiroQuery: "",
   selectedConfigName: "",
   pipelineMode: "run",
+  verbose: false,
   onlyProviders: {},
   modelFilter: {},
 };
@@ -129,6 +132,7 @@ export const useUiStore = create<UiStore>()(
       setSelectedConfigName: (selectedConfigName) =>
         set({ selectedConfigName }),
       setPipelineMode: (pipelineMode) => set({ pipelineMode }),
+      setVerbose: (verbose) => set({ verbose }),
       setOnlyProviders: (providers) =>
         set((state) => ({
           onlyProviders: {
@@ -159,6 +163,7 @@ export const useUiStore = create<UiStore>()(
         kiroQuery: state.kiroQuery,
         selectedConfigName: state.selectedConfigName,
         pipelineMode: state.pipelineMode,
+        verbose: state.verbose,
         onlyProviders: state.onlyProviders,
         modelFilter: state.modelFilter,
       }),

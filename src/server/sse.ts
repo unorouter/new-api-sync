@@ -11,6 +11,29 @@ import { sse } from "elysia";
  */
 const activeRuns = new Map<string, AbortController>();
 
+/**
+ * Refcount of streams that have requested verbose (debug-level) logging. While
+ * this is > 0 consola runs at level 4. consola's level is a single global,
+ * so concurrent verbose+non-verbose runs will both see debug output — that
+ * noise is acceptable vs. the alternative of dropping debug frames entirely.
+ */
+let verboseRefCount = 0;
+let savedConsolaLevel: number | null = null;
+function acquireVerbose(): void {
+  if (verboseRefCount === 0) {
+    savedConsolaLevel = consola.level;
+    consola.level = 4;
+  }
+  verboseRefCount++;
+}
+function releaseVerbose(): void {
+  verboseRefCount--;
+  if (verboseRefCount === 0 && savedConsolaLevel !== null) {
+    consola.level = savedConsolaLevel;
+    savedConsolaLevel = null;
+  }
+}
+
 export function cancelActiveRun(id: string): boolean {
   const controller = activeRuns.get(id);
   if (!controller) return false;
@@ -40,10 +63,13 @@ export type PipelineFrame =
 export async function* pipelineStream(
   task: (signal: AbortSignal) => Promise<unknown>,
   request?: { signal?: AbortSignal },
+  opts?: { verbose?: boolean },
 ): AsyncGenerator<{ readonly data: PipelineFrame }> {
   const controller = new AbortController();
   const runId = Bun.randomUUIDv7();
   activeRuns.set(runId, controller);
+  const verbose = !!opts?.verbose;
+  if (verbose) acquireVerbose();
 
   const upstream = request?.signal;
   const onUpstreamAbort = () => controller.abort();
@@ -115,6 +141,7 @@ export async function* pipelineStream(
   } finally {
     consola.removeReporter(reporter);
     activeRuns.delete(runId);
+    if (verbose) releaseVerbose();
     if (upstream) upstream.removeEventListener("abort", onUpstreamAbort);
     // Client disconnected mid-stream: propagate so in-flight HTTP/DB work stops.
     if (!done) controller.abort();

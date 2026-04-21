@@ -52,6 +52,7 @@
       "RESET": "Reset"
     },
     "CLEAR_LOG": "Clear log",
+    "VERBOSE": "Verbose",
     "FILTER": {
       "PROVIDER_MULTI": "Providers",
       "SEARCH_PROVIDERS": "Search providers...",
@@ -272,7 +273,7 @@
       "APPLY_ERROR": "[{phase}/{key}] {message}",
       "COMPLETED": "Completed in {elapsed}s",
       "COMPLETED_WITH_ERRORS": "Completed with errors in {elapsed}s",
-      "RESET_COMPLETE": "Reset complete | Channels: -{channels} | Models: -{models} | Orphans: -{orphans} | Tokens: -{tokens} | Options: {options}",
+      "RESET_COMPLETE": "Reset complete | Channels: -{channels} / ~{channelsUpdated} | Models: -{models} | Orphans: -{orphans} | Tokens: -{tokens} | Options: {options}",
       "TEST_STATUS_PASS": "✓",
       "TEST_STATUS_FAIL": "✗",
       "TEST_PROVIDER": "  {status} {name}: {models} models",

@@ -11,6 +11,7 @@ interface RunArgs {
   mode: SyncMode;
   only?: string[];
   models?: string[];
+  verbose?: boolean;
 }
 
 /**
@@ -33,6 +34,7 @@ export function useSyncPipeline() {
       const payload = {
         only: args.only ?? [],
         models: args.models ?? [],
+        verbose: args.verbose ?? false,
         configName: selectedConfigName,
       };
 

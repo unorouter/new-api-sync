@@ -12,57 +12,72 @@ export const pipelineRoute = new Elysia({ prefix: "/pipeline" })
   .post(
     "/run",
     ({ body, request }) =>
-      pipelineStream(async (signal) => {
-        const path = configPath(body.configName);
-        const config = applyModelFilter(
-          applyOnlyProviders(await loadConfig(path), body.only ?? []),
-          body.models ?? [],
-        );
-        const result = await runWithSignal(signal, () => runSync(config));
-        return {
-          success: result.success,
-          elapsedMs: result.elapsedMs,
-          providerReports: result.providerReports.map((report) => ({
-            name: report.name,
-            success: report.success,
-            models: report.models,
-            error: report.error,
-          })),
-          apply: {
-            channels: result.apply.channels,
-            models: result.apply.models,
-            options: { updated: result.apply.options.updated },
-            errors: result.apply.errors,
-          },
-        };
-      }, request),
+      pipelineStream(
+        async (signal) => {
+          const path = configPath(body.configName);
+          const config = applyModelFilter(
+            applyOnlyProviders(await loadConfig(path), body.only ?? []),
+            body.models ?? [],
+          );
+          const result = await runWithSignal(signal, () => runSync(config));
+          return {
+            success: result.success,
+            elapsedMs: result.elapsedMs,
+            providerReports: result.providerReports.map((report) => ({
+              name: report.name,
+              success: report.success,
+              models: report.models,
+              error: report.error,
+            })),
+            apply: {
+              channels: result.apply.channels,
+              models: result.apply.models,
+              options: { updated: result.apply.options.updated },
+              errors: result.apply.errors,
+            },
+          };
+        },
+        request,
+        { verbose: body.verbose },
+      ),
     { body: PipelineBody },
   )
   .post(
     "/test",
     ({ body, request }) =>
-      pipelineStream(async (signal) => {
-        const path = configPath(body.configName);
-        const config = applyModelFilter(
-          applyOnlyProviders(await loadConfig(path), body.only ?? []),
-          body.models ?? [],
-        );
-        const ok = await runWithSignal(signal, () => runTestPipeline(config));
-        return { success: ok };
-      }, request),
+      pipelineStream(
+        async (signal) => {
+          const path = configPath(body.configName);
+          const config = applyModelFilter(
+            applyOnlyProviders(await loadConfig(path), body.only ?? []),
+            body.models ?? [],
+          );
+          const ok = await runWithSignal(signal, () => runTestPipeline(config));
+          return { success: ok };
+        },
+        request,
+        { verbose: body.verbose },
+      ),
     { body: PipelineBody },
   )
   .post(
     "/reset",
     ({ body, request }) =>
-      pipelineStream(async (signal) => {
-        const path = configPath(body.configName);
-        const config = applyModelFilter(
-          applyOnlyProviders(await loadConfig(path), body.only ?? []),
-          body.models ?? [],
-        );
-        return await runWithSignal(signal, () => runReset(config));
-      }, request),
+      pipelineStream(
+        async (signal) => {
+          const path = configPath(body.configName);
+          const only = body.only ?? [];
+          const config = applyModelFilter(
+            applyOnlyProviders(await loadConfig(path), only),
+            body.models ?? [],
+          );
+          return await runWithSignal(signal, () =>
+            runReset(config, { onlyProviders: only.length > 0 }),
+          );
+        },
+        request,
+        { verbose: body.verbose },
+      ),
     { body: PipelineBody },
   )
   .post(

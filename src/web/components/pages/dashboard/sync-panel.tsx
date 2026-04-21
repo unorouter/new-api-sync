@@ -12,6 +12,7 @@ import {
 } from "@web/components/ui/card";
 import { Input } from "@web/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@web/components/ui/radio-group";
+import { Switch } from "@web/components/ui/switch";
 import { useConfig } from "@web/hooks/config-hook";
 import { useSyncPipeline } from "@web/hooks/sync-hook";
 import { useSyncStore } from "@web/store/sync-store";
@@ -80,6 +81,8 @@ export function SyncPanel() {
   const setOnlyProviders = useUiStore((s) => s.setOnlyProviders);
   const modelFilterMap = useUiStore((s) => s.modelFilter);
   const setModelFilter = useUiStore((s) => s.setModelFilter);
+  const verbose = useUiStore((s) => s.verbose);
+  const setVerbose = useUiStore((s) => s.setVerbose);
 
   const configQuery = useConfig(selectedConfigName);
   const providerOptions =
@@ -145,6 +148,15 @@ export function SyncPanel() {
             onChange={setOnlyProviders}
             disabled={busy}
           />
+
+          <label className="flex items-center gap-2 text-sm data-disabled:opacity-50" data-disabled={busy ? "" : undefined}>
+            <Switch
+              checked={verbose}
+              onCheckedChange={setVerbose}
+              disabled={busy}
+            />
+            {t("SYNC.VERBOSE")}
+          </label>
         </div>
 
         <Input
@@ -168,6 +180,7 @@ export function SyncPanel() {
                   mode: pipelineMode,
                   only: onlyProviders,
                   models: modelFilterList,
+                  verbose,
                 })
               }
               variant={pipelineMode === "reset" ? "destructive" : "default"}

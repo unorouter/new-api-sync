@@ -134,13 +134,14 @@ function isKiroBlacklisted(key: string): boolean {
 }
 
 export function writeTestReport(): void {
+  saveKiroBlacklist();
+  if (testReport.results.length === 0) return;
   const logsDir = join(process.cwd(), "logs");
   mkdirSync(logsDir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const path = join(logsDir, `${ts}-model-tests.json`);
   writeFileSync(path, JSON.stringify(testReport, null, 2));
   consola.info(t("CORE.TESTER.REPORT_WRITTEN", { path }));
-  saveKiroBlacklist();
 }
 
 export function initTestReportForDate(): void {
@@ -163,6 +164,8 @@ export function initTestReportForDate(): void {
 }
 
 export function writeTestReportForDate(): void {
+  saveKiroBlacklist();
+  if (testReport.results.length === 0) return;
   const today = new Date().toISOString().slice(0, 10);
   const logsDir = join(process.cwd(), "logs");
   mkdirSync(logsDir, { recursive: true });
@@ -174,7 +177,6 @@ export function writeTestReportForDate(): void {
       count: testReport.results.length,
     }),
   );
-  saveKiroBlacklist();
 }
 
 // ---------------------------------------------------------------------------

@@ -216,6 +216,7 @@ export function printResetSummary(result: ResetResult): void {
   consola.info(
     t("CLI.SUMMARY.RESET_COMPLETE", {
       channels: result.channelsDeleted,
+      channelsUpdated: result.channelsUpdated,
       models: result.modelsDeleted,
       orphans: result.orphanModelsDeleted,
       tokens: result.tokensDeleted,
