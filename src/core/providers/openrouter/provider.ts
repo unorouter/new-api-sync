@@ -9,61 +9,12 @@ import {
   matchesAnyPattern,
   matchesBlacklist,
 } from "@core/models/constants";
-import { logTestSummary } from "@core/models/test-log";
-import { recordTestResult } from "@core/models/tester";
+import { testAndFilterModels } from "@core/models/tester";
 import type { OpenRouterProviderConfig } from "@core/validations/config";
 import type { ProviderReport, SyncState } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { discoverOpenRouterFreeModels } from "./discovery";
-
-interface ProbeResult {
-  status: number | null;
-  bodyText: string | null;
-  error: string | null;
-  latencyMs: number;
-}
-
-async function probeStatus(
-  baseUrl: string,
-  apiKey: string,
-  modelId: string,
-): Promise<ProbeResult> {
-  const started = Date.now();
-  try {
-    const res = await fetch(
-      `${baseUrl.replace(/\/$/, "")}/chat/completions`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: modelId,
-          messages: [{ role: "user", content: "hi" }],
-          max_tokens: 1,
-        }),
-        signal: AbortSignal.timeout(15_000),
-      },
-    );
-    const latencyMs = Date.now() - started;
-    const bodyText = await res.text().catch(() => "");
-    return {
-      status: res.status,
-      bodyText: bodyText || null,
-      error: res.ok ? null : `HTTP ${res.status} ${res.statusText}`,
-      latencyMs,
-    };
-  } catch (err) {
-    return {
-      status: null,
-      bodyText: null,
-      error: err instanceof Error ? err.message : String(err),
-      latencyMs: Date.now() - started,
-    };
-  }
-}
 
 export async function processOpenRouterProvider(
   providerConfig: OpenRouterProviderConfig,
@@ -79,9 +30,6 @@ export async function processOpenRouterProvider(
   };
 
   try {
-    // 1. Resolve candidate model IDs.
-    //    - If explicit `models` is provided, use only that list (bypass discovery).
-    //    - Otherwise: dynamic free discovery + literal enabledModels extras (union).
     let candidateIds: string[];
 
     if (providerConfig.models?.length) {
@@ -104,7 +52,6 @@ export async function processOpenRouterProvider(
         }),
       );
 
-      // Add literal (non-wildcard) entries from enabledModels as explicit extras.
       const enabledGlobs =
         getEnabledModelGlobs(providerConfig.enabledModels) ?? [];
       const extras = enabledGlobs.filter(
@@ -130,12 +77,6 @@ export async function processOpenRouterProvider(
       return report;
     }
 
-    // 2. Apply filters:
-    //    - blacklist (text-style match against bare names — OpenRouter IDs
-    //      don't map cleanly onto vendor scopes, so match both full and bare)
-    //    - enabledVendors (prefix of the full ID, before the first slash)
-    //    - NOTE: enabledModels is treated as ADDITIVE (applied above), not
-    //      restrictive, per the provider contract.
     const vendorFilter = providerConfig.enabledVendors;
     const filtered = candidateIds.filter((id) => {
       const bare = toBareName(id);
@@ -168,70 +109,23 @@ export async function processOpenRouterProvider(
       return report;
     }
 
-    // 3. Test each model with a 1-token chat completion. Treat 429 as working
-    //    (model exists upstream, just rate-limited right now).
     consola.info(
       t("CORE.OPENROUTER.PROBING", {
         name: providerConfig.name,
         count: filtered.length,
       }),
     );
-    const working: string[] = [];
-    const failed: Array<{ id: string; status: number | null }> = [];
-    const probeUrl = `${providerConfig.baseUrl.replace(/\/$/, "")}/chat/completions`;
-    for (const id of filtered) {
-      const probe = await probeStatus(
-        providerConfig.baseUrl,
-        providerConfig.apiKey,
-        id,
-      );
-      const pass = probe.status === 200 || probe.status === 429;
-      logTestSummary({
-        prefix: providerConfig.name,
-        model: toBareName(id),
-        modelType: "text",
-        http: {
-          pass,
-          status: probe.status,
-          latencyMs: probe.latencyMs,
-          error: probe.error,
-          body: probe.bodyText,
-        },
-      });
-      recordTestResult({
-        provider: providerConfig.name,
-        model: toBareName(id),
-        http: {
-          pass,
-          request: {
-            url: probeUrl,
-            body: {
-              model: id,
-              messages: [{ role: "user", content: "hi" }],
-              max_tokens: 1,
-            },
-          },
-          response: probe.bodyText,
-          error: probe.error ?? undefined,
-          status: probe.status ?? undefined,
-          latencyMs: probe.latencyMs,
-        },
-      });
-      if (pass) working.push(id);
-      else failed.push({ id, status: probe.status });
-    }
 
-    if (failed.length > 0) {
-      const labeled = failed
-        .map((f) => `${toBareName(f.id)}(${f.status ?? "net"})`)
-        .join(", ");
-      consola.info(
-        t("CORE.OPENROUTER.FAILED", {
-          name: providerConfig.name,
-          models: labeled,
-        }),
-      );
-    }
+    const filterResult = await testAndFilterModels({
+      allModels: filtered,
+      baseUrl: providerConfig.baseUrl,
+      apiKey: providerConfig.apiKey,
+      channelType: CHANNEL_TYPES.OPENAI,
+      providerLabel: providerConfig.name,
+      testableModelTypes: new Set(["text"]),
+    });
+    const working = filterResult.workingModels;
+
     consola.info(
       t("CORE.OPENROUTER.WORKING", {
         name: providerConfig.name,
@@ -245,14 +139,10 @@ export async function processOpenRouterProvider(
       return report;
     }
 
-    // 4. Strip vendor prefix for user-facing names (e.g. "moonshotai/kimi-k2.5"
-    //    -> "kimi-k2.5"), keeping full ID for bare-name collisions.
     const resolutions = resolveBareNames(working, config.modelMapping);
     const exposedNames = resolutions.map((r) => r.exposed);
     const reverseMapping = buildChannelModelMapping(resolutions);
 
-    // 6. Push a single channel. Zero-ratio group, OpenRouter channel type so
-    //    new-api's adaptor handles quirks of the upstream format.
     const groupName = `openrouter-free-${providerConfig.name}`;
     state.mergedGroups.push({
       name: groupName,
@@ -279,9 +169,6 @@ export async function processOpenRouterProvider(
           : undefined,
     });
 
-    // 7. Override ratios to 0 for all exposed models. Mirrors the nvidia image
-    //    branch: partial syncs may have seeded stale ratio entries from the
-    //    pricing API for the same bare name.
     for (const exposed of exposedNames) {
       state.mergedModels.set(exposed, {
         ratio: 0,

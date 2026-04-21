@@ -1,23 +1,30 @@
-import { throwIfRunAborted } from "@core/abort";
-import { fetchJson, tryFetchJson } from "@core/http";
-import {
-  CHANNEL_TYPES,
-  inferChannelType,
-  PAGINATION,
-} from "@core/models/constants";
+import { tryFetchJson } from "@core/http";
 import type { Channel, GroupInfo, ModelMeta, Vendor } from "@core/types";
 import { t } from "@server/i18n";
-import { consola } from "consola";
-import type {
-  ApiResponse,
-  ModelInfo,
-  NewApiConfig,
-  PricingResponse,
-  PricingResponseV2,
-  TokenListResponse,
-  UpstreamPricing,
-  UpstreamToken,
-} from "./types";
+import type { ClientContext } from "./context";
+import type { NewApiConfig, UpstreamPricing, UpstreamToken } from "./types";
+import { fetchPricing as _fetchPricing } from "./pricing";
+import {
+  listTokens as _listTokens,
+  createToken as _createToken,
+  getTokenFullKey as _getTokenFullKey,
+  deleteToken as _deleteToken,
+  ensureTokens as _ensureTokens,
+} from "./tokens";
+import {
+  listChannels as _listChannels,
+  createChannel as _createChannel,
+  updateChannel as _updateChannel,
+  deleteChannel as _deleteChannel,
+  listModels as _listModels,
+  createModel as _createModel,
+  updateModel as _updateModel,
+  deleteModel as _deleteModel,
+  listVendors as _listVendors,
+  createVendor as _createVendor,
+  updateVendor as _updateVendor,
+  cleanupOrphanedModels as _cleanupOrphanedModels,
+} from "./resources";
 
 export class NewApiClient {
   private config: NewApiConfig;
@@ -30,6 +37,14 @@ export class NewApiClient {
       userId: config.userId,
     };
     this._name = name;
+  }
+
+  private get ctx(): ClientContext {
+    return {
+      baseUrl: this.config.baseUrl,
+      headers: this.headers,
+      name: this._name ?? "target",
+    };
   }
 
   private get headers(): Record<string, string> {
@@ -50,9 +65,6 @@ export class NewApiClient {
     return this._name ?? "target";
   }
 
-  /**
-   * Health check: verifies the instance is reachable and returns the balance.
-   */
   async healthCheck(): Promise<{
     ok: boolean;
     balance?: string;
@@ -75,7 +87,6 @@ export class NewApiClient {
     return { ok: true, balance };
   }
 
-  /** Returns the numeric balance in dollars, or null on failure. */
   async fetchBalance(): Promise<number | null> {
     const data = await tryFetchJson<{
       success: boolean;
@@ -84,385 +95,6 @@ export class NewApiClient {
     if (!data?.success || data.data?.quota === undefined) return null;
     return data.data.quota / 500000;
   }
-
-  async fetchPricing(): Promise<UpstreamPricing> {
-    // Try /api/pricing_new first — some instances (newer new-api forks) expose
-    // a V1-format endpoint here that includes supported_endpoint_types even when
-    // /api/pricing returns V2 format without endpoint data.
-    const urls = [
-      `${this.baseUrl}/api/pricing_new`,
-      `${this.baseUrl}/api/pricing`,
-    ];
-    let raw: { success: boolean; [key: string]: unknown } | undefined;
-    for (const url of urls) {
-      const body = await tryFetchJson<{
-        success: boolean;
-        [key: string]: unknown;
-      }>(url);
-      if (!body?.success || !body.data) continue;
-      // Only prefer pricing_new if it actually returns V1 format (with endpoint data)
-      if (url.endsWith("/pricing_new") && !Array.isArray(body.data)) continue;
-      raw = body;
-      break;
-    }
-    if (!raw) {
-      throw new Error(t("ERROR.NEWAPI_FETCH_PRICING_FAILED"));
-    }
-
-    // Extract supported_endpoint before format dispatch (both V1 and V2 may have it)
-    const supportedEndpoint = (raw.supported_endpoint ?? {}) as Record<
-      string,
-      { path: string; method: string }
-    >;
-
-    // Detect format: V1 has data as array + top-level usable_group/group_ratio,
-    // V2 has data as object with model_group/model_info/model_completion_ratio
-    const isV1 = Array.isArray(raw.data);
-
-    if (isV1) {
-      return this.parsePricingV1(raw as unknown as PricingResponse);
-    }
-    const result = this.parsePricingV2(raw as unknown as PricingResponseV2);
-    result.endpointPaths = supportedEndpoint;
-    return result;
-  }
-
-  private parsePricingV1(data: PricingResponse): UpstreamPricing {
-    const groupModels = new Map<string, Set<string>>();
-    const groupEndpoints = new Map<string, Set<string>>();
-    for (const model of data.data) {
-      const endpoints = model.supported_endpoint_types ?? model.endpoints ?? [];
-      for (const group of model.enable_groups) {
-        if (!groupModels.has(group)) {
-          groupModels.set(group, new Set());
-          groupEndpoints.set(group, new Set());
-        }
-        groupModels.get(group)!.add(model.model_name);
-        for (const endpoint of endpoints) {
-          groupEndpoints.get(group)!.add(endpoint);
-        }
-      }
-    }
-
-    const groups: GroupInfo[] = Object.entries(data.usable_group ?? data.group_names ?? {})
-      .filter(([name]) => name !== "")
-      .map(([name, description]) => ({
-        name,
-        description,
-        ratio: data.group_ratio[name] ?? 1,
-        models: Array.from(groupModels.get(name) ?? []),
-        channelType: inferChannelType(
-          Array.from(groupEndpoints.get(name) ?? []),
-        ),
-      }));
-
-    const models: ModelInfo[] = data.data.map((m) => ({
-      name: m.model_name,
-      ratio: m.model_ratio,
-      completionRatio: m.completion_ratio,
-      groups: m.enable_groups,
-      vendorId: m.vendor_id,
-      supportedEndpoints: m.supported_endpoint_types ?? m.endpoints ?? [],
-      modelPrice:
-        m.quota_type !== 0 && m.model_price > 0 ? m.model_price : undefined,
-      quotaType: m.quota_type >= 2 ? m.quota_type : undefined,
-    }));
-
-    const modelRatios: Record<string, number> = {};
-    const completionRatios: Record<string, number> = {};
-    for (const m of data.data) {
-      if (m.model_ratio > 0) modelRatios[m.model_name] = m.model_ratio;
-      if (m.completion_ratio > 0)
-        completionRatios[m.model_name] = m.completion_ratio;
-    }
-
-    const vendorIdToName: Record<number, string> = {};
-    if (data.vendors) {
-      for (const v of data.vendors) {
-        vendorIdToName[v.id] = v.name;
-      }
-    }
-
-    consola.info(
-      t("CORE.NEWAPI.V1_FORMAT", {
-        name: this.name,
-        groups: groups.length,
-        models: models.length,
-      }),
-    );
-
-    return {
-      groups,
-      models,
-      groupRatios: data.group_ratio,
-      modelRatios,
-      completionRatios,
-      vendorIdToName,
-      endpointPaths: data.supported_endpoint ?? {},
-    };
-  }
-
-  private parsePricingV2(raw: PricingResponseV2): UpstreamPricing {
-    const d = raw.data;
-    const groupRatios: Record<string, number> = {};
-    const modelRatios: Record<string, number> = {};
-    const completionRatios: Record<string, number> = {
-      ...d.model_completion_ratio,
-    };
-
-    const groups: GroupInfo[] = Object.entries(d.model_group)
-      .filter(([name]) => name !== "")
-      .map(([name, group]) => {
-        const modelNames = Object.keys(group.ModelPrice);
-        groupRatios[name] = group.GroupRatio;
-
-        // Derive per-model ratios from ModelPrice (price field acts as model_ratio)
-        for (const [modelName, pricing] of Object.entries(group.ModelPrice)) {
-          if (pricing.price > 0 && !(modelName in modelRatios)) {
-            modelRatios[modelName] = pricing.price;
-          }
-        }
-
-        return {
-          name,
-          description: group.DisplayName || name,
-          ratio: group.GroupRatio,
-          models: modelNames,
-          channelType: CHANNEL_TYPES.OPENAI, // V2 doesn't expose endpoint types; default to OpenAI
-        };
-      });
-
-    // Build ModelInfo from the combined data
-    const allModels = new Map<string, ModelInfo>();
-    for (const [groupName, group] of Object.entries(d.model_group)) {
-      for (const [modelName, pricing] of Object.entries(group.ModelPrice)) {
-        if (!allModels.has(modelName)) {
-          allModels.set(modelName, {
-            name: modelName,
-            ratio: pricing.price || 1,
-            completionRatio: d.model_completion_ratio[modelName] ?? 1,
-            groups: [],
-          });
-        }
-        allModels.get(modelName)!.groups.push(groupName);
-      }
-    }
-    const models = Array.from(allModels.values());
-
-    consola.info(
-      t("CORE.NEWAPI.V2_FORMAT", {
-        name: this.name,
-        groups: groups.length,
-        models: models.length,
-      }),
-    );
-
-    return {
-      groups,
-      models,
-      groupRatios,
-      modelRatios,
-      completionRatios,
-      vendorIdToName: {},
-      endpointPaths: {},
-    };
-  }
-
-  async listTokens(): Promise<UpstreamToken[]> {
-    const allTokens: UpstreamToken[] = [];
-    let page = PAGINATION.START_PAGE_ZERO;
-    while (true) {
-      const data = await fetchJson<TokenListResponse>(
-        `${this.baseUrl}/api/token/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-        { headers: this.headers },
-      );
-      if (!data.success) {
-        throw new Error(
-          t("ERROR.NEWAPI_TOKEN_LIST_API_FAILED", {
-            detail: data.message ? ` (${data.message})` : "",
-          }),
-        );
-      }
-      const tokens = Array.isArray(data.data)
-        ? data.data
-        : (data.data?.items ?? data.data?.data ?? []);
-      allTokens.push(...tokens);
-      if (tokens.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
-      page++;
-    }
-    return allTokens;
-  }
-
-  async createToken(name: string, group: string): Promise<boolean> {
-    const data = await tryFetchJson<{ success: boolean; message?: string }>(
-      `${this.baseUrl}/api/token/`,
-      {
-        method: "POST",
-        headers: this.headers,
-        body: {
-          name,
-          group,
-          expired_time: -1,
-          unlimited_quota: true,
-          model_limits_enabled: false,
-        },
-      },
-    );
-    if (!data?.success) {
-      consola.warn(
-        t("CORE.NEWAPI.TOKEN_CREATE_FAILED", {
-          name: this.name,
-          group,
-          message: data?.message ?? "unknown",
-        }),
-      );
-      return false;
-    }
-    return true;
-  }
-
-  async getTokenFullKey(id: number): Promise<string | null> {
-    const data = await tryFetchJson<{
-      success: boolean;
-      data?: { key: string };
-    }>(`${this.baseUrl}/api/token/${id}/key`, {
-      method: "POST",
-      headers: this.headers,
-    });
-    if (!data?.success || !data.data?.key) return null;
-    return data.data.key;
-  }
-
-  private isMaskedKey(key: string): boolean {
-    return key.includes("**");
-  }
-
-  private async resolveFullKey(token: UpstreamToken): Promise<string | null> {
-    const k = token.key;
-    if (!this.isMaskedKey(k)) return k;
-    return this.getTokenFullKey(token.id);
-  }
-
-  async ensureTokens(
-    groups: GroupInfo[],
-    prefix: string,
-  ): Promise<{
-    tokens: Record<string, string>;
-    created: number;
-    existing: number;
-    deleted: number;
-  }> {
-    const result: Record<string, string> = {};
-    let created = 0,
-      existing = 0,
-      deleted = 0;
-
-    const existingTokens = await this.listTokens();
-    const tokensByName = new Map(existingTokens.map((t) => [t.name, t]));
-
-    const TOKEN_NAME_MAX_BYTES = 30;
-    const suffix = `-${prefix}`;
-    const suffixBytes = new TextEncoder().encode(suffix).length;
-    const tokenNameForGroup = (groupName: string) => {
-      const maxBytes = TOKEN_NAME_MAX_BYTES - suffixBytes;
-      const encoder = new TextEncoder();
-      if (encoder.encode(groupName).length <= maxBytes) {
-        return `${groupName}${suffix}`;
-      }
-      let truncated = "";
-      let usedBytes = 0;
-      for (const char of groupName) {
-        const charBytes = encoder.encode(char).length;
-        if (usedBytes + charBytes > maxBytes) break;
-        truncated += char;
-        usedBytes += charBytes;
-      }
-      return `${truncated}${suffix}`;
-    };
-    const desiredTokenNames = new Set(
-      groups.map((g) => tokenNameForGroup(g.name)),
-    );
-
-    // Delete tokens that are managed by us but no longer needed
-    for (const token of existingTokens) {
-      throwIfRunAborted();
-      if (
-        token.name.endsWith(`-${prefix}`) &&
-        !desiredTokenNames.has(token.name)
-      ) {
-        if (await this.deleteToken(token.id)) {
-          consola.info(
-            t("CORE.NEWAPI.TOKEN_DELETED_STALE", {
-              name: this.name,
-              token: token.name,
-            }),
-          );
-          deleted++;
-        }
-      }
-    }
-
-    const normalizeKey = (key: string) =>
-      key.startsWith("sk-") ? key : `sk-${key}`;
-
-    for (const group of groups) {
-      throwIfRunAborted();
-      const tokenName = tokenNameForGroup(group.name);
-      const existingToken = tokensByName.get(tokenName);
-
-      if (existingToken) {
-        const fullKey = await this.resolveFullKey(existingToken);
-        if (!fullKey) {
-          consola.warn(
-            t("CORE.NEWAPI.TOKEN_EXISTING_KEY_UNAVAILABLE", {
-              name: this.name,
-              token: tokenName,
-            }),
-          );
-          continue;
-        }
-        result[group.name] = normalizeKey(fullKey);
-        existing++;
-      } else {
-        if (!(await this.createToken(tokenName, group.name))) continue;
-        created++;
-        const updatedTokens = await this.listTokens();
-        const newToken = updatedTokens.find((t) => t.name === tokenName);
-        if (!newToken) {
-          consola.warn(
-            t("CORE.NEWAPI.TOKEN_CREATED_NOT_FOUND", {
-              name: this.name,
-              token: tokenName,
-            }),
-          );
-          continue;
-        }
-        const fullKey = await this.resolveFullKey(newToken);
-        if (!fullKey) {
-          consola.warn(
-            t("CORE.NEWAPI.TOKEN_NEW_KEY_UNAVAILABLE", {
-              name: this.name,
-              token: tokenName,
-            }),
-          );
-          continue;
-        }
-        result[group.name] = normalizeKey(fullKey);
-      }
-    }
-
-    return { tokens: result, created, existing, deleted };
-  }
-
-  async deleteToken(id: number): Promise<boolean> {
-    const data = await tryFetchJson<{ success: boolean }>(
-      `${this.baseUrl}/api/token/${id}`,
-      { method: "DELETE", headers: this.headers },
-    );
-    return data?.success ?? false;
-  }
-
-  // ============ Target Methods (sync to target instance) ============
 
   async updateCache(): Promise<boolean> {
     const data = await tryFetchJson<{ success: boolean }>(
@@ -488,202 +120,91 @@ export class NewApiClient {
   }
 
   async updateOption(key: string, value: string): Promise<boolean> {
-    const data = await tryFetchJson<ApiResponse>(
+    const data = await tryFetchJson<{ success: boolean }>(
       `${this.baseUrl}/api/option/`,
       { method: "PUT", headers: this.headers, body: { key, value } },
     );
     return data?.success ?? false;
   }
 
-  async listChannels(): Promise<Channel[]> {
-    const all: Channel[] = [];
-    let page = PAGINATION.START_PAGE_ZERO;
-    while (true) {
-      const data = await fetchJson<{
-        success: boolean;
-        data: { data?: Channel[]; items?: Channel[] } | Channel[];
-      }>(
-        `${this.baseUrl}/api/channel/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-        { headers: this.headers },
-      );
-      if (!data.success) {
-        throw new Error(t("ERROR.NEWAPI_CHANNEL_LIST_API_FAILED"));
-      }
-      const items = Array.isArray(data.data)
-        ? data.data
-        : (data.data?.items ?? data.data?.data ?? []);
-      all.push(...items);
-      if (items.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
-      page++;
-    }
-    return all;
+  // Pricing
+  fetchPricing(): Promise<UpstreamPricing> {
+    return _fetchPricing(this.ctx);
   }
 
-  async createChannel(channel: Omit<Channel, "id">): Promise<number | null> {
-    // Try wrapped format first, fall back to flat format on 400/422
-    let data = await tryFetchJson<ApiResponse<{ id: number }>>(
-      `${this.baseUrl}/api/channel/`,
-      {
-        method: "POST",
-        headers: this.headers,
-        body: { mode: "single", channel },
-      },
-    );
-    if (!data) {
-      data = await tryFetchJson<ApiResponse<{ id: number }>>(
-        `${this.baseUrl}/api/channel/`,
-        { method: "POST", headers: this.headers, body: channel },
-      );
-    }
-    if (!data?.success) return null;
-    return data.data?.id ?? 0;
+  // Tokens
+  listTokens(): Promise<UpstreamToken[]> {
+    return _listTokens(this.ctx);
+  }
+  createToken(name: string, group: string): Promise<boolean> {
+    return _createToken(this.ctx, name, group);
+  }
+  getTokenFullKey(id: number): Promise<string | null> {
+    return _getTokenFullKey(this.ctx, id);
+  }
+  deleteToken(id: number): Promise<boolean> {
+    return _deleteToken(this.ctx, id);
+  }
+  ensureTokens(
+    groups: GroupInfo[],
+    prefix: string,
+  ): Promise<{
+    tokens: Record<string, string>;
+    created: number;
+    existing: number;
+    deleted: number;
+  }> {
+    return _ensureTokens(this.ctx, groups, prefix);
   }
 
-  async updateChannel(channel: Channel): Promise<boolean> {
-    if (!channel.id) return false;
-    const data = await tryFetchJson<ApiResponse>(
-      `${this.baseUrl}/api/channel/`,
-      { method: "PUT", headers: this.headers, body: channel },
-    );
-    return data?.success ?? false;
+  // Channels
+  listChannels(): Promise<Channel[]> {
+    return _listChannels(this.ctx);
+  }
+  createChannel(channel: Omit<Channel, "id">): Promise<number | null> {
+    return _createChannel(this.ctx, channel);
+  }
+  updateChannel(channel: Channel): Promise<boolean> {
+    return _updateChannel(this.ctx, channel);
+  }
+  deleteChannel(id: number): Promise<boolean> {
+    return _deleteChannel(this.ctx, id);
   }
 
-  async deleteChannel(id: number): Promise<boolean> {
-    const data = await tryFetchJson<ApiResponse>(
-      `${this.baseUrl}/api/channel/${id}`,
-      { method: "DELETE", headers: this.headers },
-    );
-    return data?.success ?? false;
+  // Models
+  listModels(): Promise<ModelMeta[]> {
+    return _listModels(this.ctx);
+  }
+  createModel(model: Omit<ModelMeta, "id">): Promise<boolean> {
+    return _createModel(this.ctx, model);
+  }
+  updateModel(model: ModelMeta): Promise<boolean> {
+    return _updateModel(this.ctx, model);
+  }
+  deleteModel(id: number): Promise<boolean> {
+    return _deleteModel(this.ctx, id);
   }
 
-  async listModels(): Promise<ModelMeta[]> {
-    // Race both endpoints: /api/models/list (newer) vs /api/models/ (older).
-    // Some target instances may not have the /list route yet.
-    const endpoints = [
-      `${this.baseUrl}/api/models/list`,
-      `${this.baseUrl}/api/models/`,
-    ];
-    const tryEndpoint = async (
-      base: string,
-    ): Promise<{ base: string; items: ModelMeta[] } | null> => {
-      const data = await tryFetchJson<ApiResponse<{ items?: ModelMeta[] }>>(
-        `${base}?p=0&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-        { headers: this.headers },
-      );
-      const items = data?.data?.items;
-      if (!Array.isArray(items)) return null;
-      return { base, items };
-    };
-
-    const results = await Promise.all(endpoints.map(tryEndpoint));
-    const winner = results.find((r) => r !== null);
-    if (!winner) return [];
-
-    const all: ModelMeta[] = [...winner.items];
-    if (winner.items.length < PAGINATION.DEFAULT_PAGE_SIZE) return all;
-
-    let page = 1;
-    while (true) {
-      const data = await fetchJson<ApiResponse<{ items?: ModelMeta[] }>>(
-        `${winner.base}?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-        { headers: this.headers },
-      );
-      const items = data.data?.items ?? [];
-      all.push(...items);
-      if (items.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
-      page++;
-    }
-    return all;
+  // Vendors
+  listVendors(): Promise<Vendor[]> {
+    return _listVendors(this.ctx);
   }
-
-  async createModel(model: Omit<ModelMeta, "id">): Promise<boolean> {
-    const data = await tryFetchJson<ApiResponse>(
-      `${this.baseUrl}/api/models/`,
-      { method: "POST", headers: this.headers, body: model },
-    );
-    return data?.success ?? false;
-  }
-
-  async updateModel(model: ModelMeta): Promise<boolean> {
-    const data = await tryFetchJson<ApiResponse>(
-      `${this.baseUrl}/api/models/`,
-      { method: "PUT", headers: this.headers, body: model },
-    );
-    return data?.success ?? false;
-  }
-
-  async deleteModel(id: number): Promise<boolean> {
-    const data = await tryFetchJson<ApiResponse>(
-      `${this.baseUrl}/api/models/${id}`,
-      { method: "DELETE", headers: this.headers },
-    );
-    return data?.success ?? false;
-  }
-
-  async listVendors(): Promise<Vendor[]> {
-    const all: Vendor[] = [];
-    let page = PAGINATION.START_PAGE_ONE;
-    while (true) {
-      const data = await fetchJson<ApiResponse<{ items?: Vendor[] }>>(
-        `${this.baseUrl}/api/vendors/?page=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-        { headers: this.headers },
-      );
-      const items = data.data?.items ?? [];
-      all.push(...items);
-      if (items.length < PAGINATION.DEFAULT_PAGE_SIZE) break;
-      page++;
-    }
-    return all;
-  }
-
-  async createVendor(vendor: {
+  createVendor(vendor: {
     name: string;
     icon?: string;
   }): Promise<Vendor | null> {
-    const data = await tryFetchJson<ApiResponse<Vendor>>(
-      `${this.baseUrl}/api/vendors/`,
-      {
-        method: "POST",
-        headers: this.headers,
-        body: vendor,
-      },
-    );
-    return data?.data ?? null;
+    return _createVendor(this.ctx, vendor);
   }
-
-  async updateVendor(vendor: {
+  updateVendor(vendor: {
     id: number;
     name: string;
     icon?: string;
   }): Promise<boolean> {
-    const data = await tryFetchJson<ApiResponse>(
-      `${this.baseUrl}/api/vendors/`,
-      {
-        method: "PUT",
-        headers: this.headers,
-        body: vendor,
-      },
-    );
-    return data?.success ?? false;
+    return _updateVendor(this.ctx, vendor);
   }
 
-  async cleanupOrphanedModels(): Promise<number> {
-    const data = await tryFetchJson<ApiResponse<{ deleted: number }>>(
-      `${this.baseUrl}/api/models/orphaned`,
-      { method: "DELETE", headers: this.headers },
-    );
-    if (!data) {
-      consola.warn(
-        t("CORE.NEWAPI.ORPHAN_CLEANUP_FAILED", { name: this.name }),
-      );
-      return 0;
-    }
-    const deleted = data.data?.deleted ?? 0;
-    if (deleted > 0) {
-      consola.info(
-        t("CORE.NEWAPI.ORPHAN_CLEANUP_DONE", { name: this.name, deleted }),
-      );
-    }
-    return deleted;
+  // Cleanup
+  cleanupOrphanedModels(): Promise<number> {
+    return _cleanupOrphanedModels(this.ctx);
   }
 }

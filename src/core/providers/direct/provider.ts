@@ -3,7 +3,7 @@ import type { DirectProviderConfig } from "@core/validations/config";
 import { CHANNEL_TYPES, VENDOR_CHANNEL_TYPES } from "@core/models/constants";
 import { filterModels } from "@core/models/filter";
 import { testAndFilterModels } from "@core/models/tester";
-import { buildPriceTiers, pushTieredChannels } from "@core/pricing";
+import { seedAndPushTieredChannels } from "@core/providers/shared/pipeline";
 import type { ProviderReport, SyncState } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -23,7 +23,6 @@ export async function processDirectProvider(
   };
 
   try {
-    // 1. Resolve models: explicit list or auto-discover
     let allModels: string[];
     if (providerConfig.models?.length) {
       allModels = providerConfig.models;
@@ -53,20 +52,17 @@ export async function processDirectProvider(
       );
     }
 
-    // 2. Filter
     allModels = filterModels(allModels, config, providerConfig);
     if (allModels.length === 0) {
       providerReport.error = t("CORE.ERROR.ALL_MODELS_FILTERED");
       return providerReport;
     }
 
-    // 3. Resolve channel type
     const channelType =
       providerConfig.channelType ??
       VENDOR_CHANNEL_TYPES[providerConfig.vendor.toLowerCase()] ??
       CHANNEL_TYPES.OPENAI;
 
-    // 4. Test models
     const filterResult = await testAndFilterModels({
       allModels,
       baseUrl: providerConfig.baseUrl,
@@ -92,7 +88,6 @@ export async function processDirectProvider(
       }),
     );
 
-    // 5. Register endpoint types for OpenAI vendor (responses API policy)
     if (providerConfig.vendor.toLowerCase() === "openai") {
       for (const m of workingModels) {
         if (!state.modelEndpoints.has(m)) {
@@ -101,68 +96,25 @@ export async function processDirectProvider(
       }
     }
 
-    // 6. Apply model mapping
     const mappedModels = workingModels.map(
       (m) => config.modelMapping?.[m] ?? m,
     );
 
-    // 7. Seed a synthetic group at the configured ratio so buildPriceTiers
-    //    can find it as the baseline for models that have no other provider.
-    const syntheticGroupName = `__direct_seed_${providerConfig.name}`;
-    state.mergedGroups.push({
-      name: syntheticGroupName,
-      ratio: providerConfig.ratio,
-      description: `${providerConfig.vendor} via ${providerConfig.name}`,
-      provider: providerConfig.name,
-    });
-    state.channelsToCreate.push({
-      name: syntheticGroupName,
-      type: channelType,
-      key: "",
-      base_url: "",
-      models: mappedModels.join(","),
-      group: syntheticGroupName,
-      priority: 0,
-      weight: 1,
-      status: 1,
-      tag: `__seed_${providerConfig.name}`,
-      remark: "synthetic seed for pricing baseline",
-    });
-
-    // 8. Build price tiers
-    const ratioToModels = buildPriceTiers({
+    const { ratioToModels } = seedAndPushTieredChannels({
       models: mappedModels,
-      adj: providerConfig.priceAdjustment,
-      defaultAdjustment: 0,
+      providerName: providerConfig.name,
+      seedPrefix: "direct",
+      channelType,
+      apiKey: providerConfig.apiKey,
+      baseUrl: providerConfig.baseUrl,
       vendor: providerConfig.vendor,
+      description: `${providerConfig.vendor} via ${providerConfig.name}`,
+      priceAdjustment: providerConfig.priceAdjustment,
+      defaultAdjustment: 0,
+      ratio: providerConfig.ratio,
       state,
-      excludeProvider: providerConfig.name,
       modelMapping: config.modelMapping,
     });
-
-    // Remove synthetic seed channel (it served its purpose for pricing)
-    const seedIdx = state.channelsToCreate.findIndex(
-      (c) => c.name === syntheticGroupName,
-    );
-    if (seedIdx >= 0) state.channelsToCreate.splice(seedIdx, 1);
-    const seedGroupIdx = state.mergedGroups.findIndex(
-      (g) => g.name === syntheticGroupName,
-    );
-    if (seedGroupIdx >= 0) state.mergedGroups.splice(seedGroupIdx, 1);
-
-    // 9. Push tiered channels
-    pushTieredChannels(
-      ratioToModels,
-      providerConfig.name,
-      {
-        type: channelType,
-        key: providerConfig.apiKey,
-        baseUrl: providerConfig.baseUrl,
-        provider: providerConfig.name,
-        description: `${providerConfig.vendor} via ${providerConfig.name}`,
-      },
-      state,
-    );
 
     providerReport.groups = ratioToModels.size;
     providerReport.models = mappedModels.length;

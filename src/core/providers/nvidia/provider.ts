@@ -11,7 +11,7 @@ import {
 import { CHANNEL_TYPES, inferModelType } from "@core/models/constants";
 import { filterModels } from "@core/models/filter";
 import { testAndFilterModels } from "@core/models/tester";
-import { buildPriceTiers, pushTieredChannels } from "@core/pricing";
+import { seedAndPushTieredChannels } from "@core/providers/shared/pipeline";
 import type { ProviderReport, SyncState } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -31,7 +31,6 @@ export async function processNvidiaProvider(
   };
 
   try {
-    // 1. Resolve models: explicit list or auto-discover + enabledModels
     let allModels: string[];
     if (providerConfig.models?.length) {
       allModels = providerConfig.models;
@@ -42,7 +41,6 @@ export async function processNvidiaProvider(
         }),
       );
     } else {
-      // Discover text models from OpenAI-compat /v1/models
       allModels = await discoverNvidiaModels(
         providerConfig.baseUrl,
         providerConfig.apiKey,
@@ -54,13 +52,10 @@ export async function processNvidiaProvider(
         }),
       );
 
-      // Image models live on a different host and aren't discoverable.
-      // Add any enabledModels entries that are image type so they get included.
       const enabledGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
       if (enabledGlobs?.length) {
         const discoveredSet = new Set(allModels);
         for (const glob of enabledGlobs) {
-          // Only add literal model names (not wildcards) that are image type
           if (!glob.includes("*") && !glob.includes("?")) {
             if (!discoveredSet.has(glob) && inferModelType(glob) === "image") {
               allModels.push(glob);
@@ -81,14 +76,12 @@ export async function processNvidiaProvider(
       return providerReport;
     }
 
-    // 2. Filter by enabledModels/blacklist
     allModels = filterModels(allModels, config, providerConfig);
     if (allModels.length === 0) {
       providerReport.error = t("CORE.ERROR.ALL_MODELS_FILTERED_SHORT");
       return providerReport;
     }
 
-    // 3. Split into text vs non-text using inferModelType
     const textModels: string[] = [];
     const imageModels: string[] = [];
     for (const model of allModels) {
@@ -108,7 +101,6 @@ export async function processNvidiaProvider(
       }),
     );
 
-    // 4. Test text models (OpenAI-compat endpoint)
     let workingTextModels: string[] = [];
     if (textModels.length > 0) {
       const filterResult = await testAndFilterModels({
@@ -132,7 +124,6 @@ export async function processNvidiaProvider(
       }
     }
 
-    // 5. Image models included without testing (proprietary NIM API format)
     if (imageModels.length > 0) {
       consola.info(
         t("CORE.NVIDIA.IMAGE_INCLUDED", {
@@ -151,9 +142,6 @@ export async function processNvidiaProvider(
       return providerReport;
     }
 
-    // 6. Resolve bare names for both text and image. Users on the gateway see
-     //    the bare name (e.g. "kimi-k2.5"); the reverse mapping on the channel
-     //    tells new-api's adaptor to forward the full "vendor/model" upstream.
     const textResolutions = resolveBareNames(
       workingTextModels,
       config.modelMapping,
@@ -167,65 +155,26 @@ export async function processNvidiaProvider(
     const textReverseMapping = buildChannelModelMapping(textResolutions);
     const imageReverseMapping = buildChannelModelMapping(imageResolutions);
 
-    // 7. Create text channels (OpenAI channel type)
     if (mappedTextModels.length > 0) {
-      const syntheticGroupName = `__nvidia_seed_${providerConfig.name}_text`;
-      state.mergedGroups.push({
-        name: syntheticGroupName,
-        ratio: providerConfig.ratio,
-        description: `NVIDIA NIM text via ${providerConfig.name}`,
-        provider: providerConfig.name,
-      });
-      state.channelsToCreate.push({
-        name: syntheticGroupName,
-        type: CHANNEL_TYPES.OPENAI,
-        key: "",
-        base_url: "",
-        models: mappedTextModels.join(","),
-        group: syntheticGroupName,
-        priority: 0,
-        weight: 1,
-        status: 1,
-        tag: `__seed_${providerConfig.name}`,
-        remark: "synthetic seed for pricing baseline",
-      });
-
-      const ratioToModels = buildPriceTiers({
+      const { ratioToModels } = seedAndPushTieredChannels({
         models: mappedTextModels,
-        adj: providerConfig.priceAdjustment,
-        defaultAdjustment: 0,
+        providerName: providerConfig.name,
+        seedPrefix: "nvidia_text",
+        channelType: CHANNEL_TYPES.OPENAI,
+        apiKey: providerConfig.apiKey,
+        baseUrl: providerConfig.baseUrl,
         vendor: "nvidia",
+        description: `NVIDIA NIM text via ${providerConfig.name}`,
+        priceAdjustment: providerConfig.priceAdjustment,
+        defaultAdjustment: 0,
+        ratio: providerConfig.ratio,
         state,
-        excludeProvider: providerConfig.name,
         modelMapping: config.modelMapping,
+        channelModelMapping:
+          Object.keys(textReverseMapping).length > 0
+            ? textReverseMapping
+            : undefined,
       });
-
-      // Remove synthetic seed
-      const seedIdx = state.channelsToCreate.findIndex(
-        (c) => c.name === syntheticGroupName,
-      );
-      if (seedIdx >= 0) state.channelsToCreate.splice(seedIdx, 1);
-      const seedGroupIdx = state.mergedGroups.findIndex(
-        (g) => g.name === syntheticGroupName,
-      );
-      if (seedGroupIdx >= 0) state.mergedGroups.splice(seedGroupIdx, 1);
-
-      pushTieredChannels(
-        ratioToModels,
-        providerConfig.name,
-        {
-          type: CHANNEL_TYPES.OPENAI,
-          key: providerConfig.apiKey,
-          baseUrl: providerConfig.baseUrl,
-          provider: providerConfig.name,
-          description: `NVIDIA NIM text via ${providerConfig.name}`,
-          modelMapping:
-            Object.keys(textReverseMapping).length > 0
-              ? textReverseMapping
-              : undefined,
-        },
-        state,
-      );
 
       const ratios = [...ratioToModels.keys()]
         .map((r) => r.toFixed(4))
@@ -240,7 +189,6 @@ export async function processNvidiaProvider(
       );
     }
 
-    // 8. Create image channels (NvidiaNIM channel type 58)
     if (mappedImageModels.length > 0) {
       const imageBaseUrl = providerConfig.imageBaseUrl;
       const groupName = `nvidia-img-${providerConfig.name}`;
@@ -271,7 +219,6 @@ export async function processNvidiaProvider(
       });
 
       for (const model of mappedImageModels) {
-        // Always override: partial sync may have seeded a stale ratio-based entry
         state.mergedModels.set(model, {
           ratio: 0,
           completionRatio: 0,
