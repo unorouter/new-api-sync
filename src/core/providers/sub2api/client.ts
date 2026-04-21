@@ -55,7 +55,12 @@ export class Sub2ApiClient {
       page++;
     }
 
-    consola.info(`[${this.name}] ${allAccounts.length} accounts found`);
+    consola.info(
+      t("CORE.SUB2API.ACCOUNTS_FOUND", {
+        name: this.name,
+        count: allAccounts.length,
+      }),
+    );
     return allAccounts;
   }
 

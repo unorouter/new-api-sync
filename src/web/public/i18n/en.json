@@ -349,5 +349,112 @@
     "SWITCH": "Switch language",
     "EN": "English",
     "ZH": "中文"
+  },
+  "CORE": {
+    "NEWAPI": {
+      "V1_FORMAT": "[{name}] V1 format: {groups} groups, {models} models",
+      "V2_FORMAT": "[{name}] V2 format: {groups} groups, {models} models",
+      "TOKEN_CREATE_FAILED": "[{name}] Token create failed for \"{group}\": {message}",
+      "TOKEN_DELETED_STALE": "[{name}] Deleted stale token: {token}",
+      "TOKEN_EXISTING_KEY_UNAVAILABLE": "[{name}] Could not retrieve full key for existing token \"{token}\"",
+      "TOKEN_CREATED_NOT_FOUND": "[{name}] Token \"{token}\" created but not found",
+      "TOKEN_NEW_KEY_UNAVAILABLE": "[{name}] Could not retrieve full key for new token \"{token}\"",
+      "ORPHAN_CLEANUP_FAILED": "[{name}] Orphan cleanup failed or not supported",
+      "ORPHAN_CLEANUP_DONE": "[{name}] Cleaned up {deleted} orphaned models"
+    },
+    "SYNC": {
+      "VENDOR_UPDATED": "Updated vendor \"{name}\" (id={id}, icon={icon})",
+      "VENDOR_CREATED": "Created vendor \"{name}\" (id={id}, icon={icon})",
+      "VENDOR_CREATE_FAILED": "Failed to create vendor \"{name}\"",
+      "ICON_NONE": "none"
+    },
+    "PIPELINE": {
+      "BASELLM_NO_ENTRIES": "No basellm entries available for ratio backfill",
+      "BASELLM_APPLIED": "Applied basellm ratios to {applied}/{total} models (overrode {overridden} stale upstream values)",
+      "BASELLM_OVERRIDE_DETAIL": "  {detail}",
+      "NO_RATIOS": "No ratios (basellm or upstream) for: {models}",
+      "BASELINE_SEEDED": "[baseline] Seeded {channels} channels, {groups} groups from target",
+      "BASELINE_GROUP": "[baseline]   \"{name}\" ratio={ratio} provider={provider}"
+    },
+    "METADATA": {
+      "OPENROUTER_FETCH_FAILED": "Failed to fetch OpenRouter models for descriptions",
+      "OPENROUTER_FETCHED": "Fetched {count} model descriptions from OpenRouter",
+      "BASELLM_FETCH_FAILED": "Failed to fetch basellm model library",
+      "BASELLM_FETCHED": "Fetched {count} model entries from basellm",
+      "SUMMARY": "Metadata: {orHits} from OpenRouter ({orFuzzy} fuzzy), {blmHits} from basellm ({blmFuzzy} fuzzy), {total} enriched total"
+    },
+    "TESTER": {
+      "KIRO_LOADED": "[kiro-blacklist] Loaded {count} entries",
+      "KIRO_ADDED": "[kiro-blacklist] Added {key}: {reason}",
+      "REPORT_WRITTEN": "[test-report] Written to {path}",
+      "REPORT_RESUMED": "[test-report] Resumed from {path} ({count} already passed)",
+      "REPORT_WRITTEN_COUNT": "[test-report] Written to {path} ({count} results)",
+      "ERR_NO_RESPONSE": "no response / timeout",
+      "ERR_HTTP_STATUS": "HTTP {status}",
+      "ERR_STREAM": "error in stream",
+      "ERR_EXTRACT_TEXT": "failed to extract text from response: {preview}",
+      "KIRO_REFUSAL": "[kiro-detect] {model}: Kiro refusal on: {labels}, rejected",
+      "KIRO_SCAM": "[kiro-detect] {model}: scam page on: {labels}, rejected",
+      "KIRO_FOREIGN": "[kiro-detect] {model}: foreign identity on: {labels}, rejected",
+      "KIRO_PROBES_RESULT": "[kiro-detect] {model}: {passed}/4 probes passed (failed: {failed}){suffix}",
+      "ALREADY_PASSED": "[{prefix}] {model}: already passed, skipping",
+      "KIRO_BLACKLISTED": "[{prefix}] {model}: kiro-blacklisted, skipping",
+      "PROVIDER_FAILED": "[{provider}] Failed: {models}",
+      "ERR_KIRO_BLACKLISTED": "kiro-blacklisted"
+    },
+    "PROVIDER": {
+      "USING_EXPLICIT_MODELS": "[{name}] Using {count} explicit model(s)",
+      "DISCOVERED_MODELS": "[{name}] Discovered {count} model(s)",
+      "DISCOVERED_MODELS_LIST": "[{name}] Discovered {count} model(s): {models}",
+      "WORKING_RATIO": "[{name}] {working}/{total} working",
+      "TIERS_SUMMARY": "[{name}] {count} models, {tiers} tier(s): {ratios}",
+      "DISCOVERY_FETCH": "[discovery] Fetching {label} models from {url}",
+      "LABEL_GEMINI": "Gemini",
+      "LABEL_NVIDIA": "NVIDIA NIM",
+      "LABEL_OPENROUTER": "OpenRouter"
+    },
+    "NVIDIA": {
+      "ENABLED_IMAGE_MODEL_ADDED": "[{name}] Added image model from enabledModels: {glob}",
+      "SPLIT": "[{name}] Split: {text} text, {image} image",
+      "TEXT_WORKING": "[{name}] {working}/{total} text models working",
+      "IMAGE_INCLUDED": "[{name}] {count} image model(s) included without test",
+      "TEXT_TIERS_SUMMARY": "[{name}] {count} text models, {tiers} tier(s): {ratios}",
+      "IMAGE_CHANNEL": "[{name}] {count} image model(s) → channel \"{group}\" (type={type})"
+    },
+    "SUB2API": {
+      "NO_API_KEY": "[{name}] No API key for group \"{group}\", skipping",
+      "GROUPS_WITH_KEYS": "[{name}] {count} groups with API keys",
+      "ACTIVE_ACCOUNTS": "[{name}] {active}/{total} active accounts",
+      "NO_MODELS_FOR_GROUP": "[{name}] No models for group \"{group}\"",
+      "GROUPS_WITH_MODELS": "[{name}] {count} groups with models",
+      "NO_WORKING_MODELS": "[{name}] No working models for group \"{group}\" (0/{total} passed)",
+      "GROUP_WORKING": "[{name}/{platform}] {working}/{total} working",
+      "GROUP_TIERS_SUMMARY": "[{name}/{platform}] {count} models, {tiers} tier(s): {ratios}",
+      "ACCOUNTS_FOUND": "[{name}] {count} accounts found"
+    },
+    "OPENROUTER": {
+      "EXPLICIT_SKIP_DISCOVERY": "[{name}] Using {count} explicit model(s); skipping discovery",
+      "DISCOVERED_FREE": "[{name}] Discovered {count} free model(s)",
+      "ADDED_EXTRA": "[{name}] Added explicit extra: {model}",
+      "PROBING": "[{name}] Probing {count} model(s)",
+      "FAILED": "[{name}] Failed: {models}",
+      "WORKING": "[{name}] {working}/{total} model(s) working (429 counts as working)"
+    },
+    "PRICING": {
+      "BUILD_TIERS_HEADER": "[buildPriceTiers] {models} models, {channels} baseline channels, {groups} groups, excluding=\"{excluding}\"",
+      "BUILD_TIERS_LINE": "[buildPriceTiers]   {model}: cheapest={cheapest} × (1+{adjustment}) = {ratio}"
+    },
+    "ERROR": {
+      "NO_MODELS_DISCOVERED": "No models discovered. Add an explicit 'models' array to the provider config.",
+      "ALL_MODELS_FILTERED": "All models filtered out by blacklist/enabledModels",
+      "ALL_MODELS_FILTERED_SHORT": "All models filtered out",
+      "NO_MODELS_FOUND": "No models found",
+      "NO_WORKING_MODELS": "No working models",
+      "NO_WORKING_MODELS_COUNT": "No working models (0/{total} passed)",
+      "NO_WORKING_MODELS_SPLIT": "No working models (0/{textTotal} text passed, {imageCount} image)",
+      "NO_GROUPS_WITH_MODELS": "No groups with models found",
+      "NO_GROUPS_PRODUCED_CHANNELS": "No groups produced working channels",
+      "API_UNREACHABLE": "Failed to reach API"
+    }
   }
 }

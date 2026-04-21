@@ -5,6 +5,7 @@ import { filterModels } from "@core/models/filter";
 import { testAndFilterModels } from "@core/models/tester";
 import { buildPriceTiers, pushTieredChannels } from "@core/pricing";
 import type { ProviderReport, SyncState } from "@core/types";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 import { discoverModels } from "./discovery";
 
@@ -27,7 +28,10 @@ export async function processDirectProvider(
     if (providerConfig.models?.length) {
       allModels = providerConfig.models;
       consola.info(
-        `[${providerConfig.name}] Using ${allModels.length} explicit model(s)`,
+        t("CORE.PROVIDER.USING_EXPLICIT_MODELS", {
+          name: providerConfig.name,
+          count: allModels.length,
+        }),
       );
     } else {
       allModels = await discoverModels(
@@ -37,20 +41,22 @@ export async function processDirectProvider(
         providerConfig.discoverEndpoint,
       );
       if (allModels.length === 0) {
-        providerReport.error =
-          "No models discovered. Add an explicit 'models' array to the provider config.";
+        providerReport.error = t("CORE.ERROR.NO_MODELS_DISCOVERED");
         return providerReport;
       }
       consola.info(
-        `[${providerConfig.name}] Discovered ${allModels.length} model(s): ${allModels.join(", ")}`,
+        t("CORE.PROVIDER.DISCOVERED_MODELS_LIST", {
+          name: providerConfig.name,
+          count: allModels.length,
+          models: allModels.join(", "),
+        }),
       );
     }
 
     // 2. Filter
     allModels = filterModels(allModels, config, providerConfig);
     if (allModels.length === 0) {
-      providerReport.error =
-        "All models filtered out by blacklist/enabledModels";
+      providerReport.error = t("CORE.ERROR.ALL_MODELS_FILTERED");
       return providerReport;
     }
 
@@ -72,12 +78,18 @@ export async function processDirectProvider(
     const workingModels = filterResult.workingModels;
 
     if (workingModels.length === 0) {
-      providerReport.error = `No working models (0/${filterResult.testedCount} passed)`;
+      providerReport.error = t("CORE.ERROR.NO_WORKING_MODELS_COUNT", {
+        total: filterResult.testedCount,
+      });
       return providerReport;
     }
 
     consola.info(
-      `[${providerConfig.name}] ${workingModels.length}/${allModels.length} working`,
+      t("CORE.PROVIDER.WORKING_RATIO", {
+        name: providerConfig.name,
+        working: workingModels.length,
+        total: allModels.length,
+      }),
     );
 
     // 5. Register endpoint types for OpenAI vendor (responses API policy)
@@ -160,7 +172,12 @@ export async function processDirectProvider(
       .map((r) => r.toFixed(4))
       .join(", ");
     consola.info(
-      `[${providerConfig.name}] ${mappedModels.length} models, ${ratioToModels.size} tier(s): ${ratios}`,
+      t("CORE.PROVIDER.TIERS_SUMMARY", {
+        name: providerConfig.name,
+        count: mappedModels.length,
+        tiers: ratioToModels.size,
+        ratios,
+      }),
     );
   } catch (error) {
     providerReport.error =

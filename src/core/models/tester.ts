@@ -7,6 +7,7 @@ import {
   TIMEOUTS,
 } from "@core/models/constants";
 import { fetchJson, tryFetchJson } from "@core/http";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
@@ -102,7 +103,7 @@ export function loadKiroBlacklist(): void {
     for (const [key, val] of Object.entries(entries)) {
       kiroBlacklist.set(key, val);
     }
-    consola.info(`[kiro-blacklist] Loaded ${kiroBlacklist.size} entries`);
+    consola.info(t("CORE.TESTER.KIRO_LOADED", { count: kiroBlacklist.size }));
   } catch {
     // Corrupted file, start fresh
   }
@@ -125,7 +126,7 @@ function addToKiroBlacklist(key: string, reason: string): void {
     since: new Date().toISOString().slice(0, 10),
     reason,
   });
-  consola.warn(`[kiro-blacklist] Added ${key}: ${reason}`);
+  consola.warn(t("CORE.TESTER.KIRO_ADDED", { key, reason }));
 }
 
 function isKiroBlacklisted(key: string): boolean {
@@ -138,7 +139,7 @@ export function writeTestReport(): void {
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const path = join(logsDir, `${ts}-model-tests.json`);
   writeFileSync(path, JSON.stringify(testReport, null, 2));
-  consola.info(`[test-report] Written to ${path}`);
+  consola.info(t("CORE.TESTER.REPORT_WRITTEN", { path }));
   saveKiroBlacklist();
 }
 
@@ -150,7 +151,10 @@ export function initTestReportForDate(): void {
     const existing = JSON.parse(raw) as TestReport;
     testReport.results = existing.results.filter((r) => r.http.pass);
     consola.info(
-      `[test-report] Resumed from ${path} (${testReport.results.length} already passed)`,
+      t("CORE.TESTER.REPORT_RESUMED", {
+        path,
+        count: testReport.results.length,
+      }),
     );
   } catch {
     // File doesn't exist yet — start fresh
@@ -165,7 +169,10 @@ export function writeTestReportForDate(): void {
   const path = join(logsDir, `${today}-model-tests.json`);
   writeFileSync(path, JSON.stringify(testReport, null, 2));
   consola.info(
-    `[test-report] Written to ${path} (${testReport.results.length} results)`,
+    t("CORE.TESTER.REPORT_WRITTEN_COUNT", {
+      path,
+      count: testReport.results.length,
+    }),
   );
   saveKiroBlacklist();
 }
@@ -542,7 +549,7 @@ async function testRequest(
       pass: false,
       request: { url: config.url, body: config.body },
       response: null,
-      error: "no response / timeout",
+      error: t("CORE.TESTER.ERR_NO_RESPONSE"),
     };
   }
   return {
@@ -569,7 +576,7 @@ async function testStreamRequest(
         pass: false,
         request: reqInfo,
         response: null,
-        error: `HTTP ${response.status}`,
+        error: t("CORE.TESTER.ERR_HTTP_STATUS", { status: response.status }),
       };
     }
 
@@ -596,7 +603,7 @@ async function testStreamRequest(
           pass: false,
           request: reqInfo,
           response: buffer.slice(0, 500),
-          error: "error in stream",
+          error: t("CORE.TESTER.ERR_STREAM"),
         };
       }
     }
@@ -631,7 +638,7 @@ async function testToolCall(
       pass: false,
       request: { url: config.url, body: config.body },
       response: null,
-      error: "no response / timeout",
+      error: t("CORE.TESTER.ERR_NO_RESPONSE"),
     };
   }
   return {
@@ -825,7 +832,9 @@ async function runAnthropicProbe(opts: {
       kiroRefusal: false,
       request: { url: reqUrl, body: reqBody },
       response: null,
-      error: `failed to extract text from response: ${JSON.stringify(data).slice(0, 300)}`,
+      error: t("CORE.TESTER.ERR_EXTRACT_TEXT", {
+        preview: JSON.stringify(data).slice(0, 300),
+      }),
     });
     return { pass: false, kiroRefusal: false, signal: null };
   }
@@ -934,7 +943,10 @@ async function testAnthropicAuthenticity(opts: {
       .map((r) => r.label)
       .join(", ");
     consola.warn(
-      `[kiro-detect] ${opts.model}: Kiro refusal on: ${refusalLabels}, rejected`,
+      t("CORE.TESTER.KIRO_REFUSAL", {
+        model: opts.model,
+        labels: refusalLabels,
+      }),
     );
     addToKiroBlacklist(opts.logKey, `kiro-refusal: ${refusalLabels}`);
     return false;
@@ -948,7 +960,10 @@ async function testAnthropicAuthenticity(opts: {
       .map((r) => r.label)
       .join(", ");
     consola.warn(
-      `[kiro-detect] ${opts.model}: scam page on: ${scamLabels}, rejected`,
+      t("CORE.TESTER.KIRO_SCAM", {
+        model: opts.model,
+        labels: scamLabels,
+      }),
     );
     addToKiroBlacklist(opts.logKey, `scam-page: ${scamLabels}`);
     return false;
@@ -966,7 +981,10 @@ async function testAnthropicAuthenticity(opts: {
       .map((r) => r.label)
       .join(", ");
     consola.warn(
-      `[kiro-detect] ${opts.model}: foreign identity on: ${foreignLabels}, rejected`,
+      t("CORE.TESTER.KIRO_FOREIGN", {
+        model: opts.model,
+        labels: foreignLabels,
+      }),
     );
     addToKiroBlacklist(opts.logKey, `foreign-identity: ${foreignLabels}`);
     return false;
@@ -980,7 +998,12 @@ async function testAnthropicAuthenticity(opts: {
     const blankCount = failed.filter((r) => r.signal === "blank").length;
     const suffix = blankCount === failed.length ? " [blank-response]" : "";
     consola.warn(
-      `[kiro-detect] ${opts.model}: ${passed}/4 probes passed (failed: ${failedLabels})${suffix}`,
+      t("CORE.TESTER.KIRO_PROBES_RESULT", {
+        model: opts.model,
+        passed,
+        failed: failedLabels,
+        suffix,
+      }),
     );
     addToKiroBlacklist(
       opts.logKey,
@@ -1042,7 +1065,7 @@ export async function testModels(opts: {
           (r) => r.provider === prefix && r.model === model && r.http.pass,
         );
         if (existingPass) {
-          consola.debug(`[${prefix}] ${model}: already passed, skipping`);
+          consola.debug(t("CORE.TESTER.ALREADY_PASSED", { prefix, model }));
           return {
             model,
             success: true,
@@ -1059,7 +1082,9 @@ export async function testModels(opts: {
           model.startsWith("claude-") &&
           isKiroBlacklisted(blacklistKey)
         ) {
-          consola.debug(`[${prefix}] ${model}: kiro-blacklisted, skipping`);
+          consola.debug(
+            t("CORE.TESTER.KIRO_BLACKLISTED", { prefix, model }),
+          );
           addTestResult({
             provider: prefix,
             model,
@@ -1068,7 +1093,7 @@ export async function testModels(opts: {
               pass: false,
               request: { url: "", body: null },
               response: null,
-              error: "kiro-blacklisted",
+              error: t("CORE.TESTER.ERR_KIRO_BLACKLISTED"),
             },
             stream: null,
             toolCall: null,
@@ -1179,9 +1204,10 @@ export async function testModels(opts: {
 
         const h = finalSuccess ? "✓" : "✗";
         const s = finalStream === null ? "·" : finalStream ? "✓" : "✗";
-        const t = toolCallSuccess === null ? "·" : toolCallSuccess ? "✓" : "✗";
+        const tool =
+          toolCallSuccess === null ? "·" : toolCallSuccess ? "✓" : "✗";
         consola.debug(
-          `[${prefix}] ${model}: ${h}HTTP ${s}Stream ${t}Tool | type=${modelType}`,
+          `[${prefix}] ${model}: ${h}HTTP ${s}Stream ${tool}Tool | type=${modelType}`,
         );
 
         return {
@@ -1288,15 +1314,20 @@ export async function testAndFilterModels(opts: {
             : d.streamSuccess === null
               ? "·"
               : "✓";
-        const t =
+        const tool =
           d.toolCallSuccess === false
             ? "✗"
             : d.toolCallSuccess === null
               ? "·"
               : "✓";
-        return `${d.model} ${h}H ${s}S ${t}T`;
+        return `${d.model} ${h}H ${s}S ${tool}T`;
       });
-      consola.info(`[${opts.providerLabel}] Failed: ${labeled.join(", ")}`);
+      consola.info(
+        t("CORE.TESTER.PROVIDER_FAILED", {
+          provider: opts.providerLabel,
+          models: labeled.join(", "),
+        }),
+      );
     }
   }
 

@@ -33,7 +33,10 @@ export async function discoverModels(
   if (vendor === "google") {
     const url = `${base}/v1beta/models?key=${apiKey}`;
     consola.info(
-      `[discovery] Fetching Gemini models from ${base}/v1beta/models`,
+      t("CORE.PROVIDER.DISCOVERY_FETCH", {
+        label: t("CORE.PROVIDER.LABEL_GEMINI"),
+        url: `${base}/v1beta/models`,
+      }),
     );
     const data = await tryFetchJson<GeminiModelList>(url, {
       timeoutMs: 15_000,
@@ -45,7 +48,9 @@ export async function discoverModels(
   // Default: OpenAI-compatible /v1/models
   const endpoint = discoverEndpoint ?? "/v1/models";
   const url = `${base}${endpoint}`;
-  consola.info(`[discovery] Fetching models from ${url}`);
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERY_FETCH", { label: vendor, url }),
+  );
   const data = await tryFetchJson<OpenAIModelList>(url, {
     headers: {
       Authorization: `Bearer ${apiKey}`,

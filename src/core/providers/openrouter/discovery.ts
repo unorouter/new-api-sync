@@ -1,4 +1,5 @@
 import { tryFetchJson } from "@core/http";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 
 interface OpenRouterModel {
@@ -25,7 +26,12 @@ export async function discoverOpenRouterFreeModels(
   apiKey: string,
 ): Promise<string[]> {
   const url = `${baseUrl.replace(/\/$/, "")}/models`;
-  consola.info(`[discovery] Fetching OpenRouter models from ${url}`);
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERY_FETCH", {
+      label: t("CORE.PROVIDER.LABEL_OPENROUTER"),
+      url,
+    }),
+  );
 
   const raw = await tryFetchJson<OpenRouterModelList>(url, {
     headers: {

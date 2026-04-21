@@ -1,4 +1,5 @@
 import { tryFetchJson } from "@core/http";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 
 interface OpenAIModelList {
@@ -15,7 +16,12 @@ export async function discoverNvidiaModels(
 ): Promise<string[]> {
   const base = baseUrl.replace(/\/$/, "");
   const url = `${base}/v1/models`;
-  consola.info(`[discovery] Fetching NVIDIA NIM models from ${url}`);
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERY_FETCH", {
+      label: t("CORE.PROVIDER.LABEL_NVIDIA"),
+      url,
+    }),
+  );
 
   const data = await tryFetchJson<OpenAIModelList>(url, {
     headers: {

@@ -10,6 +10,7 @@ import { filterModels } from "@core/models/filter";
 import { testAndFilterModels } from "@core/models/tester";
 import { buildPriceTiers, pushTieredChannels } from "@core/pricing";
 import type { ProviderReport, SyncState } from "@core/types";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 import { Sub2ApiClient } from "./client";
 
@@ -56,7 +57,10 @@ async function resolveViaAdmin(
     const apiKey = await client.getGroupApiKey(group.id);
     if (!apiKey) {
       consola.warn(
-        `[${providerConfig.name}] No API key for group "${group.name}", skipping`,
+        t("CORE.SUB2API.NO_API_KEY", {
+          name: providerConfig.name,
+          group: group.name,
+        }),
       );
       continue;
     }
@@ -69,14 +73,21 @@ async function resolveViaAdmin(
 
   if (groupKeys.size === 0) return [];
   consola.info(
-    `[${providerConfig.name}] ${groupKeys.size} groups with API keys`,
+    t("CORE.SUB2API.GROUPS_WITH_KEYS", {
+      name: providerConfig.name,
+      count: groupKeys.size,
+    }),
   );
 
   // Fetch models from all active accounts, grouped by platform
   const accounts = await client.listAccounts();
   const activeAccounts = accounts.filter((a) => a.status === "active");
   consola.info(
-    `[${providerConfig.name}] ${activeAccounts.length}/${accounts.length} active accounts`,
+    t("CORE.SUB2API.ACTIVE_ACCOUNTS", {
+      name: providerConfig.name,
+      active: activeAccounts.length,
+      total: accounts.length,
+    }),
   );
 
   const platformModels = new Map<string, Set<string>>();
@@ -122,7 +133,10 @@ async function resolveViaGroups(
     const filtered = filterModels(modelIds, config, providerConfig);
     if (filtered.length === 0) {
       consola.warn(
-        `[${providerConfig.name}] No models for group "${group.name ?? platform}"`,
+        t("CORE.SUB2API.NO_MODELS_FOR_GROUP", {
+          name: providerConfig.name,
+          group: group.name ?? platform,
+        }),
       );
       continue;
     }
@@ -136,7 +150,10 @@ async function resolveViaGroups(
   }
 
   consola.info(
-    `[${providerConfig.name}] ${resolved.length} groups with models`,
+    t("CORE.SUB2API.GROUPS_WITH_MODELS", {
+      name: providerConfig.name,
+      count: resolved.length,
+    }),
   );
   return resolved;
 }
@@ -163,7 +180,7 @@ export async function processSub2ApiProvider(
       : await resolveViaGroups(client, providerConfig, config);
 
     if (resolvedGroups.length === 0) {
-      providerReport.error = "No groups with models found";
+      providerReport.error = t("CORE.ERROR.NO_GROUPS_WITH_MODELS");
       return providerReport;
     }
 
@@ -193,13 +210,22 @@ export async function processSub2ApiProvider(
 
       if (workingModels.length === 0) {
         consola.warn(
-          `[${providerConfig.name}] No working models for group "${groupInfo.name}" (0/${filterResult.testedCount} passed)`,
+          t("CORE.SUB2API.NO_WORKING_MODELS", {
+            name: providerConfig.name,
+            group: groupInfo.name,
+            total: filterResult.testedCount,
+          }),
         );
         continue;
       }
 
       consola.info(
-        `[${providerConfig.name}/${groupInfo.platform}] ${workingModels.length}/${groupInfo.models.size} working`,
+        t("CORE.SUB2API.GROUP_WORKING", {
+          name: providerConfig.name,
+          platform: groupInfo.platform,
+          working: workingModels.length,
+          total: groupInfo.models.size,
+        }),
       );
 
       // Register endpoint type for sub2api openai models so pipeline.ts can
@@ -244,7 +270,13 @@ export async function processSub2ApiProvider(
         .map((r) => r.toFixed(4))
         .join(", ");
       consola.info(
-        `[${providerConfig.name}/${groupInfo.platform}] ${mappedModels.length} models, ${ratioToModels.size} tier(s): ${ratios}`,
+        t("CORE.SUB2API.GROUP_TIERS_SUMMARY", {
+          name: providerConfig.name,
+          platform: groupInfo.platform,
+          count: mappedModels.length,
+          tiers: ratioToModels.size,
+          ratios,
+        }),
       );
     }
 
@@ -252,7 +284,7 @@ export async function processSub2ApiProvider(
     providerReport.models = totalModels;
     providerReport.success = groupsProcessed > 0;
     if (!providerReport.success) {
-      providerReport.error = "No groups produced working channels";
+      providerReport.error = t("CORE.ERROR.NO_GROUPS_PRODUCED_CHANNELS");
     }
   } catch (error) {
     providerReport.error =

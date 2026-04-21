@@ -6,6 +6,7 @@ import {
 } from "@core/models/constants";
 import type { OpenRouterProviderConfig } from "@core/validations/config";
 import type { ProviderReport, SyncState } from "@core/types";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 import { discoverOpenRouterFreeModels } from "./discovery";
 
@@ -73,7 +74,10 @@ export async function processOpenRouterProvider(
     if (providerConfig.models?.length) {
       candidateIds = [...providerConfig.models];
       consola.info(
-        `[${providerConfig.name}] Using ${candidateIds.length} explicit model(s); skipping discovery`,
+        t("CORE.OPENROUTER.EXPLICIT_SKIP_DISCOVERY", {
+          name: providerConfig.name,
+          count: candidateIds.length,
+        }),
       );
     } else {
       const freeIds = await discoverOpenRouterFreeModels(
@@ -81,7 +85,10 @@ export async function processOpenRouterProvider(
         providerConfig.apiKey,
       );
       consola.info(
-        `[${providerConfig.name}] Discovered ${freeIds.length} free model(s)`,
+        t("CORE.OPENROUTER.DISCOVERED_FREE", {
+          name: providerConfig.name,
+          count: freeIds.length,
+        }),
       );
 
       // Add literal (non-wildcard) entries from enabledModels as explicit extras.
@@ -95,7 +102,10 @@ export async function processOpenRouterProvider(
         if (!set.has(extra)) {
           set.add(extra);
           consola.debug(
-            `[${providerConfig.name}] Added explicit extra: ${extra}`,
+            t("CORE.OPENROUTER.ADDED_EXTRA", {
+              name: providerConfig.name,
+              model: extra,
+            }),
           );
         }
       }
@@ -103,7 +113,7 @@ export async function processOpenRouterProvider(
     }
 
     if (candidateIds.length === 0) {
-      report.error = "No models found";
+      report.error = t("CORE.ERROR.NO_MODELS_FOUND");
       return report;
     }
 
@@ -141,14 +151,17 @@ export async function processOpenRouterProvider(
     });
 
     if (filtered.length === 0) {
-      report.error = "All models filtered out";
+      report.error = t("CORE.ERROR.ALL_MODELS_FILTERED_SHORT");
       return report;
     }
 
     // 3. Test each model with a 1-token chat completion. Treat 429 as working
     //    (model exists upstream, just rate-limited right now).
     consola.info(
-      `[${providerConfig.name}] Probing ${filtered.length} model(s)`,
+      t("CORE.OPENROUTER.PROBING", {
+        name: providerConfig.name,
+        count: filtered.length,
+      }),
     );
     const working: string[] = [];
     const failed: Array<{ id: string; status: number | null }> = [];
@@ -169,14 +182,23 @@ export async function processOpenRouterProvider(
       const labeled = failed
         .map((f) => `${toBareName(f.id)}(${f.status ?? "net"})`)
         .join(", ");
-      consola.info(`[${providerConfig.name}] Failed: ${labeled}`);
+      consola.info(
+        t("CORE.OPENROUTER.FAILED", {
+          name: providerConfig.name,
+          models: labeled,
+        }),
+      );
     }
     consola.info(
-      `[${providerConfig.name}] ${working.length}/${filtered.length} model(s) working (429 counts as working)`,
+      t("CORE.OPENROUTER.WORKING", {
+        name: providerConfig.name,
+        working: working.length,
+        total: filtered.length,
+      }),
     );
 
     if (working.length === 0) {
-      report.error = "No working models";
+      report.error = t("CORE.ERROR.NO_WORKING_MODELS");
       return report;
     }
 
@@ -248,7 +270,12 @@ export async function processOpenRouterProvider(
     }
 
     consola.info(
-      `[${providerConfig.name}] ${exposedNames.length} model(s) → channel "${groupName}" (type=${CHANNEL_TYPES.OPENROUTER})`,
+      t("CORE.NVIDIA.IMAGE_CHANNEL", {
+        name: providerConfig.name,
+        count: exposedNames.length,
+        group: groupName,
+        type: CHANNEL_TYPES.OPENROUTER,
+      }),
     );
 
     report.groups = 1;

@@ -64,7 +64,11 @@ async function ensureVendors(
         });
         if (ok) {
           consola.info(
-            `Updated vendor "${displayName}" (id=${existing.id}, icon=${icon ?? "none"})`,
+            t("CORE.SYNC.VENDOR_UPDATED", {
+              name: displayName,
+              id: existing.id,
+              icon: icon ?? t("CORE.SYNC.ICON_NONE"),
+            }),
           );
           changed++;
         }
@@ -76,11 +80,15 @@ async function ensureVendors(
     const result = await client.createVendor({ name: displayName, icon });
     if (result) {
       consola.info(
-        `Created vendor "${displayName}" (id=${result.id}, icon=${icon ?? "none"})`,
+        t("CORE.SYNC.VENDOR_CREATED", {
+          name: displayName,
+          id: result.id,
+          icon: icon ?? t("CORE.SYNC.ICON_NONE"),
+        }),
       );
       changed++;
     } else {
-      consola.warn(`Failed to create vendor "${displayName}"`);
+      consola.warn(t("CORE.SYNC.VENDOR_CREATE_FAILED", { name: displayName }));
     }
   }
   return changed;

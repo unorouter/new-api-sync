@@ -43,6 +43,7 @@ import type {
   ProviderConfig,
   Sub2ApiProviderConfig,
 } from "@core/validations/config";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 
 /**
@@ -65,7 +66,7 @@ function backfillModelRatios(
   if (channelModels.size === 0) return;
 
   if (basellmEntries.length === 0) {
-    consola.warn("No basellm entries available for ratio backfill");
+    consola.warn(t("CORE.PIPELINE.BASELLM_NO_ENTRIES"));
     return;
   }
 
@@ -121,10 +122,15 @@ function backfillModelRatios(
   }
 
   consola.info(
-    `Applied basellm ratios to ${applied}/${channelModels.size} models (overrode ${overridden} stale upstream values)`,
+    t("CORE.PIPELINE.BASELLM_APPLIED", {
+      applied,
+      total: channelModels.size,
+      overridden,
+    }),
   );
   if (overrides.length > 0) {
-    for (const o of overrides) consola.debug(`  ${o}`);
+    for (const o of overrides)
+      consola.debug(t("CORE.PIPELINE.BASELLM_OVERRIDE_DETAIL", { detail: o }));
   }
   if (missing > 0) {
     const unfilled = [...channelModels].filter(
@@ -136,7 +142,9 @@ function backfillModelRatios(
         .map((ch) => ch.tag ?? ch.name);
       return refs.length > 0 ? `${m} (${refs.join(", ")})` : m;
     });
-    consola.warn(`No ratios (basellm or upstream) for: ${details.join(", ")}`);
+    consola.warn(
+      t("CORE.PIPELINE.NO_RATIOS", { models: details.join(", ") }),
+    );
   }
 }
 
@@ -422,11 +430,18 @@ export async function runProviderPipeline(
     }
 
     consola.debug(
-      `[baseline] Seeded ${state.channelsToCreate.length} channels, ${state.mergedGroups.length} groups from target`,
+      t("CORE.PIPELINE.BASELINE_SEEDED", {
+        channels: state.channelsToCreate.length,
+        groups: state.mergedGroups.length,
+      }),
     );
     for (const g of state.mergedGroups) {
       consola.debug(
-        `[baseline]   "${g.name}" ratio=${g.ratio.toFixed(4)} provider=${g.provider}`,
+        t("CORE.PIPELINE.BASELINE_GROUP", {
+          name: g.name,
+          ratio: g.ratio.toFixed(4),
+          provider: g.provider,
+        }),
       );
     }
   }

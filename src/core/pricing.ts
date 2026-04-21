@@ -1,6 +1,7 @@
 import { matchesAnyPattern, parseModelList } from "@core/models/constants";
 import type { SyncState } from "@core/types";
 import type { AnyProviderConfig } from "@core/validations/config";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 
 /**
@@ -85,8 +86,12 @@ export function buildPriceTiers(opts: {
   }
 
   consola.debug(
-    `[buildPriceTiers] ${opts.models.length} models, ${opts.state.channelsToCreate.length} baseline channels, ` +
-      `${opts.state.mergedGroups.length} groups, excluding="${opts.excludeProvider}"`,
+    t("CORE.PRICING.BUILD_TIERS_HEADER", {
+      models: opts.models.length,
+      channels: opts.state.channelsToCreate.length,
+      groups: opts.state.mergedGroups.length,
+      excluding: opts.excludeProvider,
+    }),
   );
 
   const ratioToModels = new Map<number, string[]>();
@@ -102,7 +107,12 @@ export function buildPriceTiers(opts: {
     });
     const ratio = cheapest * (1 + adjustment);
     consola.debug(
-      `[buildPriceTiers]   ${model}: cheapest=${cheapest.toFixed(4)} × (1+${adjustment}) = ${ratio.toFixed(6)}`,
+      t("CORE.PRICING.BUILD_TIERS_LINE", {
+        model,
+        cheapest: cheapest.toFixed(4),
+        adjustment,
+        ratio: ratio.toFixed(6),
+      }),
     );
     const key = Math.round(ratio * 1e6) / 1e6;
     if (!ratioToModels.has(key)) ratioToModels.set(key, []);

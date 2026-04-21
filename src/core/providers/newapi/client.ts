@@ -63,7 +63,7 @@ export class NewApiClient {
       message?: string;
       data?: { quota?: number; used_quota?: number };
     }>(`${this.baseUrl}/api/user/self`, { headers: this.headers });
-    if (!data) return { ok: false, error: "Failed to reach API" };
+    if (!data) return { ok: false, error: t("CORE.ERROR.API_UNREACHABLE") };
     if (!data.success)
       return {
         ok: false,
@@ -184,7 +184,11 @@ export class NewApiClient {
     }
 
     consola.info(
-      `[${this.name}] V1 format: ${groups.length} groups, ${models.length} models`,
+      t("CORE.NEWAPI.V1_FORMAT", {
+        name: this.name,
+        groups: groups.length,
+        models: models.length,
+      }),
     );
 
     return {
@@ -246,7 +250,11 @@ export class NewApiClient {
     const models = Array.from(allModels.values());
 
     consola.info(
-      `[${this.name}] V2 format: ${groups.length} groups, ${models.length} models`,
+      t("CORE.NEWAPI.V2_FORMAT", {
+        name: this.name,
+        groups: groups.length,
+        models: models.length,
+      }),
     );
 
     return {
@@ -302,7 +310,11 @@ export class NewApiClient {
     );
     if (!data?.success) {
       consola.warn(
-        `[${this.name}] Token create failed for "${group}": ${data?.message ?? "unknown"}`,
+        t("CORE.NEWAPI.TOKEN_CREATE_FAILED", {
+          name: this.name,
+          group,
+          message: data?.message ?? "unknown",
+        }),
       );
       return false;
     }
@@ -379,7 +391,12 @@ export class NewApiClient {
         !desiredTokenNames.has(token.name)
       ) {
         if (await this.deleteToken(token.id)) {
-          consola.info(`[${this.name}] Deleted stale token: ${token.name}`);
+          consola.info(
+            t("CORE.NEWAPI.TOKEN_DELETED_STALE", {
+              name: this.name,
+              token: token.name,
+            }),
+          );
           deleted++;
         }
       }
@@ -397,7 +414,10 @@ export class NewApiClient {
         const fullKey = await this.resolveFullKey(existingToken);
         if (!fullKey) {
           consola.warn(
-            `[${this.name}] Could not retrieve full key for existing token "${tokenName}"`,
+            t("CORE.NEWAPI.TOKEN_EXISTING_KEY_UNAVAILABLE", {
+              name: this.name,
+              token: tokenName,
+            }),
           );
           continue;
         }
@@ -410,14 +430,20 @@ export class NewApiClient {
         const newToken = updatedTokens.find((t) => t.name === tokenName);
         if (!newToken) {
           consola.warn(
-            `[${this.name}] Token "${tokenName}" created but not found`,
+            t("CORE.NEWAPI.TOKEN_CREATED_NOT_FOUND", {
+              name: this.name,
+              token: tokenName,
+            }),
           );
           continue;
         }
         const fullKey = await this.resolveFullKey(newToken);
         if (!fullKey) {
           consola.warn(
-            `[${this.name}] Could not retrieve full key for new token "${tokenName}"`,
+            t("CORE.NEWAPI.TOKEN_NEW_KEY_UNAVAILABLE", {
+              name: this.name,
+              token: tokenName,
+            }),
           );
           continue;
         }
@@ -647,12 +673,16 @@ export class NewApiClient {
       { method: "DELETE", headers: this.headers },
     );
     if (!data) {
-      consola.warn(`[${this.name}] Orphan cleanup failed or not supported`);
+      consola.warn(
+        t("CORE.NEWAPI.ORPHAN_CLEANUP_FAILED", { name: this.name }),
+      );
       return 0;
     }
     const deleted = data.data?.deleted ?? 0;
     if (deleted > 0) {
-      consola.info(`[${this.name}] Cleaned up ${deleted} orphaned models`);
+      consola.info(
+        t("CORE.NEWAPI.ORPHAN_CLEANUP_DONE", { name: this.name, deleted }),
+      );
     }
     return deleted;
   }

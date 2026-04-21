@@ -1,5 +1,6 @@
 import { buildReverseMapping } from "@core/models/constants";
 import { tryFetchJson } from "@core/http";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 
 const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
@@ -61,7 +62,7 @@ export async function fetchOpenRouterDescriptions(): Promise<
   );
   const map = new Map<string, string>();
   if (!raw?.data || !Array.isArray(raw.data)) {
-    consola.warn("Failed to fetch OpenRouter models for descriptions");
+    consola.warn(t("CORE.METADATA.OPENROUTER_FETCH_FAILED"));
     return map;
   }
 
@@ -72,7 +73,7 @@ export async function fetchOpenRouterDescriptions(): Promise<
     if (!map.has(bareName)) map.set(bareName, stripMarkdown(model.description));
   }
 
-  consola.info(`Fetched ${map.size} model descriptions from OpenRouter`);
+  consola.info(t("CORE.METADATA.OPENROUTER_FETCHED", { count: map.size }));
   return map;
 }
 
@@ -82,12 +83,12 @@ export async function fetchBasellmEntries(): Promise<BasellmEntry[]> {
     timeoutMs: 15_000,
   });
   if (!raw) {
-    consola.warn("Failed to fetch basellm model library");
+    consola.warn(t("CORE.METADATA.BASELLM_FETCH_FAILED"));
     return [];
   }
   const entries = Array.isArray(raw) ? raw : raw.data;
   if (!Array.isArray(entries)) return [];
-  consola.info(`Fetched ${entries.length} model entries from basellm`);
+  consola.info(t("CORE.METADATA.BASELLM_FETCHED", { count: entries.length }));
   return entries;
 }
 
@@ -401,7 +402,13 @@ export function buildMetadataMap(opts: {
   }
 
   consola.info(
-    `Metadata: ${orHits} from OpenRouter (${orFuzzyHits} fuzzy), ${blmHits} from basellm (${blmFuzzyHits} fuzzy), ${result.size} enriched total`,
+    t("CORE.METADATA.SUMMARY", {
+      orHits,
+      orFuzzy: orFuzzyHits,
+      blmHits,
+      blmFuzzy: blmFuzzyHits,
+      total: result.size,
+    }),
   );
   return result;
 }

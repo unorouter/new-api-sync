@@ -9,6 +9,7 @@ import { filterModels } from "@core/models/filter";
 import { testAndFilterModels } from "@core/models/tester";
 import { buildPriceTiers, pushTieredChannels } from "@core/pricing";
 import type { ProviderReport, SyncState } from "@core/types";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 import { discoverNvidiaModels } from "./discovery";
 
@@ -31,7 +32,10 @@ export async function processNvidiaProvider(
     if (providerConfig.models?.length) {
       allModels = providerConfig.models;
       consola.info(
-        `[${providerConfig.name}] Using ${allModels.length} explicit model(s)`,
+        t("CORE.PROVIDER.USING_EXPLICIT_MODELS", {
+          name: providerConfig.name,
+          count: allModels.length,
+        }),
       );
     } else {
       // Discover text models from OpenAI-compat /v1/models
@@ -40,7 +44,10 @@ export async function processNvidiaProvider(
         providerConfig.apiKey,
       );
       consola.info(
-        `[${providerConfig.name}] Discovered ${allModels.length} model(s)`,
+        t("CORE.PROVIDER.DISCOVERED_MODELS", {
+          name: providerConfig.name,
+          count: allModels.length,
+        }),
       );
 
       // Image models live on a different host and aren't discoverable.
@@ -54,7 +61,10 @@ export async function processNvidiaProvider(
             if (!discoveredSet.has(glob) && inferModelType(glob) === "image") {
               allModels.push(glob);
               consola.debug(
-                `[${providerConfig.name}] Added image model from enabledModels: ${glob}`,
+                t("CORE.NVIDIA.ENABLED_IMAGE_MODEL_ADDED", {
+                  name: providerConfig.name,
+                  glob,
+                }),
               );
             }
           }
@@ -63,14 +73,14 @@ export async function processNvidiaProvider(
     }
 
     if (allModels.length === 0) {
-      providerReport.error = "No models found";
+      providerReport.error = t("CORE.ERROR.NO_MODELS_FOUND");
       return providerReport;
     }
 
     // 2. Filter by enabledModels/blacklist
     allModels = filterModels(allModels, config, providerConfig);
     if (allModels.length === 0) {
-      providerReport.error = "All models filtered out";
+      providerReport.error = t("CORE.ERROR.ALL_MODELS_FILTERED_SHORT");
       return providerReport;
     }
 
@@ -87,7 +97,11 @@ export async function processNvidiaProvider(
     }
 
     consola.debug(
-      `[${providerConfig.name}] Split: ${textModels.length} text, ${imageModels.length} image`,
+      t("CORE.NVIDIA.SPLIT", {
+        name: providerConfig.name,
+        text: textModels.length,
+        image: imageModels.length,
+      }),
     );
 
     // 4. Test text models (OpenAI-compat endpoint)
@@ -105,7 +119,11 @@ export async function processNvidiaProvider(
 
       if (workingTextModels.length > 0) {
         consola.info(
-          `[${providerConfig.name}] ${workingTextModels.length}/${textModels.length} text models working`,
+          t("CORE.NVIDIA.TEXT_WORKING", {
+            name: providerConfig.name,
+            working: workingTextModels.length,
+            total: textModels.length,
+          }),
         );
       }
     }
@@ -113,13 +131,19 @@ export async function processNvidiaProvider(
     // 5. Image models included without testing (proprietary NIM API format)
     if (imageModels.length > 0) {
       consola.info(
-        `[${providerConfig.name}] ${imageModels.length} image model(s) included without test`,
+        t("CORE.NVIDIA.IMAGE_INCLUDED", {
+          name: providerConfig.name,
+          count: imageModels.length,
+        }),
       );
     }
 
     const allWorking = [...workingTextModels, ...imageModels];
     if (allWorking.length === 0) {
-      providerReport.error = `No working models (0/${textModels.length} text passed, ${imageModels.length} image)`;
+      providerReport.error = t("CORE.ERROR.NO_WORKING_MODELS_SPLIT", {
+        textTotal: textModels.length,
+        imageCount: imageModels.length,
+      });
       return providerReport;
     }
 
@@ -191,7 +215,12 @@ export async function processNvidiaProvider(
         .map((r) => r.toFixed(4))
         .join(", ");
       consola.info(
-        `[${providerConfig.name}] ${mappedTextModels.length} text models, ${ratioToModels.size} tier(s): ${ratios}`,
+        t("CORE.NVIDIA.TEXT_TIERS_SUMMARY", {
+          name: providerConfig.name,
+          count: mappedTextModels.length,
+          tiers: ratioToModels.size,
+          ratios,
+        }),
       );
     }
 
@@ -247,7 +276,12 @@ export async function processNvidiaProvider(
       }
 
       consola.info(
-        `[${providerConfig.name}] ${mappedImageModels.length} image model(s) → channel "${groupName}" (type=${CHANNEL_TYPES.NVIDIA_NIM})`,
+        t("CORE.NVIDIA.IMAGE_CHANNEL", {
+          name: providerConfig.name,
+          count: mappedImageModels.length,
+          group: groupName,
+          type: CHANNEL_TYPES.NVIDIA_NIM,
+        }),
       );
     }
 
