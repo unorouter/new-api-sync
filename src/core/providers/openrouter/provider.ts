@@ -4,6 +4,7 @@ import {
   matchesAnyPattern,
   matchesBlacklist,
 } from "@core/models/constants";
+import { logTestSummary } from "@core/models/test-log";
 import type { OpenRouterProviderConfig } from "@core/validations/config";
 import type { ProviderReport, SyncState } from "@core/types";
 import { t } from "@server/i18n";
@@ -23,12 +24,19 @@ function toBareName(openRouterId: string): string {
   return colon >= 0 ? withoutVendor.slice(0, colon) : withoutVendor;
 }
 
-/** Single minimal chat-completions probe; returns the raw HTTP status. */
+interface ProbeResult {
+  status: number | null;
+  bodyText: string | null;
+  error: string | null;
+  latencyMs: number;
+}
+
 async function probeStatus(
   baseUrl: string,
   apiKey: string,
   modelId: string,
-): Promise<number | null> {
+): Promise<ProbeResult> {
+  const started = Date.now();
   try {
     const res = await fetch(
       `${baseUrl.replace(/\/$/, "")}/chat/completions`,
@@ -46,9 +54,21 @@ async function probeStatus(
         signal: AbortSignal.timeout(15_000),
       },
     );
-    return res.status;
-  } catch {
-    return null;
+    const latencyMs = Date.now() - started;
+    const bodyText = await res.text().catch(() => "");
+    return {
+      status: res.status,
+      bodyText: bodyText || null,
+      error: res.ok ? null : `HTTP ${res.status} ${res.statusText}`,
+      latencyMs,
+    };
+  } catch (err) {
+    return {
+      status: null,
+      bodyText: null,
+      error: err instanceof Error ? err.message : String(err),
+      latencyMs: Date.now() - started,
+    };
   }
 }
 
@@ -166,16 +186,26 @@ export async function processOpenRouterProvider(
     const working: string[] = [];
     const failed: Array<{ id: string; status: number | null }> = [];
     for (const id of filtered) {
-      const status = await probeStatus(
+      const probe = await probeStatus(
         providerConfig.baseUrl,
         providerConfig.apiKey,
         id,
       );
-      if (status === 200 || status === 429) {
-        working.push(id);
-      } else {
-        failed.push({ id, status });
-      }
+      const pass = probe.status === 200 || probe.status === 429;
+      logTestSummary({
+        prefix: providerConfig.name,
+        model: toBareName(id),
+        modelType: "text",
+        http: {
+          pass,
+          status: probe.status,
+          latencyMs: probe.latencyMs,
+          error: probe.error,
+          body: probe.bodyText,
+        },
+      });
+      if (pass) working.push(id);
+      else failed.push({ id, status: probe.status });
     }
 
     if (failed.length > 0) {

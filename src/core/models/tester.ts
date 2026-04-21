@@ -6,7 +6,8 @@ import {
   isTestableModel,
   TIMEOUTS,
 } from "@core/models/constants";
-import { fetchJson, tryFetchJson } from "@core/http";
+import { fetchJson } from "@core/http";
+import { logTestSummary } from "@core/models/test-log";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
@@ -21,6 +22,8 @@ interface TestExchange {
   request: { url: string; body: unknown };
   response: unknown;
   error?: string;
+  status?: number;
+  latencyMs?: number;
 }
 
 interface KiroProbeLog {
@@ -536,36 +539,107 @@ async function withRetry<T>(
   return fn();
 }
 
+interface RawResult {
+  status: number | null;
+  data: unknown;
+  bodyText: string | null;
+  error: string | null;
+  latencyMs: number;
+}
+
+async function rawPost(
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+  timeoutMs: number,
+): Promise<RawResult> {
+  const started = Date.now();
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const latencyMs = Date.now() - started;
+    const bodyText = await response.text();
+    let data: unknown = null;
+    try {
+      data = bodyText ? JSON.parse(bodyText) : null;
+    } catch {
+      // non-JSON body, keep bodyText for diagnostics
+    }
+    return {
+      status: response.status,
+      data,
+      bodyText,
+      error: response.ok ? null : `HTTP ${response.status} ${response.statusText}`,
+      latencyMs,
+    };
+  } catch (err) {
+    return {
+      status: null,
+      data: null,
+      bodyText: null,
+      error: err instanceof Error ? err.message : String(err),
+      latencyMs: Date.now() - started,
+    };
+  }
+}
+
 async function testRequest(
   config: RequestConfig,
   timeoutMs: number,
 ): Promise<TestExchange> {
-  const data = await tryFetchJson<unknown>(config.url, {
-    method: "POST",
-    headers: config.headers,
-    body: config.body,
-    timeoutMs,
-  });
-  if (data === null) {
+  const raw = await rawPost(config.url, config.headers, config.body, timeoutMs);
+  const request = { url: config.url, body: config.body };
+  if (raw.data === null) {
     return {
       pass: false,
-      request: { url: config.url, body: config.body },
-      response: null,
-      error: t("CORE.TESTER.ERR_NO_RESPONSE"),
+      request,
+      response: raw.bodyText ?? null,
+      error: raw.error ?? t("CORE.TESTER.ERR_NO_RESPONSE"),
+      status: raw.status ?? undefined,
+      latencyMs: raw.latencyMs,
     };
   }
+  const pass = raw.status !== null && raw.status < 400 && config.isSuccess(raw.data);
   return {
-    pass: config.isSuccess(data),
-    request: { url: config.url, body: config.body },
-    response: data,
+    pass,
+    request,
+    response: raw.data,
+    error: pass
+      ? undefined
+      : raw.error ??
+        extractErrorMessage(raw.data) ??
+        t("CORE.TESTER.ERR_BAD_RESPONSE"),
+    status: raw.status ?? undefined,
+    latencyMs: raw.latencyMs,
   };
 }
+
+function extractErrorMessage(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as {
+    error?: { message?: string; type?: string } | string;
+    message?: string;
+    type?: string;
+  };
+  if (typeof d.error === "string") return d.error;
+  if (d.error?.message) return d.error.message;
+  if (d.error?.type) return d.error.type;
+  if (d.message) return d.message;
+  if (d.type === "error") return "error response";
+  return null;
+}
+
 
 async function testStreamRequest(
   config: StreamRequestConfig,
   timeoutMs: number,
 ): Promise<TestExchange> {
   const reqInfo = { url: config.url, body: config.body };
+  const started = Date.now();
   try {
     const response = await fetch(config.url, {
       method: "POST",
@@ -574,11 +648,14 @@ async function testStreamRequest(
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok || !response.body) {
+      const errBody = await response.text().catch(() => "");
       return {
         pass: false,
         request: reqInfo,
-        response: null,
+        response: errBody || null,
         error: t("CORE.TESTER.ERR_HTTP_STATUS", { status: response.status }),
+        status: response.status,
+        latencyMs: Date.now() - started,
       };
     }
 
@@ -606,6 +683,8 @@ async function testStreamRequest(
           request: reqInfo,
           response: buffer.slice(0, 500),
           error: t("CORE.TESTER.ERR_STREAM"),
+          status: response.status,
+          latencyMs: Date.now() - started,
         };
       }
     }
@@ -614,6 +693,9 @@ async function testStreamRequest(
       pass: foundMarker,
       request: reqInfo,
       response: buffer.slice(0, 500),
+      error: foundMarker ? undefined : t("CORE.TESTER.ERR_STREAM_NO_MARKER"),
+      status: response.status,
+      latencyMs: Date.now() - started,
     };
   } catch (err) {
     return {
@@ -621,6 +703,7 @@ async function testStreamRequest(
       request: reqInfo,
       response: null,
       error: err instanceof Error ? err.message : String(err),
+      latencyMs: Date.now() - started,
     };
   }
 }
@@ -629,24 +712,31 @@ async function testToolCall(
   config: ToolCallRequestConfig,
   timeoutMs: number,
 ): Promise<TestExchange> {
-  const data = await tryFetchJson<unknown>(config.url, {
-    method: "POST",
-    headers: config.headers,
-    body: config.body,
-    timeoutMs,
-  });
-  if (data === null) {
+  const raw = await rawPost(config.url, config.headers, config.body, timeoutMs);
+  const request = { url: config.url, body: config.body };
+  if (raw.data === null) {
     return {
       pass: false,
-      request: { url: config.url, body: config.body },
-      response: null,
-      error: t("CORE.TESTER.ERR_NO_RESPONSE"),
+      request,
+      response: raw.bodyText ?? null,
+      error: raw.error ?? t("CORE.TESTER.ERR_NO_RESPONSE"),
+      status: raw.status ?? undefined,
+      latencyMs: raw.latencyMs,
     };
   }
+  const pass =
+    raw.status !== null && raw.status < 400 && config.isToolCallSuccess(raw.data);
   return {
-    pass: config.isToolCallSuccess(data),
-    request: { url: config.url, body: config.body },
-    response: data,
+    pass,
+    request,
+    response: raw.data,
+    error: pass
+      ? undefined
+      : raw.error ??
+        extractErrorMessage(raw.data) ??
+        t("CORE.TESTER.ERR_TOOL_CALL_MISSING"),
+    status: raw.status ?? undefined,
+    latencyMs: raw.latencyMs,
   };
 }
 
@@ -1148,7 +1238,6 @@ export async function testModels(opts: {
             (r) => r.pass,
           );
         }
-
         const success = httpResult.pass;
 
         // Stream and tool call only apply to text models
@@ -1204,13 +1293,38 @@ export async function testModels(opts: {
           authentic: model.startsWith("claude-") ? authentic : null,
         });
 
-        const h = finalSuccess ? "✓" : "✗";
-        const s = finalStream === null ? "·" : finalStream ? "✓" : "✗";
-        const tool =
-          toolCallSuccess === null ? "·" : toolCallSuccess ? "✓" : "✗";
-        consola.debug(
-          `[${prefix}] ${model}: ${h}HTTP ${s}Stream ${tool}Tool | type=${modelType}`,
-        );
+        logTestSummary({
+          prefix,
+          model,
+          modelType,
+          http: {
+            pass: finalSuccess,
+            status: httpResult.status,
+            latencyMs: httpResult.latencyMs,
+            error: httpResult.error,
+            body: httpResult.response,
+          },
+          stream:
+            streamResult === null
+              ? undefined
+              : {
+                  pass: finalStream === true,
+                  status: streamResult.status,
+                  latencyMs: streamResult.latencyMs,
+                  error: streamResult.error,
+                  body: streamResult.response,
+                },
+          tool:
+            toolResult === null
+              ? undefined
+              : {
+                  pass: toolCallSuccess === true,
+                  status: toolResult.status,
+                  latencyMs: toolResult.latencyMs,
+                  error: toolResult.error,
+                  body: toolResult.response,
+                },
+        });
 
         return {
           model,
