@@ -1,28 +1,21 @@
 import { getEnabledModelGlobs, type RuntimeConfig } from "@core/config";
 import {
+  buildChannelModelMapping,
+  resolveBareNames,
+  toBareName,
+} from "@core/models/bare-name";
+import {
   CHANNEL_TYPES,
   matchesAnyPattern,
   matchesBlacklist,
 } from "@core/models/constants";
 import { logTestSummary } from "@core/models/test-log";
+import { recordTestResult } from "@core/models/tester";
 import type { OpenRouterProviderConfig } from "@core/validations/config";
 import type { ProviderReport, SyncState } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { discoverOpenRouterFreeModels } from "./discovery";
-
-/**
- * Strip the `vendor/` prefix and `:free` / other colon suffixes from an
- * OpenRouter model ID to produce a user-facing bare name.
- *   "openai/gpt-oss-120b:free" -> "gpt-oss-120b"
- *   "moonshotai/kimi-k2.6"     -> "kimi-k2.6"
- */
-function toBareName(openRouterId: string): string {
-  const slash = openRouterId.indexOf("/");
-  const withoutVendor = slash >= 0 ? openRouterId.slice(slash + 1) : openRouterId;
-  const colon = withoutVendor.indexOf(":");
-  return colon >= 0 ? withoutVendor.slice(0, colon) : withoutVendor;
-}
 
 interface ProbeResult {
   status: number | null;
@@ -185,6 +178,7 @@ export async function processOpenRouterProvider(
     );
     const working: string[] = [];
     const failed: Array<{ id: string; status: number | null }> = [];
+    const probeUrl = `${providerConfig.baseUrl.replace(/\/$/, "")}/chat/completions`;
     for (const id of filtered) {
       const probe = await probeStatus(
         providerConfig.baseUrl,
@@ -202,6 +196,25 @@ export async function processOpenRouterProvider(
           latencyMs: probe.latencyMs,
           error: probe.error,
           body: probe.bodyText,
+        },
+      });
+      recordTestResult({
+        provider: providerConfig.name,
+        model: toBareName(id),
+        http: {
+          pass,
+          request: {
+            url: probeUrl,
+            body: {
+              model: id,
+              messages: [{ role: "user", content: "hi" }],
+              max_tokens: 1,
+            },
+          },
+          response: probe.bodyText,
+          error: probe.error ?? undefined,
+          status: probe.status ?? undefined,
+          latencyMs: probe.latencyMs,
         },
       });
       if (pass) working.push(id);
@@ -232,32 +245,11 @@ export async function processOpenRouterProvider(
       return report;
     }
 
-    // 4. Build bare-name → full-ID mapping, handling collisions by keeping the
-    //    full ID for the colliding entry so both remain addressable.
-    const bareCount = new Map<string, number>();
-    for (const id of working) {
-      const bare = toBareName(id);
-      bareCount.set(bare, (bareCount.get(bare) ?? 0) + 1);
-    }
-
-    // exposedName = what users call on unorouter; upstream = what we forward to OpenRouter
-    const upstreamByExposed = new Map<string, string>();
-    for (const id of working) {
-      const bare = toBareName(id);
-      const collides = (bareCount.get(bare) ?? 0) > 1;
-      const exposed = collides ? id : bare;
-      // Apply user modelMapping (e.g. rename "kimi-k2.6" -> "kimi-k2-6")
-      const mapped = config.modelMapping?.[exposed] ?? exposed;
-      upstreamByExposed.set(mapped, id);
-    }
-
-    const exposedNames = [...upstreamByExposed.keys()];
-
-    // 5. Build reverse model_mapping: only include entries where exposed !== upstream.
-    const reverseMapping: Record<string, string> = {};
-    for (const [exposed, upstream] of upstreamByExposed) {
-      if (exposed !== upstream) reverseMapping[exposed] = upstream;
-    }
+    // 4. Strip vendor prefix for user-facing names (e.g. "moonshotai/kimi-k2.5"
+    //    -> "kimi-k2.5"), keeping full ID for bare-name collisions.
+    const resolutions = resolveBareNames(working, config.modelMapping);
+    const exposedNames = resolutions.map((r) => r.exposed);
+    const reverseMapping = buildChannelModelMapping(resolutions);
 
     // 6. Push a single channel. Zero-ratio group, OpenRouter channel type so
     //    new-api's adaptor handles quirks of the upstream format.

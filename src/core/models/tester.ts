@@ -17,7 +17,7 @@ import { join } from "path";
 // Test report types and accumulator
 // ---------------------------------------------------------------------------
 
-interface TestExchange {
+export interface TestExchange {
   pass: boolean;
   request: { url: string; body: unknown };
   response: unknown;
@@ -67,6 +67,24 @@ function addTestResult(entry: ModelTestLog): void {
   const key = `${entry.provider}|${entry.model}`;
   entry.kiroProbes = kiroProbeAccumulator.get(key);
   testReport.results.push(entry);
+}
+
+export function recordTestResult(entry: {
+  provider: string;
+  model: string;
+  http: TestExchange;
+  stream?: TestExchange | null;
+  toolCall?: TestExchange | null;
+}): void {
+  addTestResult({
+    provider: entry.provider,
+    model: entry.model,
+    cost: null,
+    http: entry.http,
+    stream: entry.stream ?? null,
+    toolCall: entry.toolCall ?? null,
+    authentic: null,
+  });
 }
 
 export function setTestCost(

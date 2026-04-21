@@ -4,6 +4,10 @@ import {
   type RuntimeConfig,
 } from "@core/config";
 import type { NvidiaProviderConfig } from "@core/validations/config";
+import {
+  buildChannelModelMapping,
+  resolveBareNames,
+} from "@core/models/bare-name";
 import { CHANNEL_TYPES, inferModelType } from "@core/models/constants";
 import { filterModels } from "@core/models/filter";
 import { testAndFilterModels } from "@core/models/tester";
@@ -147,13 +151,21 @@ export async function processNvidiaProvider(
       return providerReport;
     }
 
-    // 6. Apply model mapping
-    const mappedTextModels = workingTextModels.map(
-      (m) => config.modelMapping?.[m] ?? m,
+    // 6. Resolve bare names for both text and image. Users on the gateway see
+     //    the bare name (e.g. "kimi-k2.5"); the reverse mapping on the channel
+     //    tells new-api's adaptor to forward the full "vendor/model" upstream.
+    const textResolutions = resolveBareNames(
+      workingTextModels,
+      config.modelMapping,
     );
-    const mappedImageModels = imageModels.map(
-      (m) => config.modelMapping?.[m] ?? m,
+    const imageResolutions = resolveBareNames(
+      imageModels,
+      config.modelMapping,
     );
+    const mappedTextModels = textResolutions.map((r) => r.exposed);
+    const mappedImageModels = imageResolutions.map((r) => r.exposed);
+    const textReverseMapping = buildChannelModelMapping(textResolutions);
+    const imageReverseMapping = buildChannelModelMapping(imageResolutions);
 
     // 7. Create text channels (OpenAI channel type)
     if (mappedTextModels.length > 0) {
@@ -207,6 +219,10 @@ export async function processNvidiaProvider(
           baseUrl: providerConfig.baseUrl,
           provider: providerConfig.name,
           description: `NVIDIA NIM text via ${providerConfig.name}`,
+          modelMapping:
+            Object.keys(textReverseMapping).length > 0
+              ? textReverseMapping
+              : undefined,
         },
         state,
       );
@@ -236,17 +252,6 @@ export async function processNvidiaProvider(
         provider: providerConfig.name,
       });
 
-      // Build reverse model_mapping so the adaptor sends the original
-      // vendor-prefixed name (e.g. "stabilityai/stable-diffusion-3-medium")
-      // to the NVIDIA endpoint while users see the short mapped name.
-      const imgModelMapping: Record<string, string> = {};
-      for (const original of imageModels) {
-        const mapped = config.modelMapping?.[original] ?? original;
-        if (mapped !== original) {
-          imgModelMapping[mapped] = original;
-        }
-      }
-
       state.channelsToCreate.push({
         name: groupName,
         type: CHANNEL_TYPES.NVIDIA_NIM,
@@ -260,8 +265,8 @@ export async function processNvidiaProvider(
         tag: providerConfig.name,
         remark: `nvidia-img-${providerConfig.name}`,
         model_mapping:
-          Object.keys(imgModelMapping).length > 0
-            ? JSON.stringify(imgModelMapping)
+          Object.keys(imageReverseMapping).length > 0
+            ? JSON.stringify(imageReverseMapping)
             : undefined,
       });
 

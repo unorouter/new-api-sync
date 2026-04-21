@@ -133,11 +133,13 @@ export function pushTieredChannels(
     baseUrl: string;
     provider: string;
     description: string;
+    modelMapping?: Record<string, string>;
   },
   state: SyncState,
 ): void {
   const sortedTiers = [...ratioToModels.entries()].sort(([a], [b]) => a - b);
   let tierIdx = 0;
+  const fullMapping = opts.modelMapping;
   for (const [groupRatio, models] of sortedTiers) {
     const suffix = ratioToModels.size > 1 ? `-t${tierIdx}` : "";
     const tierName = `${baseName}${suffix}`;
@@ -148,6 +150,17 @@ export function pushTieredChannels(
       description: opts.description,
       provider: opts.provider,
     });
+
+    // Scope the reverse mapping to only the models in this tier, since a
+    // channel's model_mapping is only meaningful for its own `models` list.
+    let tierMapping: Record<string, string> | undefined;
+    if (fullMapping) {
+      const scoped: Record<string, string> = {};
+      for (const m of models) {
+        if (fullMapping[m] !== undefined) scoped[m] = fullMapping[m];
+      }
+      if (Object.keys(scoped).length > 0) tierMapping = scoped;
+    }
 
     state.channelsToCreate.push({
       name: tierName,
@@ -161,6 +174,7 @@ export function pushTieredChannels(
       status: 1,
       tag: opts.provider,
       remark: tierName,
+      model_mapping: tierMapping ? JSON.stringify(tierMapping) : undefined,
     });
 
     tierIdx++;
