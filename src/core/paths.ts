@@ -10,8 +10,13 @@ import { basename, dirname } from "node:path";
  * Compiled single-file binary: use the directory of the binary itself so the
  * UI writes configs next to the executable, regardless of where it was
  * launched from (double-click, PATH, different cwd, etc.).
+ *
+ * `@core/config` is imported by the browser bundle (for `customValidateConfig`)
+ * which has no `process`. Guard every `process` access so calling this from
+ * the browser returns a harmless empty string instead of throwing.
  */
 export function configDir(): string {
+  if (typeof process === "undefined") return "";
   const exe = process.execPath;
   const exeName = basename(exe).toLowerCase();
   const isBunRuntime = exeName === "bun" || exeName.startsWith("bun.");
