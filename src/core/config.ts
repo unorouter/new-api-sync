@@ -1,5 +1,6 @@
 import { loadGlobalConfig } from "@core/global-config";
 import { MODEL_TYPES, type ModelType } from "@core/models/types";
+import { configDir } from "@core/paths";
 import {
   ConfigSchema,
   type AnyProviderConfig,
@@ -9,6 +10,7 @@ import {
 import { t } from "@server/i18n";
 import { type TSchema } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { join } from "node:path";
 
 const NON_TEXT_TYPES: Set<string> = new Set(
   MODEL_TYPES.filter((t) => t !== "text"),
@@ -107,7 +109,10 @@ export function customValidateConfig(config: ConfigSchemaType): string[] {
 
 // ============ Loader ============
 
-const CONFIG_CANDIDATES = ["./config.yml", "./config.yaml"];
+const CONFIG_CANDIDATES = [
+  join(configDir(), "config.yml"),
+  join(configDir(), "config.yaml"),
+];
 
 function formatTypeBoxErrors(schema: TSchema, value: unknown): string {
   const errors = [...Value.Errors(schema, value)].map(

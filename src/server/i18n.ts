@@ -1,6 +1,8 @@
+import { configDir } from "@core/paths";
 import { LOCALES, type TranslationKey } from "@web/lib/constants";
 import en from "@web/public/i18n/en.json";
 import zh from "@web/public/i18n/zh.json";
+import { join } from "node:path";
 import { createTranslator, type Locale } from "use-intl/core";
 
 const MESSAGES: Record<Locale, typeof en> = { en, zh };
@@ -30,7 +32,7 @@ export function setLocale(locale: Locale): void {
 /** Read locale from config.global.yml. */
 export async function readLocaleFromGlobal(): Promise<Locale> {
   try {
-    const file = Bun.file("./config.global.yml");
+    const file = Bun.file(join(configDir(), "config.global.yml"));
     if (!(await file.exists())) return LOCALES[0];
     const text = await file.text();
     const parsed = Bun.YAML.parse(text) as { locale?: Locale } | null;

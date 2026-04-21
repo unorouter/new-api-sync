@@ -4,6 +4,7 @@ import {
   loadGlobalConfig,
   writeGlobalConfig,
 } from "@core/global-config";
+import { configDir } from "@core/paths";
 import { type ConfigSchemaType } from "@core/validations/config";
 import {
   ConfigCreateBodySchema,
@@ -22,6 +23,7 @@ import {
 import { t } from "@server/i18n";
 import { Elysia } from "elysia";
 import { readdirSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 import { embeddedConfigExample } from "../../embedded-assets";
 import { stringifyWithComments } from "./yaml-sync";
 
@@ -45,7 +47,10 @@ import { stringifyWithComments } from "./yaml-sync";
  */
 
 // Main file name — `.yaml` is also accepted if present on disk.
-const MAIN_CANDIDATES = ["./config.yml", "./config.yaml"];
+const mainCandidates = () => [
+  join(configDir(), "config.yml"),
+  join(configDir(), "config.yaml"),
+];
 const NAMED_RE = /^config\.([a-zA-Z0-9_-]+)\.ya?ml$/;
 
 /**
@@ -55,12 +60,12 @@ const NAMED_RE = /^config\.([a-zA-Z0-9_-]+)\.ya?ml$/;
 export function configPath(name: string | undefined): string {
   const trimmed = (name ?? "").trim();
   if (!trimmed) {
-    for (const candidate of MAIN_CANDIDATES) {
+    for (const candidate of mainCandidates()) {
       if (Bun.file(candidate).size > 0) return candidate;
     }
-    return MAIN_CANDIDATES[0]!;
+    return mainCandidates()[0]!;
   }
-  return `./config.${trimmed}.yml`;
+  return join(configDir(), `config.${trimmed}.yml`);
 }
 
 interface ConfigFileInfo {
@@ -71,8 +76,9 @@ interface ConfigFileInfo {
 
 export function listConfigs(): ConfigFileInfo[] {
   const files: ConfigFileInfo[] = [];
+  const dir = configDir();
   // Main config — first existing candidate.
-  for (const candidate of MAIN_CANDIDATES) {
+  for (const candidate of mainCandidates()) {
     if (Bun.file(candidate).size > 0) {
       files.push({ name: "", path: candidate, size: Bun.file(candidate).size });
       break;
@@ -81,7 +87,7 @@ export function listConfigs(): ConfigFileInfo[] {
   // Named configs.
   let entries: string[] = [];
   try {
-    entries = readdirSync(".");
+    entries = readdirSync(dir);
   } catch {
     return files;
   }
@@ -91,7 +97,7 @@ export function listConfigs(): ConfigFileInfo[] {
     const name = match[1]!;
     // Skip reserved files that are not user-selectable runtime configs.
     if (name === "example" || name === "global") continue;
-    const path = `./${entry}`;
+    const path = join(dir, entry);
     files.push({ name, path, size: Bun.file(path).size });
   }
   // Main first, named alphabetically.
@@ -199,7 +205,7 @@ export const configRoute = new Elysia({ prefix: "/config" })
         // time (src/build.ts). Named configs still 404 — the user must create
         // them explicitly via POST /files.
         if (!name) {
-          const onDisk = Bun.file("./config.example.yml");
+          const onDisk = Bun.file(join(configDir(), "config.example.yml"));
           const example =
             onDisk.size > 0 ? await onDisk.text() : embeddedConfigExample;
           if (example) await Bun.write(path, example);

@@ -1,9 +1,11 @@
+import { configDir } from "@core/paths";
 import {
   GlobalConfigSchema,
   type GlobalConfigType,
 } from "@core/validations/config";
 import { t } from "@server/i18n";
 import { Value } from "@sinclair/typebox/value";
+import { join } from "node:path";
 import YAML from "yaml";
 
 /**
@@ -12,7 +14,7 @@ import YAML from "yaml";
  * into every per-config on load. See `loadConfig()` in `config.ts`.
  */
 
-export const GLOBAL_CONFIG_PATH = "./config.global.yml";
+export const GLOBAL_CONFIG_PATH = join(configDir(), "config.global.yml");
 
 export async function loadGlobalConfig(): Promise<GlobalConfigType> {
   const file = Bun.file(GLOBAL_CONFIG_PATH);
