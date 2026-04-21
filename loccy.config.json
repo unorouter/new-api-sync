@@ -1,0 +1,8 @@
+// https://loccy.dev - AI-powered IDE extension to manage i18n with ease
+{
+  "resources": {
+    "paths": {
+      "include": ["./src/web/public/i18n/**/*.json"]
+    }
+  }
+}

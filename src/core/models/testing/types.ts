@@ -1,7 +1,8 @@
 export interface TestExchange {
   pass: boolean;
-  request: { url: string; body: unknown };
+  request: { url: string; headers: Record<string, string>; body: unknown };
   response: unknown;
+  responseHeaders: Record<string, string>;
   error?: string;
   status?: number;
   latencyMs?: number;
@@ -67,6 +68,7 @@ export interface RawResult {
   bodyText: string | null;
   error: string | null;
   latencyMs: number;
+  responseHeaders: Record<string, string>;
 }
 
 export interface ModelTestDetail {

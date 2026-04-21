@@ -137,6 +137,8 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
     await target.updateCache();
   }
 
+  writeTestReport();
+
   const successfulProviders = providerReports.filter(
     (provider) => provider.success,
   ).length;
@@ -202,8 +204,6 @@ export function printRunSummary(result: SyncRunResult): void {
       }),
     );
   }
-
-  writeTestReport();
 
   if (result.success) {
     consola.success(t("CLI.SUMMARY.COMPLETED", { elapsed }));

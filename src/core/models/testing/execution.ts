@@ -16,6 +16,14 @@ export async function withRetry<T>(
   return fn();
 }
 
+function headersToRecord(headers: Headers): Record<string, string> {
+  const out: Record<string, string> = {};
+  headers.forEach((v, k) => {
+    out[k] = v;
+  });
+  return out;
+}
+
 export async function rawPost(
   url: string,
   headers: Record<string, string>,
@@ -31,6 +39,7 @@ export async function rawPost(
       signal: AbortSignal.timeout(timeoutMs),
     });
     const latencyMs = Date.now() - started;
+    const responseHeaders = headersToRecord(response.headers);
     const bodyText = await response.text();
     let data: unknown = null;
     try {
@@ -44,6 +53,7 @@ export async function rawPost(
       bodyText,
       error: response.ok ? null : `HTTP ${response.status} ${response.statusText}`,
       latencyMs,
+      responseHeaders,
     };
   } catch (err) {
     return {
@@ -52,6 +62,7 @@ export async function rawPost(
       bodyText: null,
       error: err instanceof Error ? err.message : String(err),
       latencyMs: Date.now() - started,
+      responseHeaders: {},
     };
   }
 }
@@ -76,12 +87,13 @@ export async function testRequest(
   timeoutMs: number,
 ): Promise<TestExchange> {
   const raw = await rawPost(config.url, config.headers, config.body, timeoutMs);
-  const request = { url: config.url, body: config.body };
+  const request = { url: config.url, headers: config.headers, body: config.body };
   if (raw.data === null) {
     return {
       pass: false,
       request,
       response: raw.bodyText ?? null,
+      responseHeaders: raw.responseHeaders,
       error: raw.error ?? t("CORE.TESTER.ERR_NO_RESPONSE"),
       status: raw.status ?? undefined,
       latencyMs: raw.latencyMs,
@@ -92,6 +104,7 @@ export async function testRequest(
     pass,
     request,
     response: raw.data,
+    responseHeaders: raw.responseHeaders,
     error: pass
       ? undefined
       : raw.error ??
@@ -106,7 +119,7 @@ export async function testStreamRequest(
   config: StreamRequestConfig,
   timeoutMs: number,
 ): Promise<TestExchange> {
-  const reqInfo = { url: config.url, body: config.body };
+  const reqInfo = { url: config.url, headers: config.headers, body: config.body };
   const started = Date.now();
   try {
     const response = await fetch(config.url, {
@@ -121,12 +134,14 @@ export async function testStreamRequest(
         pass: false,
         request: reqInfo,
         response: errBody || null,
+        responseHeaders: headersToRecord(response.headers),
         error: t("CORE.TESTER.ERR_HTTP_STATUS", { status: response.status }),
         status: response.status,
         latencyMs: Date.now() - started,
       };
     }
 
+    const respHeaders = headersToRecord(response.headers);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -150,6 +165,7 @@ export async function testStreamRequest(
           pass: false,
           request: reqInfo,
           response: buffer.slice(0, 500),
+          responseHeaders: respHeaders,
           error: t("CORE.TESTER.ERR_STREAM"),
           status: response.status,
           latencyMs: Date.now() - started,
@@ -161,6 +177,7 @@ export async function testStreamRequest(
       pass: foundMarker,
       request: reqInfo,
       response: buffer.slice(0, 500),
+      responseHeaders: respHeaders,
       error: foundMarker ? undefined : t("CORE.TESTER.ERR_STREAM_NO_MARKER"),
       status: response.status,
       latencyMs: Date.now() - started,
@@ -170,6 +187,7 @@ export async function testStreamRequest(
       pass: false,
       request: reqInfo,
       response: null,
+      responseHeaders: {},
       error: err instanceof Error ? err.message : String(err),
       latencyMs: Date.now() - started,
     };
@@ -181,12 +199,13 @@ export async function testToolCall(
   timeoutMs: number,
 ): Promise<TestExchange> {
   const raw = await rawPost(config.url, config.headers, config.body, timeoutMs);
-  const request = { url: config.url, body: config.body };
+  const request = { url: config.url, headers: config.headers, body: config.body };
   if (raw.data === null) {
     return {
       pass: false,
       request,
       response: raw.bodyText ?? null,
+      responseHeaders: raw.responseHeaders,
       error: raw.error ?? t("CORE.TESTER.ERR_NO_RESPONSE"),
       status: raw.status ?? undefined,
       latencyMs: raw.latencyMs,
@@ -198,6 +217,7 @@ export async function testToolCall(
     pass,
     request,
     response: raw.data,
+    responseHeaders: raw.responseHeaders,
     error: pass
       ? undefined
       : raw.error ??

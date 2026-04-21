@@ -8,9 +8,16 @@ import { Type as T } from "@sinclair/typebox";
 
 const ResultHttpSchema = T.Object({
   pass: T.Boolean(),
-  request: T.Object({ url: T.String(), body: T.Unknown() }),
+  request: T.Object({
+    url: T.String(),
+    headers: T.Optional(T.Record(T.String(), T.String())),
+    body: T.Unknown(),
+  }),
   response: T.Unknown(),
+  responseHeaders: T.Optional(T.Record(T.String(), T.String())),
   error: T.Optional(T.String()),
+  status: T.Optional(T.Number()),
+  latencyMs: T.Optional(T.Number()),
 });
 
 export const ResultSchema = T.Object({

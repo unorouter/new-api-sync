@@ -42,6 +42,55 @@ import type {
 } from "./types";
 
 // ---------------------------------------------------------------------------
+// Redaction — strip auth secrets before writing to disk
+// ---------------------------------------------------------------------------
+
+const SENSITIVE_HEADERS = ["authorization", "x-api-key"];
+
+function redactUrl(url: string): string {
+  return url.replace(/([?&])key=[^&]+/g, "$1key=[REDACTED]");
+}
+
+function redactHeaders(
+  headers: Record<string, string>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k in headers) {
+    out[k] = SENSITIVE_HEADERS.includes(k.toLowerCase())
+      ? "[REDACTED]"
+      : headers[k]!;
+  }
+  return out;
+}
+
+function redactExchange(ex: TestExchange): TestExchange {
+  return {
+    ...ex,
+    request: {
+      url: redactUrl(ex.request.url),
+      headers: redactHeaders(ex.request.headers),
+      body: ex.request.body,
+    },
+  };
+}
+
+function redactResult(entry: ModelTestLog): ModelTestLog {
+  return {
+    ...entry,
+    http: redactExchange(entry.http),
+    stream: entry.stream ? redactExchange(entry.stream) : null,
+    toolCall: entry.toolCall ? redactExchange(entry.toolCall) : null,
+  };
+}
+
+function redactedReport(): TestReport {
+  return {
+    timestamp: testReport.timestamp,
+    results: testReport.results.map(redactResult),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Test report accumulator (module-level state)
 // ---------------------------------------------------------------------------
 
@@ -96,7 +145,7 @@ export function writeTestReport(): void {
   mkdirSync(logsDir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const path = join(logsDir, `${ts}-model-tests.json`);
-  writeFileSync(path, JSON.stringify(testReport, null, 2));
+  writeFileSync(path, JSON.stringify(redactedReport(), null, 2));
   consola.info(t("CORE.TESTER.REPORT_WRITTEN", { path }));
 }
 
@@ -126,7 +175,7 @@ export function writeTestReportForDate(): void {
   const logsDir = join(process.cwd(), "logs");
   mkdirSync(logsDir, { recursive: true });
   const path = join(logsDir, `${today}-model-tests.json`);
-  writeFileSync(path, JSON.stringify(testReport, null, 2));
+  writeFileSync(path, JSON.stringify(redactedReport(), null, 2));
   consola.info(
     t("CORE.TESTER.REPORT_WRITTEN_COUNT", {
       path,
@@ -200,8 +249,9 @@ export async function testModels(opts: {
             cost: null,
             http: {
               pass: false,
-              request: { url: "", body: null },
+              request: { url: "", headers: {}, body: null },
               response: null,
+              responseHeaders: {},
               error: t("CORE.TESTER.ERR_KIRO_BLACKLISTED"),
             },
             stream: null,
