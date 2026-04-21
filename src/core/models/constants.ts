@@ -30,7 +30,7 @@ export {
   getTaskChannelType,
   inferChannelType,
   inferChannelTypeFromModels,
-} from "./channel-types";
+} from "./constants/channel-types";
 
 export {
   ENDPOINT_DEFAULT_PATHS,
@@ -41,19 +41,19 @@ export {
   NON_TESTABLE_ENDPOINT_TYPES,
   normalizeEndpointType,
   normalizeEndpointTypes,
-} from "./endpoints";
+} from "./constants/endpoints";
 
 export {
   NON_TEXT_MODEL_PATTERNS,
   inferModelType,
   isTestableModel,
-} from "./inference";
+} from "./constants/inference";
 
 export {
   type VendorMatcher,
   VENDOR_MATCHERS,
   inferVendorFromModelName,
-} from "./vendor-matchers";
+} from "./constants/vendor-matchers";
 
 export {
   matchPattern,
@@ -65,4 +65,4 @@ export {
   SUB2API_PLATFORM_CHANNEL_TYPES,
   VENDOR_TO_SUB2API_PLATFORMS,
   SUB2API_PLATFORM_TO_VENDOR,
-} from "./patterns";
+} from "./constants/patterns";

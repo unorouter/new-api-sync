@@ -3,8 +3,8 @@ import {
   GLOBAL_CONFIG_PATH,
   loadGlobalConfig,
   writeGlobalConfig,
-} from "@core/global-config";
-import { configDir } from "@core/paths";
+} from "@core/config/global";
+import { configDir } from "@core/config/paths";
 import { type ConfigSchemaType } from "@core/validations/config";
 import {
   ConfigCreateBodySchema,

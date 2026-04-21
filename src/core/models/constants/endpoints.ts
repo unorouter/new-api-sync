@@ -1,4 +1,4 @@
-import type { ModelType } from "./types";
+import type { ModelType } from "../types";
 
 export const ENDPOINT_DEFAULT_PATHS: Record<string, string> = {
   openai: "/v1/chat/completions",

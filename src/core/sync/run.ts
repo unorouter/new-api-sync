@@ -1,4 +1,4 @@
-import { throwIfRunAborted } from "@core/abort";
+import { throwIfRunAborted } from "@core/runtime/abort";
 import type { RuntimeConfig } from "@core/config";
 import { MANAGED_OPTION_KEYS, VENDOR_MATCHERS } from "@core/models/constants";
 import { loadKiroBlacklist, writeTestReport } from "@core/models/tester";

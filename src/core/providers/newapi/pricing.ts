@@ -1,4 +1,4 @@
-import { tryFetchJson } from "@core/http";
+import { tryFetchJson } from "@core/runtime/http";
 import {
   CHANNEL_TYPES,
   inferChannelType,

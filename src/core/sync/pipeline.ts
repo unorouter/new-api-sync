@@ -1,4 +1,4 @@
-import { throwIfRunAborted } from "@core/abort";
+import { throwIfRunAborted } from "@core/runtime/abort";
 import {
   getPricingGridFromEnabledModels,
   type RuntimeConfig,
@@ -308,8 +308,8 @@ function buildDesiredModels(opts: {
     const seen = new Set<string>();
     const deduped = rawTags
       .split(",")
-      .map((t) => t.trim())
-      .filter((t) => {
+      .map((t: string) => t.trim())
+      .filter((t: string) => {
         if (!t) return false;
         const lower = t.toLowerCase();
         if (seen.has(lower)) return false;

@@ -1,6 +1,6 @@
-import { loadGlobalConfig } from "@core/global-config";
+import { loadGlobalConfig } from "./global";
 import { MODEL_TYPES, type ModelType } from "@core/models/types";
-import { configDir } from "@core/paths";
+import { configDir } from "./paths";
 import {
   ConfigSchema,
   type AnyProviderConfig,

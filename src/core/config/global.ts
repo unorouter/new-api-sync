@@ -1,4 +1,4 @@
-import { configDir } from "@core/paths";
+import { configDir } from "./paths";
 import {
   GlobalConfigSchema,
   type GlobalConfigType,

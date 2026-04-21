@@ -1,4 +1,4 @@
-import type { ModelType } from "./types";
+import type { ModelType } from "../types";
 import {
   ENDPOINT_KEYWORD_TYPES,
   ENDPOINT_TO_MODEL_TYPE,

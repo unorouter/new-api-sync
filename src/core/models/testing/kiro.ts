@@ -1,4 +1,4 @@
-import { fetchJson } from "@core/http";
+import { fetchJson } from "@core/runtime/http";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
