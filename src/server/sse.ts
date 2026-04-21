@@ -51,7 +51,10 @@ export type PipelineFrame =
   | { kind: "start"; at: string }
   | { kind: "log"; level: string; message: string }
   | { kind: "done"; result: unknown }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string }
+  | { kind: "ping" };
+
+const HEARTBEAT_MS = 10_000;
 
 /**
  * Wrap a long-running pipeline task as an async generator that streams typed
@@ -134,9 +137,21 @@ export async function* pipelineStream(
         yield sse({ data: queue.shift()! });
       }
       if (done) break;
-      await new Promise<void>((resolve) => {
-        waiter = resolve;
+      // Park on waiter OR heartbeat timer so long upstream work (e.g. a model
+      // test that hangs until timeout) doesn't leave the stream idle long
+      // enough for the browser to reset the connection.
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const timedOut = await new Promise<boolean>((resolve) => {
+        waiter = () => {
+          if (timer) clearTimeout(timer);
+          resolve(false);
+        };
+        timer = setTimeout(() => {
+          waiter = null;
+          resolve(true);
+        }, HEARTBEAT_MS);
       });
+      if (timedOut && !done) yield sse({ data: { kind: "ping" } });
     }
   } finally {
     consola.removeReporter(reporter);

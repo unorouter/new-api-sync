@@ -62,6 +62,7 @@ export function useSyncPipeline() {
           } else if (frame.kind === "error") {
             store.fail(frame.message);
           }
+          // `ping` frames keep the connection alive; no UI effect.
         }
       } finally {
         runIdRef.current = null;

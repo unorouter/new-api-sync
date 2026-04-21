@@ -1,6 +1,6 @@
-import { rpc } from "@web/lib/rpc";
-import { queryKeys } from "@web/lib/react-query/keys";
 import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@web/lib/react-query/keys";
+import { rpc } from "@web/lib/rpc";
 
 export function useHealth() {
   return useQuery({
@@ -11,6 +11,6 @@ export function useHealth() {
       return res.data.data;
     },
     // Poll every 5s so uptime/memory/active-runs stay fresh without a refresh.
-    refetchInterval: 5000,
+    refetchInterval: 60000,
   });
 }
