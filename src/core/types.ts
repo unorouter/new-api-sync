@@ -51,6 +51,9 @@ export interface ModelMeta {
   endpoints?: string;
   description?: string;
   tags?: string;
+  /** Opaque JSON string of client hints (maxOutputTokens, isReasoning, ...).
+   *  Lives in new-api's models.metadata column and is surfaced by /api/pricing. */
+  metadata?: string;
   status?: number;
   sync_official?: number;
 }
@@ -93,6 +96,7 @@ export interface DesiredModelSpec {
   endpoints?: string;
   description?: string;
   tags?: string;
+  metadata?: string;
 }
 
 /** A single row in a pricing grid. All keys except "Pricing" become display columns. "Pricing" is the price value. */

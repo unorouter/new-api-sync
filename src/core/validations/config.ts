@@ -47,7 +47,25 @@ const ModelPricingDetailSchema = T.Object({
   modelPricingGrid: T.Array(GridPricingRowSchema, { minItems: 1 }),
 });
 
-export const EnabledModelEntrySchema = T.Union([str, ModelPricingDetailSchema]);
+// Opaque per-model client hints, serialized to the models.metadata JSON column
+// in new-api. Consumed by client UIs (e.g. unorouter) to pick model-specific
+// behaviors like bumping max_tokens for thinking models.
+const ModelMetadataSchema = T.Object({
+  maxOutputTokens: T.Optional(T.Integer({ minimum: 1 })),
+  isReasoning: T.Optional(T.Boolean()),
+});
+export type ModelMetadata = Static<typeof ModelMetadataSchema>;
+
+const ModelSettingsDetailSchema = T.Object({
+  model: str,
+  metadata: T.Optional(ModelMetadataSchema),
+});
+
+export const EnabledModelEntrySchema = T.Union([
+  str,
+  ModelPricingDetailSchema,
+  ModelSettingsDetailSchema,
+]);
 
 export const ModelTypeEnum = T.Union([
   T.Literal("text"),

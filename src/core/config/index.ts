@@ -31,8 +31,24 @@ export function getPricingGridFromEnabledModels(
   const result: Record<string, Record<string, string | number>[]> = {};
   if (!entries) return result;
   for (const entry of entries) {
-    if (typeof entry !== "string" && entry.modelPricingGrid) {
+    if (typeof entry === "string") continue;
+    if ("modelPricingGrid" in entry && entry.modelPricingGrid) {
       result[entry.model] = entry.modelPricingGrid;
+    }
+  }
+  return result;
+}
+
+/** Extract per-model metadata overrides from enabledModels. */
+export function getMetadataFromEnabledModels(
+  entries: EnabledModelEntry[] | undefined,
+): Record<string, Record<string, unknown>> {
+  const result: Record<string, Record<string, unknown>> = {};
+  if (!entries) return result;
+  for (const entry of entries) {
+    if (typeof entry === "string") continue;
+    if ("metadata" in entry && entry.metadata) {
+      result[entry.model] = entry.metadata;
     }
   }
   return result;

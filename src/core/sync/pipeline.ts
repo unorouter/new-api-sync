@@ -1,5 +1,6 @@
 import { throwIfRunAborted } from "@core/runtime/abort";
 import {
+  getMetadataFromEnabledModels,
   getPricingGridFromEnabledModels,
   type RuntimeConfig,
 } from "@core/config";
@@ -233,6 +234,13 @@ function buildDesiredModels(opts: {
   basellmEntries: BasellmEntry[];
   openRouterDescriptions: Map<string, string>;
   modelMapping: Record<string, string>;
+  /**
+   * Per-model metadata overrides collected from each provider's
+   * `enabledModels`. Keyed by the UPSTREAM model id (e.g.
+   * "z-ai/glm4.7"). Applied after the bare-name resolution so the
+   * metadata lands on whichever exposed name the sync actually pushes.
+   */
+  metadataByUpstream: Record<string, Record<string, unknown>>;
 }): Map<string, DesiredModelSpec> {
   const models = new Map<string, DesiredModelSpec>();
 
@@ -321,6 +329,35 @@ function buildDesiredModels(opts: {
       deduped.length > 255
         ? deduped.slice(0, deduped.lastIndexOf(",", 255) || 255)
         : deduped;
+  }
+
+  // Apply per-model metadata overrides from config. Config keys are the
+  // upstream id (`z-ai/glm4.7`); desired models are keyed by the exposed
+  // bare name (`glm4.7`). Build exposed -> upstream from each channel's
+  // model_mapping since that's the real source of bare-name resolution
+  // (global reverseMapping only covers config.modelMapping renames).
+  if (Object.keys(opts.metadataByUpstream).length > 0) {
+    const exposedToUpstream = new Map<string, string>();
+    for (const ch of opts.channels) {
+      if (!ch.model_mapping) continue;
+      try {
+        const mm = JSON.parse(ch.model_mapping) as Record<string, string>;
+        for (const [exposed, upstream] of Object.entries(mm)) {
+          exposedToUpstream.set(exposed, upstream);
+        }
+      } catch {
+        // malformed model_mapping — skip
+      }
+    }
+    for (const [modelName, spec] of models) {
+      const upstream = exposedToUpstream.get(modelName) ?? modelName;
+      const meta =
+        opts.metadataByUpstream[upstream] ??
+        opts.metadataByUpstream[modelName];
+      if (meta) {
+        spec.metadata = JSON.stringify(meta);
+      }
+    }
   }
 
   return models;
@@ -529,6 +566,14 @@ export async function runProviderPipeline(
     Object.assign(allPricingGrids, grids);
   }
 
+  // Collect per-model metadata overrides from all providers' enabledModels.
+  // Keyed by upstream id (e.g. "z-ai/glm4.7"); applied post-bare-name resolution.
+  const allMetadata: Record<string, Record<string, unknown>> = {};
+  for (const provider of config.providers) {
+    const metadata = getMetadataFromEnabledModels(provider.enabledModels);
+    Object.assign(allMetadata, metadata);
+  }
+
   const optionMaps = buildOptionMaps(
     state,
     config.modelMapping,
@@ -544,6 +589,7 @@ export async function runProviderPipeline(
     basellmEntries,
     openRouterDescriptions,
     modelMapping: config.modelMapping,
+    metadataByUpstream: allMetadata,
   });
 
   const responsesApiModels = collectResponsesApiModels(

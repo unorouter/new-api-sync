@@ -343,6 +343,15 @@ export function buildSyncDiff(
   const vendorNameToId = buildVendorIdMap(snapshot.vendors);
   const modelOps: DiffOperation<ModelMeta>[] = [];
 
+  // Backward-compat: older new-api versions don't have the `metadata` column.
+  // If the snapshot contains at least one model with metadata defined (even an
+  // empty string counts as "the field exists in the response"), we treat the
+  // server as metadata-capable. Otherwise we skip pushing metadata to avoid
+  // triggering futile update loops on servers that just drop the field.
+  const serverSupportsMetadata = snapshot.models.some(
+    (m) => m.metadata !== undefined,
+  );
+
   // Deduplicate existing models: keep the entry with the highest ID, delete the rest.
   const existingModelsByName = new Map<string, ModelMeta>();
   const duplicateModels: ModelMeta[] = [];
@@ -385,6 +394,9 @@ export function buildSyncDiff(
       status: 1,
       sync_official: 1,
     };
+    if (serverSupportsMetadata) {
+      targetModel.metadata = desiredModel.metadata;
+    }
 
     if (!existing) {
       modelOps.push({
@@ -395,11 +407,16 @@ export function buildSyncDiff(
       continue;
     }
 
+    const metadataDiffers =
+      serverSupportsMetadata &&
+      (existing.metadata ?? "") !== (targetModel.metadata ?? "");
+
     const needsUpdate =
       existing.vendor_id !== targetModel.vendor_id ||
       existing.endpoints !== targetModel.endpoints ||
       (existing.description ?? "") !== (targetModel.description ?? "") ||
       (existing.tags ?? "") !== (targetModel.tags ?? "") ||
+      metadataDiffers ||
       existing.sync_official !== 1 ||
       existing.status !== 1;
 
