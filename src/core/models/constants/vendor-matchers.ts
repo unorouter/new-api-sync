@@ -74,7 +74,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
     icon: "Moonshot",
   },
   zhipu: {
-    modelPatterns: ["glm-", "chatglm"],
+    modelPatterns: ["glm-", "glm4", "glm5", "glm6", "chatglm"],
     nameAliases: ["智谱", "zhipu ai", "chatglm"],
     displayName: "Zhipu",
     icon: "Zhipu.Color",
