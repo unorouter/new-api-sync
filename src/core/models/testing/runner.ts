@@ -16,6 +16,7 @@ import {
   testRequest,
   testStreamRequest,
   testToolCall,
+  type RetryPolicy,
 } from "./execution";
 import {
   testAnthropicAuthenticity,
@@ -199,6 +200,12 @@ export async function testModels(opts: {
   logPrefix?: string;
   modelEndpoints?: Map<string, string[]>;
   onModelTested?: (detail: ModelTestDetail) => void | Promise<void>;
+  /**
+   * Retry policy for flaky upstreams. Default: 2 attempts, retry any failure
+   * (preserves legacy behavior). NVIDIA passes NVIDIA_RETRY_POLICY so transient
+   * 504/429 failures don't misclassify a usable model as broken.
+   */
+  retryPolicy?: RetryPolicy<TestExchange>;
 }): Promise<{
   workingModels: string[];
   details: ModelTestDetail[];
@@ -209,6 +216,7 @@ export async function testModels(opts: {
   const channelType = opts.channelType;
   const useResponsesAPI = opts.useResponsesAPI ?? false;
   const concurrency = opts.concurrency ?? 5;
+  const retryPolicy = opts.retryPolicy;
   const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
   const onModelTested = opts.onModelTested;
   const prefix = opts.logPrefix ?? "unknown";
@@ -283,26 +291,31 @@ export async function testModels(opts: {
           httpResult = await withRetry(
             () => testRequest(getImageTestConfig(reqOpts), timeoutMs),
             (r) => r.pass,
+            retryPolicy,
           );
         } else if (modelType === "video") {
           httpResult = await withRetry(
             () => testRequest(getVideoTestConfig(reqOpts), timeoutMs),
             (r) => r.pass,
+            retryPolicy,
           );
         } else if (modelType === "embedding") {
           httpResult = await withRetry(
             () => testRequest(getEmbeddingTestConfig(reqOpts), timeoutMs),
             (r) => r.pass,
+            retryPolicy,
           );
         } else if (modelType === "audio") {
           httpResult = await withRetry(
             () => testRequest(getAudioTestConfig(reqOpts), timeoutMs),
             (r) => r.pass,
+            retryPolicy,
           );
         } else {
           httpResult = await withRetry(
             () => testRequest(getRequestConfig(reqOpts), timeoutMs),
             (r) => r.pass,
+            retryPolicy,
           );
         }
         const success = httpResult.pass;
@@ -314,6 +327,7 @@ export async function testModels(opts: {
           ? await withRetry(
               () => testStreamRequest(streamConfig, timeoutMs),
               (r) => r.pass,
+              retryPolicy,
             )
           : null;
         const streamSuccess = streamResult?.pass ?? null;
@@ -326,6 +340,7 @@ export async function testModels(opts: {
             ? await withRetry(
                 () => testToolCall(toolCallConfig, timeoutMs),
                 (r) => r.pass,
+                retryPolicy,
               )
             : null;
         const toolCallSuccess = toolResult?.pass ?? null;
@@ -426,6 +441,8 @@ export async function testAndFilterModels(opts: {
   modelEndpoints?: Map<string, string[]>;
   useResponsesAPI?: boolean;
   onModelTested?: (detail: ModelTestDetail) => void | Promise<void>;
+  /** Passed through to `testModels` for providers that need custom retry. */
+  retryPolicy?: RetryPolicy<TestExchange>;
 }): Promise<{
   workingModels: string[];
   testedCount: number;
@@ -470,6 +487,7 @@ export async function testAndFilterModels(opts: {
       modelEndpoints: opts.modelEndpoints,
       logPrefix: opts.providerLabel,
       onModelTested: opts.onModelTested,
+      retryPolicy: opts.retryPolicy,
     });
     testedWorkingModels = testResult.workingModels;
     details = testResult.details;

@@ -28,17 +28,22 @@ export function resolveBareNames(
   upstreamIds: string[],
   userMapping: Record<string, string> | undefined,
 ): BareNameResolution[] {
-  const bareCount = new Map<string, number>();
+  // Collision = the same bare name maps to *different* upstream IDs.
+  // Duplicate upstream IDs (NVIDIA's /v1/models returns some ids twice, e.g.
+  // openai/gpt-oss-120b) aren't collisions — they're the same model. Count
+  // the set of distinct upstream IDs per bare name, not raw occurrences.
+  const bareToUpstreams = new Map<string, Set<string>>();
   for (const id of upstreamIds) {
     const bare = toBareName(id);
-    bareCount.set(bare, (bareCount.get(bare) ?? 0) + 1);
+    if (!bareToUpstreams.has(bare)) bareToUpstreams.set(bare, new Set());
+    bareToUpstreams.get(bare)!.add(id);
   }
 
   const seen = new Set<string>();
   const result: BareNameResolution[] = [];
   for (const id of upstreamIds) {
     const bare = toBareName(id);
-    const collides = (bareCount.get(bare) ?? 0) > 1;
+    const collides = (bareToUpstreams.get(bare)?.size ?? 0) > 1;
     const exposed = userMapping?.[collides ? id : bare] ?? (collides ? id : bare);
     if (seen.has(exposed)) continue;
     seen.add(exposed);

@@ -7,14 +7,65 @@ import type {
   ToolCallRequestConfig,
 } from "./types";
 
+export interface RetryPolicy<T> {
+  /** Total attempts including the first call. Default: 2. */
+  attempts?: number;
+  /**
+   * Milliseconds to wait before each retry. Indexed by retry number, not
+   * attempt number (so backoffMs[0] is the wait before the *second* attempt).
+   * Default: no delay.
+   */
+  backoffMs?: number[];
+  /**
+   * Decide whether a failed result is worth retrying. Lets callers skip
+   * retries on deterministic failures (404, 422) while still retrying
+   * transient ones (timeout, 429, 5xx). Default: always retry on failure.
+   */
+  shouldRetry?: (result: T) => boolean;
+}
+
 export async function withRetry<T>(
   fn: () => Promise<T>,
   isPass: (v: T) => boolean,
+  policy?: RetryPolicy<T>,
 ): Promise<T> {
-  const result = await fn();
-  if (isPass(result)) return result;
-  return fn();
+  const attempts = policy?.attempts ?? 2;
+  const backoffMs = policy?.backoffMs ?? [];
+  const shouldRetry = policy?.shouldRetry ?? (() => true);
+
+  let last: T = await fn();
+  for (let i = 1; i < attempts; i++) {
+    if (isPass(last)) return last;
+    if (!shouldRetry(last)) return last;
+    const delay = backoffMs[i - 1];
+    if (delay && delay > 0) {
+      await new Promise((r) => setTimeout(r, delay));
+    }
+    last = await fn();
+  }
+  return last;
 }
+
+/**
+ * Retry policy tuned for NVIDIA NIM: 3 attempts with exponential-ish backoff,
+ * but only for transient failures (timeouts, rate limits, server errors).
+ * Deterministic 4xx responses (bad model, bad auth, validation) fail fast.
+ */
+export const NVIDIA_RETRY_POLICY: RetryPolicy<TestExchange> = {
+  attempts: 3,
+  backoffMs: [2000, 4000],
+  shouldRetry: (r) => {
+    // Network/abort — status undefined → worth retrying
+    if (r.status === undefined || r.status === null) return true;
+    // Rate limited — worth waiting and retrying
+    if (r.status === 429) return true;
+    // Server-side error — may self-heal
+    if (r.status >= 500) return true;
+    // Deterministic 4xx (400 bad body, 401 auth, 404 no model, 422 validation)
+    // Retrying won't help; fail fast so the sync keeps moving.
+    return false;
+  },
+};
 
 function headersToRecord(headers: Headers): Record<string, string> {
   const out: Record<string, string> = {};

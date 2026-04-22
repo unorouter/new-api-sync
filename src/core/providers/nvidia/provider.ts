@@ -10,6 +10,7 @@ import {
 } from "@core/models/bare-name";
 import { CHANNEL_TYPES, inferModelType } from "@core/models/constants";
 import { filterModels } from "@core/models/filter";
+import { NVIDIA_RETRY_POLICY } from "@core/models/testing/execution";
 import { testAndFilterModels } from "@core/models/tester";
 import { seedAndPushTieredChannels } from "@core/providers/shared/pipeline";
 import type { ProviderReport, SyncState } from "@core/types";
@@ -110,6 +111,7 @@ export async function processNvidiaProvider(
         channelType: CHANNEL_TYPES.OPENAI,
         providerLabel: providerConfig.name,
         testableModelTypes: getTestModelTypes(config, providerConfig),
+        retryPolicy: NVIDIA_RETRY_POLICY,
       });
       workingTextModels = filterResult.workingModels;
 
