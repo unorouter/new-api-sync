@@ -12,7 +12,7 @@ import { CHANNEL_TYPES, inferModelType } from "@core/models/constants";
 import { filterModels } from "@core/models/filter";
 import { NVIDIA_RETRY_POLICY } from "@core/models/testing/execution";
 import { testAndFilterModels } from "@core/models/tester";
-import { seedAndPushTieredChannels } from "@core/providers/shared/pipeline";
+import { pushPerVendorChannels } from "@core/providers/shared/pipeline";
 import type { ProviderReport, SyncState } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -157,68 +157,47 @@ export async function processNvidiaProvider(
     const textReverseMapping = buildChannelModelMapping(textResolutions);
     const imageReverseMapping = buildChannelModelMapping(imageResolutions);
 
+    let textVendorCount = 0;
+    let imageVendorCount = 0;
+
     if (mappedTextModels.length > 0) {
-      const { ratioToModels } = seedAndPushTieredChannels({
+      const { vendorToModels } = pushPerVendorChannels({
         models: mappedTextModels,
         providerName: providerConfig.name,
-        seedPrefix: "nvidia_text",
         channelType: CHANNEL_TYPES.OPENAI,
         apiKey: providerConfig.apiKey,
         baseUrl: providerConfig.baseUrl,
-        vendor: "nvidia",
         description: `NVIDIA NIM text via ${providerConfig.name}`,
-        priceAdjustment: providerConfig.priceAdjustment,
-        defaultAdjustment: 0,
         ratio: providerConfig.ratio,
         state,
-        modelMapping: config.modelMapping,
         channelModelMapping:
           Object.keys(textReverseMapping).length > 0
             ? textReverseMapping
             : undefined,
       });
-
-      const ratios = [...ratioToModels.keys()]
-        .map((r) => r.toFixed(4))
-        .join(", ");
+      textVendorCount = vendorToModels.size;
       consola.info(
-        t("CORE.NVIDIA.TEXT_TIERS_SUMMARY", {
-          name: providerConfig.name,
-          count: mappedTextModels.length,
-          tiers: ratioToModels.size,
-          ratios,
-        }),
+        `[${providerConfig.name}] ${mappedTextModels.length} text model(s) across ${textVendorCount} vendor channel(s)`,
       );
     }
 
     if (mappedImageModels.length > 0) {
-      const imageBaseUrl = providerConfig.imageBaseUrl;
-      const groupName = `nvidia-img-${providerConfig.name}`;
-
-      state.mergedGroups.push({
-        name: groupName,
-        ratio: 0,
+      const { vendorToModels } = pushPerVendorChannels({
+        models: mappedImageModels,
+        providerName: providerConfig.name,
+        channelType: CHANNEL_TYPES.NVIDIA_NIM,
+        apiKey: providerConfig.apiKey,
+        baseUrl: providerConfig.imageBaseUrl,
         description: `NVIDIA NIM image via ${providerConfig.name}`,
-        provider: providerConfig.name,
-      });
-
-      state.channelsToCreate.push({
-        name: groupName,
-        type: CHANNEL_TYPES.NVIDIA_NIM,
-        key: providerConfig.apiKey,
-        base_url: imageBaseUrl,
-        models: mappedImageModels.join(","),
-        group: groupName,
-        priority: 0,
-        weight: 1,
-        status: 1,
-        tag: providerConfig.name,
-        remark: `nvidia-img-${providerConfig.name}`,
-        model_mapping:
+        ratio: providerConfig.ratio,
+        state,
+        channelModelMapping:
           Object.keys(imageReverseMapping).length > 0
-            ? JSON.stringify(imageReverseMapping)
+            ? imageReverseMapping
             : undefined,
+        channelNameSuffix: "-img",
       });
+      imageVendorCount = vendorToModels.size;
 
       for (const model of mappedImageModels) {
         state.mergedModels.set(model, {
@@ -230,18 +209,11 @@ export async function processNvidiaProvider(
       }
 
       consola.info(
-        t("CORE.NVIDIA.IMAGE_CHANNEL", {
-          name: providerConfig.name,
-          count: mappedImageModels.length,
-          group: groupName,
-          type: CHANNEL_TYPES.NVIDIA_NIM,
-        }),
+        `[${providerConfig.name}] ${mappedImageModels.length} image model(s) across ${imageVendorCount} vendor channel(s)`,
       );
     }
 
-    providerReport.groups =
-      (mappedTextModels.length > 0 ? 1 : 0) +
-      (mappedImageModels.length > 0 ? 1 : 0);
+    providerReport.groups = textVendorCount + imageVendorCount;
     providerReport.models = allWorking.length;
     providerReport.success = true;
   } catch (error) {

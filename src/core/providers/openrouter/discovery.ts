@@ -25,7 +25,7 @@ export async function discoverOpenRouterFreeModels(
   baseUrl: string,
   apiKey: string,
 ): Promise<string[]> {
-  const url = `${baseUrl.replace(/\/$/, "")}/models`;
+  const url = `${baseUrl.replace(/\/$/, "")}/v1/models`;
   consola.info(
     t("CORE.PROVIDER.DISCOVERY_FETCH", {
       label: t("CORE.PROVIDER.LABEL_OPENROUTER"),

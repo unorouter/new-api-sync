@@ -12,7 +12,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
     icon: "Claude.Color",
   },
   google: {
-    modelPatterns: ["gemini", "palm", "veo"],
+    modelPatterns: ["gemini", "palm", "veo", "gemma", "lyria", "imagen"],
     displayName: "Google",
     icon: "Gemini.Color",
   },
@@ -39,6 +39,34 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
     icon: "Mistral.Color",
   },
   meta: { modelPatterns: ["llama"], displayName: "Meta", icon: "Meta.Color" },
+  nvidia: {
+    modelPatterns: ["nemotron"],
+    displayName: "NVIDIA",
+    icon: "Nvidia.Color",
+  },
+  liquid: {
+    modelPatterns: ["lfm-"],
+    nameAliases: ["liquid"],
+    displayName: "Liquid",
+    icon: "Liquid",
+  },
+  inclusionai: {
+    modelPatterns: ["ling-"],
+    nameAliases: ["inclusionai"],
+    displayName: "InclusionAI",
+  },
+  nousresearch: {
+    modelPatterns: ["hermes-"],
+    nameAliases: ["nous", "nousresearch"],
+    displayName: "Nous Research",
+    icon: "NousResearch",
+  },
+  venice: {
+    modelPatterns: ["venice"],
+    nameAliases: ["venice"],
+    displayName: "Venice AI",
+    icon: "Venice.Color",
+  },
   alibaba: {
     modelPatterns: ["qwen", "qwq-"],
     nameAliases: ["阿里", "通义", "qwen", "阿里巴巴"],
@@ -85,7 +113,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
     icon: "Perplexity.Color",
   },
   baidu: {
-    modelPatterns: ["ernie-"],
+    modelPatterns: ["ernie-", "qianfan-"],
     nameAliases: ["百度", "文心"],
     displayName: "Baidu",
     icon: "Wenxin",
@@ -97,7 +125,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
     icon: "Spark.Color",
   },
   tencent: {
-    modelPatterns: ["hunyuan-"],
+    modelPatterns: ["hunyuan-", "hy3-", "hy4-"],
     nameAliases: ["腾讯", "混元"],
     displayName: "Tencent",
     icon: "Hunyuan",

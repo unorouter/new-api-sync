@@ -1,6 +1,82 @@
+import { inferVendorFromModelName } from "@core/models/constants";
 import type { AnyProviderConfig } from "@core/validations/config";
 import { buildPriceTiers, pushTieredChannels } from "@core/pricing";
 import type { SyncState } from "@core/types";
+
+/**
+ * Group exposed model names by vendor (via inferVendorFromModelName) and push
+ * one channel per vendor into SyncState. Models with no detectable vendor land
+ * in a `${providerName}-other` channel so they remain reachable.
+ *
+ * Each channel carries a fixed `ratio`; no tier expansion. This is the simple
+ * shape used by OpenRouter and (post-refactor) NVIDIA — providers where every
+ * model is free or where pricing is uniform per channel.
+ *
+ * `channelNameSuffix` lets callers add a discriminator (e.g., "-img") when
+ * the same vendor must be split across channels because of differing base
+ * URLs or model types.
+ */
+export function pushPerVendorChannels(opts: {
+  models: string[];
+  providerName: string;
+  channelType: number;
+  apiKey: string;
+  baseUrl: string;
+  description: string;
+  ratio: number;
+  state: SyncState;
+  channelModelMapping?: Record<string, string>;
+  channelNameSuffix?: string;
+}): { vendorToModels: Map<string, string[]> } {
+  const vendorToModels = new Map<string, string[]>();
+  for (const model of opts.models) {
+    const vendor = inferVendorFromModelName(model) ?? "other";
+    if (!vendorToModels.has(vendor)) vendorToModels.set(vendor, []);
+    vendorToModels.get(vendor)!.push(model);
+  }
+
+  const fullMapping = opts.channelModelMapping;
+  const suffix = opts.channelNameSuffix ?? "";
+
+  for (const [vendor, models] of [...vendorToModels.entries()].sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    const channelName = `${opts.providerName}-${vendor}${suffix}`;
+
+    opts.state.mergedGroups.push({
+      name: channelName,
+      ratio: opts.ratio,
+      description: opts.description,
+      provider: opts.providerName,
+    });
+
+    let scopedMapping: Record<string, string> | undefined;
+    if (fullMapping) {
+      const scoped: Record<string, string> = {};
+      for (const m of models) {
+        if (fullMapping[m] !== undefined) scoped[m] = fullMapping[m];
+      }
+      if (Object.keys(scoped).length > 0) scopedMapping = scoped;
+    }
+
+    opts.state.channelsToCreate.push({
+      name: channelName,
+      type: opts.channelType,
+      key: opts.apiKey,
+      base_url: opts.baseUrl.replace(/\/$/, ""),
+      models: models.join(","),
+      group: channelName,
+      priority: 0,
+      weight: 1,
+      status: 1,
+      tag: opts.providerName,
+      remark: channelName,
+      model_mapping: scopedMapping ? JSON.stringify(scopedMapping) : undefined,
+    });
+  }
+
+  return { vendorToModels };
+}
 
 /**
  * Seed a temporary synthetic group for pricing baseline, build price tiers,

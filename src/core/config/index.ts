@@ -204,7 +204,7 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
     if (p.type === "openrouter") {
       return {
         ...p,
-        baseUrl: p.baseUrl ?? "https://openrouter.ai/api/v1",
+        baseUrl: p.baseUrl ?? "https://openrouter.ai/api",
         ratio: p.ratio ?? 0,
       };
     }

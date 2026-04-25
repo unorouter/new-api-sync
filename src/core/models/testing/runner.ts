@@ -206,6 +206,12 @@ export async function testModels(opts: {
    * 504/429 failures don't misclassify a usable model as broken.
    */
   retryPolicy?: RetryPolicy<TestExchange>;
+  /**
+   * If true, models that returned HTTP 429 are kept in workingModels. Used by
+   * OpenRouter free-tier where 429 means daily quota exhausted, not broken
+   * model — retrying within a sync run won't recover it.
+   */
+  acceptRateLimited?: boolean;
 }): Promise<{
   workingModels: string[];
   details: ModelTestDetail[];
@@ -412,6 +418,7 @@ export async function testModels(opts: {
           kiroProbed:
             model.startsWith("claude-") &&
             (success || streamSuccess === true),
+          httpStatus: httpResult.status,
         };
       }),
     );
@@ -425,7 +432,12 @@ export async function testModels(opts: {
 
   return {
     workingModels: results
-      .filter((r) => r.success || r.streamSuccess === true)
+      .filter(
+        (r) =>
+          r.success ||
+          r.streamSuccess === true ||
+          (opts.acceptRateLimited === true && r.httpStatus === 429),
+      )
       .map((r) => r.model),
     details: results,
   };
@@ -443,6 +455,8 @@ export async function testAndFilterModels(opts: {
   onModelTested?: (detail: ModelTestDetail) => void | Promise<void>;
   /** Passed through to `testModels` for providers that need custom retry. */
   retryPolicy?: RetryPolicy<TestExchange>;
+  /** Passed through to `testModels`. See `testModels.acceptRateLimited`. */
+  acceptRateLimited?: boolean;
 }): Promise<{
   workingModels: string[];
   testedCount: number;
@@ -488,6 +502,7 @@ export async function testAndFilterModels(opts: {
       logPrefix: opts.providerLabel,
       onModelTested: opts.onModelTested,
       retryPolicy: opts.retryPolicy,
+      acceptRateLimited: opts.acceptRateLimited,
     });
     testedWorkingModels = testResult.workingModels;
     details = testResult.details;

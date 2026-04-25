@@ -77,4 +77,5 @@ export interface ModelTestDetail {
   streamSuccess: boolean | null;
   toolCallSuccess: boolean | null;
   kiroProbed: boolean;
+  httpStatus?: number;
 }

@@ -10,6 +10,7 @@ import {
   matchesBlacklist,
 } from "@core/models/constants";
 import { testAndFilterModels } from "@core/models/tester";
+import { pushPerVendorChannels } from "@core/providers/shared/pipeline";
 import type { OpenRouterProviderConfig } from "@core/validations/config";
 import type { ProviderReport, SyncState } from "@core/types";
 import { t } from "@server/i18n";
@@ -123,6 +124,7 @@ export async function processOpenRouterProvider(
       channelType: CHANNEL_TYPES.OPENAI,
       providerLabel: providerConfig.name,
       testableModelTypes: new Set(["text"]),
+      acceptRateLimited: true,
     });
     const working = filterResult.workingModels;
 
@@ -143,30 +145,17 @@ export async function processOpenRouterProvider(
     const exposedNames = resolutions.map((r) => r.exposed);
     const reverseMapping = buildChannelModelMapping(resolutions);
 
-    const groupName = `openrouter-free-${providerConfig.name}`;
-    state.mergedGroups.push({
-      name: groupName,
+    const { vendorToModels } = pushPerVendorChannels({
+      models: exposedNames,
+      providerName: providerConfig.name,
+      channelType: CHANNEL_TYPES.OPENROUTER,
+      apiKey: providerConfig.apiKey,
+      baseUrl: providerConfig.baseUrl,
+      description: `OpenRouter via ${providerConfig.name}`,
       ratio: providerConfig.ratio,
-      description: `OpenRouter free tier via ${providerConfig.name}`,
-      provider: providerConfig.name,
-    });
-
-    state.channelsToCreate.push({
-      name: groupName,
-      type: CHANNEL_TYPES.OPENROUTER,
-      key: providerConfig.apiKey,
-      base_url: providerConfig.baseUrl,
-      models: exposedNames.join(","),
-      group: groupName,
-      priority: 0,
-      weight: 1,
-      status: 1,
-      tag: providerConfig.name,
-      remark: groupName,
-      model_mapping:
-        Object.keys(reverseMapping).length > 0
-          ? JSON.stringify(reverseMapping)
-          : undefined,
+      state,
+      channelModelMapping:
+        Object.keys(reverseMapping).length > 0 ? reverseMapping : undefined,
     });
 
     for (const exposed of exposedNames) {
@@ -179,15 +168,10 @@ export async function processOpenRouterProvider(
     }
 
     consola.info(
-      t("CORE.NVIDIA.IMAGE_CHANNEL", {
-        name: providerConfig.name,
-        count: exposedNames.length,
-        group: groupName,
-        type: CHANNEL_TYPES.OPENROUTER,
-      }),
+      `[${providerConfig.name}] ${exposedNames.length} model(s) across ${vendorToModels.size} vendor channel(s)`,
     );
 
-    report.groups = 1;
+    report.groups = vendorToModels.size;
     report.models = exposedNames.length;
     report.success = true;
   } catch (error) {
