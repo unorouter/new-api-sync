@@ -176,6 +176,16 @@ export async function processNvidiaProvider(
             : undefined,
       });
       textVendorCount = vendorToModels.size;
+
+      for (const model of mappedTextModels) {
+        state.mergedModels.set(model, {
+          ratio: 0,
+          completionRatio: 0,
+          modelPrice: 0,
+          quotaType: 1,
+        });
+      }
+
       consola.info(
         `[${providerConfig.name}] ${mappedTextModels.length} text model(s) across ${textVendorCount} vendor channel(s)`,
       );
