@@ -11,7 +11,7 @@ coverage
 *.lcov
 
 # logs
-logs
+# logs
 _.log
 report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
@@ -42,4 +42,4 @@ pnpm-lock.yaml
 package-lock.json
 yarn.lock
 bun.lock*
-logs/*
+# logs/*

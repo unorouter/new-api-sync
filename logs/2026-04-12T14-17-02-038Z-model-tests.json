@@ -1,0 +1,276 @@
+{
+  "timestamp": "2026-04-12T14:16:36.920Z",
+  "results": [
+    {
+      "provider": "duck/Claude Code专用",
+      "model": "claude-sonnet-4-5-20250929",
+      "cost": null,
+      "http": {
+        "pass": false,
+        "request": {
+          "url": "https://j*.d*********.com/v1/messages",
+          "body": {
+            "model": "claude-sonnet-4-5-20250929",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 50
+          }
+        },
+        "response": null,
+        "error": "no response / timeout"
+      },
+      "stream": {
+        "pass": false,
+        "request": {
+          "url": "https://j*.d*********.com/v1/messages",
+          "body": {
+            "model": "claude-sonnet-4-5-20250929",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": null,
+        "error": "HTTP 400"
+      },
+      "toolCall": null,
+      "authentic": true
+    },
+    {
+      "provider": "duck/Claude Code专用",
+      "model": "claude-sonnet-4-6",
+      "cost": null,
+      "http": {
+        "pass": false,
+        "request": {
+          "url": "https://j*.d*********.com/v1/messages",
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 50
+          }
+        },
+        "response": null,
+        "error": "no response / timeout"
+      },
+      "stream": {
+        "pass": false,
+        "request": {
+          "url": "https://j*.d*********.com/v1/messages",
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": null,
+        "error": "HTTP 400"
+      },
+      "toolCall": null,
+      "authentic": true
+    },
+    {
+      "provider": "duck/Claude Code专用",
+      "model": "claude-opus-4-6",
+      "cost": null,
+      "http": {
+        "pass": false,
+        "request": {
+          "url": "https://j*.d*********.com/v1/messages",
+          "body": {
+            "model": "claude-opus-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 50
+          }
+        },
+        "response": null,
+        "error": "no response / timeout"
+      },
+      "stream": {
+        "pass": false,
+        "request": {
+          "url": "https://j*.d*********.com/v1/messages",
+          "body": {
+            "model": "claude-opus-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": null,
+        "error": "HTTP 400"
+      },
+      "toolCall": null,
+      "authentic": true
+    },
+    {
+      "provider": "duck/Claude Code专用",
+      "model": "claude-haiku-4-5-20251001",
+      "cost": null,
+      "http": {
+        "pass": false,
+        "request": {
+          "url": "https://j*.d*********.com/v1/messages",
+          "body": {
+            "model": "claude-haiku-4-5-20251001",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 50
+          }
+        },
+        "response": null,
+        "error": "no response / timeout"
+      },
+      "stream": {
+        "pass": false,
+        "request": {
+          "url": "https://j*.d*********.com/v1/messages",
+          "body": {
+            "model": "claude-haiku-4-5-20251001",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": null,
+        "error": "HTTP 400"
+      },
+      "toolCall": null,
+      "authentic": true
+    },
+    {
+      "provider": "duck/Claude Code专用",
+      "model": "claude-opus-4-5-20251101",
+      "cost": null,
+      "http": {
+        "pass": false,
+        "request": {
+          "url": "https://j*.d*********.com/v1/messages",
+          "body": {
+            "model": "claude-opus-4-5-20251101",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 50
+          }
+        },
+        "response": null,
+        "error": "no response / timeout"
+      },
+      "stream": {
+        "pass": false,
+        "request": {
+          "url": "https://j*.d*********.com/v1/messages",
+          "body": {
+            "model": "claude-opus-4-5-20251101",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": null,
+        "error": "HTTP 400"
+      },
+      "toolCall": null,
+      "authentic": true
+    },
+    {
+      "provider": "duck/CodeX转Claude Code",
+      "model": "claude-sonnet-4-6",
+      "cost": null,
+      "http": {
+        "pass": false,
+        "request": {
+          "url": "",
+          "body": null
+        },
+        "response": null,
+        "error": "kiro-blacklisted"
+      },
+      "stream": null,
+      "toolCall": null,
+      "authentic": false
+    },
+    {
+      "provider": "duck/CodeX转Claude Code",
+      "model": "claude-opus-4-6",
+      "cost": null,
+      "http": {
+        "pass": false,
+        "request": {
+          "url": "",
+          "body": null
+        },
+        "response": null,
+        "error": "kiro-blacklisted"
+      },
+      "stream": null,
+      "toolCall": null,
+      "authentic": false
+    },
+    {
+      "provider": "duck/CodeX转Claude Code",
+      "model": "claude-haiku-4-5-20251001",
+      "cost": null,
+      "http": {
+        "pass": false,
+        "request": {
+          "url": "",
+          "body": null
+        },
+        "response": null,
+        "error": "kiro-blacklisted"
+      },
+      "stream": null,
+      "toolCall": null,
+      "authentic": false
+    }
+  ]
+}

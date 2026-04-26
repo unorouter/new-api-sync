@@ -1,0 +1,1503 @@
+{
+  "timestamp": "2026-04-21T13:25:43.260Z",
+  "results": [
+    {
+      "provider": "v3/claude_cc",
+      "model": "claude-opus-4-6-thinking",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6-thinking",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_7330f2fe8c914ec983c3940dd1a5ac74",
+          "model": "claude-opus-4-6-thinking",
+          "object": "chat.completion",
+          "created": 1776777952,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 12
+            }
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6-thinking",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_e36697590a4b422a9d2198ced3258bc8\",\"object\":\"chat.completion.chunk\",\"created\":1776777954,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_e36697590a4b422a9d2198ced3258bc8\",\"object\":\"chat.completion.chunk\",\"created\":1776777954,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"ok"
+      },
+      "toolCall": null,
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_cc",
+      "model": "claude-sonnet-4-6-thinking",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6-thinking",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_c9faa3ca1ee14ad6948534b8bbaac331",
+          "model": "claude-sonnet-4-6-thinking",
+          "object": "chat.completion",
+          "created": 1776777953,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 12
+            }
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6-thinking",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_9ecb086c6dc747efb1754584759450c9\",\"object\":\"chat.completion.chunk\",\"created\":1776777955,\"model\":\"claude-sonnet-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_9ecb086c6dc747efb1754584759450c9\",\"object\":\"chat.completion.chunk\",\"created\":1776777955,\"model\":\"claude-sonnet-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\""
+      },
+      "toolCall": null,
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_cc",
+      "model": "claude-opus-4-7-minimal",
+      "cost": 0.00034399999999834563,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-7-minimal",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_bf3d5180150740dcb3c5ac4a4228dfb0",
+          "model": "claude-opus-4-7-minimal",
+          "object": "chat.completion",
+          "created": 1776777951,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 12
+            }
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-7-minimal",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_df7814746b1c4b46a57d3cebb534dcc1\",\"object\":\"chat.completion.chunk\",\"created\":1776777954,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_df7814746b1c4b46a57d3cebb534dcc1\",\"object\":\"chat.completion.chunk\",\"created\":1776777954,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"ok"
+      },
+      "toolCall": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-7-minimal",
+            "messages": [
+              {
+                "role": "user",
+                "content": "What is 2+2? You must use the calculator tool to answer."
+              }
+            ],
+            "tools": [
+              {
+                "type": "function",
+                "function": {
+                  "name": "calculator",
+                  "description": "Calculate a math expression",
+                  "parameters": {
+                    "type": "object",
+                    "properties": {
+                      "expression": {
+                        "type": "string",
+                        "description": "The math expression"
+                      }
+                    },
+                    "required": [
+                      "expression"
+                    ]
+                  }
+                }
+              }
+            ],
+            "tool_choice": "required",
+            "max_tokens": 100
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_5a30610d12de422081ac9a923ed98cca",
+          "model": "claude-opus-4-7-minimal",
+          "object": "chat.completion",
+          "created": 1776777958,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Sure! Let me calculate that for you.",
+                "reasoning_content": "The user wants me to calculate 2+2 using the calculator tool.",
+                "tool_calls": [
+                  {
+                    "id": "toolu_bdrk_01HwX1pCB5HjEz5DBRd3AxKN",
+                    "type": "function",
+                    "function": {
+                      "name": "calculator",
+                      "arguments": "{\"expression\":\"2+2\"}"
+                    },
+                    "index": 0
+                  }
+                ]
+              },
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 95,
+            "total_tokens": 96,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 25
+            }
+          }
+        }
+      },
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_cc",
+      "model": "claude-opus-4-7",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-7",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_ba49a551b14f43478045d9d247ab5bcd",
+          "model": "claude-opus-4-7",
+          "object": "chat.completion",
+          "created": 1776777951,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 12
+            }
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-7",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_f192d60abcab4339aba21073f9cef935\",\"object\":\"chat.completion.chunk\",\"created\":1776777954,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_f192d60abcab4339aba21073f9cef935\",\"object\":\"chat.completion.chunk\",\"created\":1776777954,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"ok"
+      },
+      "toolCall": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-7",
+            "messages": [
+              {
+                "role": "user",
+                "content": "What is 2+2? You must use the calculator tool to answer."
+              }
+            ],
+            "tools": [
+              {
+                "type": "function",
+                "function": {
+                  "name": "calculator",
+                  "description": "Calculate a math expression",
+                  "parameters": {
+                    "type": "object",
+                    "properties": {
+                      "expression": {
+                        "type": "string",
+                        "description": "The math expression"
+                      }
+                    },
+                    "required": [
+                      "expression"
+                    ]
+                  }
+                }
+              }
+            ],
+            "tool_choice": "required",
+            "max_tokens": 100
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_3d90a85f342f48dc97dd8278c497bb0d",
+          "model": "claude-opus-4-7",
+          "object": "chat.completion",
+          "created": 1776777958,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Sure! Let me calculate that for you.",
+                "reasoning_content": "The user wants me to calculate 2+2 using the calculator tool.",
+                "tool_calls": [
+                  {
+                    "id": "toolu_bdrk_011mCt9dCtoP2m297srmCJtJ",
+                    "type": "function",
+                    "function": {
+                      "name": "calculator",
+                      "arguments": "{\"expression\":\"2+2\"}"
+                    },
+                    "index": 0
+                  }
+                ]
+              },
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 95,
+            "total_tokens": 96,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 25
+            }
+          }
+        }
+      },
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_cc",
+      "model": "claude-opus-4-6",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_115bd6b629ed4ca1911305283e52a38d",
+          "model": "claude-opus-4-6",
+          "object": "chat.completion",
+          "created": 1776777952,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 12
+            }
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_2d1414844c244485a4ca907391b7af9f\",\"object\":\"chat.completion.chunk\",\"created\":1776777955,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_2d1414844c244485a4ca907391b7af9f\",\"object\":\"chat.completion.chunk\",\"created\":1776777955,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"ok"
+      },
+      "toolCall": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "What is 2+2? You must use the calculator tool to answer."
+              }
+            ],
+            "tools": [
+              {
+                "type": "function",
+                "function": {
+                  "name": "calculator",
+                  "description": "Calculate a math expression",
+                  "parameters": {
+                    "type": "object",
+                    "properties": {
+                      "expression": {
+                        "type": "string",
+                        "description": "The math expression"
+                      }
+                    },
+                    "required": [
+                      "expression"
+                    ]
+                  }
+                }
+              }
+            ],
+            "tool_choice": "required",
+            "max_tokens": 100
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_ca461a041db84852b0f1ef8ab92e3a07",
+          "model": "claude-opus-4-6",
+          "object": "chat.completion",
+          "created": 1776777958,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Sure! Let me calculate that for you.",
+                "reasoning_content": "The user wants me to calculate 2+2.",
+                "tool_calls": [
+                  {
+                    "id": "toolu_bdrk_01RUVUoxDnLiwFuQsvm4Pcek",
+                    "type": "function",
+                    "function": {
+                      "name": "calculator",
+                      "arguments": "{\"expression\":\"2+2\"}"
+                    },
+                    "index": 0
+                  }
+                ]
+              },
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 90,
+            "total_tokens": 91,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 25
+            }
+          }
+        }
+      },
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_cc",
+      "model": "claude-sonnet-4-6",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_001b608a35884082a4c31c099e0340b2",
+          "model": "claude-sonnet-4-6",
+          "object": "chat.completion",
+          "created": 1776777965,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 12
+            }
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_cf20814c167d48d3a10870fba01f11d4\",\"object\":\"chat.completion.chunk\",\"created\":1776777967,\"model\":\"claude-sonnet-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_cf20814c167d48d3a10870fba01f11d4\",\"object\":\"chat.completion.chunk\",\"created\":1776777967,\"model\":\"claude-sonnet-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\""
+      },
+      "toolCall": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "What is 2+2? You must use the calculator tool to answer."
+              }
+            ],
+            "tools": [
+              {
+                "type": "function",
+                "function": {
+                  "name": "calculator",
+                  "description": "Calculate a math expression",
+                  "parameters": {
+                    "type": "object",
+                    "properties": {
+                      "expression": {
+                        "type": "string",
+                        "description": "The math expression"
+                      }
+                    },
+                    "required": [
+                      "expression"
+                    ]
+                  }
+                }
+              }
+            ],
+            "tool_choice": "required",
+            "max_tokens": 100
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_d4645cbf40854c96b2707f7e2e737bf7",
+          "model": "claude-sonnet-4-6",
+          "object": "chat.completion",
+          "created": 1776777971,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Sure! Let me calculate that for you right away!",
+                "reasoning_content": "The user wants me to calculate 2+2 using the calculator tool.",
+                "tool_calls": [
+                  {
+                    "id": "toolu_bdrk_01XZbweMCRmgYmDGs95XHKFj",
+                    "type": "function",
+                    "function": {
+                      "name": "calculator",
+                      "arguments": "{\"expression\":\"2+2\"}"
+                    },
+                    "index": 0
+                  }
+                ]
+              },
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 96,
+            "total_tokens": 97,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 25
+            }
+          }
+        }
+      },
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_fzl",
+      "model": "claude-opus-4-7",
+      "cost": 0.020595999999997616,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-7",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_efe1121066ea4a9b8ff0bbd1",
+          "model": "claude-opus-4-7",
+          "object": "chat.completion",
+          "created": 1776777974,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 6,
+            "completion_tokens": 6,
+            "total_tokens": 12,
+            "prompt_tokens_details": {
+              "cached_tokens": 1314
+            }
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-7",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_a10bc7854810470ab78fb9ea\",\"object\":\"chat.completion.chunk\",\"created\":1776777978,\"model\":\"claude-opus-4-7\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_a10bc7854810470ab78fb9ea\",\"object\":\"chat.completion.chunk\",\"created\":1776777978,\"model\":\"claude-opus-4-7\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"ok\"},\"logprobs\":nu"
+      },
+      "toolCall": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-7",
+            "messages": [
+              {
+                "role": "user",
+                "content": "What is 2+2? You must use the calculator tool to answer."
+              }
+            ],
+            "tools": [
+              {
+                "type": "function",
+                "function": {
+                  "name": "calculator",
+                  "description": "Calculate a math expression",
+                  "parameters": {
+                    "type": "object",
+                    "properties": {
+                      "expression": {
+                        "type": "string",
+                        "description": "The math expression"
+                      }
+                    },
+                    "required": [
+                      "expression"
+                    ]
+                  }
+                }
+              }
+            ],
+            "tool_choice": "required",
+            "max_tokens": 100
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_786fe6a2f08549c2b8a86ed8",
+          "model": "claude-opus-4-7",
+          "object": "chat.completion",
+          "created": 1776777981,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "toolu_018xfNy5wFQNWg1V5QhBriZ1",
+                    "type": "function",
+                    "function": {
+                      "name": "calculator",
+                      "arguments": "{\"expression\":\"2+2\"}"
+                    },
+                    "index": 0
+                  }
+                ]
+              },
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 6,
+            "completion_tokens": 66,
+            "total_tokens": 72,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 2066
+            }
+          }
+        }
+      },
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_fzl",
+      "model": "claude-sonnet-4-6-thinking",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6-thinking",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-req_vrtx_011CaGzXrNQzLVa2UDkLD4q3",
+          "model": "claude-sonnet-4-6-thinking",
+          "object": "chat.completion",
+          "created": 1776777990,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok",
+                "reasoning_content": "ok"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 77,
+            "completion_tokens": 13,
+            "total_tokens": 90,
+            "prompt_tokens_details": {}
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6-thinking",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_e202ace2cd004d55b730b21085e86dc3\",\"object\":\"chat.completion.chunk\",\"created\":1776777992,\"model\":\"claude-sonnet-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_e202ace2cd004d55b730b21085e86dc3\",\"object\":\"chat.completion.chunk\",\"created\":1776777992,\"model\":\"claude-sonnet-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\""
+      },
+      "toolCall": null,
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_fzl",
+      "model": "claude-opus-4-6-thinking",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6-thinking",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_5312a826d66443deb6c211424fd9628e",
+          "model": "claude-opus-4-6-thinking",
+          "object": "chat.completion",
+          "created": 1776777995,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 12
+            }
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6-thinking",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_0b335e4c2d50483a8c74c8c4f19a4eeb\",\"object\":\"chat.completion.chunk\",\"created\":1776777997,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_0b335e4c2d50483a8c74c8c4f19a4eeb\",\"object\":\"chat.completion.chunk\",\"created\":1776777997,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"ok"
+      },
+      "toolCall": null,
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_fzl",
+      "model": "claude-opus-4-6",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_a729678b7e7046798326785090cfe53e",
+          "model": "claude-opus-4-6",
+          "object": "chat.completion",
+          "created": 1776777995,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 12
+            }
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_cca19066fcb746b9a1604ce7dac0641b\",\"object\":\"chat.completion.chunk\",\"created\":1776777999,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_cca19066fcb746b9a1604ce7dac0641b\",\"object\":\"chat.completion.chunk\",\"created\":1776777999,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\\n"
+      },
+      "toolCall": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "What is 2+2? You must use the calculator tool to answer."
+              }
+            ],
+            "tools": [
+              {
+                "type": "function",
+                "function": {
+                  "name": "calculator",
+                  "description": "Calculate a math expression",
+                  "parameters": {
+                    "type": "object",
+                    "properties": {
+                      "expression": {
+                        "type": "string",
+                        "description": "The math expression"
+                      }
+                    },
+                    "required": [
+                      "expression"
+                    ]
+                  }
+                }
+              }
+            ],
+            "tool_choice": "required",
+            "max_tokens": 100
+          }
+        },
+        "response": {
+          "id": "chatcmpl-req_vrtx_011CaGzaPpaE8ugVJnfmdWhW",
+          "model": "claude-opus-4-6",
+          "object": "chat.completion",
+          "created": 1776778029,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\n\nI'll use the calculator tool to compute this for you.",
+                "tool_calls": [
+                  {
+                    "id": "tool_1",
+                    "type": "function",
+                    "function": {
+                      "name": "calculator",
+                      "arguments": "{\"expression\":\"2+2\"}"
+                    },
+                    "index": 0
+                  }
+                ]
+              },
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 618,
+            "completion_tokens": 67,
+            "total_tokens": 685,
+            "prompt_tokens_details": {}
+          }
+        }
+      },
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_fzl",
+      "model": "claude-sonnet-4-6",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_b4f329af5407454d8a4bb87285497524",
+          "model": "claude-sonnet-4-6",
+          "object": "chat.completion",
+          "created": 1776777995,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+            "prompt_tokens_details": {
+              "cached_creation_tokens": 12
+            }
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_4952131218e44a69b61927db2af8c6ea\",\"object\":\"chat.completion.chunk\",\"created\":1776777998,\"model\":\"claude-sonnet-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_4952131218e44a69b61927db2af8c6ea\",\"object\":\"chat.completion.chunk\",\"created\":1776777998,\"model\":\"claude-sonnet-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\""
+      },
+      "toolCall": {
+        "pass": false,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "What is 2+2? You must use the calculator tool to answer."
+              }
+            ],
+            "tools": [
+              {
+                "type": "function",
+                "function": {
+                  "name": "calculator",
+                  "description": "Calculate a math expression",
+                  "parameters": {
+                    "type": "object",
+                    "properties": {
+                      "expression": {
+                        "type": "string",
+                        "description": "The math expression"
+                      }
+                    },
+                    "required": [
+                      "expression"
+                    ]
+                  }
+                }
+              }
+            ],
+            "tool_choice": "required",
+            "max_tokens": 100
+          }
+        },
+        "response": null,
+        "error": "no response / timeout"
+      },
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_kiro",
+      "model": "claude-sonnet-4-6-thinking",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6-thinking",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_6b6098d2-992",
+          "model": "claude-sonnet-4-6-thinking",
+          "object": "chat.completion",
+          "created": 1776778044,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok",
+                "reasoning_content": "ok\n"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 2004,
+            "completion_tokens": 1,
+            "total_tokens": 2005,
+            "prompt_tokens_details": {
+              "cached_tokens": 28,
+              "cached_creation_tokens": 79
+            }
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6-thinking",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_2bcf4f35\",\"object\":\"chat.completion.chunk\",\"created\":1776778046,\"model\":\"claude-sonnet-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_2bcf4f35\",\"object\":\"chat.completion.chunk\",\"created\":1776778046,\"model\":\"claude-sonnet-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"reasoning_content\":\"o\"},\"logprobs\":null"
+      },
+      "toolCall": null,
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_kiro",
+      "model": "claude-opus-4-6-thinking",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6-thinking",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_11b949d8-3ac",
+          "model": "claude-opus-4-6-thinking",
+          "object": "chat.completion",
+          "created": 1776778042,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok",
+                "reasoning_content": "ok\n"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 2003,
+            "completion_tokens": 1,
+            "total_tokens": 2004,
+            "prompt_tokens_details": {
+              "cached_tokens": 28,
+              "cached_creation_tokens": 78
+            }
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6-thinking",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_79c4bbcc\",\"object\":\"chat.completion.chunk\",\"created\":1776778046,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_79c4bbcc\",\"object\":\"chat.completion.chunk\",\"created\":1776778046,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"reasoning_content\":\"ok\\n\"},\"logprobs\":null,"
+      },
+      "toolCall": null,
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_kiro",
+      "model": "claude-opus-4-6",
+      "cost": 0.03312599999999577,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_e19ec458-a27",
+          "model": "claude-opus-4-6",
+          "object": "chat.completion",
+          "created": 1776778041,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "ok"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 2055,
+            "completion_tokens": 1,
+            "total_tokens": 2056,
+            "prompt_tokens_details": {}
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "data: {\"id\":\"chatcmpl-msg_a5608cba\",\"object\":\"chat.completion.chunk\",\"created\":1776778043,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-msg_a5608cba\",\"object\":\"chat.completion.chunk\",\"created\":1776778043,\"model\":\"claude-opus-4-6\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"ok\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata"
+      },
+      "toolCall": {
+        "pass": true,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-opus-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "What is 2+2? You must use the calculator tool to answer."
+              }
+            ],
+            "tools": [
+              {
+                "type": "function",
+                "function": {
+                  "name": "calculator",
+                  "description": "Calculate a math expression",
+                  "parameters": {
+                    "type": "object",
+                    "properties": {
+                      "expression": {
+                        "type": "string",
+                        "description": "The math expression"
+                      }
+                    },
+                    "required": [
+                      "expression"
+                    ]
+                  }
+                }
+              }
+            ],
+            "tool_choice": "required",
+            "max_tokens": 100
+          }
+        },
+        "response": {
+          "id": "chatcmpl-msg_bb82d655-d70",
+          "model": "claude-opus-4-6",
+          "object": "chat.completion",
+          "created": 1776778066,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\n\nLet me calculate that for you.",
+                "tool_calls": [
+                  {
+                    "id": "tooluse_EJ0RhttIcGREOmdxQR40Hl",
+                    "type": "function",
+                    "function": {
+                      "name": "calculator",
+                      "arguments": "{\"expression\":\"2+2\"}"
+                    },
+                    "index": 0
+                  }
+                ]
+              },
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 2672,
+            "completion_tokens": 19,
+            "total_tokens": 2691,
+            "prompt_tokens_details": {}
+          }
+        }
+      },
+      "authentic": null
+    },
+    {
+      "provider": "v3/claude_kiro",
+      "model": "claude-sonnet-4-6",
+      "cost": null,
+      "http": {
+        "pass": false,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 3
+          }
+        },
+        "response": null,
+        "error": "no response / timeout"
+      },
+      "stream": {
+        "pass": false,
+        "request": {
+          "url": "https://a**.v*.cm/v1/chat/completions",
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": null,
+        "error": "The operation timed out."
+      },
+      "toolCall": null,
+      "authentic": null
+    }
+  ]
+}

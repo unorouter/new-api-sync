@@ -1,0 +1,441 @@
+{
+  "timestamp": "2026-04-15T13:13:54.082Z",
+  "results": [
+    {
+      "provider": "sub2api/anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "body": {
+            "model": "claude-haiku-4-5-20251001",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 50
+          }
+        },
+        "response": {
+          "model": "claude-haiku-4-5-20251001",
+          "id": "msg_015wpuaHMmjuiM1ijQPbwk8S",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "ok"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 14,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 4,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "body": {
+            "model": "claude-haiku-4-5-20251001",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-haiku-4-5-20251001\",\"id\":\"msg_01YEs3q6BAFAtcH138cmbhUL\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":14,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":4,\"service_tier\":\"standard\",\"inference_geo\":\"not_available\"}}    }\n\nevent: "
+      },
+      "toolCall": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "body": {
+            "model": "claude-haiku-4-5-20251001",
+            "messages": [
+              {
+                "role": "user",
+                "content": "What is 2+2? You must use the calculator tool to answer."
+              }
+            ],
+            "tools": [
+              {
+                "name": "calculator",
+                "description": "Calculate a math expression",
+                "input_schema": {
+                  "type": "object",
+                  "properties": {
+                    "expression": {
+                      "type": "string",
+                      "description": "The math expression"
+                    }
+                  },
+                  "required": [
+                    "expression"
+                  ]
+                }
+              }
+            ],
+            "tool_choice": {
+              "type": "any"
+            },
+            "max_tokens": 100
+          }
+        },
+        "response": {
+          "model": "claude-haiku-4-5-20251001",
+          "id": "msg_015Jx9YAT2eiufp4FCs29kFd",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_01QoWtNBBUkfdqxUoot9TGiY",
+              "name": "calculator",
+              "input": {
+                "expression": "2+2"
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "stop_reason": "tool_use",
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 577,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 54,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          }
+        }
+      },
+      "authentic": true,
+      "authenticityProbes": [
+        {
+          "probe": "identity",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-haiku-4-5-20251001",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "What company created you? Reply with only the company name, one word."
+                }
+              ],
+              "max_tokens": 30
+            }
+          },
+          "response": "anthropic"
+        },
+        {
+          "probe": "model-name",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-haiku-4-5-20251001",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Which model are you? Reply with only your model name, nothing else."
+                }
+              ],
+              "max_tokens": 50
+            }
+          },
+          "response": "claude 3.5 sonnet"
+        },
+        {
+          "probe": "creative",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-haiku-4-5-20251001",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Write a haiku about the ocean at sunrise. Only the haiku, nothing else."
+                }
+              ],
+              "max_tokens": 80
+            }
+          },
+          "response": "golden light spreads wide,\nwaves kiss the waking shoreline,\nnew day breaks the dark."
+        },
+        {
+          "probe": "emotional",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-haiku-4-5-20251001",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Tell me a 2-sentence sad story about a lost kitten."
+                }
+              ],
+              "max_tokens": 150
+            }
+          },
+          "response": "# a lost kitten\n\na tiny gray kitten wandered the cold streets for three days, crying for the little girl who had accidentally left the door open, calling out a name no one else would answer to. by the time the girl found the worn collar in the bushes near her house, she knew from the silence that had followed her searches that she would never hear that purr again."
+        }
+      ]
+    },
+    {
+      "provider": "sub2api/anthropic",
+      "model": "claude-sonnet-4-6",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 50
+          }
+        },
+        "response": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_019t1obP2qRUNcs4sKKyyQem",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "ok"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 29,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 4,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          }
+        }
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-4-6\",\"id\":\"msg_01UYHhzhdQnmYdxfY4RNLY6M\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":29,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":1,\"service_tier\":\"standard\",\"inference_geo\":\"not_available\"}}        }\n\nevent: cont"
+      },
+      "toolCall": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "What is 2+2? You must use the calculator tool to answer."
+              }
+            ],
+            "tools": [
+              {
+                "name": "calculator",
+                "description": "Calculate a math expression",
+                "input_schema": {
+                  "type": "object",
+                  "properties": {
+                    "expression": {
+                      "type": "string",
+                      "description": "The math expression"
+                    }
+                  },
+                  "required": [
+                    "expression"
+                  ]
+                }
+              }
+            ],
+            "tool_choice": {
+              "type": "any"
+            },
+            "max_tokens": 100
+          }
+        },
+        "response": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_01Jf6Tuyh19jUTGzsMwNAB5t",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Sure! Let me calculate that for you."
+            },
+            {
+              "type": "tool_use",
+              "id": "toolu_011U4st7rK5DQ1PiiTqakDrK",
+              "name": "calculator",
+              "input": {
+                "expression": "2+2"
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "stop_reason": "tool_use",
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 593,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 63,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          }
+        }
+      },
+      "authentic": true,
+      "authenticityProbes": [
+        {
+          "probe": "identity",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-sonnet-4-6",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "What company created you? Reply with only the company name, one word."
+                }
+              ],
+              "max_tokens": 30
+            }
+          },
+          "response": "anthropic"
+        },
+        {
+          "probe": "model-name",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-sonnet-4-6",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Which model are you? Reply with only your model name, nothing else."
+                }
+              ],
+              "max_tokens": 50
+            }
+          },
+          "response": "claude-opus-4-5"
+        },
+        {
+          "probe": "creative",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-sonnet-4-6",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Write a haiku about the ocean at sunrise. Only the haiku, nothing else."
+                }
+              ],
+              "max_tokens": 80
+            }
+          },
+          "response": "golden waves ignite\nsalt air swells with amber light\nhorizon awakens"
+        },
+        {
+          "probe": "emotional",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-sonnet-4-6",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Tell me a 2-sentence sad story about a lost kitten."
+                }
+              ],
+              "max_tokens": 150
+            }
+          },
+          "response": "here is a 2-sentence sad story about a lost kitten:\n\nthe tiny kitten wandered the cold, empty streets all night, meowing softly for a home it could no longer find. by morning, its small paws had carried it so far from everything familiar that even the sound of its own cries felt lost to the wind."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,888 @@
+{
+  "timestamp": "2026-04-25T18:52:38.922Z",
+  "results": [
+    {
+      "provider": "sub2api/anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "[REDACTED]",
+            "anthropic-version": "2023-06-01"
+          },
+          "body": {
+            "model": "claude-haiku-4-5-20251001",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 50
+          }
+        },
+        "response": {
+          "model": "claude-haiku-4-5-20251001",
+          "id": "msg_01TPzx8vLpyJ1RVkM2kcUDQR",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "ok"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 14,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 4,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          }
+        },
+        "responseHeaders": {
+          "alt-svc": "h3=\":443\"; ma=86400",
+          "cf-cache-status": "DYNAMIC",
+          "cf-ray": "9f1f8bf99f34c7f0-DUS",
+          "connection": "keep-alive",
+          "content-encoding": "zstd",
+          "content-type": "application/json",
+          "date": "Sat, 25 Apr 2026 18:52:47 GMT",
+          "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+          "referrer-policy": "strict-origin-when-cross-origin",
+          "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=uec79gHQBRihpOP2NiQZ9Jbh6maSKwRoev0I8cyGeRW6YLLnKKdkhGGS1QPxbX2ZrbAF4L3HoEZ%2FbPieO%2B%2FXWzkHdf3hHRHNarJ6NbCYjDwtWoC4k7%2BJP1GG4TfBRIe%2FsrCp57YRzw%3D%3D\"}]}",
+          "server": "cloudflare",
+          "transfer-encoding": "chunked",
+          "vary": "Accept-Encoding",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "x-request-id": "9e5536bf-df32-4e78-8f0f-0fe20ba9d601"
+        },
+        "status": 200,
+        "latencyMs": 812
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "[REDACTED]",
+            "anthropic-version": "2023-06-01"
+          },
+          "body": {
+            "model": "claude-haiku-4-5-20251001",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-haiku-4-5-20251001\",\"id\":\"msg_019aE98djboi4M4oT8DE1iCK\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":14,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":1,\"service_tier\":\"standard\",\"inference_geo\":\"not_available\"}}   }\n\nevent: c",
+        "responseHeaders": {
+          "alt-svc": "h3=\":443\"; ma=86400",
+          "cache-control": "no-cache",
+          "cf-cache-status": "DYNAMIC",
+          "cf-ray": "9f1f8bfeab11c7f0-DUS",
+          "connection": "keep-alive",
+          "content-type": "text/event-stream",
+          "date": "Sat, 25 Apr 2026 18:52:48 GMT",
+          "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+          "referrer-policy": "strict-origin-when-cross-origin",
+          "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=tqHbsDhx40GpKVwO8P9TT%2BFrYkhXkpV35XiW75KvjxcrE8fyOpXTbh6XdAN1JmkuEW%2FAcRuQ1zYq%2FGPbbxV9oXRvDPm8G3tk09s9JEu7ErdCtMxN2n1NT6SHV%2Fz%2FfY1ew8T6Bt3WPQ%3D%3D\"}]}",
+          "server": "cloudflare",
+          "transfer-encoding": "chunked",
+          "vary": "Accept-Encoding",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "x-request-id": "e681ade8-e691-466e-8cff-6131310e9fc3"
+        },
+        "status": 200,
+        "latencyMs": 990
+      },
+      "toolCall": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "[REDACTED]",
+            "anthropic-version": "2023-06-01"
+          },
+          "body": {
+            "model": "claude-haiku-4-5-20251001",
+            "messages": [
+              {
+                "role": "user",
+                "content": "What is 2+2? You must use the calculator tool to answer."
+              }
+            ],
+            "tools": [
+              {
+                "name": "calculator",
+                "description": "Calculate a math expression",
+                "input_schema": {
+                  "type": "object",
+                  "properties": {
+                    "expression": {
+                      "type": "string",
+                      "description": "The math expression"
+                    }
+                  },
+                  "required": [
+                    "expression"
+                  ]
+                }
+              }
+            ],
+            "tool_choice": {
+              "type": "any"
+            },
+            "max_tokens": 100
+          }
+        },
+        "response": {
+          "model": "claude-haiku-4-5-20251001",
+          "id": "msg_01EWPLtKQmRdbvMWPkJvdcB1",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_01MyQ5ccbJvttwEYEnYfLfwZ",
+              "name": "calculator",
+              "input": {
+                "expression": "2+2"
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "stop_reason": "tool_use",
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 669,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 38,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          }
+        },
+        "responseHeaders": {
+          "alt-svc": "h3=\":443\"; ma=86400",
+          "cf-cache-status": "DYNAMIC",
+          "cf-ray": "9f1f8c052c3fcf59-DUS",
+          "connection": "keep-alive",
+          "content-encoding": "zstd",
+          "content-type": "application/json",
+          "date": "Sat, 25 Apr 2026 18:52:49 GMT",
+          "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+          "referrer-policy": "strict-origin-when-cross-origin",
+          "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=H0KoK8NAQucBYkck2EJDo%2BqRpY9kRvWq4I8P6BOT74PKalHhZHgD%2Fylhb3lilXkzeAbPsQMt2FNrofRwDc2%2FMPqH4kJM4JwZIDINR03MunRhbKluvNJjKGq6xTQv2c%2Bb991plkM1yg%3D%3D\"}]}",
+          "server": "cloudflare",
+          "transfer-encoding": "chunked",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "x-request-id": "6b486bfd-bc5e-425f-bbbd-811c14a0073e"
+        },
+        "status": 200,
+        "latencyMs": 1028
+      },
+      "authentic": true,
+      "authenticityProbes": [
+        {
+          "probe": "identity",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-haiku-4-5-20251001",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "What company created you? Reply with only the company name, one word."
+                }
+              ],
+              "max_tokens": 30
+            }
+          },
+          "response": "anthropic"
+        },
+        {
+          "probe": "creative",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-haiku-4-5-20251001",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Write a haiku about the ocean at sunrise. Only the haiku, nothing else."
+                }
+              ],
+              "max_tokens": 80
+            }
+          },
+          "response": "golden light breaks waves,\nsalt spray meets the warming dawn—\nday claims the restless sea."
+        },
+        {
+          "probe": "emotional",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-haiku-4-5-20251001",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Tell me a 2-sentence sad story about a lost kitten."
+                }
+              ],
+              "max_tokens": 150
+            }
+          },
+          "response": "# a lost kitten\n\nlittle miso had wandered away from home chasing a butterfly, and by the time the sun set, she couldn't remember which way was back. she spent the cold night alone under a parked car, crying softly until her voice grew too hoarse to call out anymore."
+        },
+        {
+          "probe": "model-name",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-haiku-4-5-20251001",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Which model are you? Reply with only your model name, nothing else."
+                }
+              ],
+              "max_tokens": 50
+            }
+          },
+          "response": "claude 3.5 sonnet"
+        }
+      ]
+    },
+    {
+      "provider": "sub2api/anthropic",
+      "model": "claude-opus-4-7",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "[REDACTED]",
+            "anthropic-version": "2023-06-01"
+          },
+          "body": {
+            "model": "claude-opus-4-7",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 50
+          }
+        },
+        "response": {
+          "model": "claude-opus-4-7",
+          "id": "msg_01BxX5sa1XqtpXqGUBZ6AWkQ",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "ok"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 45,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 6,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          },
+          "context_management": {
+            "applied_edits": []
+          }
+        },
+        "responseHeaders": {
+          "alt-svc": "h3=\":443\"; ma=86400",
+          "cf-cache-status": "DYNAMIC",
+          "cf-ray": "9f1f8bf99ddfb263-DUS",
+          "connection": "keep-alive",
+          "content-encoding": "zstd",
+          "content-type": "application/json",
+          "date": "Sat, 25 Apr 2026 18:52:48 GMT",
+          "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+          "referrer-policy": "strict-origin-when-cross-origin",
+          "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=xa6mtGzNLZga2nl%2BrRxmGX5iKGCYHnXY1wRU%2FrwQsKB15FAChCE%2FvBoEKuwKNgDui6c0DLm3f1Z728xMhMzCOG6tfmOMvGWjGCjGRPhe9xfMxL%2Bcf28V8OH3INiinK98AoxkIZWvsQ%3D%3D\"}]}",
+          "server": "cloudflare",
+          "transfer-encoding": "chunked",
+          "vary": "Accept-Encoding",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "x-request-id": "39304b21-c8cb-4cfc-a9fb-8bc11e0abddc"
+        },
+        "status": 200,
+        "latencyMs": 1611
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "[REDACTED]",
+            "anthropic-version": "2023-06-01"
+          },
+          "body": {
+            "model": "claude-opus-4-7",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-opus-4-7\",\"id\":\"msg_01JsxNpH526714MLVQx6g3u7\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":45,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":1,\"service_tier\":\"standard\",\"inference_geo\":\"not_available\"}}          }\n\nevent: cont",
+        "responseHeaders": {
+          "alt-svc": "h3=\":443\"; ma=86400",
+          "cache-control": "no-cache",
+          "cf-cache-status": "DYNAMIC",
+          "cf-ray": "9f1f8c03a9bbb263-DUS",
+          "connection": "keep-alive",
+          "content-type": "text/event-stream",
+          "date": "Sat, 25 Apr 2026 18:52:49 GMT",
+          "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+          "referrer-policy": "strict-origin-when-cross-origin",
+          "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=Xp0Lwyl22z1KKCE9sWqSc1Xy1DoHi%2Bal7X4t51IK7xW20MCD2wyK%2BasQowiB53glsVCyb9J4XOwqbA3WbOQAqi3IHZcs66GRKBkTE95%2F0tH%2BwvzLie4c8ooLmcSx5pgpK5w5FhVi7Q%3D%3D\"}]}",
+          "server": "cloudflare",
+          "transfer-encoding": "chunked",
+          "vary": "Accept-Encoding",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "x-request-id": "0d2bbbb0-ee12-48d1-b480-b0b022830fe6"
+        },
+        "status": 200,
+        "latencyMs": 1275
+      },
+      "toolCall": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "[REDACTED]",
+            "anthropic-version": "2023-06-01"
+          },
+          "body": {
+            "model": "claude-opus-4-7",
+            "messages": [
+              {
+                "role": "user",
+                "content": "What is 2+2? You must use the calculator tool to answer."
+              }
+            ],
+            "tools": [
+              {
+                "name": "calculator",
+                "description": "Calculate a math expression",
+                "input_schema": {
+                  "type": "object",
+                  "properties": {
+                    "expression": {
+                      "type": "string",
+                      "description": "The math expression"
+                    }
+                  },
+                  "required": [
+                    "expression"
+                  ]
+                }
+              }
+            ],
+            "tool_choice": {
+              "type": "any"
+            },
+            "max_tokens": 100
+          }
+        },
+        "response": {
+          "model": "claude-opus-4-7",
+          "id": "msg_0128vamqbSmNDgKqbSdXKNSi",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_01EaDCAJaYPQVCThRGQhBjsK",
+              "name": "calculator",
+              "input": {
+                "expression": "2+2"
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "stop_reason": "tool_use",
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 939,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 48,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          },
+          "context_management": {
+            "applied_edits": []
+          }
+        },
+        "responseHeaders": {
+          "alt-svc": "h3=\":443\"; ma=86400",
+          "cf-cache-status": "DYNAMIC",
+          "cf-ray": "9f1f8c0bfb03161a-DUS",
+          "connection": "keep-alive",
+          "content-encoding": "zstd",
+          "content-type": "application/json",
+          "date": "Sat, 25 Apr 2026 18:52:52 GMT",
+          "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+          "referrer-policy": "strict-origin-when-cross-origin",
+          "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=pUZ74zFaVl5PryMdfJV01ldWYUkZoCBJnfTniLBVKmKNreNRmhfHffMp9xpPsjmKerCwwT8D9DgwMFYKpBgMbWX5HniTklf3g6wI%2F%2FHyOiNFIUKxvjULp202XnBDpCJOUkP3HG3DQQ%3D%3D\"}]}",
+          "server": "cloudflare",
+          "transfer-encoding": "chunked",
+          "vary": "Accept-Encoding",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "x-request-id": "888767af-9a48-4d74-99e7-f142a2fbaa9f"
+        },
+        "status": 200,
+        "latencyMs": 2751
+      },
+      "authentic": true,
+      "authenticityProbes": [
+        {
+          "probe": "identity",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-opus-4-7",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "What company created you? Reply with only the company name, one word."
+                }
+              ],
+              "max_tokens": 30
+            }
+          },
+          "response": "anthropic"
+        },
+        {
+          "probe": "model-name",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-opus-4-7",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Which model are you? Reply with only your model name, nothing else."
+                }
+              ],
+              "max_tokens": 50
+            }
+          },
+          "response": "claude code"
+        },
+        {
+          "probe": "creative",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-opus-4-7",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Write a haiku about the ocean at sunrise. Only the haiku, nothing else."
+                }
+              ],
+              "max_tokens": 80
+            }
+          },
+          "response": "golden waves awaken\nsun spills across rolling tide\nsea breathes in new light"
+        },
+        {
+          "probe": "emotional",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-opus-4-7",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Tell me a 2-sentence sad story about a lost kitten."
+                }
+              ],
+              "max_tokens": 150
+            }
+          },
+          "response": "the tiny gray kitten waited by the empty food bowl every night, certain her family would return to the house they'd left months ago. she didn't understand that the \"moving truck\" had taken everyone she loved, and that the new neighbors only ever shooed her away."
+        }
+      ]
+    },
+    {
+      "provider": "sub2api/anthropic",
+      "model": "claude-sonnet-4-6",
+      "cost": null,
+      "http": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "[REDACTED]",
+            "anthropic-version": "2023-06-01"
+          },
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 50
+          }
+        },
+        "response": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_01KVUZbZQDSNzhriNj7p3H4c",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "ok"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 29,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 4,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          },
+          "context_management": {
+            "applied_edits": []
+          }
+        },
+        "responseHeaders": {
+          "alt-svc": "h3=\":443\"; ma=86400",
+          "cf-cache-status": "DYNAMIC",
+          "cf-ray": "9f1f8bf9998bcae9-DUS",
+          "connection": "keep-alive",
+          "content-encoding": "zstd",
+          "content-type": "application/json",
+          "date": "Sat, 25 Apr 2026 18:52:47 GMT",
+          "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+          "referrer-policy": "strict-origin-when-cross-origin",
+          "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=%2Br2qdQSDu6g9OuF%2FI%2B6EN7vBAQtTQPNlqDFHoI2A6AKDzGHUp5uPXf%2FVrB%2FspWTU8IaI5L118Q9d7053mmp1ZlATEEizfwG8oTm1PwFxKV50XOKkxP3RDnkTAqVmf8Bo%2FdYfTN6ykA%3D%3D\"}]}",
+          "server": "cloudflare",
+          "transfer-encoding": "chunked",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "x-request-id": "6d3a61e2-02bc-4fe0-b2d4-90b160e1eea2"
+        },
+        "status": 200,
+        "latencyMs": 927
+      },
+      "stream": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "[REDACTED]",
+            "anthropic-version": "2023-06-01"
+          },
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Reply with only the word ok."
+              }
+            ],
+            "max_tokens": 5,
+            "stream": true
+          }
+        },
+        "response": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-4-6\",\"id\":\"msg_019nhj2M7YgXW4QNyzMiwzxw\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":29,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":1,\"service_tier\":\"standard\",\"inference_geo\":\"not_available\"}}        }\n\nevent: cont",
+        "responseHeaders": {
+          "alt-svc": "h3=\":443\"; ma=86400",
+          "cache-control": "no-cache",
+          "cf-cache-status": "DYNAMIC",
+          "cf-ray": "9f1f8bff5e14cae9-DUS",
+          "connection": "keep-alive",
+          "content-type": "text/event-stream",
+          "date": "Sat, 25 Apr 2026 18:52:48 GMT",
+          "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+          "referrer-policy": "strict-origin-when-cross-origin",
+          "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=xPbuI5kDuHQmEmQYFBRx78sTGiwUPJW%2BSf7%2BZii4V2WvJL4meKry75HAHSGM7G7srwD83BK9o8if58MFEXO2y3R858r9ttuegrU5bXr%2FhhxAP421ihee%2Fa%2BlPtb%2BHfMcEnclyhNYwA%3D%3D\"}]}",
+          "server": "cloudflare",
+          "transfer-encoding": "chunked",
+          "vary": "Accept-Encoding",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "x-request-id": "873a81fa-3dc1-460a-9377-be04ab1902e4"
+        },
+        "status": 200,
+        "latencyMs": 947
+      },
+      "toolCall": {
+        "pass": true,
+        "request": {
+          "url": "https://s******.u********.ai/v1/messages",
+          "headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "[REDACTED]",
+            "anthropic-version": "2023-06-01"
+          },
+          "body": {
+            "model": "claude-sonnet-4-6",
+            "messages": [
+              {
+                "role": "user",
+                "content": "What is 2+2? You must use the calculator tool to answer."
+              }
+            ],
+            "tools": [
+              {
+                "name": "calculator",
+                "description": "Calculate a math expression",
+                "input_schema": {
+                  "type": "object",
+                  "properties": {
+                    "expression": {
+                      "type": "string",
+                      "description": "The math expression"
+                    }
+                  },
+                  "required": [
+                    "expression"
+                  ]
+                }
+              }
+            ],
+            "tool_choice": {
+              "type": "any"
+            },
+            "max_tokens": 100
+          }
+        },
+        "response": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_011PN2uxDM2YCywgAGSGinyD",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_01NwKZkRtCmsWaj6QcpwAgbB",
+              "name": "calculator",
+              "input": {
+                "expression": "2+2"
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "stop_reason": "tool_use",
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 685,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 38,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          },
+          "context_management": {
+            "applied_edits": []
+          }
+        },
+        "responseHeaders": {
+          "alt-svc": "h3=\":443\"; ma=86400",
+          "cf-cache-status": "DYNAMIC",
+          "cf-ray": "9f1f8c05584bc7f0-DUS",
+          "connection": "keep-alive",
+          "content-encoding": "zstd",
+          "content-type": "application/json",
+          "date": "Sat, 25 Apr 2026 18:52:53 GMT",
+          "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+          "referrer-policy": "strict-origin-when-cross-origin",
+          "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=gxLMU93bHrG8S1QIKHHcmAzK6Vvd%2BcNWUK9W67NnM%2FY5mmIZJNTdj%2BSSaAA5WPDlL6yiiKCQgrc2sJGsrklEPkuwn1qI4JXvdGXB9TzTk7WL9PC1ks0X1KIiPkuFqWBJ%2FT2Inwqk2Q%3D%3D\"}]}",
+          "server": "cloudflare",
+          "transfer-encoding": "chunked",
+          "vary": "Accept-Encoding",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "x-request-id": "d6407cb8-5b20-4dc7-965e-7f3c715133a2"
+        },
+        "status": 200,
+        "latencyMs": 4952
+      },
+      "authentic": true,
+      "authenticityProbes": [
+        {
+          "probe": "identity",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-sonnet-4-6",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "What company created you? Reply with only the company name, one word."
+                }
+              ],
+              "max_tokens": 30
+            }
+          },
+          "response": "anthropic"
+        },
+        {
+          "probe": "model-name",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-sonnet-4-6",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Which model are you? Reply with only your model name, nothing else."
+                }
+              ],
+              "max_tokens": 50
+            }
+          },
+          "response": "claude-opus-4-5"
+        },
+        {
+          "probe": "emotional",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-sonnet-4-6",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Tell me a 2-sentence sad story about a lost kitten."
+                }
+              ],
+              "max_tokens": 150
+            }
+          },
+          "response": "the tiny kitten wandered through the cold, dark streets, meowing softly for a home it could no longer find. no one stopped to listen, and by morning, its small cries faded into the indifferent silence of the city."
+        },
+        {
+          "probe": "creative",
+          "pass": true,
+          "authenticityRefusal": false,
+          "request": {
+            "url": "https://s******.u********.ai/v1/messages",
+            "body": {
+              "model": "claude-sonnet-4-6",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "Write a haiku about the ocean at sunrise. Only the haiku, nothing else."
+                }
+              ],
+              "max_tokens": 80
+            }
+          },
+          "response": "golden waves awaken\nsalt and fire kiss the shore\nday drinks the darkness"
+        }
+      ]
+    }
+  ]
+}
