@@ -6,11 +6,13 @@ date: 2026-04-26
 
 # We tested 8 third-party Claude resellers for 17 days. 183 of their channels weren't actually serving Claude.
 
+Claude is the most in-demand model on the market right now, and also one of the most expensive. That combination, high demand, premium price, has created a thriving market of third-party resellers offering "the same Claude" at a fraction of the official price. Some of them are legitimate. A lot of them aren't.
+
 If you buy "Claude" from a reseller instead of from Anthropic directly, there's a non-trivial chance you're not getting Claude. You're getting a different model, sometimes a much weaker one, with the response dressed up to look like a Claude response.
 
 We've been running automated probes against the Claude endpoints sold by third-party AI gateways for the last 17 days. The methodology is public, the code is open source, and across **8 upstream resellers** we found **183 (channel, model) pairs** that fail authenticity checks against models marketed as `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`, and friends.
 
-We focused on Claude because it has the highest demand-to-margin gap and the cleanest detection signal. **The same substitution pattern is almost certainly happening to GPT, Gemini, DeepSeek, and every other premium model on these marketplaces**, Claude is just where we have hard data so far. Probes for other vendors are next.
+The same demand-cheap-supply pressure exists for every premium model. **The same substitution pattern is almost certainly happening to GPT, Gemini, DeepSeek, and every other premium model on these marketplaces.** Claude is just where the gap between official price and resold price is biggest right now, and where we have hard data so far. Probes for other vendors are next.
 
 ## How the probes work
 
