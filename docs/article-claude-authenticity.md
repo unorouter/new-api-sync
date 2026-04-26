@@ -31,7 +31,7 @@ Three failure types:
 - **`foreign-identity`**: response identifies as a non-Anthropic vendor (OpenAI, Meta, DeepSeek, Moonshot, Mistral, Llama, Grok, etc.) when asked who made it.
 - **`failed`**: wrong-style output without the above signals: no kitten story, no haiku, generic "AI assistant" answer, etc.
 
-Pattern lists and probe code: [`src/core/models/testing/authenticity.ts`](#).
+Pattern lists and probe code: [`src/core/models/testing/authenticity.ts`](https://github.com/unorouter/new-api-sync/blob/main/src/core/models/testing/authenticity.ts).
 
 ## What is _not_ spoofing: Bedrock, Vertex, Foundry
 
@@ -161,4 +161,4 @@ The Anthropic API is the only authoritative source of Claude. Everything else is
 
 **Try the gateway:** [unorouter.ai](https://unorouter.ai), free tier, rate-limited, no card. File a reproducible bug or a feature request we ship and we'll add API credit to your account.
 
-**Open source probe suite:** [link to repo](https://github.com/unorouter/new-api-sync) · **Discussion:** [link]
+**Open source probe suite:** [link to repo](https://github.com/unorouter/new-api-sync)
