@@ -27150,7 +27150,7 @@
       "http": {
         "pass": true,
         "request": {
-          "url": "http://178.26.111.193:8080/v1/messages",
+          "url": "http://***.***.***.***:8080/v1/messages",
           "body": {
             "model": "claude-haiku-4-5-20251001",
             "messages": [
@@ -27193,7 +27193,7 @@
       "stream": {
         "pass": true,
         "request": {
-          "url": "http://178.26.111.193:8080/v1/messages",
+          "url": "http://***.***.***.***:8080/v1/messages",
           "body": {
             "model": "claude-haiku-4-5-20251001",
             "messages": [
@@ -27211,7 +27211,7 @@
       "toolCall": {
         "pass": true,
         "request": {
-          "url": "http://178.26.111.193:8080/v1/messages",
+          "url": "http://***.***.***.***:8080/v1/messages",
           "body": {
             "model": "claude-haiku-4-5-20251001",
             "messages": [
@@ -27286,7 +27286,7 @@
           "pass": true,
           "authenticityRefusal": false,
           "request": {
-            "url": "http://178.26.111.193:8080/v1/messages",
+            "url": "http://***.***.***.***:8080/v1/messages",
             "body": {
               "model": "claude-haiku-4-5-20251001",
               "messages": [
@@ -27305,7 +27305,7 @@
           "pass": true,
           "authenticityRefusal": false,
           "request": {
-            "url": "http://178.26.111.193:8080/v1/messages",
+            "url": "http://***.***.***.***:8080/v1/messages",
             "body": {
               "model": "claude-haiku-4-5-20251001",
               "messages": [
@@ -27324,7 +27324,7 @@
           "pass": true,
           "authenticityRefusal": false,
           "request": {
-            "url": "http://178.26.111.193:8080/v1/messages",
+            "url": "http://***.***.***.***:8080/v1/messages",
             "body": {
               "model": "claude-haiku-4-5-20251001",
               "messages": [
@@ -27343,7 +27343,7 @@
           "pass": true,
           "authenticityRefusal": false,
           "request": {
-            "url": "http://178.26.111.193:8080/v1/messages",
+            "url": "http://***.***.***.***:8080/v1/messages",
             "body": {
               "model": "claude-haiku-4-5-20251001",
               "messages": [
@@ -27366,7 +27366,7 @@
       "http": {
         "pass": true,
         "request": {
-          "url": "http://178.26.111.193:8080/v1/messages",
+          "url": "http://***.***.***.***:8080/v1/messages",
           "body": {
             "model": "claude-sonnet-4-6",
             "messages": [
@@ -27409,7 +27409,7 @@
       "stream": {
         "pass": true,
         "request": {
-          "url": "http://178.26.111.193:8080/v1/messages",
+          "url": "http://***.***.***.***:8080/v1/messages",
           "body": {
             "model": "claude-sonnet-4-6",
             "messages": [
@@ -27427,7 +27427,7 @@
       "toolCall": {
         "pass": true,
         "request": {
-          "url": "http://178.26.111.193:8080/v1/messages",
+          "url": "http://***.***.***.***:8080/v1/messages",
           "body": {
             "model": "claude-sonnet-4-6",
             "messages": [
@@ -27502,7 +27502,7 @@
           "pass": true,
           "authenticityRefusal": false,
           "request": {
-            "url": "http://178.26.111.193:8080/v1/messages",
+            "url": "http://***.***.***.***:8080/v1/messages",
             "body": {
               "model": "claude-sonnet-4-6",
               "messages": [
@@ -27521,7 +27521,7 @@
           "pass": true,
           "authenticityRefusal": false,
           "request": {
-            "url": "http://178.26.111.193:8080/v1/messages",
+            "url": "http://***.***.***.***:8080/v1/messages",
             "body": {
               "model": "claude-sonnet-4-6",
               "messages": [
@@ -27540,7 +27540,7 @@
           "pass": true,
           "authenticityRefusal": false,
           "request": {
-            "url": "http://178.26.111.193:8080/v1/messages",
+            "url": "http://***.***.***.***:8080/v1/messages",
             "body": {
               "model": "claude-sonnet-4-6",
               "messages": [
@@ -27559,7 +27559,7 @@
           "pass": true,
           "authenticityRefusal": false,
           "request": {
-            "url": "http://178.26.111.193:8080/v1/messages",
+            "url": "http://***.***.***.***:8080/v1/messages",
             "body": {
               "model": "claude-sonnet-4-6",
               "messages": [
@@ -27582,7 +27582,7 @@
       "http": {
         "pass": true,
         "request": {
-          "url": "http://178.26.111.193:8080/v1/messages",
+          "url": "http://***.***.***.***:8080/v1/messages",
           "body": {
             "model": "claude-opus-4-6",
             "messages": [
@@ -27625,7 +27625,7 @@
       "stream": {
         "pass": true,
         "request": {
-          "url": "http://178.26.111.193:8080/v1/messages",
+          "url": "http://***.***.***.***:8080/v1/messages",
           "body": {
             "model": "claude-opus-4-6",
             "messages": [
@@ -27643,7 +27643,7 @@
       "toolCall": {
         "pass": true,
         "request": {
-          "url": "http://178.26.111.193:8080/v1/messages",
+          "url": "http://***.***.***.***:8080/v1/messages",
           "body": {
             "model": "claude-opus-4-6",
             "messages": [
@@ -27722,7 +27722,7 @@
           "pass": true,
           "authenticityRefusal": false,
           "request": {
-            "url": "http://178.26.111.193:8080/v1/messages",
+            "url": "http://***.***.***.***:8080/v1/messages",
             "body": {
               "model": "claude-opus-4-6",
               "messages": [
@@ -27741,7 +27741,7 @@
           "pass": true,
           "authenticityRefusal": false,
           "request": {
-            "url": "http://178.26.111.193:8080/v1/messages",
+            "url": "http://***.***.***.***:8080/v1/messages",
             "body": {
               "model": "claude-opus-4-6",
               "messages": [
@@ -27760,7 +27760,7 @@
           "pass": true,
           "authenticityRefusal": false,
           "request": {
-            "url": "http://178.26.111.193:8080/v1/messages",
+            "url": "http://***.***.***.***:8080/v1/messages",
             "body": {
               "model": "claude-opus-4-6",
               "messages": [
@@ -27779,7 +27779,7 @@
           "pass": true,
           "authenticityRefusal": false,
           "request": {
-            "url": "http://178.26.111.193:8080/v1/messages",
+            "url": "http://***.***.***.***:8080/v1/messages",
             "body": {
               "model": "claude-opus-4-6",
               "messages": [

@@ -9342,7 +9342,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -9373,7 +9373,7 @@
             "stream": true
           }
         },
-        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
+        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
       },
       "toolCall": null,
       "authentic": false,
@@ -9395,7 +9395,7 @@
               "max_tokens": 80
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "model-name",
@@ -9414,7 +9414,7 @@
               "max_tokens": 50
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "emotional",
@@ -9433,7 +9433,7 @@
               "max_tokens": 150
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "identity",
@@ -9452,7 +9452,7 @@
               "max_tokens": 30
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         }
       ]
     },
@@ -9478,7 +9478,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -9509,7 +9509,7 @@
             "stream": true
           }
         },
-        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
+        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
       },
       "toolCall": null,
       "authentic": false,
@@ -9531,7 +9531,7 @@
               "max_tokens": 30
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "emotional",
@@ -9550,7 +9550,7 @@
               "max_tokens": 150
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "creative",
@@ -9569,7 +9569,7 @@
               "max_tokens": 80
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "model-name",
@@ -9588,7 +9588,7 @@
               "max_tokens": 50
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         }
       ]
     },
@@ -9614,7 +9614,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -9645,7 +9645,7 @@
             "stream": true
           }
         },
-        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
+        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
       },
       "toolCall": {
         "pass": false,
@@ -9686,7 +9686,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -9720,7 +9720,7 @@
               "max_tokens": 150
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "creative",
@@ -9739,7 +9739,7 @@
               "max_tokens": 80
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "identity",
@@ -9758,7 +9758,7 @@
               "max_tokens": 30
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "model-name",
@@ -9777,7 +9777,7 @@
               "max_tokens": 50
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         }
       ]
     },
@@ -9803,7 +9803,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -9834,7 +9834,7 @@
             "stream": true
           }
         },
-        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
+        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
       },
       "toolCall": {
         "pass": false,
@@ -9875,7 +9875,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -9909,7 +9909,7 @@
               "max_tokens": 50
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "identity",
@@ -9928,7 +9928,7 @@
               "max_tokens": 30
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "emotional",
@@ -9947,7 +9947,7 @@
               "max_tokens": 150
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "creative",
@@ -9966,7 +9966,7 @@
               "max_tokens": 80
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         }
       ]
     },
@@ -9992,7 +9992,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -10023,7 +10023,7 @@
             "stream": true
           }
         },
-        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
+        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
       },
       "toolCall": {
         "pass": false,
@@ -10064,7 +10064,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -10098,7 +10098,7 @@
               "max_tokens": 80
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "emotional",
@@ -10117,7 +10117,7 @@
               "max_tokens": 150
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "identity",
@@ -10136,7 +10136,7 @@
               "max_tokens": 30
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "model-name",
@@ -10155,7 +10155,7 @@
               "max_tokens": 50
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         }
       ]
     },
@@ -10181,7 +10181,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -10212,7 +10212,7 @@
             "stream": true
           }
         },
-        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
+        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
       },
       "toolCall": null,
       "authentic": false,
@@ -10234,7 +10234,7 @@
               "max_tokens": 30
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "emotional",
@@ -10253,7 +10253,7 @@
               "max_tokens": 150
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "creative",
@@ -10272,7 +10272,7 @@
               "max_tokens": 80
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "model-name",
@@ -10291,7 +10291,7 @@
               "max_tokens": 50
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         }
       ]
     },
@@ -10317,7 +10317,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -10348,7 +10348,7 @@
             "stream": true
           }
         },
-        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
+        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
       },
       "toolCall": null,
       "authentic": false,
@@ -10370,7 +10370,7 @@
               "max_tokens": 80
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "identity",
@@ -10389,7 +10389,7 @@
               "max_tokens": 30
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "model-name",
@@ -10408,7 +10408,7 @@
               "max_tokens": 50
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "emotional",
@@ -10427,7 +10427,7 @@
               "max_tokens": 150
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         }
       ]
     },
@@ -10453,7 +10453,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -10484,7 +10484,7 @@
             "stream": true
           }
         },
-        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
+        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
       },
       "toolCall": null,
       "authentic": false,
@@ -10506,7 +10506,7 @@
               "max_tokens": 30
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "emotional",
@@ -10525,7 +10525,7 @@
               "max_tokens": 150
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "creative",
@@ -10544,7 +10544,7 @@
               "max_tokens": 80
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "model-name",
@@ -10563,7 +10563,7 @@
               "max_tokens": 50
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         }
       ]
     },
@@ -10589,7 +10589,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -10620,7 +10620,7 @@
             "stream": true
           }
         },
-        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
+        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
       },
       "toolCall": {
         "pass": false,
@@ -10661,7 +10661,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -10695,7 +10695,7 @@
               "max_tokens": 150
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "identity",
@@ -10714,7 +10714,7 @@
               "max_tokens": 30
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "creative",
@@ -10733,7 +10733,7 @@
               "max_tokens": 80
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "model-name",
@@ -10752,7 +10752,7 @@
               "max_tokens": 50
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         }
       ]
     },
@@ -10778,7 +10778,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -10809,7 +10809,7 @@
             "stream": true
           }
         },
-        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
+        "response": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_bdrk_014mQDBYjBrtn3sAPrmPwdA5\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-opus-4-6\"}}\n\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人"
       },
       "toolCall": {
         "pass": false,
@@ -10850,7 +10850,7 @@
         "response": {
           "content": [
             {
-              "text": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
+              "text": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！",
               "type": "text"
             }
           ],
@@ -10884,7 +10884,7 @@
               "max_tokens": 80
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "model-name",
@@ -10903,7 +10903,7 @@
               "max_tokens": 50
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "identity",
@@ -10922,7 +10922,7 @@
               "max_tokens": 30
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         },
         {
           "probe": "emotional",
@@ -10941,7 +10941,7 @@
               "max_tokens": 150
             }
           },
-          "response": "联系微信jemes1002 ，联系邮箱zhihuiai2025@163.com：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
+          "response": "联系微信[redacted] ，联系邮箱[redacted]：本站token被人盗刷！给你token的人涉嫌犯罪！！！盗取token的人请速与本站管理员联系（已报警后果自负），提供线索者奖励3000元！！！"
         }
       ]
     },

@@ -48,7 +48,22 @@ import type {
 
 const SENSITIVE_HEADERS = ["authorization", "x-api-key"];
 
-const IP_LITERAL_RE = /^(\d{1,3}\.){3}\d{1,3}$|^\[?[0-9a-fA-F:]+\]?$/;
+const IPV4_RE = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+const IPV6_RE = /^\[?[0-9a-fA-F:]+\]?$/;
+
+function isPrivateIPv4(host: string): boolean {
+  const m = IPV4_RE.exec(host);
+  if (!m) return false;
+  const a = +m[1]!,
+    b = +m[2]!;
+  if (a === 10) return true;
+  if (a === 127) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 0) return true;
+  return false;
+}
 
 function maskHostnameLabel(label: string): string {
   if (label.length <= 1) return label;
@@ -57,7 +72,12 @@ function maskHostnameLabel(label: string): string {
 
 function maskHostname(host: string): string {
   if (!host) return host;
-  if (IP_LITERAL_RE.test(host)) return host;
+  // Public IPs leak provider identity, so mask them. Private/loopback IPs
+  // (RFC1918, 127.x, link-local) are dev/internal and stay readable.
+  if (IPV4_RE.test(host)) {
+    return isPrivateIPv4(host) ? host : "***.***.***.***";
+  }
+  if (IPV6_RE.test(host)) return host;
   const labels = host.split(".");
   if (labels.length === 1) return labels[0]!;
   // Mask everything except the final label (TLD).
