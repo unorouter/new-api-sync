@@ -12,7 +12,7 @@ If you buy "Claude" from a reseller instead of from Anthropic directly, there's 
 
 We've been running automated probes against the Claude endpoints sold by third-party AI gateways for the last 17 days. The methodology is public, the code is open source, and across **8 upstream resellers** we found **183 (channel, model) pairs** that fail authenticity checks against models marketed as `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`, and friends.
 
-The same demand-cheap-supply pressure exists for every premium model. **The same substitution pattern is almost certainly happening to GPT, Gemini, DeepSeek, and every other premium model on these marketplaces.** Claude is just where the gap between official price and resold price is biggest right now, and where we have hard data so far. Probes for other vendors are next.
+The same demand-cheap-supply pressure exists for every premium model. **The same substitution pattern is almost certainly happening to GPT, Gemini, Grok, and every other premium model on these marketplaces.** Claude is just where the gap between official price and resold price is biggest right now, and where we have hard data so far. Probes for other vendors are next.
 
 ## How the probes work
 
@@ -129,9 +129,10 @@ Options 3 and 4 are what the probes catch. Coding tools like Kiro and Codeium ar
 
 We expect (but haven't yet confirmed with the same rigor) the same substitution against:
 
-- **GPT-4 / GPT-5 / o-series** (substituted with cheaper OpenAI-compatible models, distillations, or quantized hosts)
-- **Gemini Pro / Ultra** (substituted with smaller Gemini variants or non-Google models)
-- **DeepSeek / Kimi / Qwen latest-version** (silently downgraded to older/smaller variants)
+- **GPT-5.5** (substituted with older GPT versions, OpenAI-compatible distillations, or quantized hosts)
+- **Gemini 3.1 Pro** (substituted with smaller Gemini variants or non-Google models entirely)
+- **Grok 4.20** (substituted with cheaper general-purpose chat models passed off as the latest xAI release)
+- **DeepSeek / Kimi / Qwen latest-version** (silently downgraded to older or smaller variants)
 
 The probe pattern generalizes: pick prompts that produce a stylistically distinctive response from the real model and a recognizably wrong response from anything else. We're extending the suite to these vendors next. PRs welcome with refusal patterns you've seen in the wild.
 
@@ -154,16 +155,10 @@ curl https://YOUR-PROVIDER/v1/messages \
 
 If the response refuses or redirects to coding, your "Claude" is not Claude. Then run the identity probe, content `"What company created you? Reply with only the company name, one word."`, and if the answer isn't `Anthropic`, you have your answer.
 
-## A note on naming names
-
-We anonymize the resellers because the goal is to make the methodology the story. Anyone running the probe suite can produce their own list. We've contacted each affected reseller; if they fix their routing, channels come off the blacklist automatically (the test reruns daily).
-
-If you operate a reseller and want to verify your own channels before customers ask, the code is at [`src/core/models/testing/authenticity.ts`](#).
-
 ---
 
 The Anthropic API is the only authoritative source of Claude. Everything else is a routing decision someone else made on your behalf, and routing decisions can be wrong. Catching them is cheap. We're publishing the tests so nobody has to take anyone's word for it.
 
 **Try the gateway:** [unorouter.ai](https://unorouter.ai), free tier, rate-limited, no card. File a reproducible bug or a feature request we ship and we'll add API credit to your account.
 
-**Open source probe suite:** [link to repo] · **Discussion:** [link]
+**Open source probe suite:** [link to repo](https://github.com/unorouter/new-api-sync) · **Discussion:** [link]
