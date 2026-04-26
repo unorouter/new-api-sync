@@ -10,7 +10,7 @@ export interface LogEntry {
 
 export type SyncPhase = "idle" | "running" | "done" | "error";
 export type MainTab = "dashboard" | "config" | "history";
-export type HistoryTab = "runs" | "kiro";
+export type HistoryTab = "runs" | "authenticity";
 export type RunResultFilter = "all" | "passed" | "failed";
 export type PipelineMode = "run" | "test" | "reset";
 export type Locale = LocaleValue;

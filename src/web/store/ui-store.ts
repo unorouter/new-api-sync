@@ -24,7 +24,7 @@ export interface UiState {
   selectedRunId: string | null;
   runResultFilter: RunResultFilter;
   runQuery: string;
-  kiroQuery: string;
+  authenticityQuery: string;
   selectedConfigName: string;
   pipelineMode: PipelineMode;
   verbose: boolean;
@@ -40,7 +40,7 @@ export interface UiActions {
   setSelectedRunId: (id: string | null) => void;
   setRunResultFilter: (filter: RunResultFilter) => void;
   setRunQuery: (query: string) => void;
-  setKiroQuery: (query: string) => void;
+  setAuthenticityQuery: (query: string) => void;
   setSelectedConfigName: (name: string) => void;
   setPipelineMode: (mode: PipelineMode) => void;
   setVerbose: (verbose: boolean) => void;
@@ -58,7 +58,7 @@ const defaultPersistedUiState: UiState = {
   selectedRunId: null,
   runResultFilter: "all",
   runQuery: "",
-  kiroQuery: "",
+  authenticityQuery: "",
   selectedConfigName: "",
   pipelineMode: "run",
   verbose: false,
@@ -128,7 +128,7 @@ export const useUiStore = create<UiStore>()(
       setSelectedRunId: (selectedRunId) => set({ selectedRunId }),
       setRunResultFilter: (runResultFilter) => set({ runResultFilter }),
       setRunQuery: (runQuery) => set({ runQuery }),
-      setKiroQuery: (kiroQuery) => set({ kiroQuery }),
+      setAuthenticityQuery: (authenticityQuery) => set({ authenticityQuery }),
       setSelectedConfigName: (selectedConfigName) =>
         set({ selectedConfigName }),
       setPipelineMode: (pipelineMode) => set({ pipelineMode }),
@@ -160,7 +160,7 @@ export const useUiStore = create<UiStore>()(
         selectedRunId: state.selectedRunId,
         runResultFilter: state.runResultFilter,
         runQuery: state.runQuery,
-        kiroQuery: state.kiroQuery,
+        authenticityQuery: state.authenticityQuery,
         selectedConfigName: state.selectedConfigName,
         pipelineMode: state.pipelineMode,
         verbose: state.verbose,

@@ -43,7 +43,7 @@ export const HealthResponseSchema = T.Object({
       providers: ProviderCountsSchema,
     }),
     lastRun: LastRunSchema,
-    kiroBlacklistSize: T.Number(),
+    authenticityBlacklistSize: T.Number(),
     activeRuns: T.Array(T.String()),
   }),
 });

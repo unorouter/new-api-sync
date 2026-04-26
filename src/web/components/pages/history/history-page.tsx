@@ -1,4 +1,4 @@
-import { KiroTable } from "./kiro-table";
+import { AuthenticityTable } from "./authenticity-table";
 import { RunDetail } from "./run-detail";
 import { RunsTable } from "./runs-table";
 import { useTranslations } from "use-intl";
@@ -39,7 +39,7 @@ export function HistoryPage() {
           value={historyTab}
           onValueChange={(value) => {
             if (typeof value === "string") {
-              setHistoryTab(value as "runs" | "kiro");
+              setHistoryTab(value as "runs" | "authenticity");
             }
           }}
         >
@@ -47,8 +47,8 @@ export function HistoryPage() {
             <TabsTrigger value="runs">
               {t("HISTORY.TABS.RUNS")}
             </TabsTrigger>
-            <TabsTrigger value="kiro">
-              {t("HISTORY.TABS.KIRO")}
+            <TabsTrigger value="authenticity">
+              {t("HISTORY.TABS.AUTHENTICITY")}
             </TabsTrigger>
           </TabsList>
           <TabsContent value="runs" className="mt-4">
@@ -61,8 +61,8 @@ export function HistoryPage() {
               <RunsTable onSelect={(id) => setSelectedRunId(id)} />
             )}
           </TabsContent>
-          <TabsContent value="kiro" className="mt-4">
-            <KiroTable />
+          <TabsContent value="authenticity" className="mt-4">
+            <AuthenticityTable />
           </TabsContent>
         </Tabs>
       </CardContent>

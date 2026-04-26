@@ -9,10 +9,10 @@ export {
 } from "./testing/runner";
 
 export {
-  loadKiroBlacklist,
-  saveKiroBlacklist,
+  loadAuthenticityBlacklist,
+  saveAuthenticityBlacklist,
   testAnthropicAuthenticity,
-} from "./testing/kiro";
+} from "./testing/authenticity";
 
 export { rawPost } from "./testing/execution";
 

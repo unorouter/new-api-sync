@@ -34,7 +34,7 @@ Then open `http://localhost:3000`. Everything the CLI can do is exposed through 
 - **Dashboard** — run, test, and reset pipelines live. A streaming log panel shows every provider, model, and price in real time, with colors preserved from the CLI output. Pick which providers to touch (`--only`), restrict to specific models with glob wildcards (`--models`, e.g. `claude-*, gpt-4*`), and hit **Start**. The models filter persists per config, so switching between configs restores your last selection.
 - **Configuration** — edit every provider, target, blacklist, price adjustment, and model mapping through structured forms. Invalid YAML is validated before save and rolled back if it fails.
 - **Multiple configs** — create named variants (`debug`, `staging`, `prod`) from the dropdown next to the tabs. Each is stored as `config.<name>.yml` in the project root and can be switched, duplicated, or deleted without touching the filesystem directly.
-- **History** — browse past runs (`logs/YYYY-MM-DD-*.json`) with per-model pass/fail results, costs, and authenticity status. Kiro auto-blacklist entries are manageable from the same tab.
+- **History** — browse past runs (`logs/YYYY-MM-DD-*.json`) with per-model pass/fail results, costs, and authenticity status. Authenticity auto-blacklist entries are manageable from the same tab.
 - **Themes & locales** — toggle dark/light/system and switch between English and 中文; both are remembered across sessions.
 
 The UI is bundled as a single-file binary for every platform — no Bun install needed on the target machine. Grab the right one from `dist/` after `bun run build` (or release artifacts) and run it directly:
@@ -193,6 +193,6 @@ During sync, model descriptions and tags are fetched from two public feeds to en
 
 These calls are best-effort: failures are logged as warnings and do not block the sync. Fuzzy name matching handles version/date-suffix variants (`claude-sonnet-4-5-20250929` → `claude-sonnet-4.5`).
 
-### Kiro Auto-Blacklist
+### Authenticity Auto-Blacklist
 
-`logs/kiro-blacklist.json` is maintained automatically by the test runner to track Anthropic Claude models from providers that failed authenticity checks. This is internal state and does not need to be edited.
+`logs/authenticity-blacklist.json` is maintained automatically by the test runner to track Anthropic Claude models from providers that failed authenticity checks. This is internal state and does not need to be edited.

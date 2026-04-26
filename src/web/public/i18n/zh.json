@@ -31,7 +31,7 @@
     "CONFIG_MODEL_MAPPING_COUNT": "模型映射数",
     "CONFIG_PROVIDER_OVERRIDES_COUNT": "有覆盖项的提供方",
     "CONFIG_LOADING": "加载中...",
-    "KIRO_BLACKLIST": "Kiro 黑名单",
+    "AUTHENTICITY_BLACKLIST": "真伪黑名单",
     "LAST_RUN": "上次运行",
     "LAST_RUN_SUMMARY": "通过 {passed}/{total}，失败 {failed}",
     "NO_RUNS": "无记录",
@@ -212,7 +212,7 @@
     "CONFIG_CREATE_FAILED": "创建配置失败",
     "CONFIG_DELETED": "配置已删除",
     "GLOBAL_CONFIG_SAVE_FAILED": "保存全局配置失败",
-    "KIRO_REMOVED": "已移除 Kiro 条目"
+    "AUTHENTICITY_REMOVED": "已移除真伪条目"
   },
   "SERVER": {
     "RUN_NOT_FOUND": "未找到运行记录",
@@ -295,7 +295,7 @@
     "COMING_SOON": "即将推出：列出历史运行的差异和报告",
     "TABS": {
       "RUNS": "运行",
-      "KIRO": "Kiro 黑名单"
+      "AUTHENTICITY": "真伪黑名单"
     },
     "RUNS": {
       "EMPTY": "暂无运行记录。请从仪表盘开始一次测试。",
@@ -338,9 +338,9 @@
       "STATUS_CODE": "状态码 {code}",
       "NO_DATA": "无数据"
     },
-    "KIRO": {
-      "EMPTY": "Kiro 黑名单为空。",
-      "LOAD_ERROR": "加载 Kiro 黑名单失败：{error}",
+    "AUTHENTICITY": {
+      "EMPTY": "真伪黑名单为空。",
+      "LOAD_ERROR": "加载真伪黑名单失败：{error}",
       "FILTER": "按提供商、分组、模型或原因筛选",
       "COL_PROVIDER": "提供商",
       "COL_GROUP": "分组",
@@ -348,7 +348,7 @@
       "COL_SINCE": "加入日期",
       "COL_REASON": "原因",
       "REMOVE": "移除",
-      "REMOVE_CONFIRM": "从 Kiro 黑名单中移除？",
+      "REMOVE_CONFIRM": "从真伪黑名单中移除？",
       "REMOVE_CONFIRM_DESC": "下一次测试将重新探测该模型。如果再次失败，会被重新加入黑名单。",
       "CANCEL": "取消"
     }
@@ -398,8 +398,8 @@
       "SUMMARY": "元数据：OpenRouter 命中 {orHits}（模糊匹配 {orFuzzy}），basellm 命中 {blmHits}（模糊匹配 {blmFuzzy}），共丰富 {total} 条"
     },
     "TESTER": {
-      "KIRO_LOADED": "[kiro 黑名单] 已加载 {count} 条记录",
-      "KIRO_ADDED": "[kiro 黑名单] 已添加 {key}：{reason}",
+      "AUTHENTICITY_LOADED": "[真伪黑名单] 已加载 {count} 条记录",
+      "AUTHENTICITY_ADDED": "[真伪黑名单] 已添加 {key}：{reason}",
       "REPORT_WRITTEN": "[测试报告] 已写入 {path}",
       "REPORT_RESUMED": "[测试报告] 已从 {path} 恢复（{count} 个已通过）",
       "REPORT_WRITTEN_COUNT": "[测试报告] 已写入 {path}（共 {count} 条结果）",
@@ -410,14 +410,14 @@
       "ERR_STREAM": "流式响应出错",
       "ERR_STREAM_NO_MARKER": "流式响应未出现完成标记",
       "ERR_EXTRACT_TEXT": "无法从响应中提取文本：{preview}",
-      "KIRO_REFUSAL": "[kiro 检测] {model}：在以下探针触发 Kiro 拒绝：{labels}，已拒绝",
-      "KIRO_SCAM": "[kiro 检测] {model}：在以下探针触发诈骗页面：{labels}，已拒绝",
-      "KIRO_FOREIGN": "[kiro 检测] {model}：在以下探针出现外部身份：{labels}，已拒绝",
-      "KIRO_PROBES_RESULT": "[kiro 检测] {model}：{passed}/4 个探针通过（失败：{failed}）{suffix}",
+      "AUTHENTICITY_REFUSAL": "[真伪检测] {model}：在以下探针触发编程工具拒绝：{labels}，已拒绝",
+      "AUTHENTICITY_SCAM": "[真伪检测] {model}：在以下探针触发诈骗页面：{labels}，已拒绝",
+      "AUTHENTICITY_FOREIGN": "[真伪检测] {model}：在以下探针出现外部身份：{labels}，已拒绝",
+      "AUTHENTICITY_PROBES_RESULT": "[真伪检测] {model}：{passed}/4 个探针通过（失败：{failed}）{suffix}",
       "ALREADY_PASSED": "[{prefix}] {model}：已通过，跳过",
-      "KIRO_BLACKLISTED": "[{prefix}] {model}：已在 kiro 黑名单中，跳过",
+      "AUTHENTICITY_BLACKLISTED": "[{prefix}] {model}：已在真伪黑名单中，跳过",
       "PROVIDER_FAILED": "[{provider}] 失败：{models}",
-      "ERR_KIRO_BLACKLISTED": "在 kiro 黑名单中"
+      "ERR_AUTHENTICITY_BLACKLISTED": "在真伪黑名单中"
     },
     "PROVIDER": {
       "USING_EXPLICIT_MODELS": "[{name}] 使用 {count} 个显式模型",

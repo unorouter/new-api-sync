@@ -480,10 +480,10 @@ export async function processNewApiProvider(
         testableModelTypes: getTestModelTypes(config, providerConfig),
         modelEndpoints: state.modelEndpoints,
         onModelTested: async (detail) => {
-          // Capture cost when HTTP/stream passed OR when kiro probes ran
-          // (kiro probes consume credit even if the model fails authenticity).
+          // Capture cost when HTTP/stream passed OR when authenticity probes ran
+          // (authenticity probes consume credit even if the model fails the check).
           const hadBillableCall =
-            detail.success || detail.streamSuccess === true || detail.kiroProbed;
+            detail.success || detail.streamSuccess === true || detail.authenticityProbed;
           if (!hadBillableCall || runningBalance === null) return;
           const bal = await upstream.fetchBalance();
           if (bal === null) return;

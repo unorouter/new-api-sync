@@ -8,10 +8,10 @@ export interface TestExchange {
   latencyMs?: number;
 }
 
-export interface KiroProbeLog {
+export interface AuthenticityProbeLog {
   probe: string;
   pass: boolean;
-  kiroRefusal: boolean;
+  authenticityRefusal: boolean;
   request: { url: string; body: unknown };
   response: string | null;
   error?: string;
@@ -25,7 +25,7 @@ export interface ModelTestLog {
   stream: TestExchange | null;
   toolCall: TestExchange | null;
   authentic: boolean | null;
-  kiroProbes?: KiroProbeLog[];
+  authenticityProbes?: AuthenticityProbeLog[];
 }
 
 export interface TestReport {
@@ -76,6 +76,6 @@ export interface ModelTestDetail {
   success: boolean;
   streamSuccess: boolean | null;
   toolCallSuccess: boolean | null;
-  kiroProbed: boolean;
+  authenticityProbed: boolean;
   httpStatus?: number;
 }

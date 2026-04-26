@@ -1,7 +1,7 @@
 import { throwIfRunAborted } from "@core/runtime/abort";
 import type { RuntimeConfig } from "@core/config";
 import { MANAGED_OPTION_KEYS, VENDOR_MATCHERS } from "@core/models/constants";
-import { loadKiroBlacklist, writeTestReport } from "@core/models/tester";
+import { loadAuthenticityBlacklist, writeTestReport } from "@core/models/tester";
 import { NewApiClient } from "@core/providers/newapi/client";
 import { applySyncDiff } from "@core/sync/apply";
 import { buildSyncDiff } from "@core/sync/diff";
@@ -107,7 +107,7 @@ async function snapshot(client: NewApiClient): Promise<TargetSnapshot> {
 export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
   const start = Date.now();
   const target = new NewApiClient(config.target, "target");
-  loadKiroBlacklist();
+  loadAuthenticityBlacklist();
 
   const health = await target.healthCheck();
   if (!health.ok) {

@@ -28,33 +28,33 @@ export function useHistoryRun(id: string | null) {
   });
 }
 
-export function useKiroBlacklist() {
+export function useAuthenticityBlacklist() {
   return useQuery({
-    queryKey: queryKeys.historyKiro(),
+    queryKey: queryKeys.historyAuthenticity(),
     queryFn: async () => {
-      const res = await rpc.api.history.kiro.get();
+      const res = await rpc.api.history.authenticity.get();
       if (res.error) throw res.error;
       return res.data.data;
     },
   });
 }
 
-export function useDeleteKiroEntry() {
+export function useDeleteAuthenticityEntry() {
   const queryClient = useQueryClient();
   const t = useTranslations();
   return useMutation({
     mutationFn: async (key: string) => {
-      const res = await rpc.api.history.kiro({ key }).delete();
+      const res = await rpc.api.history.authenticity({ key }).delete();
       if (res.error) throw res.error;
       return res.data.data;
     },
     onSuccess: (_, key) => {
       queryClient.setQueryData(
-        queryKeys.historyKiro(),
+        queryKeys.historyAuthenticity(),
         (prev: { key: string }[] | undefined) =>
           prev?.filter((entry) => entry.key !== key) ?? [],
       );
-      toast.success(t("TOAST.KIRO_REMOVED"));
+      toast.success(t("TOAST.AUTHENTICITY_REMOVED"));
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : String(error));

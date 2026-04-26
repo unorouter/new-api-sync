@@ -28,7 +28,7 @@ export const ResultSchema = T.Object({
   stream: T.Union([ResultHttpSchema, T.Null()]),
   toolCall: T.Union([ResultHttpSchema, T.Null()]),
   authentic: T.Union([T.Boolean(), T.Null()]),
-  kiroProbes: T.Optional(T.Array(T.Unknown())),
+  authenticityProbes: T.Optional(T.Array(T.Unknown())),
 });
 
 export const RunSummarySchema = T.Object({
@@ -46,7 +46,7 @@ export const RunDetailSchema = T.Object({
   results: T.Array(ResultSchema),
 });
 
-export const KiroEntrySchema = T.Object({
+export const AuthenticityEntrySchema = T.Object({
   key: T.String(),
   provider: T.String(),
   group: T.String(),
@@ -64,11 +64,13 @@ export const RunDetailResponsesSchema = {
   404: ErrorResponseSchema,
 };
 
-export const KiroListResponseSchema = successArrayResponse(KiroEntrySchema);
+export const AuthenticityListResponseSchema = successArrayResponse(
+  AuthenticityEntrySchema,
+);
 
-export const KiroKeyParamsSchema = T.Object({ key: T.String() });
+export const AuthenticityKeyParamsSchema = T.Object({ key: T.String() });
 
-export const KiroDeleteResponsesSchema = {
+export const AuthenticityDeleteResponsesSchema = {
   200: successResponse(DeletedDataSchema),
   404: ErrorResponseSchema,
 };

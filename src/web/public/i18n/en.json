@@ -31,7 +31,7 @@
     "CONFIG_MODEL_MAPPING_COUNT": "model mappings",
     "CONFIG_PROVIDER_OVERRIDES_COUNT": "providers with overrides",
     "CONFIG_LOADING": "loading...",
-    "KIRO_BLACKLIST": "kiro blacklist",
+    "AUTHENTICITY_BLACKLIST": "authenticity blacklist",
     "LAST_RUN": "last run",
     "LAST_RUN_SUMMARY": "{passed}/{total} passed, {failed} failed",
     "NO_RUNS": "never",
@@ -212,7 +212,7 @@
     "CONFIG_CREATE_FAILED": "Failed to create config",
     "CONFIG_DELETED": "Config deleted",
     "GLOBAL_CONFIG_SAVE_FAILED": "Failed to save global config",
-    "KIRO_REMOVED": "Kiro entry removed"
+    "AUTHENTICITY_REMOVED": "Authenticity entry removed"
   },
   "SERVER": {
     "RUN_NOT_FOUND": "run not found",
@@ -295,7 +295,7 @@
     "COMING_SOON": "coming soon: list of past runs with diff and report",
     "TABS": {
       "RUNS": "Runs",
-      "KIRO": "Kiro blacklist"
+      "AUTHENTICITY": "Authenticity blacklist"
     },
     "RUNS": {
       "EMPTY": "No runs yet. Start one from the Dashboard.",
@@ -338,9 +338,9 @@
       "STATUS_CODE": "Status {code}",
       "NO_DATA": "No data"
     },
-    "KIRO": {
-      "EMPTY": "The kiro blacklist is empty.",
-      "LOAD_ERROR": "Failed to load kiro blacklist: {error}",
+    "AUTHENTICITY": {
+      "EMPTY": "The authenticity blacklist is empty.",
+      "LOAD_ERROR": "Failed to load authenticity blacklist: {error}",
       "FILTER": "Filter by provider, group, model, or reason",
       "COL_PROVIDER": "Provider",
       "COL_GROUP": "Group",
@@ -348,7 +348,7 @@
       "COL_SINCE": "Since",
       "COL_REASON": "Reason",
       "REMOVE": "Remove",
-      "REMOVE_CONFIRM": "Remove from kiro blacklist?",
+      "REMOVE_CONFIRM": "Remove from authenticity blacklist?",
       "REMOVE_CONFIRM_DESC": "The next test run will re-probe this model. If it fails again, it will be re-added.",
       "CANCEL": "Cancel"
     }
@@ -398,8 +398,8 @@
       "SUMMARY": "Metadata: {orHits} from OpenRouter ({orFuzzy} fuzzy), {blmHits} from basellm ({blmFuzzy} fuzzy), {total} enriched total"
     },
     "TESTER": {
-      "KIRO_LOADED": "[kiro-blacklist] Loaded {count} entries",
-      "KIRO_ADDED": "[kiro-blacklist] Added {key}: {reason}",
+      "AUTHENTICITY_LOADED": "[authenticity-blacklist] Loaded {count} entries",
+      "AUTHENTICITY_ADDED": "[authenticity-blacklist] Added {key}: {reason}",
       "REPORT_WRITTEN": "[test-report] Written to {path}",
       "REPORT_RESUMED": "[test-report] Resumed from {path} ({count} already passed)",
       "REPORT_WRITTEN_COUNT": "[test-report] Written to {path} ({count} results)",
@@ -410,14 +410,14 @@
       "ERR_STREAM": "error in stream",
       "ERR_STREAM_NO_MARKER": "stream ended without completion marker",
       "ERR_EXTRACT_TEXT": "failed to extract text from response: {preview}",
-      "KIRO_REFUSAL": "[kiro-detect] {model}: Kiro refusal on: {labels}, rejected",
-      "KIRO_SCAM": "[kiro-detect] {model}: scam page on: {labels}, rejected",
-      "KIRO_FOREIGN": "[kiro-detect] {model}: foreign identity on: {labels}, rejected",
-      "KIRO_PROBES_RESULT": "[kiro-detect] {model}: {passed}/4 probes passed (failed: {failed}){suffix}",
+      "AUTHENTICITY_REFUSAL": "[authenticity-detect] {model}: coding-tool refusal on: {labels}, rejected",
+      "AUTHENTICITY_SCAM": "[authenticity-detect] {model}: scam page on: {labels}, rejected",
+      "AUTHENTICITY_FOREIGN": "[authenticity-detect] {model}: foreign identity on: {labels}, rejected",
+      "AUTHENTICITY_PROBES_RESULT": "[authenticity-detect] {model}: {passed}/4 probes passed (failed: {failed}){suffix}",
       "ALREADY_PASSED": "[{prefix}] {model}: already passed, skipping",
-      "KIRO_BLACKLISTED": "[{prefix}] {model}: kiro-blacklisted, skipping",
+      "AUTHENTICITY_BLACKLISTED": "[{prefix}] {model}: authenticity-blacklisted, skipping",
       "PROVIDER_FAILED": "[{provider}] Failed: {models}",
-      "ERR_KIRO_BLACKLISTED": "kiro-blacklisted"
+      "ERR_AUTHENTICITY_BLACKLISTED": "authenticity-blacklisted"
     },
     "PROVIDER": {
       "USING_EXPLICIT_MODELS": "[{name}] Using {count} explicit model(s)",

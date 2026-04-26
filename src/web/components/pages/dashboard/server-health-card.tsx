@@ -46,8 +46,8 @@ export function ServerHealthCard(props: { healthData: HealthData }) {
           <Row label={t("HEALTH.PLATFORM")}>
             {props.healthData.runtime.platform} / {props.healthData.runtime.arch}
           </Row>
-          <Row label={t("HEALTH.KIRO_BLACKLIST")}>
-            {props.healthData.kiroBlacklistSize}
+          <Row label={t("HEALTH.AUTHENTICITY_BLACKLIST")}>
+            {props.healthData.authenticityBlacklistSize}
           </Row>
           <Row label={t("HEALTH.LAST_RUN")}>
             {props.healthData.lastRun ? (

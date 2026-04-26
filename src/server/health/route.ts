@@ -9,7 +9,7 @@ import pkg from "../../../package.json" with { type: "json" };
 
 const LOGS_DIR = "logs";
 const TEST_FILE_RE = /^(.+)-model-tests\.json$/;
-const KIRO_FILE = "kiro-blacklist.json";
+const AUTHENTICITY_FILE = "authenticity-blacklist.json";
 
 interface RawRun {
   timestamp?: string;
@@ -47,8 +47,8 @@ function summarizeLastRun() {
   }
 }
 
-function kiroBlacklistCount(): number {
-  const path = join(LOGS_DIR, KIRO_FILE);
+function authenticityBlacklistCount(): number {
+  const path = join(LOGS_DIR, AUTHENTICITY_FILE);
   if (!existsSync(path)) return 0;
   try {
     const map = JSON.parse(readFileSync(path, "utf8")) as Record<
@@ -117,7 +117,7 @@ export const healthRoute = new Elysia({ prefix: "/health" }).get(
         },
         config: await configSummary(),
         lastRun: summarizeLastRun(),
-        kiroBlacklistSize: kiroBlacklistCount(),
+        authenticityBlacklistSize: authenticityBlacklistCount(),
         activeRuns: listActiveRuns(),
       },
     };

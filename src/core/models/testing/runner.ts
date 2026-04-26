@@ -20,11 +20,11 @@ import {
 } from "./execution";
 import {
   testAnthropicAuthenticity,
-  isKiroBlacklisted,
-  kiroProbeAccumulator,
-  loadKiroBlacklist,
-  saveKiroBlacklist,
-} from "./kiro";
+  isAuthenticityBlacklisted,
+  authenticityProbeAccumulator,
+  loadAuthenticityBlacklist,
+  saveAuthenticityBlacklist,
+} from "./authenticity";
 import {
   getRequestConfig,
   getStreamRequestConfig,
@@ -102,7 +102,7 @@ const testReport: TestReport = {
 
 function addTestResult(entry: ModelTestLog): void {
   const key = `${entry.provider}|${entry.model}`;
-  entry.kiroProbes = kiroProbeAccumulator.get(key);
+  entry.authenticityProbes = authenticityProbeAccumulator.get(key);
   testReport.results.push(entry);
 }
 
@@ -140,7 +140,7 @@ export function setTestCost(
 // ---------------------------------------------------------------------------
 
 export function writeTestReport(): void {
-  saveKiroBlacklist();
+  saveAuthenticityBlacklist();
   if (testReport.results.length === 0) return;
   const logsDir = join(process.cwd(), "logs");
   mkdirSync(logsDir, { recursive: true });
@@ -166,11 +166,11 @@ export function initTestReportForDate(): void {
   } catch {
     // File doesn't exist yet — start fresh
   }
-  loadKiroBlacklist();
+  loadAuthenticityBlacklist();
 }
 
 export function writeTestReportForDate(): void {
-  saveKiroBlacklist();
+  saveAuthenticityBlacklist();
   if (testReport.results.length === 0) return;
   const today = new Date().toISOString().slice(0, 10);
   const logsDir = join(process.cwd(), "logs");
@@ -244,7 +244,7 @@ export async function testModels(opts: {
             success: true,
             streamSuccess: existingPass.stream?.pass ?? null,
             toolCallSuccess: existingPass.toolCall?.pass ?? null,
-            kiroProbed: false,
+            authenticityProbed: false,
           };
         }
 
@@ -252,10 +252,10 @@ export async function testModels(opts: {
         if (
           channelType === CHANNEL_TYPES.ANTHROPIC &&
           model.startsWith("claude-") &&
-          isKiroBlacklisted(blacklistKey)
+          isAuthenticityBlacklisted(blacklistKey)
         ) {
           consola.debug(
-            t("CORE.TESTER.KIRO_BLACKLISTED", { prefix, model }),
+            t("CORE.TESTER.AUTHENTICITY_BLACKLISTED", { prefix, model }),
           );
           addTestResult({
             provider: prefix,
@@ -266,7 +266,7 @@ export async function testModels(opts: {
               request: { url: "", headers: {}, body: null },
               response: null,
               responseHeaders: {},
-              error: t("CORE.TESTER.ERR_KIRO_BLACKLISTED"),
+              error: t("CORE.TESTER.ERR_AUTHENTICITY_BLACKLISTED"),
             },
             stream: null,
             toolCall: null,
@@ -277,7 +277,7 @@ export async function testModels(opts: {
             success: false,
             streamSuccess: null,
             toolCallSuccess: null,
-            kiroProbed: false,
+            authenticityProbed: false,
           };
         }
 
@@ -415,7 +415,7 @@ export async function testModels(opts: {
           success: finalSuccess,
           streamSuccess: finalStream,
           toolCallSuccess,
-          kiroProbed:
+          authenticityProbed:
             model.startsWith("claude-") &&
             (success || streamSuccess === true),
           httpStatus: httpResult.status,

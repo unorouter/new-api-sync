@@ -1,7 +1,7 @@
 import {
-  KiroDeleteResponsesSchema,
-  KiroKeyParamsSchema,
-  KiroListResponseSchema,
+  AuthenticityDeleteResponsesSchema,
+  AuthenticityKeyParamsSchema,
+  AuthenticityListResponseSchema,
   RunDetailResponsesSchema,
   RunIdParamsSchema,
   RunsListResponseSchema,
@@ -21,16 +21,16 @@ import { join } from "node:path";
  * History routes — exposes the `logs/` directory.
  *
  * Log files:
- *   - `<iso>-model-tests.json` — one per test pipeline run; `{ timestamp, results[] }`
- *   - `kiro-blacklist.json`    — persistent map of
- *                                 "<provider>/<group>|<model>" → { since, reason }
+ *   - `<iso>-model-tests.json`        — one per test pipeline run; `{ timestamp, results[] }`
+ *   - `authenticity-blacklist.json`   — persistent map of
+ *                                       "<provider>/<group>|<model>" → { since, reason }
  *
  * File formats come from `src/core/models/tester.ts`.
  */
 
 const LOGS_DIR = "logs";
 const TEST_FILE_RE = /^(.+)-model-tests\.json$/;
-const KIRO_FILE = "kiro-blacklist.json";
+const AUTHENTICITY_FILE = "authenticity-blacklist.json";
 
 interface RawResult {
   provider: string;
@@ -94,28 +94,28 @@ function summarize(id: string): {
   };
 }
 
-function kiroPath(): string {
-  return join(LOGS_DIR, KIRO_FILE);
+function authenticityPath(): string {
+  return join(LOGS_DIR, AUTHENTICITY_FILE);
 }
 
-type KiroMap = Record<string, { since: string; reason: string }>;
+type AuthenticityMap = Record<string, { since: string; reason: string }>;
 
-function readKiro(): KiroMap {
-  const path = kiroPath();
+function readAuthenticity(): AuthenticityMap {
+  const path = authenticityPath();
   if (!existsSync(path)) return {};
   try {
-    return JSON.parse(readFileSync(path, "utf8")) as KiroMap;
+    return JSON.parse(readFileSync(path, "utf8")) as AuthenticityMap;
   } catch {
     return {};
   }
 }
 
-function writeKiro(map: KiroMap): void {
-  writeFileSync(kiroPath(), JSON.stringify(map, null, 2));
+function writeAuthenticity(map: AuthenticityMap): void {
+  writeFileSync(authenticityPath(), JSON.stringify(map, null, 2));
 }
 
 /** Split "<provider>/<group>|<model>" into its parts. */
-function splitKiroKey(key: string): {
+function splitAuthenticityKey(key: string): {
   provider: string;
   group: string;
   model: string;
@@ -165,23 +165,23 @@ export const historyRoute = new Elysia({ prefix: "/history" })
     },
   )
   .get(
-    "/kiro",
+    "/authenticity",
     () => {
-      const map = readKiro();
+      const map = readAuthenticity();
       const entries = Object.entries(map)
         .map(([key, value]) => {
-          const split = splitKiroKey(key);
+          const split = splitAuthenticityKey(key);
           return { key, ...split, since: value.since, reason: value.reason };
         })
         .sort((a, b) => b.since.localeCompare(a.since));
       return { success: true as const, data: entries };
     },
-    { response: KiroListResponseSchema },
+    { response: AuthenticityListResponseSchema },
   )
   .delete(
-    "/kiro/:key",
+    "/authenticity/:key",
     async ({ params, set }) => {
-      const map = readKiro();
+      const map = readAuthenticity();
       if (!(params.key in map)) {
         set.status = 404;
         return {
@@ -190,11 +190,11 @@ export const historyRoute = new Elysia({ prefix: "/history" })
         };
       }
       delete map[params.key];
-      writeKiro(map);
+      writeAuthenticity(map);
       return { success: true as const, data: { deleted: params.key } };
     },
     {
-      params: KiroKeyParamsSchema,
-      response: KiroDeleteResponsesSchema,
+      params: AuthenticityKeyParamsSchema,
+      response: AuthenticityDeleteResponsesSchema,
     },
   );

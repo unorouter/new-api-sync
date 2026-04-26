@@ -185,7 +185,10 @@ export const MainTabEnum = T.Union([
   T.Literal("config"),
   T.Literal("history"),
 ]);
-export const HistoryTabEnum = T.Union([T.Literal("runs"), T.Literal("kiro")]);
+export const HistoryTabEnum = T.Union([
+  T.Literal("runs"),
+  T.Literal("authenticity"),
+]);
 export const RunResultFilterEnum = T.Union([
   T.Literal("all"),
   T.Literal("passed"),
@@ -216,7 +219,7 @@ export const GlobalConfigSchema = T.Object({
   selectedRunId: T.Optional(T.Union([T.String(), T.Null()])),
   runResultFilter: T.Optional(RunResultFilterEnum),
   runQuery: T.Optional(T.String()),
-  kiroQuery: T.Optional(T.String()),
+  authenticityQuery: T.Optional(T.String()),
   selectedConfigName: T.Optional(T.String()),
   pipelineMode: T.Optional(PipelineModeEnum),
   verbose: T.Optional(T.Boolean()),

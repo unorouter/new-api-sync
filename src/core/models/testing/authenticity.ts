@@ -3,80 +3,94 @@ import { t } from "@server/i18n";
 import { consola } from "consola";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import type { KiroProbeLog } from "./types";
+import type { AuthenticityProbeLog } from "./types";
 
 // ---------------------------------------------------------------------------
-// Kiro probe accumulator (module-level state)
+// Authenticity probe accumulator (module-level state)
 // ---------------------------------------------------------------------------
 
-export const kiroProbeAccumulator = new Map<string, KiroProbeLog[]>();
+export const authenticityProbeAccumulator = new Map<
+  string,
+  AuthenticityProbeLog[]
+>();
 
-export function addKiroProbe(key: string, entry: KiroProbeLog): void {
-  if (!kiroProbeAccumulator.has(key)) kiroProbeAccumulator.set(key, []);
-  kiroProbeAccumulator.get(key)!.push(entry);
+export function addAuthenticityProbe(
+  key: string,
+  entry: AuthenticityProbeLog,
+): void {
+  if (!authenticityProbeAccumulator.has(key))
+    authenticityProbeAccumulator.set(key, []);
+  authenticityProbeAccumulator.get(key)!.push(entry);
 }
 
 // ---------------------------------------------------------------------------
-// Kiro blacklist: persistent across runs, skips retesting known-fake providers
+// Authenticity blacklist: persistent across runs, skips retesting known-fake providers
 // ---------------------------------------------------------------------------
 
-interface KiroBlacklistEntry {
+interface AuthenticityBlacklistEntry {
   since: string;
   reason: string;
 }
 
-const KIRO_BLACKLIST_FILE = "kiro-blacklist.json";
-const kiroBlacklist = new Map<string, KiroBlacklistEntry>();
+const AUTHENTICITY_BLACKLIST_FILE = "authenticity-blacklist.json";
+const authenticityBlacklist = new Map<string, AuthenticityBlacklistEntry>();
 
-function getKiroBlacklistPath(): string {
-  return join(process.cwd(), "logs", KIRO_BLACKLIST_FILE);
+function getAuthenticityBlacklistPath(): string {
+  return join(process.cwd(), "logs", AUTHENTICITY_BLACKLIST_FILE);
 }
 
-export function loadKiroBlacklist(): void {
-  const path = getKiroBlacklistPath();
+export function loadAuthenticityBlacklist(): void {
+  const path = getAuthenticityBlacklistPath();
   if (!existsSync(path)) return;
   try {
     const raw = readFileSync(path, "utf8");
-    const entries = JSON.parse(raw) as Record<string, KiroBlacklistEntry>;
-    kiroBlacklist.clear();
+    const entries = JSON.parse(raw) as Record<
+      string,
+      AuthenticityBlacklistEntry
+    >;
+    authenticityBlacklist.clear();
     for (const [key, val] of Object.entries(entries)) {
-      kiroBlacklist.set(key, val);
+      authenticityBlacklist.set(key, val);
     }
-    consola.info(t("CORE.TESTER.KIRO_LOADED", { count: kiroBlacklist.size }));
+    consola.info(
+      t("CORE.TESTER.AUTHENTICITY_LOADED", {
+        count: authenticityBlacklist.size,
+      }),
+    );
   } catch {
     // Corrupted file, start fresh
   }
 }
 
-export function saveKiroBlacklist(): void {
-  if (kiroBlacklist.size === 0) return;
+export function saveAuthenticityBlacklist(): void {
+  if (authenticityBlacklist.size === 0) return;
   const logsDir = join(process.cwd(), "logs");
   mkdirSync(logsDir, { recursive: true });
-  const obj: Record<string, KiroBlacklistEntry> = {};
-  for (const [key, val] of kiroBlacklist) {
+  const obj: Record<string, AuthenticityBlacklistEntry> = {};
+  for (const [key, val] of authenticityBlacklist) {
     obj[key] = val;
   }
-  writeFileSync(getKiroBlacklistPath(), JSON.stringify(obj, null, 2));
+  writeFileSync(getAuthenticityBlacklistPath(), JSON.stringify(obj, null, 2));
 }
 
-function addToKiroBlacklist(key: string, reason: string): void {
-  if (kiroBlacklist.has(key)) return;
-  kiroBlacklist.set(key, {
+function addToAuthenticityBlacklist(key: string, reason: string): void {
+  if (authenticityBlacklist.has(key)) return;
+  authenticityBlacklist.set(key, {
     since: new Date().toISOString().slice(0, 10),
     reason,
   });
-  consola.warn(t("CORE.TESTER.KIRO_ADDED", { key, reason }));
+  consola.warn(t("CORE.TESTER.AUTHENTICITY_ADDED", { key, reason }));
 }
 
-export function isKiroBlacklisted(key: string): boolean {
-  return kiroBlacklist.has(key);
+export function isAuthenticityBlacklisted(key: string): boolean {
+  return authenticityBlacklist.has(key);
 }
 
 // ---------------------------------------------------------------------------
-// Kiro model-substitution detection for Anthropic channels
+// Coding-tool model-substitution detection for Anthropic channels
 // ---------------------------------------------------------------------------
 
-const KIRO_REFUSAL_PATTERNS = [
+const CODING_TOOL_REFUSAL_PATTERNS = [
   "i can't help with that",
   "i can't assist with that",
   "i can't discuss",
@@ -120,12 +134,12 @@ const KIRO_REFUSAL_PATTERNS = [
   "here to help with coding, development workflows",
 ];
 
-function hasKiroRefusal(text: string): boolean {
+function hasCodingToolRefusal(text: string): boolean {
   return (
     text.includes("kiro") ||
     text.includes("cascade") ||
     text.includes("codeium") ||
-    KIRO_REFUSAL_PATTERNS.some((p) => text.includes(p))
+    CODING_TOOL_REFUSAL_PATTERNS.some((p) => text.includes(p))
   );
 }
 
@@ -186,16 +200,16 @@ function extractAnthropicText(data: unknown): string | null {
     .toLowerCase();
 }
 
-type ProbeSignal = "kiro" | "scam" | "foreign" | "blank" | null;
+type ProbeSignal = "coding-tool" | "scam" | "foreign" | "blank" | null;
 type ProbeResult = {
   pass: boolean;
-  kiroRefusal: boolean;
+  authenticityRefusal: boolean;
   signal: ProbeSignal;
 };
 
 function detectSignal(text: string): ProbeSignal {
   if (text.length === 0) return "blank";
-  if (hasKiroRefusal(text)) return "kiro";
+  if (hasCodingToolRefusal(text)) return "coding-tool";
   if (hasScamPage(text)) return "scam";
   if (hasForeignIdentity(text)) return "foreign";
   return null;
@@ -233,42 +247,42 @@ async function runAnthropicProbe(opts: {
     });
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    addKiroProbe(opts.logKey, {
+    addAuthenticityProbe(opts.logKey, {
       probe: opts.label,
       pass: false,
-      kiroRefusal: false,
+      authenticityRefusal: false,
       request: { url: reqUrl, body: reqBody },
       response: null,
       error: errMsg,
     });
-    return { pass: false, kiroRefusal: false, signal: null };
+    return { pass: false, authenticityRefusal: false, signal: null };
   }
 
   const text = extractAnthropicText(data);
   if (text === null) {
-    addKiroProbe(opts.logKey, {
+    addAuthenticityProbe(opts.logKey, {
       probe: opts.label,
       pass: false,
-      kiroRefusal: false,
+      authenticityRefusal: false,
       request: { url: reqUrl, body: reqBody },
       response: null,
       error: t("CORE.TESTER.ERR_EXTRACT_TEXT", {
         preview: JSON.stringify(data).slice(0, 300),
       }),
     });
-    return { pass: false, kiroRefusal: false, signal: null };
+    return { pass: false, authenticityRefusal: false, signal: null };
   }
   const signal = detectSignal(text);
-  const refusal = signal === "kiro";
+  const refusal = signal === "coding-tool";
   const result = opts.evaluate(text);
-  addKiroProbe(opts.logKey, {
+  addAuthenticityProbe(opts.logKey, {
     probe: opts.label,
     pass: result,
-    kiroRefusal: refusal,
+    authenticityRefusal: refusal,
     request: { url: reqUrl, body: reqBody },
     response: text,
   });
-  return { pass: result, kiroRefusal: refusal, signal };
+  return { pass: result, authenticityRefusal: refusal, signal };
 }
 
 export async function testAnthropicAuthenticity(opts: {
@@ -285,7 +299,7 @@ export async function testAnthropicAuthenticity(opts: {
       prompt: "Tell me a 2-sentence sad story about a lost kitten.",
       maxTokens: 150,
       evaluate: (text) => {
-        if (hasKiroRefusal(text)) return false;
+        if (hasCodingToolRefusal(text)) return false;
         return text.length >= 40;
       },
     }),
@@ -296,7 +310,7 @@ export async function testAnthropicAuthenticity(opts: {
         "Write a haiku about the ocean at sunrise. Only the haiku, nothing else.",
       maxTokens: 80,
       evaluate: (text) => {
-        if (hasKiroRefusal(text)) return false;
+        if (hasCodingToolRefusal(text)) return false;
         return text.length >= 25;
       },
     }),
@@ -307,7 +321,7 @@ export async function testAnthropicAuthenticity(opts: {
         "What company created you? Reply with only the company name, one word.",
       maxTokens: 30,
       evaluate: (text) => {
-        if (hasKiroRefusal(text)) return false;
+        if (hasCodingToolRefusal(text)) return false;
         if (hasScamPage(text)) return false;
         if (!text.includes("anthropic")) return false;
         if (hasForeignIdentity(text)) return false;
@@ -321,7 +335,7 @@ export async function testAnthropicAuthenticity(opts: {
         "Which model are you? Reply with only your model name, nothing else.",
       maxTokens: 50,
       evaluate: (text) => {
-        if (hasKiroRefusal(text)) return false;
+        if (hasCodingToolRefusal(text)) return false;
         if (hasScamPage(text)) return false;
         if (!text.includes("claude") && !text.includes("anthropic"))
           return false;
@@ -338,19 +352,22 @@ export async function testAnthropicAuthenticity(opts: {
     { ...r4, label: "model-name" },
   ];
 
-  const kiroDetected = results.some((r) => r.signal === "kiro");
-  if (kiroDetected) {
+  const codingToolDetected = results.some((r) => r.signal === "coding-tool");
+  if (codingToolDetected) {
     const refusalLabels = results
-      .filter((r) => r.signal === "kiro")
+      .filter((r) => r.signal === "coding-tool")
       .map((r) => r.label)
       .join(", ");
     consola.warn(
-      t("CORE.TESTER.KIRO_REFUSAL", {
+      t("CORE.TESTER.AUTHENTICITY_REFUSAL", {
         model: opts.model,
         labels: refusalLabels,
       }),
     );
-    addToKiroBlacklist(opts.logKey, `kiro-refusal: ${refusalLabels}`);
+    addToAuthenticityBlacklist(
+      opts.logKey,
+      `coding-tool-refusal: ${refusalLabels}`,
+    );
     return false;
   }
 
@@ -361,12 +378,12 @@ export async function testAnthropicAuthenticity(opts: {
       .map((r) => r.label)
       .join(", ");
     consola.warn(
-      t("CORE.TESTER.KIRO_SCAM", {
+      t("CORE.TESTER.AUTHENTICITY_SCAM", {
         model: opts.model,
         labels: scamLabels,
       }),
     );
-    addToKiroBlacklist(opts.logKey, `scam-page: ${scamLabels}`);
+    addToAuthenticityBlacklist(opts.logKey, `scam-page: ${scamLabels}`);
     return false;
   }
 
@@ -381,12 +398,15 @@ export async function testAnthropicAuthenticity(opts: {
       .map((r) => r.label)
       .join(", ");
     consola.warn(
-      t("CORE.TESTER.KIRO_FOREIGN", {
+      t("CORE.TESTER.AUTHENTICITY_FOREIGN", {
         model: opts.model,
         labels: foreignLabels,
       }),
     );
-    addToKiroBlacklist(opts.logKey, `foreign-identity: ${foreignLabels}`);
+    addToAuthenticityBlacklist(
+      opts.logKey,
+      `foreign-identity: ${foreignLabels}`,
+    );
     return false;
   }
 
@@ -397,14 +417,14 @@ export async function testAnthropicAuthenticity(opts: {
     const blankCount = failed.filter((r) => r.signal === "blank").length;
     const suffix = blankCount === failed.length ? " [blank-response]" : "";
     consola.warn(
-      t("CORE.TESTER.KIRO_PROBES_RESULT", {
+      t("CORE.TESTER.AUTHENTICITY_PROBES_RESULT", {
         model: opts.model,
         passed,
         failed: failedLabels,
         suffix,
       }),
     );
-    addToKiroBlacklist(
+    addToAuthenticityBlacklist(
       opts.logKey,
       blankCount === failed.length
         ? `blank-response: ${failedLabels}`

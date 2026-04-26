@@ -12,5 +12,5 @@ export const queryKeys = {
   runHistory: () => ["run-history"] as const,
   historyRuns: () => ["history", "runs"] as const,
   historyRun: (id: string) => ["history", "runs", id] as const,
-  historyKiro: () => ["history", "kiro"] as const,
+  historyAuthenticity: () => ["history", "authenticity"] as const,
 } as const;
