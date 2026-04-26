@@ -48,8 +48,36 @@ import type {
 
 const SENSITIVE_HEADERS = ["authorization", "x-api-key"];
 
+const IP_LITERAL_RE = /^(\d{1,3}\.){3}\d{1,3}$|^\[?[0-9a-fA-F:]+\]?$/;
+
+function maskHostnameLabel(label: string): string {
+  if (label.length <= 1) return label;
+  return label[0] + "*".repeat(label.length - 1);
+}
+
+function maskHostname(host: string): string {
+  if (!host) return host;
+  if (IP_LITERAL_RE.test(host)) return host;
+  const labels = host.split(".");
+  if (labels.length === 1) return labels[0]!;
+  // Mask everything except the final label (TLD).
+  return labels
+    .slice(0, -1)
+    .map(maskHostnameLabel)
+    .concat(labels[labels.length - 1]!)
+    .join(".");
+}
+
 function redactUrl(url: string): string {
-  return url.replace(/([?&])key=[^&]+/g, "$1key=[REDACTED]");
+  let out = url.replace(/([?&])key=[^&]+/g, "$1key=[REDACTED]");
+  try {
+    const parsed = new URL(out);
+    parsed.hostname = maskHostname(parsed.hostname);
+    out = parsed.toString();
+  } catch {
+    // Non-absolute URL (e.g. blank string or bare path); leave hostname alone.
+  }
+  return out;
 }
 
 function redactHeaders(
@@ -81,6 +109,10 @@ function redactResult(entry: ModelTestLog): ModelTestLog {
     http: redactExchange(entry.http),
     stream: entry.stream ? redactExchange(entry.stream) : null,
     toolCall: entry.toolCall ? redactExchange(entry.toolCall) : null,
+    authenticityProbes: entry.authenticityProbes?.map((p) => ({
+      ...p,
+      request: { ...p.request, url: redactUrl(p.request.url) },
+    })),
   };
 }
 
