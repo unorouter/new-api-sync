@@ -1,13 +1,11 @@
-import { throwIfRunAborted } from "@core/runtime/abort";
 import {
   getEnabledModelGlobs,
   getTestModelTypes,
   type RuntimeConfig,
 } from "@core/config";
-import type { ProviderConfig } from "@core/validations/config";
 import {
+  CHANNEL_TYPES,
   getTaskModelOverride,
-  inferChannelTypeFromModels,
   inferModelType,
   inferVendorFromModelName,
   matchesAnyPattern,
@@ -21,10 +19,51 @@ import {
   type ModelTestDetail,
 } from "@core/models/tester";
 import { resolvePriceAdjustment } from "@core/pricing";
+import { throwIfRunAborted } from "@core/runtime/abort";
 import type { GroupInfo, ProviderReport, SyncState } from "@core/types";
+import type { ProviderConfig } from "@core/validations/config";
 import { consola } from "consola";
 import { colorize } from "consola/utils";
 import { NewApiClient } from "./client";
+
+/**
+ * Pick the channel type for a `newapi`-type provider's sub-group.
+ *
+ * `newapi` upstreams are always front-end resellers that expose the standard
+ * shape paths (`/v1/chat/completions`, `/v1/messages`, `/v1beta/models/...:
+ * generateContent`). They never speak native vendor protocols like Zhipu's
+ * `/api/paas/v4/chat/completions`, so we must not fall through to vendor-based
+ * channel types — doing so produces 404s on every request.
+ *
+ * Path verification done against new-api source:
+ *   - type 1  OpenAI    → ${baseUrl}${requestPath}              (relay/channel/openai/adaptor.go)
+ *   - type 14 Anthropic → ${baseUrl}/v1/messages                (relay/channel/claude/adaptor.go)
+ *   - type 24 Gemini    → ${baseUrl}/v1beta/models/{m}:generate (relay/channel/gemini/adaptor.go)
+ *
+ * Selection precedence (matches the simpler `inferChannelType` in
+ * `@core/models/constants/channel-types.ts`):
+ *   1. Any model exposes `openai`/`openai-response` → OpenAI (universal
+ *      entry point; resellers translate to the upstream shape internally).
+ *   2. All exposed shapes are `anthropic` only → Anthropic.
+ *   3. All exposed shapes are `gemini` only → Gemini.
+ *   4. Otherwise → OpenAI (safe default; resellers always serve `/v1/chat/completions`).
+ */
+function inferNewapiChannelType(
+  models: string[],
+  modelEndpoints: Map<string, string[]>,
+): number {
+  const endpoints = new Set<string>();
+  for (const model of models) {
+    for (const ep of modelEndpoints.get(model) ?? []) endpoints.add(ep);
+  }
+  if (endpoints.size === 0) return CHANNEL_TYPES.OPENAI;
+  if (endpoints.has("openai") || endpoints.has("openai-response")) {
+    return CHANNEL_TYPES.OPENAI;
+  }
+  if (endpoints.has("anthropic")) return CHANNEL_TYPES.ANTHROPIC;
+  if (endpoints.has("gemini")) return CHANNEL_TYPES.GEMINI;
+  return CHANNEL_TYPES.OPENAI;
+}
 
 function filterGroupModels(
   models: string[],
@@ -198,10 +237,17 @@ function buildGroupChannels(opts: {
         provider: opts.providerConfig.name,
       });
 
-      // Use explicit task channel type, or infer from the sub-group's models
+      // Use explicit task channel type, or infer from the sub-group's models.
+      // For `newapi`-type providers, the upstream is always an OpenAI-compatible
+      // (and optionally Anthropic) reseller served at /v1/chat/completions, so
+      // we must NOT fall through to native vendor channel types (e.g. Zhipu's
+      // /api/paas/v4/chat/completions) — that path doesn't exist on resellers
+      // and the channel would 404 on every request. Pick OpenAI unless the
+      // sub-group's models only expose an `anthropic` endpoint, in which case
+      // we use Anthropic; otherwise default to OpenAI.
       const channelType =
         overrideType ??
-        inferChannelTypeFromModels(subModels, opts.state.modelEndpoints);
+        inferNewapiChannelType(subModels, opts.state.modelEndpoints);
 
       // Apply base_url suffix for newapi providers with provider-specific paths
       const baseUrl =
@@ -483,7 +529,9 @@ export async function processNewApiProvider(
           // Capture cost when HTTP/stream passed OR when authenticity probes ran
           // (authenticity probes consume credit even if the model fails the check).
           const hadBillableCall =
-            detail.success || detail.streamSuccess === true || detail.authenticityProbed;
+            detail.success ||
+            detail.streamSuccess === true ||
+            detail.authenticityProbed;
           if (!hadBillableCall || runningBalance === null) return;
           const bal = await upstream.fetchBalance();
           if (bal === null) return;
