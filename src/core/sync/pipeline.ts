@@ -143,9 +143,7 @@ function backfillModelRatios(
         .map((ch) => ch.tag ?? ch.name);
       return refs.length > 0 ? `${m} (${refs.join(", ")})` : m;
     });
-    consola.warn(
-      t("CORE.PIPELINE.NO_RATIOS", { models: details.join(", ") }),
-    );
+    consola.warn(t("CORE.PIPELINE.NO_RATIOS", { models: details.join(", ") }));
   }
 }
 
@@ -352,8 +350,7 @@ function buildDesiredModels(opts: {
     for (const [modelName, spec] of models) {
       const upstream = exposedToUpstream.get(modelName) ?? modelName;
       const meta =
-        opts.metadataByUpstream[upstream] ??
-        opts.metadataByUpstream[modelName];
+        opts.metadataByUpstream[upstream] ?? opts.metadataByUpstream[modelName];
       if (meta) {
         spec.metadata = JSON.stringify(meta);
       }
@@ -545,9 +542,22 @@ export async function runProviderPipeline(
   state.channelsToCreate = state.channelsToCreate.slice(baselineChannelCount);
   state.mergedGroups = state.mergedGroups.slice(baselineGroupCount);
 
-  // Dedupe channels by name (last write wins)
+  // Detect channel-name collisions. With vendor-split sub-grouping, two
+  // independent producers (e.g. two upstream groups whose sanitized names both
+  // produce `aigc-deepseek`) would silently overwrite each other. That hides
+  // routing bugs, so collisions are now hard errors. If you see this thrown,
+  // make the producer prefix more specific.
   const channelByName = new Map<string, Channel>();
   for (const ch of state.channelsToCreate) {
+    const existing = channelByName.get(ch.name);
+    if (existing) {
+      throw new Error(
+        `Channel name collision: "${ch.name}" produced twice ` +
+          `(tags: ${existing.tag ?? "?"} and ${ch.tag ?? "?"}). ` +
+          `Each (provider, group, vendor, ratio-tier, base-url-suffix) bucket ` +
+          `must produce a unique channel name.`,
+      );
+    }
     channelByName.set(ch.name, ch);
   }
   const channels = [...channelByName.values()];

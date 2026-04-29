@@ -78,4 +78,8 @@ export interface ModelTestDetail {
   toolCallSuccess: boolean | null;
   authenticityProbed: boolean;
   httpStatus?: number;
+  // The CHANNEL_TYPES numeric ID used to fire the test request. Lets channel
+  // creation align with the shape the test passed under, so we never serve a
+  // shape we did not validate.
+  channelType: number;
 }

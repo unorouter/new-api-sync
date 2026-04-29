@@ -90,39 +90,31 @@ export function isAuthenticityBlacklisted(key: string): boolean {
 // Coding-tool model-substitution detection for Anthropic channels
 // ---------------------------------------------------------------------------
 
+// These patterns mark text as a coding-tool persona refusing a non-coding
+// task. Generic refusals like "I can't discuss that" or "I can't help with
+// that" are NOT included — real Anthropic Claude uses those for various
+// legitimate reasons (e.g. declining to disclose model name) and they
+// would false-positive as kiro/codeium refusals. Keep patterns specific
+// to coding-assistant personas: phrases that explicitly redirect the user
+// to coding/development tasks.
 const CODING_TOOL_REFUSAL_PATTERNS = [
-  "i can't help with that",
-  "i can't assist with that",
-  "i can't discuss",
-  "i cannot help with that",
-  "i cannot assist with that",
   "assist with development",
   "here to assist with development tasks",
-  "clarify my actual",
-  "clarify my role",
-  "need to clarify",
   "sensitive, personal, or emotional",
   "i'm here to help with coding",
   "i'm here to help with development",
   "i'm designed to help with development",
-  "i'm focused on helping with",
-  "programming and development",
   "let me help you with your code",
   "i'm a coding assistant",
-  "technical task",
   "development tasks, writing, analysis",
   "infrastructure and configuration",
   "falls outside what i can help with",
-  "outside what i can help with",
-  "outside my wheelhouse",
-  "that's outside what i can",
   "i'm focused on software development",
   "focused on software development and coding",
   "best suited for software development",
   "i'm built to help with software development",
   "i'm built to help with coding",
   "help with software development, coding",
-  "i can help you build",
   "what can i help you build",
   "got a tricky bug",
   "got a coding challenge",
@@ -292,58 +284,63 @@ export async function testAnthropicAuthenticity(opts: {
   timeoutMs: number;
   logKey: string;
 }): Promise<boolean> {
-  const [r1, r2, r3, r4] = await Promise.all([
-    runAnthropicProbe({
-      ...opts,
-      label: "emotional",
-      prompt: "Tell me a 2-sentence sad story about a lost kitten.",
-      maxTokens: 150,
-      evaluate: (text) => {
-        if (hasCodingToolRefusal(text)) return false;
-        return text.length >= 40;
-      },
-    }),
-    runAnthropicProbe({
-      ...opts,
-      label: "creative",
-      prompt:
-        "Write a haiku about the ocean at sunrise. Only the haiku, nothing else.",
-      maxTokens: 80,
-      evaluate: (text) => {
-        if (hasCodingToolRefusal(text)) return false;
-        return text.length >= 25;
-      },
-    }),
-    runAnthropicProbe({
-      ...opts,
-      label: "identity",
-      prompt:
-        "What company created you? Reply with only the company name, one word.",
-      maxTokens: 30,
-      evaluate: (text) => {
-        if (hasCodingToolRefusal(text)) return false;
-        if (hasScamPage(text)) return false;
-        if (!text.includes("anthropic")) return false;
-        if (hasForeignIdentity(text)) return false;
-        return true;
-      },
-    }),
-    runAnthropicProbe({
-      ...opts,
-      label: "model-name",
-      prompt:
-        "Which model are you? Reply with only your model name, nothing else.",
-      maxTokens: 50,
-      evaluate: (text) => {
-        if (hasCodingToolRefusal(text)) return false;
-        if (hasScamPage(text)) return false;
-        if (!text.includes("claude") && !text.includes("anthropic"))
-          return false;
-        if (hasForeignIdentity(text)) return false;
-        return true;
-      },
-    }),
-  ]);
+  // Probes run sequentially, not in parallel. Several upstream resellers
+  // mux concurrent /v1/messages requests through a single connection and
+  // return responses in the wrong order, so the "identity" prompt comes
+  // back with the haiku response and vice versa. That looked like a fake
+  // model to the detector and blacklisted real upstreams. Sequential
+  // probes are slower (~4x latency for the auth check) but eliminate the
+  // false positive completely.
+  const r1 = await runAnthropicProbe({
+    ...opts,
+    label: "emotional",
+    prompt: "Tell me a 2-sentence sad story about a lost kitten.",
+    maxTokens: 150,
+    evaluate: (text) => {
+      if (hasCodingToolRefusal(text)) return false;
+      return text.length >= 40;
+    },
+  });
+  const r2 = await runAnthropicProbe({
+    ...opts,
+    label: "creative",
+    prompt:
+      "Write a haiku about the ocean at sunrise. Only the haiku, nothing else.",
+    maxTokens: 80,
+    evaluate: (text) => {
+      if (hasCodingToolRefusal(text)) return false;
+      return text.length >= 25;
+    },
+  });
+  const r3 = await runAnthropicProbe({
+    ...opts,
+    label: "identity",
+    prompt:
+      "What company created you? Reply with only the company name, one word.",
+    maxTokens: 30,
+    evaluate: (text) => {
+      if (hasCodingToolRefusal(text)) return false;
+      if (hasScamPage(text)) return false;
+      if (!text.includes("anthropic")) return false;
+      if (hasForeignIdentity(text)) return false;
+      return true;
+    },
+  });
+  const r4 = await runAnthropicProbe({
+    ...opts,
+    label: "model-name",
+    prompt:
+      "Which model are you? Reply with only your model name, nothing else.",
+    maxTokens: 50,
+    evaluate: (text) => {
+      if (hasCodingToolRefusal(text)) return false;
+      if (hasScamPage(text)) return false;
+      if (!text.includes("claude") && !text.includes("anthropic"))
+        return false;
+      if (hasForeignIdentity(text)) return false;
+      return true;
+    },
+  });
 
   const results = [
     { ...r1, label: "emotional" },
@@ -387,12 +384,21 @@ export async function testAnthropicAuthenticity(opts: {
     return false;
   }
 
-  const foreignDetected = results.some(
-    (r) =>
-      r.signal === "foreign" &&
-      (r.label === "identity" || r.label === "model-name"),
+  // Foreign identity is only a hard fail when the model-name probe
+  // *also* claims a non-Anthropic identity. Real Claude served via AWS
+  // Bedrock often answers "amazon" to "what company created you?" while
+  // still correctly identifying as "claude" on the model-name probe;
+  // similarly for Google Vertex AI hosting Claude. Those are routing
+  // hosts, not fake models. Only flag as foreign when the model-name
+  // probe itself says it's a foreign model (e.g. "i'm gemini", "i'm
+  // amazon q") — that's an actual model substitution.
+  const r4ModelName = results.find((r) => r.label === "model-name");
+  const modelNameSaysClaude = r4ModelName?.pass === true;
+  const foreignOnModelName = results.some(
+    (r) => r.signal === "foreign" && r.label === "model-name",
   );
-  if (foreignDetected) {
+  const hardForeign = foreignOnModelName && !modelNameSaysClaude;
+  if (hardForeign) {
     const foreignLabels = results
       .filter((r) => r.signal === "foreign")
       .map((r) => r.label)
@@ -410,8 +416,15 @@ export async function testAnthropicAuthenticity(opts: {
     return false;
   }
 
+  // Pass with 3/4 probes when no positive signal triggered. The 4th probe
+  // is allowed to be blank/short/transient-error without dooming the
+  // channel — real upstreams occasionally return short responses or hit a
+  // transient timeout, and one such hiccup shouldn't blacklist them
+  // permanently. Positive signals (foreign-identity, scam, coding-tool)
+  // are still hard failures and are caught above.
   const passed = results.filter((r) => r.pass).length;
   const failed = results.filter((r) => !r.pass);
+  const passing = passed >= 3;
   if (failed.length > 0) {
     const failedLabels = failed.map((r) => r.label).join(", ");
     const blankCount = failed.filter((r) => r.signal === "blank").length;
@@ -424,13 +437,15 @@ export async function testAnthropicAuthenticity(opts: {
         suffix,
       }),
     );
-    addToAuthenticityBlacklist(
-      opts.logKey,
-      blankCount === failed.length
-        ? `blank-response: ${failedLabels}`
-        : `failed: ${failedLabels}`,
-    );
+    if (!passing) {
+      addToAuthenticityBlacklist(
+        opts.logKey,
+        blankCount === failed.length
+          ? `blank-response: ${failedLabels}`
+          : `failed: ${failedLabels}`,
+      );
+    }
   }
 
-  return passed >= 4;
+  return passing;
 }

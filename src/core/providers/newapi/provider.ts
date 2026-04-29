@@ -4,7 +4,6 @@ import {
   type RuntimeConfig,
 } from "@core/config";
 import {
-  CHANNEL_TYPES,
   getTaskModelOverride,
   inferModelType,
   inferVendorFromModelName,
@@ -25,44 +24,20 @@ import type { ProviderConfig } from "@core/validations/config";
 import { consola } from "consola";
 import { colorize } from "consola/utils";
 import { NewApiClient } from "./client";
+import { probeChannelType } from "./probe-channel-type";
 
 /**
- * Pick the channel type for a `newapi`-type provider's sub-group.
- *
- * `newapi` upstreams are always front-end resellers that expose the standard
- * shape paths (`/v1/chat/completions`, `/v1/messages`, `/v1beta/models/...:
- * generateContent`). They never speak native vendor protocols like Zhipu's
- * `/api/paas/v4/chat/completions`, so we must not fall through to vendor-based
- * channel types — doing so produces 404s on every request.
- *
- * Path verification done against new-api source:
- *   - type 1  OpenAI    → ${baseUrl}${requestPath}              (relay/channel/openai/adaptor.go)
- *   - type 14 Anthropic → ${baseUrl}/v1/messages                (relay/channel/claude/adaptor.go)
- *   - type 24 Gemini    → ${baseUrl}/v1beta/models/{m}:generate (relay/channel/gemini/adaptor.go)
- *
- * Selection precedence (matches the simpler `inferChannelType` in
- * `@core/models/constants/channel-types.ts`):
- *   1. Any model exposes `openai`/`openai-response` → OpenAI (universal
- *      entry point; resellers translate to the upstream shape internally).
- *   2. All exposed shapes are `anthropic` only → Anthropic.
- *   3. All exposed shapes are `gemini` only → Gemini.
- *   4. Otherwise → OpenAI (safe default; resellers always serve `/v1/chat/completions`).
+ * Partition a flat model list into vendor buckets. Models without a known
+ * vendor matcher land in `unknown` so they still get a channel.
  */
-function inferNewapiChannelType(
-  models: string[],
-  modelEndpoints: Map<string, string[]>,
-): number {
-  const endpoints = new Set<string>();
+function partitionByVendor(models: string[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
   for (const model of models) {
-    for (const ep of modelEndpoints.get(model) ?? []) endpoints.add(ep);
+    const vendor = inferVendorFromModelName(model) ?? "unknown";
+    if (!out.has(vendor)) out.set(vendor, []);
+    out.get(vendor)!.push(model);
   }
-  if (endpoints.size === 0) return CHANNEL_TYPES.OPENAI;
-  if (endpoints.has("openai") || endpoints.has("openai-response")) {
-    return CHANNEL_TYPES.OPENAI;
-  }
-  if (endpoints.has("anthropic")) return CHANNEL_TYPES.ANTHROPIC;
-  if (endpoints.has("gemini")) return CHANNEL_TYPES.GEMINI;
-  return CHANNEL_TYPES.OPENAI;
+  return out;
 }
 
 function filterGroupModels(
@@ -80,7 +55,10 @@ function filterGroupModels(
   const blacklisted = models.filter((m) => !result.includes(m));
   if (blacklisted.length > 0) {
     consola.debug(
-      `[${providerConfig.name}/${groupName}] Blacklisted: ${blacklisted.join(", ")}`,
+      `[${providerConfig.name}/${groupName}] Blacklisted: ${blacklisted.length}`,
+    );
+    consola.trace(
+      `[${providerConfig.name}/${groupName}] Blacklisted models: ${blacklisted.join(", ")}`,
     );
   }
 
@@ -96,6 +74,9 @@ function filterGroupModels(
     const vendorFiltered = before.filter((m) => !result.includes(m));
     if (vendorFiltered.length > 0) {
       consola.debug(
+        `[${providerConfig.name}/${groupName}] Vendor-filtered: ${vendorFiltered.length}`,
+      );
+      consola.trace(
         `[${providerConfig.name}/${groupName}] Vendor-filtered (not in [${[...new Set(providerConfig.enabledVendors)].join(", ")}]): ${vendorFiltered.join(", ")}`,
       );
     }
@@ -110,6 +91,9 @@ function filterGroupModels(
     const globFiltered = before.filter((m) => !result.includes(m));
     if (globFiltered.length > 0) {
       consola.debug(
+        `[${providerConfig.name}/${groupName}] Model-glob filtered: ${globFiltered.length}`,
+      );
+      consola.trace(
         `[${providerConfig.name}/${groupName}] Model-glob filtered (not matching [${modelGlobs.join(", ")}]): ${globFiltered.join(", ")}`,
       );
     }
@@ -123,7 +107,10 @@ function filterGroupModels(
     const cliFiltered = before.filter((m) => !result.includes(m));
     if (cliFiltered.length > 0) {
       consola.debug(
-        `[${providerConfig.name}/${groupName}] CLI model filter (not matching [${config.modelFilter.join(", ")}]): ${cliFiltered.join(", ")}`,
+        `[${providerConfig.name}/${groupName}] CLI-filtered: ${cliFiltered.length}`,
+      );
+      consola.trace(
+        `[${providerConfig.name}/${groupName}] CLI-filtered (not matching [${config.modelFilter.join(", ")}]): ${cliFiltered.join(", ")}`,
       );
     }
   }
@@ -135,27 +122,38 @@ function filterGroupModels(
   return result;
 }
 
-function buildGroupChannels(opts: {
+/**
+ * Build channels for a single (group, vendor, channel-type) bucket. Splits
+ * within the bucket by ratio tier and by task-model overrides (sora, kling,
+ * etc.), producing channels named `<sanitizedName>-<vendor>` with `-tNa/-tNb`
+ * suffixes only when sub-tiers exist.
+ *
+ * The bucket's `channelType` was already resolved by `probeChannelType`; this
+ * function does not re-derive it. Task-model overrides can still flip a single
+ * model into a vendor-specific channel-type (e.g. seedance → DOUBAO_VIDEO),
+ * which short-circuits the bucket's probed shape for that model only.
+ */
+function buildVendorBucketChannels(opts: {
+  vendor: string;
+  channelType: number;
   mappedModels: string[];
   reverseModelMapping: Record<string, string>;
   groupRatio: number;
   groupName: string;
   sanitizedName: string;
   channelRemark: string;
-  groupChannelType: number;
   providerConfig: ProviderConfig;
   config: RuntimeConfig;
   state: SyncState;
   apiKey: string;
   testDetails?: ModelTestDetail[];
 }): void {
-  // Group models by their effective ratio (per-model/vendor/type priceAdjustment may differ)
+  // Group models by their effective ratio (per-model/vendor/type priceAdjustment may differ).
   const ratioToModels = new Map<
     number,
     { models: string[]; nonText: boolean }
   >();
   for (const model of opts.mappedModels) {
-    const vendor = inferVendorFromModelName(model) ?? "unknown";
     const modelType = inferModelType(
       model,
       undefined,
@@ -164,7 +162,7 @@ function buildGroupChannels(opts: {
     const vendorAdj = resolvePriceAdjustment({
       adj: opts.providerConfig.priceAdjustment,
       model,
-      vendor,
+      vendor: opts.vendor,
       modelType,
       fallback: 0,
       modelMapping: opts.config.modelMapping,
@@ -176,27 +174,23 @@ function buildGroupChannels(opts: {
     ratioToModels.get(key)!.models.push(model);
   }
 
-  // Create a channel per distinct ratio tier, splitting by required channel type
-  // so video/image models that need specific adaptors get their own channels.
   const skipUnprofitable =
     opts.config.skipUnprofitableText && !opts.config.isTestMode;
+
+  // Vendor segment is always present in the channel name. Tier/sub-tier
+  // suffixes only appear when there is more than one tier/sub-tier in the
+  // bucket — single-tier vendor buckets stay clean (e.g. `aigc-deepseek`).
+  const vendorSegment = `-${opts.vendor}`;
+
   let tierIdx = 0;
   for (const [effectiveRatio, { models, nonText }] of ratioToModels) {
-    // Skip text model tiers that end up >= 1 after adjustment; non-text (image, video, etc.) are allowed above 1.
-    // Disabled via config.skipUnprofitableText: false.
     if (skipUnprofitable && effectiveRatio >= 1 && !nonText) continue;
 
-    // Sub-split models by required task channel type and base_url suffix.
-    // Models needing a specific adaptor (sora, kling, veo, etc.) get separated;
-    // the rest stay together with vendor-inferred channel type.
-    // Key format: "channelType:suffix" or "default" for models without overrides.
-    //
-    // The name-based override only fires when the upstream actually exposes the
-    // model as a task endpoint (`openai-video`). Some providers (e.g. aigcbest)
-    // resell task-branded models like `grok-imagine-video` through plain
-    // `/v1/chat/completions`; forcing them into a task channel there yields 404s
-    // because new-api's task adaptor posts to `/v1/video/create`. When no
-    // endpoint data exists at all we still apply the override as a best guess.
+    // Sub-split by task-model override. The name-based override only fires
+    // when the upstream actually exposes the model as a task endpoint
+    // (`openai-video`); otherwise resellers typically serve task-branded
+    // models through plain `/v1/chat/completions`. When endpoint data is
+    // missing we still apply the override as a best guess.
     const subGroups = new Map<
       string,
       { models: string[]; channelType?: number; baseUrlSuffix?: string }
@@ -228,32 +222,23 @@ function buildGroupChannels(opts: {
         ratioToModels.size > 1 || subGroups.size > 1
           ? `-t${tierIdx}${subGroups.size > 1 ? String.fromCharCode(97 + subIdx) : ""}`
           : "";
-      const tierName = `${opts.sanitizedName}${tierSuffix}`;
+      const tierName = `${opts.sanitizedName}${vendorSegment}${tierSuffix}`;
 
       opts.state.mergedGroups.push({
         name: tierName,
         ratio: effectiveRatio,
-        description: `${sanitizeGroupName(opts.groupName)} via ${opts.providerConfig.name}`,
+        description: `${sanitizeGroupName(opts.groupName)} via ${opts.providerConfig.name} (${opts.vendor})`,
         provider: opts.providerConfig.name,
       });
 
-      // Use explicit task channel type, or infer from the sub-group's models.
-      // For `newapi`-type providers, the upstream is always an OpenAI-compatible
-      // (and optionally Anthropic) reseller served at /v1/chat/completions, so
-      // we must NOT fall through to native vendor channel types (e.g. Zhipu's
-      // /api/paas/v4/chat/completions) — that path doesn't exist on resellers
-      // and the channel would 404 on every request. Pick OpenAI unless the
-      // sub-group's models only expose an `anthropic` endpoint, in which case
-      // we use Anthropic; otherwise default to OpenAI.
-      const channelType =
-        overrideType ??
-        inferNewapiChannelType(subModels, opts.state.modelEndpoints);
+      // Task-model overrides win over the bucket's probed channel-type because
+      // they target specific upstream endpoints (sora video, kling video, etc.)
+      // that are not interchangeable with the generic shape.
+      const channelType = overrideType ?? opts.channelType;
 
-      // Apply base_url suffix for newapi providers with provider-specific paths
       const baseUrl =
         opts.providerConfig.baseUrl.replace(/\/$/, "") + (baseUrlSuffix ?? "");
 
-      // Build per-tier model_mapping: only include models in this tier that were mapped
       const tierModelMapping: Record<string, string> = {};
       for (const model of subModels) {
         if (opts.reverseModelMapping[model]) {
@@ -261,7 +246,6 @@ function buildGroupChannels(opts: {
         }
       }
 
-      // Aggregate capabilities from test details for models in this tier.
       let setting: string | undefined;
       if (opts.testDetails && opts.testDetails.length > 0) {
         const tierOriginalNames = subModels.map(
@@ -278,6 +262,12 @@ function buildGroupChannels(opts: {
           .filter((v) => v !== null && v !== undefined);
         if (toolResults.length > 0) {
           capabilities.tool_calling = toolResults.every(Boolean);
+        } else if (tierDetails.length > 0) {
+          // Every model in the bucket reported `null` (e.g. reasoning-only
+          // bucket where tool_choice is rejected). Mark the channel as
+          // tool-incapable so tool-call requests get routed elsewhere
+          // instead of 400ing here.
+          capabilities.tool_calling = false;
         }
 
         const streamResults = tierDetails
@@ -517,41 +507,113 @@ export async function processNewApiProvider(
       // upstream provider recognises them.  Mapping is only for our target.
       const apiKey = tokenResult.tokens[group.name] ?? "";
       const modelCosts = new Map<string, number>();
-      const filterResult = await testAndFilterModels({
-        allModels: candidateModels,
-        baseUrl: providerConfig.baseUrl,
-        apiKey,
-        channelType: group.channelType,
-        providerLabel: `${providerConfig.name}/${group.name}`,
-        testableModelTypes: getTestModelTypes(config, providerConfig),
-        modelEndpoints: state.modelEndpoints,
-        onModelTested: async (detail) => {
-          // Capture cost when HTTP/stream passed OR when authenticity probes ran
-          // (authenticity probes consume credit even if the model fails the check).
-          const hadBillableCall =
-            detail.success ||
-            detail.streamSuccess === true ||
-            detail.authenticityProbed;
-          if (!hadBillableCall || runningBalance === null) return;
-          const bal = await upstream.fetchBalance();
-          if (bal === null) return;
-          const cost = runningBalance - bal;
-          if (cost > 0) {
-            modelCosts.set(
-              detail.model,
-              (modelCosts.get(detail.model) ?? 0) + cost,
-            );
-            runningBalance = bal;
-            setTestCost(
-              `${providerConfig.name}/${group.name}`,
-              detail.model,
-              cost,
-            );
-          }
-        },
-      });
 
-      // Log cost summary for this group (use mapped names for display)
+      // Cost-capture callback shared across vendor sub-buckets within this
+      // group: every model test (regardless of which vendor's probe shape it
+      // ran under) deducts from the same running balance.
+      const onModelTested = async (detail: ModelTestDetail) => {
+        const hadBillableCall =
+          detail.success ||
+          detail.streamSuccess === true ||
+          detail.authenticityProbed;
+        if (!hadBillableCall || runningBalance === null) return;
+        const bal = await upstream.fetchBalance();
+        if (bal === null) return;
+        const cost = runningBalance - bal;
+        if (cost > 0) {
+          modelCosts.set(
+            detail.model,
+            (modelCosts.get(detail.model) ?? 0) + cost,
+          );
+          runningBalance = bal;
+          setTestCost(
+            `${providerConfig.name}/${group.name}`,
+            detail.model,
+            cost,
+          );
+        }
+      };
+
+      // Partition the group's candidate models by vendor. Each vendor bucket
+      // is probed independently to find a working endpoint shape, then its
+      // models are tested under that shape, then a channel is built. This
+      // isolates per-vendor brokenness on a reseller (e.g. aigcbest's
+      // /v1/messages shim being broken for deepseek tool flows) from sibling
+      // vendors that work fine.
+      const vendorBuckets = partitionByVendor(candidateModels);
+      let groupTotalTested = 0;
+      let groupTotalWorking = 0;
+      let groupHadAnyChannel = false;
+
+      for (const [vendor, vendorModels] of vendorBuckets) {
+        throwIfRunAborted();
+        const probeLabel = `${providerConfig.name}/${group.name}`;
+
+        const probe = await probeChannelType({
+          baseUrl: providerConfig.baseUrl,
+          apiKey,
+          vendor,
+          models: vendorModels,
+          modelEndpoints: state.modelEndpoints,
+          logPrefix: probeLabel,
+        });
+
+        if (!probe) {
+          consola.warn(
+            `[${probeLabel}] vendor=${vendor} probe failed; skipping ${vendorModels.length} models`,
+          );
+          continue;
+        }
+
+        const filterResult = await testAndFilterModels({
+          allModels: vendorModels,
+          baseUrl: providerConfig.baseUrl,
+          apiKey,
+          channelType: probe.channelType,
+          providerLabel: `${probeLabel}/${vendor}`,
+          testableModelTypes: getTestModelTypes(config, providerConfig),
+          modelEndpoints: state.modelEndpoints,
+          onModelTested,
+        });
+
+        groupTotalTested += filterResult.testedCount;
+        groupTotalWorking += filterResult.workingModels.length;
+
+        // Apply model mapping to working models and build the reverse map.
+        const reverseModelMapping: Record<string, string> = {};
+        const mappedModels = [
+          ...new Set(
+            filterResult.workingModels.map((m) => {
+              const mapped = config.modelMapping?.[m] ?? m;
+              if (mapped !== m) {
+                reverseModelMapping[mapped] = m;
+              }
+              return mapped;
+            }),
+          ),
+        ];
+
+        if (mappedModels.length === 0) continue;
+
+        buildVendorBucketChannels({
+          vendor,
+          channelType: probe.channelType,
+          mappedModels,
+          reverseModelMapping,
+          groupRatio,
+          groupName: group.name,
+          sanitizedName,
+          channelRemark: originalName,
+          providerConfig,
+          config,
+          state,
+          apiKey,
+          testDetails: filterResult.details,
+        });
+        groupHadAnyChannel = true;
+      }
+
+      // Log group-level cost and pass/total summary aggregated across vendors.
       let costStr = "";
       if (modelCosts.size > 0) {
         const parts = [...modelCosts.entries()].map(([model, cost]) => {
@@ -560,46 +622,15 @@ export async function processNewApiProvider(
         });
         costStr = ` | ${parts.join(", ")}`;
       }
-      if (filterResult.testedCount > 0) {
+      if (groupTotalTested > 0) {
         consola.info(
-          `[${providerConfig.name}/${group.name}] ${filterResult.workingModels.length}/${filterResult.testedCount} working${costStr}`,
+          `[${providerConfig.name}/${group.name}] ${groupTotalWorking}/${groupTotalTested} working across ${vendorBuckets.size} vendors${costStr}`,
         );
       }
 
-      // Now apply model mapping to working models and build the reverse map
-      // for the channel (so the upstream translates mapped names back).
-      const reverseModelMapping: Record<string, string> = {};
-      let mappedModels = [
-        ...new Set(
-          filterResult.workingModels.map((m) => {
-            const mapped = config.modelMapping?.[m] ?? m;
-            if (mapped !== m) {
-              reverseModelMapping[mapped] = m;
-            }
-            return mapped;
-          }),
-        ),
-      ];
-
-      if (mappedModels.length === 0) {
+      if (!groupHadAnyChannel) {
         groupsWithNoWorkingModels.push(group.name);
-        continue;
       }
-
-      buildGroupChannels({
-        mappedModels,
-        reverseModelMapping,
-        groupRatio,
-        groupName: group.name,
-        sanitizedName,
-        channelRemark: originalName,
-        groupChannelType: group.channelType,
-        providerConfig,
-        config,
-        state,
-        apiKey,
-        testDetails: filterResult.details,
-      });
     }
 
     if (!config.isTestMode) {

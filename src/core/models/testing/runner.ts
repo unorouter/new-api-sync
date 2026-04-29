@@ -238,6 +238,38 @@ export function writeTestReportForDate(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Tool-call error classification
+// ---------------------------------------------------------------------------
+
+/**
+ * Detect upstream error responses that indicate the model doesn't accept the
+ * tool-call test's payload (typically `tool_choice: required`) rather than
+ * the model being broken. Reasoning-only models like deepseek-reasoner and
+ * various `*-thinking` aliases reject tool_choice with a 400/4xx, but they
+ * still pass HTTP+Stream tests and should be treated as working.
+ *
+ * Detection is by error-message substring rather than model-name pattern so
+ * the rule generalizes to future reasoning models without code changes.
+ */
+function isToolChoiceUnsupportedError(result: TestExchange): boolean {
+  const status = result.status;
+  if (status !== undefined && status < 400) return false;
+  const haystacks: string[] = [];
+  if (typeof result.error === "string") haystacks.push(result.error);
+  if (typeof result.response === "string") haystacks.push(result.response);
+  else if (result.response && typeof result.response === "object") {
+    haystacks.push(JSON.stringify(result.response));
+  }
+  const blob = haystacks.join(" ").toLowerCase();
+  if (!blob.includes("tool_choice")) return false;
+  return (
+    blob.includes("not support") ||
+    blob.includes("unsupported") ||
+    blob.includes("not allowed")
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -297,6 +329,7 @@ export async function testModels(opts: {
             streamSuccess: existingPass.stream?.pass ?? null,
             toolCallSuccess: existingPass.toolCall?.pass ?? null,
             authenticityProbed: false,
+            channelType,
           };
         }
 
@@ -330,6 +363,7 @@ export async function testModels(opts: {
             streamSuccess: null,
             toolCallSuccess: null,
             authenticityProbed: false,
+            channelType,
           };
         }
 
@@ -401,7 +435,18 @@ export async function testModels(opts: {
                 retryPolicy,
               )
             : null;
-        const toolCallSuccess = toolResult?.pass ?? null;
+        // If the upstream rejects the request with a tool_choice-related
+        // error (e.g. reasoning-only models like deepseek-reasoner or
+        // *-thinking variants that aliased to one), the model isn't broken,
+        // it just doesn't accept the tool sub-test's payload. Mark
+        // toolCallSuccess as null (n/a) instead of false (failed) so the
+        // model is still considered working on its HTTP+Stream results.
+        const toolCallSuccess: boolean | null = (() => {
+          if (toolResult === null) return null;
+          if (toolResult.pass) return true;
+          if (isToolChoiceUnsupportedError(toolResult)) return null;
+          return false;
+        })();
 
         let authentic = true;
         const logKey = `${prefix}|${model}`;
@@ -468,9 +513,9 @@ export async function testModels(opts: {
           streamSuccess: finalStream,
           toolCallSuccess,
           authenticityProbed:
-            model.startsWith("claude-") &&
-            (success || streamSuccess === true),
+            model.startsWith("claude-") && (success || streamSuccess === true),
           httpStatus: httpResult.status,
+          channelType,
         };
       }),
     );
@@ -527,11 +572,14 @@ export async function testAndFilterModels(opts: {
   );
 
   consola.debug(
-    `[${opts.providerLabel}] Testable (${testableModels.length}): ${testableModels.join(", ") || "(none)"}`,
+    `[${opts.providerLabel}] Testable: ${testableModels.length}, Non-testable: ${nonTestableModels.length}`,
+  );
+  consola.trace(
+    `[${opts.providerLabel}] Testable models: ${testableModels.join(", ") || "(none)"}`,
   );
   if (nonTestableModels.length > 0) {
-    consola.debug(
-      `[${opts.providerLabel}] Non-testable (${nonTestableModels.length}): ${nonTestableModels.join(", ")}`,
+    consola.trace(
+      `[${opts.providerLabel}] Non-testable models: ${nonTestableModels.join(", ")}`,
     );
   }
 
@@ -592,8 +640,11 @@ export async function testAndFilterModels(opts: {
   const workingModels = [...testedWorkingModels, ...nonTestableModels];
 
   if (nonTestableModels.length > 0) {
-    consola.info(
-      `[${opts.providerLabel}] Included without test: ${nonTestableModels.join(", ")}`,
+    consola.debug(
+      `[${opts.providerLabel}] Included without test: ${nonTestableModels.length}`,
+    );
+    consola.trace(
+      `[${opts.providerLabel}] Included without test (models): ${nonTestableModels.join(", ")}`,
     );
   }
 
