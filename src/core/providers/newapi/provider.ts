@@ -454,7 +454,10 @@ export async function processNewApiProvider(
     }
 
     const tokenPrefix = config.target.targetPrefix ?? providerConfig.name;
-    const tokenResult = await upstream.ensureTokens(groups, tokenPrefix);
+    const partialSync = (config.modelFilter?.length ?? 0) > 0;
+    const tokenResult = await upstream.ensureTokens(groups, tokenPrefix, {
+      skipCleanup: partialSync,
+    });
     providerReport.tokens = {
       created: tokenResult.created,
       existing: tokenResult.existing,

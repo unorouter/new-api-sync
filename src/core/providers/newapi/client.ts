@@ -148,13 +148,14 @@ export class NewApiClient {
   ensureTokens(
     groups: GroupInfo[],
     prefix: string,
+    options?: { skipCleanup?: boolean },
   ): Promise<{
     tokens: Record<string, string>;
     created: number;
     existing: number;
     deleted: number;
   }> {
-    return _ensureTokens(this.ctx, groups, prefix);
+    return _ensureTokens(this.ctx, groups, prefix, options);
   }
 
   // Channels

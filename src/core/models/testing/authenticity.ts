@@ -147,11 +147,11 @@ function hasScamPage(text: string): boolean {
   return SCAM_PAGE_PATTERNS.some((p) => text.includes(p));
 }
 
-const FOREIGN_IDENTITY_PATTERNS = [
-  "amazon",
-  "aws",
-  "bedrock",
-  "google",
+// Hard foreign-vendor signals: these names mean the response is from a
+// non-Anthropic *model* with no licensing relationship to Anthropic.
+// Anything matching here on identity OR model-name probes is a real
+// substitution and should blacklist immediately.
+const FOREIGN_VENDOR_PATTERNS = [
   "deepmind",
   "gemini",
   "openai",
@@ -173,8 +173,54 @@ const FOREIGN_IDENTITY_PATTERNS = [
   "xai",
 ];
 
-function hasForeignIdentity(text: string): boolean {
-  return FOREIGN_IDENTITY_PATTERNS.some((p) => text.includes(p));
+// Cloud-host signals: these names appear when Claude is legitimately
+// served via AWS Bedrock, Google Vertex AI, or Azure AI Foundry. Real
+// licensed Claude on those platforms often answers "amazon" / "google"
+// / "microsoft" to the identity probe because of injected system
+// prompts. Treat these as a soft signal: only fail when paired with a
+// model-name probe that *also* says it's a foreign model (e.g.
+// "i'm amazon q" — that's Kiro, an actual model substitution, not
+// Bedrock-hosted Claude).
+const CLOUD_HOST_PATTERNS = [
+  "amazon",
+  "aws",
+  "bedrock",
+  "google",
+  "vertex",
+  "microsoft",
+  "azure",
+  "foundry",
+];
+
+// "Amazon Q" is Kiro's coding-assistant model. If model-name comes back
+// with "amazon q" (or similar AWS-coding-product names), that's a real
+// substitution despite "amazon" also appearing in cloud-host names.
+const FOREIGN_MODEL_NAME_FROM_CLOUD = [
+  "amazon q",
+  "q developer",
+  "kiro",
+];
+
+function hasForeignVendor(text: string): boolean {
+  return FOREIGN_VENDOR_PATTERNS.some((p) => text.includes(p));
+}
+
+function hasCloudHost(text: string): boolean {
+  return CLOUD_HOST_PATTERNS.some((p) => text.includes(p));
+}
+
+function hasForeignModelFromCloud(text: string): boolean {
+  return FOREIGN_MODEL_NAME_FROM_CLOUD.some((p) => text.includes(p));
+}
+
+// Used by probe evaluators. The identity/model-name probes call this to
+// decide if the response identifies as a non-Anthropic model. For
+// model-name we also catch coding-product names that happen to share
+// substrings with cloud hosts (Amazon Q / Kiro / Q Developer).
+function hasForeignIdentity(text: string, probe: "identity" | "model-name"): boolean {
+  if (hasForeignVendor(text)) return true;
+  if (probe === "model-name" && hasForeignModelFromCloud(text)) return true;
+  return false;
 }
 
 type AnthropicResponse = {
@@ -192,18 +238,35 @@ function extractAnthropicText(data: unknown): string | null {
     .toLowerCase();
 }
 
-type ProbeSignal = "coding-tool" | "scam" | "foreign" | "blank" | null;
+type ProbeSignal =
+  | "coding-tool"
+  | "scam"
+  | "foreign"
+  | "cloud-host"
+  | "blank"
+  | null;
 type ProbeResult = {
   pass: boolean;
   authenticityRefusal: boolean;
   signal: ProbeSignal;
 };
 
-function detectSignal(text: string): ProbeSignal {
+// Probe label is passed in so identity/model-name can apply different
+// rules: identity treats cloud-host names as a soft signal (real Bedrock
+// Claude often says "amazon"), model-name treats them as hard fails
+// (real Claude on Bedrock still says "claude" when asked the model name;
+// "amazon q" or similar means it's actually Kiro, not Claude).
+function detectSignal(text: string, probeLabel: string): ProbeSignal {
   if (text.length === 0) return "blank";
   if (hasCodingToolRefusal(text)) return "coding-tool";
   if (hasScamPage(text)) return "scam";
-  if (hasForeignIdentity(text)) return "foreign";
+  if (probeLabel === "identity" || probeLabel === "model-name") {
+    if (
+      hasForeignIdentity(text, probeLabel as "identity" | "model-name")
+    )
+      return "foreign";
+    if (probeLabel === "identity" && hasCloudHost(text)) return "cloud-host";
+  }
   return null;
 }
 
@@ -264,7 +327,7 @@ async function runAnthropicProbe(opts: {
     });
     return { pass: false, authenticityRefusal: false, signal: null };
   }
-  const signal = detectSignal(text);
+  const signal = detectSignal(text, opts.label);
   const refusal = signal === "coding-tool";
   const result = opts.evaluate(text);
   addAuthenticityProbe(opts.logKey, {
@@ -316,14 +379,24 @@ export async function testAnthropicAuthenticity(opts: {
     ...opts,
     label: "identity",
     prompt:
-      "What company created you? Reply with only the company name, one word.",
+      "Which AI lab developed and trained the model you are running on? " +
+      "Not the company hosting you, the lab that trained the model. " +
+      "Reply with only the lab name, one word.",
     maxTokens: 30,
     evaluate: (text) => {
       if (hasCodingToolRefusal(text)) return false;
       if (hasScamPage(text)) return false;
-      if (!text.includes("anthropic")) return false;
-      if (hasForeignIdentity(text)) return false;
-      return true;
+      // Reject hard foreign vendors (gemini, openai, deepseek, etc.).
+      if (hasForeignIdentity(text, "identity")) return false;
+      // Accept "anthropic" — the canonical correct answer.
+      if (text.includes("anthropic")) return true;
+      // Accept cloud-host names as a soft pass: real Claude on
+      // Bedrock/Vertex/Foundry sometimes still answers "amazon" / "google"
+      // because of platform-injected system prompts that override the
+      // distinction we asked for. Less reliable than "anthropic" but not
+      // proof of substitution.
+      if (hasCloudHost(text)) return true;
+      return false;
     },
   });
   const r4 = await runAnthropicProbe({
@@ -335,9 +408,9 @@ export async function testAnthropicAuthenticity(opts: {
     evaluate: (text) => {
       if (hasCodingToolRefusal(text)) return false;
       if (hasScamPage(text)) return false;
+      if (hasForeignIdentity(text, "model-name")) return false;
       if (!text.includes("claude") && !text.includes("anthropic"))
         return false;
-      if (hasForeignIdentity(text)) return false;
       return true;
     },
   });

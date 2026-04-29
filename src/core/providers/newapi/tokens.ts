@@ -107,6 +107,7 @@ export async function ensureTokens(
   ctx: ClientContext,
   groups: GroupInfo[],
   prefix: string,
+  options?: { skipCleanup?: boolean },
 ): Promise<{
   tokens: Record<string, string>;
   created: number;
@@ -144,20 +145,27 @@ export async function ensureTokens(
     groups.map((g) => tokenNameForGroup(g.name)),
   );
 
-  for (const token of existingTokens) {
-    throwIfRunAborted();
-    if (
-      token.name.endsWith(`-${prefix}`) &&
-      !desiredTokenNames.has(token.name)
-    ) {
-      if (await deleteToken(ctx, token.id)) {
-        consola.info(
-          t("CORE.NEWAPI.TOKEN_DELETED_STALE", {
-            name: ctx.name,
-            token: token.name,
-          }),
-        );
-        deleted++;
+  // Skip token cleanup when caller indicates a partial sync (e.g. when
+  // the user passed --models <glob>). The current `groups` list only
+  // covers groups that produced models matching the filter, so any
+  // existing token bound to a non-matching group would look "stale" and
+  // get deleted destructively. Better to leave them alone.
+  if (!options?.skipCleanup) {
+    for (const token of existingTokens) {
+      throwIfRunAborted();
+      if (
+        token.name.endsWith(`-${prefix}`) &&
+        !desiredTokenNames.has(token.name)
+      ) {
+        if (await deleteToken(ctx, token.id)) {
+          consola.info(
+            t("CORE.NEWAPI.TOKEN_DELETED_STALE", {
+              name: ctx.name,
+              token: token.name,
+            }),
+          );
+          deleted++;
+        }
       }
     }
   }

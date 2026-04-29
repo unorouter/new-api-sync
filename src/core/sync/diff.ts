@@ -1,5 +1,9 @@
 import type { RuntimeConfig } from "@core/config";
-import { parseModelList, VENDOR_MATCHERS } from "@core/models/constants";
+import {
+  matchesAnyPattern,
+  parseModelList,
+  VENDOR_MATCHERS,
+} from "@core/models/constants";
 import type {
   Channel,
   DesiredState,
@@ -328,9 +332,22 @@ export function buildSyncDiff(
     }
   }
 
+  // When a model filter is set (--models), narrow the deletion scope so
+  // channels for unrelated models stay untouched. A channel is in-scope
+  // for deletion only if at least one of its current models matches the
+  // filter — otherwise the user clearly didn't intend to manage it on
+  // this run, and deleting it would be destructive surprise behavior.
+  const modelFilter = config.modelFilter;
+  const channelInModelFilterScope = (channel: Channel): boolean => {
+    if (!modelFilter || modelFilter.length === 0) return true;
+    const channelModels = parseModelList(channel.models);
+    return channelModels.some((m) => matchesAnyPattern(m, modelFilter));
+  };
+
   for (const existing of snapshot.channels) {
     if (!existing.tag || !managedProviders.has(existing.tag)) continue;
     if (desiredByName.has(existing.name)) continue;
+    if (!channelInModelFilterScope(existing)) continue;
 
     channelOps.push({
       type: "delete",
@@ -437,6 +454,11 @@ export function buildSyncDiff(
     const modelName = existing.model_name;
     if (desired.models.has(modelName)) continue;
     if (protectedModels.has(modelName)) continue;
+    // Skip deletion of models outside the model filter scope. Same
+    // reasoning as channels above — narrow the diff to the slice the
+    // user actually asked about.
+    if (modelFilter && modelFilter.length > 0
+        && !matchesAnyPattern(modelName, modelFilter)) continue;
 
     const isMappingSource = desired.mappingSources.has(modelName);
     if (!isMappingSource && existing.sync_official !== 1) continue;
