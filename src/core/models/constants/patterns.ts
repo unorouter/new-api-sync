@@ -6,6 +6,19 @@ export function matchPattern(text: string, pattern: string): boolean {
   return micromatch.isMatch(text, pattern);
 }
 
+// Blacklist matches use substring semantics for non-glob patterns: a
+// blacklist entry "kiro" should catch group/channel names like
+// "cc-kiro", "claude_kiro", etc. matchPattern's equality semantics is
+// the right default for model names (where exact match is what users
+// expect), but for blacklist entries against group/channel names we
+// want substring match, since the user typically doesn't know the
+// exact upstream-side naming. Glob patterns ("*-kiro-*") still go
+// through micromatch.
+function matchBlacklistEntry(text: string, pattern: string): boolean {
+  if (pattern.includes("*")) return micromatch.isMatch(text, pattern);
+  return text.includes(pattern);
+}
+
 export function matchesBlacklist(
   text: string,
   blacklist?: string[],
@@ -20,10 +33,10 @@ export function matchesBlacklist(
     if (slashIdx !== -1 && s !== undefined) {
       const scopePart = pattern.slice(0, slashIdx);
       const textPart = pattern.slice(slashIdx + 1);
-      return s === scopePart && matchPattern(t, textPart);
+      return s === scopePart && matchBlacklistEntry(t, textPart);
     }
     if (slashIdx !== -1) return false;
-    return matchPattern(t, pattern);
+    return matchBlacklistEntry(t, pattern);
   });
 }
 
