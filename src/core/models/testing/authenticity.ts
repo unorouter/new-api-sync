@@ -223,6 +223,19 @@ function hasForeignIdentity(text: string, probe: "identity" | "model-name"): boo
   return false;
 }
 
+// Known-fake response signatures observed in the wild. When multiple
+// upstreams return identical, unusually-formatted model-name responses,
+// it's a fingerprint of a shared substitution backend being resold by
+// different resellers. Real Claude responses vary stylistically across
+// providers; exact-string-match across providers means a single fake
+// backend.
+const FAKE_RESPONSE_SIGNATURES = [
+  // Seen across yun/特价 Claude Code, yun/逆向, pol/Claude-code稳定,
+  // pol/中转低价, v3/claude_kiro on opus channels. The unusual `(4.0)`
+  // parenthesized format is the giveaway.
+  "claude sonnet (4.0)",
+];
+
 type AnthropicResponse = {
   type?: string;
   content?: Array<{ type?: string; text?: string }>;
@@ -411,6 +424,16 @@ export async function testAnthropicAuthenticity(opts: {
       if (hasForeignIdentity(text, "model-name")) return false;
       if (!text.includes("claude") && !text.includes("anthropic"))
         return false;
+      // Known-fake response-signature blocklist. Multiple upstreams
+      // returning identical, unusually-formatted model-name responses
+      // are a signature of a shared substitution backend being resold —
+      // real Claude doesn't produce exact-string-match responses across
+      // different providers. We don't enforce general family/version
+      // mismatch because real Anthropic Claude is genuinely unreliable
+      // about its own model name. We only flag specific signatures
+      // observed in the wild.
+      const trimmed = text.trim();
+      if (FAKE_RESPONSE_SIGNATURES.includes(trimmed)) return false;
       return true;
     },
   });
