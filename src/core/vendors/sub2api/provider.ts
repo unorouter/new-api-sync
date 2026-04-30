@@ -13,7 +13,15 @@ import type {
   ProviderResult,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import { recordProviderCost, testAndFilterModels } from "@core/testing/runner";
+import {
+  resolveSourceMetadata,
+  type PricingSource,
+} from "@core/pricing/resolver";
+import {
+  recordProviderCost,
+  testAndFilterModels,
+  type ModelCapabilityHint,
+} from "@core/testing/runner";
 import type { ProviderReport } from "@core/types";
 import type { Sub2ApiProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
@@ -160,9 +168,39 @@ async function resolveViaGroups(
   return resolved;
 }
 
+function buildCapabilityMap(
+  upstreamModels: string[],
+  config: RuntimeConfig,
+  ctx: {
+    pricingSources: PricingSource[];
+    reverseMapping: Map<string, string>;
+  },
+): Map<string, ModelCapabilityHint> {
+  const map = new Map<string, ModelCapabilityHint>();
+  for (const upstream of upstreamModels) {
+    const exposed = config.modelMapping?.[upstream] ?? upstream;
+    const md = resolveSourceMetadata(
+      exposed,
+      ctx.pricingSources,
+      ctx.reverseMapping,
+    );
+    if (md.supportsTools !== undefined || md.isReasoning !== undefined) {
+      map.set(upstream, {
+        supportsTools: md.supportsTools,
+        isReasoning: md.isReasoning,
+      });
+    }
+  }
+  return map;
+}
+
 export async function processSub2ApiProvider(
   providerConfig: Sub2ApiProviderConfig,
   config: RuntimeConfig,
+  ctx: {
+    pricingSources: PricingSource[];
+    reverseMapping: Map<string, string>;
+  },
 ): Promise<ProviderResult> {
   const report: ProviderReport = {
     name: providerConfig.name,
@@ -223,14 +261,17 @@ export async function processSub2ApiProvider(
         CHANNEL_TYPES.OPENAI;
       const useResponsesAPI = groupInfo.platform === "openai";
 
+      const upstreamModels = [...groupInfo.models];
+      const capabilities = buildCapabilityMap(upstreamModels, config, ctx);
       const filterResult = await testAndFilterModels({
-        allModels: [...groupInfo.models],
+        allModels: upstreamModels,
         baseUrl: providerConfig.baseUrl,
         apiKey: groupInfo.apiKey,
         channelType,
         providerLabel: `${providerConfig.name}/${groupInfo.platform}`,
         testableModelTypes: getTestModelTypes(config, providerConfig),
         useResponsesAPI,
+        capabilities,
       });
       const workingModels = filterResult.workingModels;
 

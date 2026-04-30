@@ -15,8 +15,15 @@ import type {
   ProviderResult,
   UpstreamOffer,
 } from "@core/pricing/offers";
+import {
+  resolveSourceMetadata,
+  type PricingSource,
+} from "@core/pricing/resolver";
 import { tryFetchJson } from "@core/runtime";
-import { testAndFilterModels } from "@core/testing/runner";
+import {
+  testAndFilterModels,
+  type ModelCapabilityHint,
+} from "@core/testing/runner";
 import type { ProviderReport } from "@core/types";
 import type { OpenRouterProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
@@ -49,9 +56,39 @@ async function fetchOpenRouterBalance(
   return data.data.total_credits - data.data.total_usage;
 }
 
+function buildCapabilityMap(
+  upstreamModels: string[],
+  config: RuntimeConfig,
+  ctx: {
+    pricingSources: PricingSource[];
+    reverseMapping: Map<string, string>;
+  },
+): Map<string, ModelCapabilityHint> {
+  const map = new Map<string, ModelCapabilityHint>();
+  for (const upstream of upstreamModels) {
+    const exposed = config.modelMapping?.[upstream] ?? upstream;
+    const md = resolveSourceMetadata(
+      exposed,
+      ctx.pricingSources,
+      ctx.reverseMapping,
+    );
+    if (md.supportsTools !== undefined || md.isReasoning !== undefined) {
+      map.set(upstream, {
+        supportsTools: md.supportsTools,
+        isReasoning: md.isReasoning,
+      });
+    }
+  }
+  return map;
+}
+
 export async function processOpenRouterProvider(
   providerConfig: OpenRouterProviderConfig,
   config: RuntimeConfig,
+  ctx: {
+    pricingSources: PricingSource[];
+    reverseMapping: Map<string, string>;
+  },
 ): Promise<ProviderResult> {
   const report: ProviderReport = {
     name: providerConfig.name,
@@ -160,6 +197,7 @@ export async function processOpenRouterProvider(
         }),
       );
 
+      const capabilities = buildCapabilityMap(filtered, config, ctx);
       const filterResult = await testAndFilterModels({
         allModels: filtered,
         baseUrl: providerConfig.baseUrl,
@@ -168,6 +206,7 @@ export async function processOpenRouterProvider(
         providerLabel: providerConfig.name,
         testableModelTypes: new Set(["text"]),
         acceptRateLimited: true,
+        capabilities,
       });
       const working = filterResult.workingModels;
       const details = filterResult.details ?? [];

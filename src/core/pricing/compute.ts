@@ -648,3 +648,31 @@ function buildBaselineCheapestMap(baseline: BaselineInputs): Map<string, number>
   }
   return cheapest;
 }
+
+// =========================================================================
+// Pre-test "above 1x" predictor. The post-test cap path can drop models
+// against canonical retail; this is a stricter, canonical-free check used
+// before testing to avoid paying for models we wouldn't sell at-or-below
+// 1x of the upstream's own ratio. A model is dropped when:
+//
+//   effective = groupRatio * (1 + adjustment) > 1
+//
+// i.e. after the per-vendor priceAdjustment, the offer would still bill
+// the customer above the upstream's own listed model_ratio.
+// =========================================================================
+export interface PredictAboveOneArgs {
+  groupRatio: number;
+  adjustment: number;
+}
+
+export interface PredictedAboveOne {
+  effectiveRatio: number;
+}
+
+export function predictAboveOne(
+  args: PredictAboveOneArgs,
+): PredictedAboveOne | undefined {
+  const effectiveRatio = args.groupRatio * (1 + args.adjustment);
+  if (effectiveRatio <= 1) return undefined;
+  return { effectiveRatio };
+}

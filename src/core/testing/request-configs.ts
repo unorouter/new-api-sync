@@ -141,10 +141,18 @@ const TOOL_PROMPT = "What is 2+2? You must use the calculator tool to answer.";
 
 export function getToolCallConfig(
   opts: ModelRequestOpts,
+  meta?: { supportsTools?: boolean; isReasoning?: boolean },
 ): ToolCallRequestConfig | null {
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
 
   if (useResponsesAPI) return null;
+  // Capability-driven skip: external pricing metadata (LiteLLM/OpenRouter/
+  // basellm) tells us when a model can't use tool_choice. Reasoning-only
+  // models reject the tool sub-test with a 4xx; skipping avoids paying for
+  // requests that would always fail. Name-pattern fallback covers models
+  // missing metadata (e.g. local *-thinking aliases).
+  if (meta?.supportsTools === false) return null;
+  if (meta?.isReasoning === true) return null;
   if (model.endsWith("-thinking") || model.includes("-thinking-")) return null;
 
   if (channelType === CHANNEL_TYPES.ANTHROPIC) {

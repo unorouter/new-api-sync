@@ -16,8 +16,15 @@ import type {
   ProviderResult,
   UpstreamOffer,
 } from "@core/pricing/offers";
+import {
+  resolveSourceMetadata,
+  type PricingSource,
+} from "@core/pricing/resolver";
 import { NVIDIA_RETRY_POLICY } from "@core/testing/execution";
-import { testAndFilterModels } from "@core/testing/runner";
+import {
+  testAndFilterModels,
+  type ModelCapabilityHint,
+} from "@core/testing/runner";
 import type { ProviderReport } from "@core/types";
 import type { NvidiaProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
@@ -25,9 +32,39 @@ import { consola } from "consola";
 import { partitionByVendor } from "../shared/partition";
 import { discoverNvidiaModels } from "./discovery";
 
+function buildCapabilityMap(
+  upstreamModels: string[],
+  config: RuntimeConfig,
+  ctx: {
+    pricingSources: PricingSource[];
+    reverseMapping: Map<string, string>;
+  },
+): Map<string, ModelCapabilityHint> {
+  const map = new Map<string, ModelCapabilityHint>();
+  for (const upstream of upstreamModels) {
+    const exposed = config.modelMapping?.[upstream] ?? upstream;
+    const md = resolveSourceMetadata(
+      exposed,
+      ctx.pricingSources,
+      ctx.reverseMapping,
+    );
+    if (md.supportsTools !== undefined || md.isReasoning !== undefined) {
+      map.set(upstream, {
+        supportsTools: md.supportsTools,
+        isReasoning: md.isReasoning,
+      });
+    }
+  }
+  return map;
+}
+
 export async function processNvidiaProvider(
   providerConfig: NvidiaProviderConfig,
   config: RuntimeConfig,
+  ctx: {
+    pricingSources: PricingSource[];
+    reverseMapping: Map<string, string>;
+  },
 ): Promise<ProviderResult> {
   const report: ProviderReport = {
     name: providerConfig.name,
@@ -111,6 +148,7 @@ export async function processNvidiaProvider(
       Awaited<ReturnType<typeof testAndFilterModels>>["details"]
     > = [];
     if (textModels.length > 0) {
+      const capabilities = buildCapabilityMap(textModels, config, ctx);
       const filterResult = await testAndFilterModels({
         allModels: textModels,
         baseUrl: providerConfig.baseUrl,
@@ -119,6 +157,7 @@ export async function processNvidiaProvider(
         providerLabel: providerConfig.name,
         testableModelTypes: getTestModelTypes(config, providerConfig),
         retryPolicy: NVIDIA_RETRY_POLICY,
+        capabilities,
       });
       workingTextModels = filterResult.workingModels;
       textDetails = filterResult.details ?? [];

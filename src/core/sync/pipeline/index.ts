@@ -71,7 +71,7 @@ export async function runProviderPipeline(
     originalEndpointsByName,
     normalizedEndpointsByName,
     aggregatedEndpointPaths,
-  } = await runAllProviders(config);
+  } = await runAllProviders(config, { pricingSources, reverseMapping });
 
   const canonical = resolveCanonicalRetail({
     allOffers,

@@ -1,5 +1,6 @@
 import type { RuntimeConfig } from "@core/config";
 import type { UpstreamOffer } from "@core/pricing/offers";
+import type { PricingSource } from "@core/pricing/resolver";
 import { throwIfRunAborted } from "@core/runtime";
 import type { ProviderReport } from "@core/types";
 import type {
@@ -36,7 +37,13 @@ const TYPE_ORDER: Record<string, number> = {
  * - aggregatedEndpointPaths — endpoint type -> {path, method}, last-write
  *   wins on collision (matches pre-refactor behaviour)
  */
-export async function runAllProviders(config: RuntimeConfig): Promise<{
+export async function runAllProviders(
+  config: RuntimeConfig,
+  ctx: {
+    pricingSources: PricingSource[];
+    reverseMapping: Map<string, string>;
+  },
+): Promise<{
   reports: ProviderReport[];
   offers: UpstreamOffer[];
   originalEndpointsByName: Map<string, string[]>;
@@ -51,18 +58,27 @@ export async function runAllProviders(config: RuntimeConfig): Promise<{
     sorted.map((provider) => {
       throwIfRunAborted();
       if (provider.type === "newapi") {
-        return processNewApiProvider(provider as ProviderConfig, config);
+        return processNewApiProvider(provider as ProviderConfig, config, ctx);
       }
       if (provider.type === "nvidia") {
-        return processNvidiaProvider(provider as NvidiaProviderConfig, config);
+        return processNvidiaProvider(
+          provider as NvidiaProviderConfig,
+          config,
+          ctx,
+        );
       }
       if (provider.type === "openrouter") {
         return processOpenRouterProvider(
           provider as OpenRouterProviderConfig,
           config,
+          ctx,
         );
       }
-      return processSub2ApiProvider(provider as Sub2ApiProviderConfig, config);
+      return processSub2ApiProvider(
+        provider as Sub2ApiProviderConfig,
+        config,
+        ctx,
+      );
     }),
   );
 

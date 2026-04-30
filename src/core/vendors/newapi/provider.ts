@@ -11,14 +11,24 @@ import {
   getTestModelTypes,
   type RuntimeConfig,
 } from "@core/config";
+import { predictAboveOne } from "@core/pricing/compute";
+import { resolvePriceAdjustment } from "@core/pricing/index";
 import type {
   EndpointPathInfo,
   OfferModel,
   ProviderResult,
   UpstreamOffer,
 } from "@core/pricing/offers";
+import {
+  resolveSourceMetadata,
+  type PricingSource,
+} from "@core/pricing/resolver";
 import { throwIfRunAborted } from "@core/runtime";
-import { recordProviderCost, testAndFilterModels } from "@core/testing/runner";
+import {
+  recordProviderCost,
+  testAndFilterModels,
+  type ModelCapabilityHint,
+} from "@core/testing/runner";
 import type { GroupInfo, ProviderReport } from "@core/types";
 import type { ProviderConfig } from "@core/validations/config";
 import { consola } from "consola";
@@ -63,6 +73,84 @@ function filterGroupModels(
   return result;
 }
 
+/**
+ * Build a per-test-model capability hint map (keyed by upstream name, since
+ * that's what the test runner sees). For each model, resolve metadata from
+ * the external pricing sources using the *exposed* name so model_mapping is
+ * applied. Only `supportsTools` and `isReasoning` are forwarded; the runner
+ * uses these to skip the tool-call sub-test for reasoning-only models.
+ */
+function buildCapabilityMap(
+  upstreamModels: string[],
+  config: RuntimeConfig,
+  ctx: {
+    pricingSources: PricingSource[];
+    reverseMapping: Map<string, string>;
+  },
+): Map<string, ModelCapabilityHint> {
+  const map = new Map<string, ModelCapabilityHint>();
+  for (const upstream of upstreamModels) {
+    const exposed = config.modelMapping?.[upstream] ?? upstream;
+    const md = resolveSourceMetadata(
+      exposed,
+      ctx.pricingSources,
+      ctx.reverseMapping,
+    );
+    if (md.supportsTools !== undefined || md.isReasoning !== undefined) {
+      map.set(upstream, {
+        supportsTools: md.supportsTools,
+        isReasoning: md.isReasoning,
+      });
+    }
+  }
+  return map;
+}
+
+function applyPreTestAboveOneGate(opts: {
+  vendorModels: string[];
+  vendor: string;
+  providerConfig: ProviderConfig;
+  config: RuntimeConfig;
+  group: GroupInfo;
+  localNormalizedEndpoints: Map<string, string[]>;
+}): string[] {
+  const kept: string[] = [];
+
+  for (const upstreamName of opts.vendorModels) {
+    const exposed =
+      opts.config.modelMapping?.[upstreamName] ?? upstreamName;
+    const modelType = inferModelType(
+      exposed,
+      undefined,
+      opts.localNormalizedEndpoints,
+    );
+    const adjustment = resolvePriceAdjustment({
+      adj: opts.providerConfig.priceAdjustment,
+      model: exposed,
+      vendor: opts.vendor,
+      modelType,
+      fallback: 0,
+      modelMapping: opts.config.modelMapping,
+    });
+
+    const drop = predictAboveOne({
+      groupRatio: opts.group.ratio,
+      adjustment,
+    });
+
+    if (drop) {
+      consola.info(
+        `[pricing] pre-test drop ${exposed} ${opts.providerConfig.name}/${opts.group.name}/${opts.vendor} ` +
+          `effective=${drop.effectiveRatio.toFixed(2)} (>1x)`,
+      );
+    } else {
+      kept.push(upstreamName);
+    }
+  }
+
+  return kept;
+}
+
 async function cleanupEmptyGroupTokens(
   upstream: NewApiClient,
   groupNames: string[],
@@ -83,6 +171,10 @@ async function cleanupEmptyGroupTokens(
 export async function processNewApiProvider(
   providerConfig: ProviderConfig,
   config: RuntimeConfig,
+  ctx: {
+    pricingSources: PricingSource[];
+    reverseMapping: Map<string, string>;
+  },
 ): Promise<ProviderResult> {
   const report: ProviderReport = {
     name: providerConfig.name,
@@ -253,14 +345,43 @@ export async function processNewApiProvider(
               };
             }
 
+            // Pre-test gate: drop models whose post-adjustment effective
+            // ratio (groupRatio * (1 + priceAdjustment)) is above 1x.
+            // We don't sell text above 1x, so testing them is pure cost.
+            const gatedModels = config.skipUnprofitableText
+              ? applyPreTestAboveOneGate({
+                  vendorModels,
+                  vendor,
+                  providerConfig,
+                  config,
+                  group: p.group,
+                  localNormalizedEndpoints,
+                })
+              : vendorModels;
+
+            if (gatedModels.length === 0) {
+              return {
+                tested: 0,
+                working: 0,
+                offer: null as null | UpstreamOffer,
+              };
+            }
+
+            const capabilities = buildCapabilityMap(
+              gatedModels,
+              config,
+              ctx,
+            );
+
             const filterResult = await testAndFilterModels({
-              allModels: vendorModels,
+              allModels: gatedModels,
               baseUrl: providerConfig.baseUrl,
               apiKey: p.apiKey,
               channelType: probe.channelType,
               providerLabel: `${probeLabel}/${vendor}`,
               testableModelTypes: getTestModelTypes(config, providerConfig),
               modelEndpoints: localNormalizedEndpoints,
+              capabilities,
             });
 
             const workingUpstream = filterResult.workingModels;

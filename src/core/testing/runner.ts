@@ -296,6 +296,11 @@ function isToolChoiceUnsupportedError(result: TestExchange): boolean {
 // Public API
 // ---------------------------------------------------------------------------
 
+export interface ModelCapabilityHint {
+  supportsTools?: boolean;
+  isReasoning?: boolean;
+}
+
 export async function testModels(opts: {
   baseUrl: string;
   apiKey: string;
@@ -318,6 +323,12 @@ export async function testModels(opts: {
    * model — retrying within a sync run won't recover it.
    */
   acceptRateLimited?: boolean;
+  /**
+   * Per-model capability hints from external pricing metadata
+   * (LiteLLM/OpenRouter/basellm). Used to skip the tool-call probe for
+   * reasoning-only or tools-unsupported models before paying the request.
+   */
+  capabilities?: Map<string, ModelCapabilityHint>;
 }): Promise<{
   workingModels: string[];
   details: ModelTestDetail[];
@@ -418,7 +429,7 @@ export async function testModels(opts: {
           : getStreamRequestConfig(reqOpts);
         const toolCallConfig = isNonTextModel
           ? null
-          : getToolCallConfig(reqOpts);
+          : getToolCallConfig(reqOpts, opts.capabilities?.get(model));
 
         const [httpResult, streamResult, toolResult] = await Promise.all([
           withRetry(
@@ -555,6 +566,8 @@ export async function testAndFilterModels(opts: {
   retryPolicy?: RetryPolicy<TestExchange>;
   /** Passed through to `testModels`. See `testModels.acceptRateLimited`. */
   acceptRateLimited?: boolean;
+  /** Passed through to `testModels`. See `testModels.capabilities`. */
+  capabilities?: Map<string, ModelCapabilityHint>;
 }): Promise<{
   workingModels: string[];
   testedCount: number;
@@ -603,6 +616,7 @@ export async function testAndFilterModels(opts: {
       logPrefix: opts.providerLabel,
       retryPolicy: opts.retryPolicy,
       acceptRateLimited: opts.acceptRateLimited,
+      capabilities: opts.capabilities,
     });
     testedWorkingModels = testResult.workingModels;
     details = testResult.details;
