@@ -179,6 +179,8 @@ function buildManagedOptionValues(
         ...Object.keys(parse<Record<string, unknown>>("ModelPrice", {})),
         ...Object.keys(parse<Record<string, unknown>>("CompletionRatio", {})),
         ...Object.keys(parse<Record<string, unknown>>("ImageRatio", {})),
+        ...Object.keys(parse<Record<string, unknown>>("CacheRatio", {})),
+        ...Object.keys(parse<Record<string, unknown>>("CreateCacheRatio", {})),
         ...Object.keys(parse<Record<string, unknown>>("ModelQuotaType", {})),
         ...Object.keys(parse<Record<string, unknown>>("ModelGridPricing", {})),
       ])
@@ -223,6 +225,16 @@ function buildManagedOptionValues(
     modelGuard,
     desired.options.imageRatio,
   );
+  const mergedCacheRatio = mergeProtected(
+    parse<Record<string, number>>("CacheRatio", {}),
+    modelGuard,
+    desired.options.cacheRatio,
+  );
+  const mergedCreateCacheRatio = mergeProtected(
+    parse<Record<string, number>>("CreateCacheRatio", {}),
+    modelGuard,
+    desired.options.createCacheRatio,
+  );
   const mergedModelQuotaType = mergeProtected(
     parse<Record<string, number>>("ModelQuotaType", {}),
     modelGuard,
@@ -256,6 +268,8 @@ function buildManagedOptionValues(
     CompletionRatio: stableJson(mergedCompletionRatio),
     ModelPrice: stableJson(mergedModelPrice),
     ImageRatio: stableJson(mergedImageRatio),
+    CacheRatio: stableJson(mergedCacheRatio),
+    CreateCacheRatio: stableJson(mergedCreateCacheRatio),
     ModelQuotaType: stableJson(mergedModelQuotaType),
     ModelGridPricing: stableJson(mergedModelGridPricing),
     "global.chat_completions_to_responses_policy": responsesPolicy,

@@ -178,11 +178,13 @@ export async function processNvidiaProvider(
       textVendorCount = vendorToModels.size;
 
       for (const model of mappedTextModels) {
+        const existing = state.mergedModels.get(model);
+        if (existing && (existing.ratio > 0 || (existing.modelPrice ?? 0) > 0)) {
+          continue;
+        }
         state.mergedModels.set(model, {
           ratio: 0,
           completionRatio: 0,
-          modelPrice: 0,
-          quotaType: 1,
         });
       }
 
@@ -210,6 +212,10 @@ export async function processNvidiaProvider(
       imageVendorCount = vendorToModels.size;
 
       for (const model of mappedImageModels) {
+        const existing = state.mergedModels.get(model);
+        if (existing && (existing.ratio > 0 || (existing.modelPrice ?? 0) > 0)) {
+          continue;
+        }
         state.mergedModels.set(model, {
           ratio: 0,
           completionRatio: 0,

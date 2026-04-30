@@ -16,12 +16,18 @@ import {
 } from "@core/models/constants";
 import {
   type BasellmEntry,
-  buildFuzzyIndex,
   buildMetadataMap,
   fetchBasellmEntries,
   fetchOpenRouterDescriptions,
-  lookup,
 } from "@core/models/metadata";
+import {
+  buildModelMetadata,
+  deriveTagsFromMetadata,
+  fetchAllPricingSources,
+  type PricingSource,
+  resolveBasePricing,
+  resolveSourceMetadata,
+} from "@core/pricing/resolver";
 import { processDirectProvider } from "@core/providers/direct/provider";
 import { NewApiClient } from "@core/providers/newapi/client";
 import { processNewApiProvider } from "@core/providers/newapi/provider";
@@ -48,102 +54,117 @@ import { t } from "@server/i18n";
 import { consola } from "consola";
 
 /**
- * Apply basellm ratios to all channel models.
- * basellm is the source of truth: when it has an entry, it overrides any
- * value seeded from the upstream target (whose ModelRatio/CompletionRatio
- * may be stale manual entries). Upstream-seeded values only survive for
- * models basellm doesn't cover.
+ * Fill in base ratios from layered pricing sources (LiteLLM > OpenRouter >
+ * basellm-canonical, first-match-wins). Channel-supplied ratios are the
+ * source of truth (they reflect what your upstream actually charges YOU);
+ * external sources are only used for models with no channel data, plus to
+ * fill missing cache_ratio / create_cache_ratio fields.
+ *
+ * Per field, the precedence is:
+ *   ratio / completionRatio:       channel > external (channel = your cost)
+ *   cacheRatio / createCacheRatio: channel > external (channel preferred,
+ *                                  external fills gaps when upstream
+ *                                  doesn't expose cache pricing)
+ *
+ * Skipped:
+ * - models with quotaType >= 1 (per-request / grid pricing — billing
+ *   doesn't go through ratio path so model_ratio doesn't matter)
+ * - models with explicit modelPrice > 0 (same)
+ *
+ * Group-ratio floor enforcement (preventing sales below upstream cost)
+ * lives in buildPriceTiers, not here — it operates on per-tier group
+ * ratios using each provider's own cheapest upstream group ratio.
  */
-function backfillModelRatios(
+function resolveAllModelPricing(
   state: SyncState,
   channels: Channel[],
   modelMapping: Record<string, string>,
-  basellmEntries: BasellmEntry[],
+  sources: PricingSource[],
 ): void {
-  const channelModels = new Set<string>();
+  const allModels = new Set<string>(state.mergedModels.keys());
   for (const ch of channels) {
-    for (const m of parseModelList(ch.models)) channelModels.add(m);
+    for (const m of parseModelList(ch.models)) allModels.add(m);
   }
-  if (channelModels.size === 0) return;
+  if (allModels.size === 0) return;
 
-  if (basellmEntries.length === 0) {
-    consola.warn(t("CORE.PIPELINE.BASELLM_NO_ENTRIES"));
-    return;
-  }
-
-  // Build a map of model_name → cheapest ratios (lowest ratio_model wins).
-  // Variants like "deepseek/deepseek-v3.2" and "deepseek-v3.2" collapse onto
-  // the same base name via normalize() inside buildFuzzyIndex.
-  const basellmRatios = new Map<
-    string,
-    { ratio: number; completionRatio: number }
-  >();
-  for (const entry of basellmEntries) {
-    if (!entry.model_name || entry.ratio_model == null) continue;
-    const existing = basellmRatios.get(entry.model_name);
-    if (!existing || entry.ratio_model < existing.ratio) {
-      basellmRatios.set(entry.model_name, {
-        ratio: entry.ratio_model,
-        completionRatio: entry.ratio_completion ?? 1,
-      });
-    }
-  }
-  const ratioIndex = buildFuzzyIndex(basellmRatios);
   const reverseMapping = buildReverseMapping(modelMapping);
 
-  let applied = 0;
-  let overridden = 0;
+  let backfilled = 0;
+  let cacheFilled = 0;
+  let skippedFixedPrice = 0;
   let missing = 0;
-  const overrides: string[] = [];
-  for (const model of channelModels) {
-    const hit = lookup(model, ratioIndex, reverseMapping);
-    const fromBasellm = hit?.value;
+  const missingModels: string[] = [];
+
+  for (const model of allModels) {
     const existing = state.mergedModels.get(model);
 
-    if (fromBasellm) {
-      if (
-        existing &&
-        (existing.ratio !== fromBasellm.ratio ||
-          existing.completionRatio !== fromBasellm.completionRatio)
-      ) {
-        overridden++;
-        overrides.push(
-          `${model}: ${existing.ratio}/${existing.completionRatio} → ${fromBasellm.ratio}/${fromBasellm.completionRatio}`,
-        );
-      }
-      state.mergedModels.set(model, {
-        ...existing,
-        ratio: fromBasellm.ratio,
-        completionRatio: fromBasellm.completionRatio,
-      });
-      applied++;
-    } else if (!existing) {
+    // Skip models on per-request/grid pricing — ratio path is unused.
+    if (
+      existing &&
+      ((existing.quotaType !== undefined && existing.quotaType >= 1) ||
+        (existing.modelPrice !== undefined && existing.modelPrice > 0))
+    ) {
+      skippedFixedPrice++;
+      continue;
+    }
+
+    const hit =
+      sources.length > 0
+        ? resolveBasePricing(model, sources, reverseMapping)
+        : undefined;
+
+    if (!existing && !hit) {
       missing++;
+      missingModels.push(model);
+      continue;
+    }
+
+    // Backfill case: no channel ratio, use external source.
+    if (!existing && hit) {
+      state.mergedModels.set(model, {
+        ratio: hit.modelRatio,
+        completionRatio: hit.completionRatio,
+        cacheRatio: hit.cacheRatio,
+        createCacheRatio: hit.createCacheRatio,
+        pricingSource: hit.source,
+      });
+      backfilled++;
+      consola.debug(
+        `[pricing] backfill ${model} <- ${hit.source} (${hit.sourceKey}): ratio=${hit.modelRatio.toFixed(4)} completion=${hit.completionRatio.toFixed(2)}`,
+      );
+      continue;
+    }
+
+    // Channel-supplied case: keep channel ratios but fill cache from sources
+    // if the upstream channel didn't expose cache pricing.
+    if (!existing) continue;
+    if (!hit) continue;
+
+    if (existing.cacheRatio === undefined && hit.cacheRatio !== undefined) {
+      existing.cacheRatio = hit.cacheRatio;
+      cacheFilled++;
+    }
+    if (
+      existing.createCacheRatio === undefined &&
+      hit.createCacheRatio !== undefined
+    ) {
+      existing.createCacheRatio = hit.createCacheRatio;
     }
   }
 
   consola.info(
-    t("CORE.PIPELINE.BASELLM_APPLIED", {
-      applied,
-      total: channelModels.size,
-      overridden,
-    }),
+    `[pricing] ${allModels.size} model(s): ${backfilled} backfilled from sources, ${cacheFilled} cache filled, ${skippedFixedPrice} skipped (per-request), ${missing} unresolved`,
   );
-  if (overrides.length > 0) {
-    for (const o of overrides)
-      consola.debug(t("CORE.PIPELINE.BASELLM_OVERRIDE_DETAIL", { detail: o }));
-  }
-  if (missing > 0) {
-    const unfilled = [...channelModels].filter(
-      (m) => !state.mergedModels.has(m),
-    );
-    const details = unfilled.map((m) => {
+  if (missingModels.length > 0) {
+    const details = missingModels.map((m) => {
       const refs = channels
         .filter((ch) => parseModelList(ch.models).includes(m))
         .map((ch) => ch.tag ?? ch.name);
       return refs.length > 0 ? `${m} (${refs.join(", ")})` : m;
     });
-    consola.warn(t("CORE.PIPELINE.NO_RATIOS", { models: details.join(", ") }));
+    consola.warn(
+      `[pricing] no source matched: ${details.join(", ")}`,
+    );
   }
 }
 
@@ -170,6 +191,8 @@ function buildOptionMaps(
   const completionRatio: Record<string, number> = {};
   const modelPrice: Record<string, number> = {};
   const imageRatio: Record<string, number> = {};
+  const cacheRatio: Record<string, number> = {};
+  const createCacheRatio: Record<string, number> = {};
   const modelQuotaType: Record<string, number> = {};
   for (const [name, ratios] of state.mergedModels) {
     const mappedName = modelMapping?.[name] ?? name;
@@ -188,6 +211,13 @@ function buildOptionMaps(
     }
     if (ratios.imageRatio !== undefined && ratios.imageRatio > 0) {
       imageRatio[mappedName] = Math.round(ratios.imageRatio * 10000) / 10000;
+    }
+    if (ratios.cacheRatio !== undefined && ratios.cacheRatio >= 0) {
+      cacheRatio[mappedName] = Math.round(ratios.cacheRatio * 10000) / 10000;
+    }
+    if (ratios.createCacheRatio !== undefined && ratios.createCacheRatio >= 0) {
+      createCacheRatio[mappedName] =
+        Math.round(ratios.createCacheRatio * 10000) / 10000;
     }
     if (ratios.quotaType !== undefined && ratios.quotaType >= 1) {
       modelQuotaType[mappedName] = ratios.quotaType;
@@ -220,6 +250,8 @@ function buildOptionMaps(
     completionRatio,
     modelPrice,
     imageRatio,
+    cacheRatio,
+    createCacheRatio,
     modelQuotaType,
     modelGridPricing,
   };
@@ -239,6 +271,9 @@ function buildDesiredModels(opts: {
    * metadata lands on whichever exposed name the sync actually pushes.
    */
   metadataByUpstream: Record<string, Record<string, unknown>>;
+  /** Pricing sources used to auto-populate model metadata (max tokens,
+   *  capabilities, modalities). Override from enabledModels still wins. */
+  pricingSources: PricingSource[];
 }): Map<string, DesiredModelSpec> {
   const models = new Map<string, DesiredModelSpec>();
 
@@ -299,6 +334,13 @@ function buildDesiredModels(opts: {
   // Gate `Task` on the upstream actually exposing `openai-video`; a name like
   // `grok-imagine-video` can also be resold as chat-completions, in which case
   // it is not a task model for this channel.
+  //
+  // Tags are merged from three sources, in order of precedence:
+  // 1. Type prefix (Text/Image/Video/Audio + optional Task)
+  // 2. basellm tags (already in spec.tags from buildMetadataMap)
+  // 3. Capability tags derived from LiteLLM/OpenRouter metadata
+  //    (Reasoning, Tools, Vision, Audio, Files, Cache, WebSearch, ComputerUse,
+  //    + context-window tag like "200K", "1M")
   for (const [modelName, spec] of models) {
     const originalName = opts.reverseMapping.get(modelName) ?? modelName;
     const eps =
@@ -310,7 +352,22 @@ function buildDesiredModels(opts: {
       eps?.includes("openai-video") ||
       (!eps && getTaskModelOverride(modelName) !== undefined);
     const prefix = isTaskModel ? `${typeTag},Task` : typeTag;
-    const rawTags = spec.tags ? `${prefix},${spec.tags}` : prefix;
+
+    const sourceMd = resolveSourceMetadata(
+      modelName,
+      opts.pricingSources,
+      opts.reverseMapping,
+    );
+    const sourceTags = deriveTagsFromMetadata(sourceMd);
+
+    const rawTags = [
+      prefix,
+      spec.tags ?? "",
+      sourceTags.join(","),
+    ]
+      .filter(Boolean)
+      .join(",");
+
     const seen = new Set<string>();
     const deduped = rawTags
       .split(",")
@@ -329,31 +386,37 @@ function buildDesiredModels(opts: {
         : deduped;
   }
 
-  // Apply per-model metadata overrides from config. Config keys are the
-  // upstream id (`z-ai/glm4.7`); desired models are keyed by the exposed
-  // bare name (`glm4.7`). Build exposed -> upstream from each channel's
-  // model_mapping since that's the real source of bare-name resolution
-  // (global reverseMapping only covers config.modelMapping renames).
-  if (Object.keys(opts.metadataByUpstream).length > 0) {
-    const exposedToUpstream = new Map<string, string>();
-    for (const ch of opts.channels) {
-      if (!ch.model_mapping) continue;
-      try {
-        const mm = JSON.parse(ch.model_mapping) as Record<string, string>;
-        for (const [exposed, upstream] of Object.entries(mm)) {
-          exposedToUpstream.set(exposed, upstream);
-        }
-      } catch {
-        // malformed model_mapping — skip
+  // Apply per-model metadata. Layered: source-derived (LiteLLM > OpenRouter
+  // > basellm) provides defaults, then per-model `enabledModels[].metadata`
+  // overrides win. Config keys are the upstream id (`z-ai/glm4.7`); desired
+  // models are keyed by the exposed bare name (`glm4.7`). Build exposed ->
+  // upstream from each channel's model_mapping since that's the real source
+  // of bare-name resolution (global reverseMapping only covers
+  // config.modelMapping renames).
+  const exposedToUpstream = new Map<string, string>();
+  for (const ch of opts.channels) {
+    if (!ch.model_mapping) continue;
+    try {
+      const mm = JSON.parse(ch.model_mapping) as Record<string, string>;
+      for (const [exposed, upstream] of Object.entries(mm)) {
+        exposedToUpstream.set(exposed, upstream);
       }
+    } catch {
+      // malformed model_mapping — skip
     }
-    for (const [modelName, spec] of models) {
-      const upstream = exposedToUpstream.get(modelName) ?? modelName;
-      const meta =
-        opts.metadataByUpstream[upstream] ?? opts.metadataByUpstream[modelName];
-      if (meta) {
-        spec.metadata = JSON.stringify(meta);
-      }
+  }
+  for (const [modelName, spec] of models) {
+    const upstream = exposedToUpstream.get(modelName) ?? modelName;
+    const override =
+      opts.metadataByUpstream[upstream] ?? opts.metadataByUpstream[modelName];
+    const merged = buildModelMetadata({
+      modelName,
+      sources: opts.pricingSources,
+      reverseMapping: opts.reverseMapping,
+      override,
+    });
+    if (merged) {
+      spec.metadata = JSON.stringify(merged);
     }
   }
 
@@ -393,6 +456,8 @@ export async function runProviderPipeline(
     modelOriginalEndpoints: new Map(),
     endpointPaths: new Map(),
     channelsToCreate: [],
+    canonicalRatios: new Map(),
+    canonicalLookup: () => undefined,
   };
 
   // Seed state with baseline channels/groups from the target so that
@@ -482,11 +547,31 @@ export async function runProviderPipeline(
   const baselineChannelCount = state.channelsToCreate.length;
   const baselineGroupCount = state.mergedGroups.length;
 
-  // Start metadata fetches in parallel (run while providers process)
-  const metadataPromise = Promise.all([
+  // Fetch metadata + pricing sources up front: providers' tier-cap logic needs
+  // canonical retail ratios at channel-build time. basellm is shared between
+  // description/tags enrichment (buildMetadataMap) and the canonical-vendor
+  // pricing source (resolver) — fetched once, used twice.
+  const [basellmEntries, openRouterDescriptions] = await Promise.all([
     fetchBasellmEntries(),
     fetchOpenRouterDescriptions(),
   ]);
+  const pricingSources = await fetchAllPricingSources(basellmEntries);
+
+  // Wire lazy canonical lookup. Providers call state.canonicalLookup(model)
+  // during channel construction to compare upstream effective price against
+  // retail. Caches per-model so repeat lookups are O(1).
+  const reverseMappingForCanon = buildReverseMapping(config.modelMapping);
+  state.canonicalLookup = (model: string): number | undefined => {
+    if (state.canonicalRatios.has(model)) {
+      return state.canonicalRatios.get(model);
+    }
+    const hit = resolveBasePricing(model, pricingSources, reverseMappingForCanon);
+    if (hit) {
+      state.canonicalRatios.set(model, hit.modelRatio);
+      return hit.modelRatio;
+    }
+    return undefined;
+  };
 
   // Process providers (newapi first, then direct, then sub2api last)
   const typeOrder: Record<string, number> = {
@@ -562,12 +647,15 @@ export async function runProviderPipeline(
   }
   const channels = [...channelByName.values()];
 
-  // Resolve metadata fetches (started in parallel with provider processing)
-  const [basellmEntries, openRouterDescriptions] = await metadataPromise;
+  // pricingSources / basellmEntries / openRouterDescriptions are pre-fetched
+  // above so providers can use canonical ratios at channel-build time via
+  // state.canonicalLookup.
 
-  // Backfill model ratios from basellm for models without ratio data
-  // (e.g. sub2api-only models where no newapi provider supplied pricing)
-  backfillModelRatios(state, channels, config.modelMapping, basellmEntries);
+  // Replace channel-seeded ratios with multi-source resolver values.
+  // Priority: LiteLLM > OpenRouter > basellm-canonical. We are the source of
+  // truth: upstream provider channels rely on whatever default ratios we
+  // write here. See plan: source-pros-cons-openrouter-lexical-twilight.md
+  resolveAllModelPricing(state, channels, config.modelMapping, pricingSources);
 
   // Collect pricing grid data from all providers' enabledModels
   const allPricingGrids: Record<string, Record<string, string | number>[]> = {};
@@ -600,6 +688,7 @@ export async function runProviderPipeline(
     openRouterDescriptions,
     modelMapping: config.modelMapping,
     metadataByUpstream: allMetadata,
+    pricingSources,
   });
 
   const responsesApiModels = collectResponsesApiModels(

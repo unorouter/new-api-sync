@@ -82,6 +82,14 @@ function parsePricingV1(ctx: ClientContext, data: PricingResponse): UpstreamPric
     name: m.model_name,
     ratio: m.model_ratio,
     completionRatio: m.completion_ratio,
+    cacheRatio:
+      m.cache_ratio !== undefined && m.cache_ratio >= 0
+        ? m.cache_ratio
+        : undefined,
+    createCacheRatio:
+      m.create_cache_ratio !== undefined && m.create_cache_ratio >= 0
+        ? m.create_cache_ratio
+        : undefined,
     groups: m.enable_groups,
     vendorId: m.vendor_id,
     supportedEndpoints: m.supported_endpoint_types ?? m.endpoints ?? [],

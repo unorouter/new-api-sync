@@ -10,6 +10,8 @@ export interface ModelInfo {
   name: string;
   ratio: number;
   completionRatio: number;
+  cacheRatio?: number;
+  createCacheRatio?: number;
   groups: string[];
   vendorId?: number;
   supportedEndpoints?: string[];
@@ -49,6 +51,8 @@ export interface PricingResponse {
     model_ratio: number;
     model_price: number;
     completion_ratio: number;
+    cache_ratio?: number;
+    create_cache_ratio?: number;
     enable_groups: string[];
     supported_endpoint_types?: string[];
     endpoints?: string[];

@@ -39,6 +39,13 @@ export interface BasellmEntry {
   tags?: string; // "Reasoning,Tools,Files,Vision,128K"
   ratio_model: number;
   ratio_completion: number;
+  ratio_cache?: number;
+  vendor_name?: string;
+  endpoints?: string | null;
+  price_per_m_input?: number;
+  price_per_m_output?: number;
+  price_per_m_cache_read?: number;
+  price_per_m_cache_write?: number;
 }
 
 type BasellmResponse =

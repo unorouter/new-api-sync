@@ -65,6 +65,8 @@ export interface MergedGroup {
   provider: string;
 }
 
+export type PricingSourceName = "litellm" | "openrouter" | "basellm" | "channel";
+
 export interface MergedModel {
   ratio: number;
   completionRatio: number;
@@ -74,6 +76,12 @@ export interface MergedModel {
   imageRatio?: number;
   /** Custom billing type override (3=flat custom, 4=grid pricing). Only set for types >= 2. */
   quotaType?: number;
+  /** Cache-read ratio (multiplier vs input ratio). */
+  cacheRatio?: number;
+  /** Cache-write ratio (multiplier vs input ratio). */
+  createCacheRatio?: number;
+  /** Source that supplied the pricing for diagnostics. */
+  pricingSource?: PricingSourceName;
 }
 
 export interface SyncState {
@@ -86,6 +94,16 @@ export interface SyncState {
   /** Endpoint type → {path, method} from upstream's supported_endpoint map (original keys) */
   endpointPaths: Map<string, { path: string; method: string }>;
   channelsToCreate: Channel[];
+  /** Canonical retail model ratios resolved from external sources only
+   *  (LiteLLM > OpenRouter > basellm). Independent of channel-supplied
+   *  ratios so per-tier "above 1x" decisions can compare against retail.
+   *  Lazily populated on first lookup via canonicalLookup(). */
+  canonicalRatios: Map<string, number>;
+  /** Lazy canonical lookup. Returns the canonical model ratio (USD/M / 2) by
+   *  walking the priority chain LiteLLM > OpenRouter > basellm. Caches into
+   *  canonicalRatios so subsequent lookups are O(1). Returns undefined when
+   *  no source matches. Set up by pipeline once pricing sources are fetched. */
+  canonicalLookup: (model: string) => number | undefined;
 }
 
 // ============ Sync Core Types ============
@@ -115,6 +133,8 @@ export interface ManagedOptionMaps {
   completionRatio: Record<string, number>;
   modelPrice: Record<string, number>;
   imageRatio: Record<string, number>;
+  cacheRatio: Record<string, number>;
+  createCacheRatio: Record<string, number>;
   modelQuotaType: Record<string, number>;
   modelGridPricing: Record<string, GridPricingInfo>;
   defaultUseAutoGroup: boolean;

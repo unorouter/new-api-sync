@@ -124,6 +124,8 @@ export async function runReset(
       CompletionRatio: "{}",
       ModelPrice: "{}",
       ImageRatio: "{}",
+      CacheRatio: "{}",
+      CreateCacheRatio: "{}",
       ModelQuotaType: "{}",
       ModelGridPricing: "{}",
     };

@@ -57,10 +57,11 @@ export function getMetadataFromEnabledModels(
 // Defaults applied post-parse to match the previous Zod .default() semantics.
 export interface RuntimeConfig extends Omit<
   ConfigSchemaType,
-  "blacklist" | "modelMapping" | "skipUnprofitableText" | "providers"
+  "blacklist" | "modelMapping" | "skipUnprofitableText" | "providers" | "maxRatioCap"
 > {
   providers: AnyProviderConfig[];
   skipUnprofitableText: boolean;
+  maxRatioCap: number;
   blacklist: string[];
   modelMapping: Record<string, string>;
   onlyProviders?: Set<string>;
@@ -227,6 +228,7 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
     ...typed,
     providers,
     skipUnprofitableText: typed.skipUnprofitableText ?? true,
+    maxRatioCap: typed.maxRatioCap ?? 3,
     blacklist: mergedBlacklist,
     modelMapping: mergedMapping,
   };

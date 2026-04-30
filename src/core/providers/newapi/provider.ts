@@ -148,11 +148,14 @@ function buildVendorBucketChannels(opts: {
   apiKey: string;
   testDetails?: ModelTestDetail[];
 }): void {
+  // Per-tier cap: drop models whose user-charged price would exceed the
+  // canonical retail price (LiteLLM/OpenRouter/basellm) by more than
+  // maxRatioCap×. The check only fires when effectiveRatio > 1; tiers ≤1x
+  // are always kept (we're at-or-below the upstream's own quoted ratio).
+  const cap = opts.providerConfig.maxRatioCap ?? opts.config.maxRatioCap;
+
   // Group models by their effective ratio (per-model/vendor/type priceAdjustment may differ).
-  const ratioToModels = new Map<
-    number,
-    { models: string[]; nonText: boolean }
-  >();
+  const ratioToModels = new Map<number, { models: string[] }>();
   for (const model of opts.mappedModels) {
     const modelType = inferModelType(
       model,
@@ -168,14 +171,41 @@ function buildVendorBucketChannels(opts: {
       modelMapping: opts.config.modelMapping,
     });
     const effectiveRatio = opts.groupRatio * (1 + vendorAdj);
+
+    // Cap check: only when we're charging above retail's "1x" ratio. The
+    // user-charged ratio is `model_ratio × group_ratio`. We compare against
+    // canonical retail (LiteLLM/OpenRouter/basellm) × cap.
+    //
+    // For the per-model component, prefer this upstream's own pricing.models
+    // entry (what aigc/yun has listed for this model). When that is absent
+    // (model from another provider), fall back to mergedModels (set by an
+    // earlier provider in the run) and lastly to canonical retail itself.
+    if (effectiveRatio > 1) {
+      const upstream = opts.state.mergedModels.get(model);
+      const canonical = opts.state.canonicalLookup(model);
+      const modelRatio =
+        upstream?.ratio ?? canonical ?? 1;
+      const chargeRatio = modelRatio * effectiveRatio;
+      const ceiling = (canonical ?? modelRatio) * cap;
+      if (chargeRatio > ceiling) {
+        consola.info(
+          `[pricing] drop ${model} ${opts.providerConfig.name}/${opts.groupName} ` +
+            `effective=${effectiveRatio.toFixed(2)} ` +
+            `charge=$${(chargeRatio * 2).toFixed(2)}/M ` +
+            `canonical=${canonical !== undefined ? "$" + (canonical * 2).toFixed(2) + "/M" : "n/a"} ` +
+            `cap=${cap}x`,
+        );
+        continue;
+      }
+    }
+
     const key = Math.round(effectiveRatio * 1e6) / 1e6;
     if (!ratioToModels.has(key))
-      ratioToModels.set(key, { models: [], nonText: modelType !== "text" });
+      ratioToModels.set(key, { models: [] });
     ratioToModels.get(key)!.models.push(model);
   }
 
-  const skipUnprofitable =
-    opts.config.skipUnprofitableText && !opts.config.isTestMode;
+  if (ratioToModels.size === 0) return;
 
   // Vendor segment is always present in the channel name. Tier/sub-tier
   // suffixes only appear when there is more than one tier/sub-tier in the
@@ -183,8 +213,7 @@ function buildVendorBucketChannels(opts: {
   const vendorSegment = `-${opts.vendor}`;
 
   let tierIdx = 0;
-  for (const [effectiveRatio, { models, nonText }] of ratioToModels) {
-    if (skipUnprofitable && effectiveRatio >= 1 && !nonText) continue;
+  for (const [effectiveRatio, { models }] of ratioToModels) {
 
     // Sub-split by task-model override. The name-based override only fires
     // when the upstream actually exposes the model as a task endpoint
@@ -428,30 +457,11 @@ export async function processNewApiProvider(
       groups = groups.filter((g) => g.models.length > 0);
     }
 
-    // Skip groups whose effective ratio after priceAdjustment exceeds 1.
-    // With per-vendor adjustments, use the lowest adjustment (biggest discount) to decide
-    // whether the entire group is too expensive. Per-vendor filtering happens later.
-    // In test mode this filter is bypassed so all groups get tested regardless of cost.
-    // Disabled via config.skipUnprofitableText: false.
-    if (!config.isTestMode && config.skipUnprofitableText) {
-      const adj = providerConfig.priceAdjustment;
-      const minAdjustment =
-        adj === undefined
-          ? 0
-          : typeof adj === "number"
-            ? adj
-            : Math.min(...Object.values(adj));
-      const effectiveMultiplier = 1 + minAdjustment;
-      const highRatioGroups = groups.filter(
-        (g) => g.ratio * effectiveMultiplier >= 1,
-      );
-      if (highRatioGroups.length > 0) {
-        consola.info(
-          `[${providerConfig.name}] Skipping ${highRatioGroups.length} group(s) with effective ratio >= 1: ${highRatioGroups.map((g) => `${g.name} (${g.ratio} × ${effectiveMultiplier.toFixed(2)} = ${(g.ratio * effectiveMultiplier).toFixed(2)})`).join(", ")}`,
-        );
-        groups = groups.filter((g) => g.ratio * effectiveMultiplier < 1);
-      }
-    }
+    // Previously: groups whose effective ratio after priceAdjustment >= 1
+    // were skipped entirely (treated as unprofitable). Now we keep them and
+    // let buildVendorBucketChannels apply the discount; tiers that land
+    // above 1x are kept at their calculated rate (sale at upstream cost or
+    // higher beats dropping the listing). Disable via skipUnprofitableText: false.
 
     const tokenPrefix = config.target.targetPrefix ?? providerConfig.name;
     const partialSync = (config.modelFilter?.length ?? 0) > 0;
@@ -470,6 +480,30 @@ export async function processNewApiProvider(
       consola.info(
         `[${providerConfig.name}] Balance: $${startBalance.toFixed(4)}`,
       );
+    }
+
+    // Pre-populate merged model ratios from this provider's pricing.models
+    // BEFORE channel construction so the per-tier cap check can compare
+    // upstream model_ratio × group_ratio against canonical retail. Cheapest
+    // wins across providers (matches the post-loop merge below).
+    for (const model of pricing.models) {
+      const existing = state.mergedModels.get(model.name);
+      if (!existing || model.ratio < existing.ratio) {
+        state.mergedModels.set(model.name, {
+          ratio: model.ratio,
+          completionRatio: model.completionRatio,
+          cacheRatio: model.cacheRatio ?? existing?.cacheRatio,
+          createCacheRatio: model.createCacheRatio ?? existing?.createCacheRatio,
+          modelPrice: model.modelPrice,
+          quotaType: model.quotaType,
+          pricingSource: "channel",
+        });
+      } else if (
+        existing.cacheRatio === undefined &&
+        model.cacheRatio !== undefined
+      ) {
+        existing.cacheRatio = model.cacheRatio;
+      }
     }
 
     // Track groups with no working models to delete their tokens later
@@ -643,18 +677,6 @@ export async function processNewApiProvider(
         tokenPrefix,
         providerReport,
       );
-    }
-
-    for (const model of pricing.models) {
-      const existing = state.mergedModels.get(model.name);
-      if (!existing || model.ratio < existing.ratio) {
-        state.mergedModels.set(model.name, {
-          ratio: model.ratio,
-          completionRatio: model.completionRatio,
-          modelPrice: model.modelPrice,
-          quotaType: model.quotaType,
-        });
-      }
     }
 
     // Log final balance and test cost

@@ -159,11 +159,13 @@ export async function processOpenRouterProvider(
     });
 
     for (const exposed of exposedNames) {
+      const existing = state.mergedModels.get(exposed);
+      if (existing && (existing.ratio > 0 || (existing.modelPrice ?? 0) > 0)) {
+        continue;
+      }
       state.mergedModels.set(exposed, {
         ratio: 0,
         completionRatio: 0,
-        modelPrice: 0,
-        quotaType: 1,
       });
     }
 
