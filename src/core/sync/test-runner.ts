@@ -2,7 +2,7 @@ import { type RuntimeConfig } from "@core/config";
 import {
   initTestReportForDate,
   writeTestReportForDate,
-} from "@core/models/testing/runner";
+} from "@core/testing/runner";
 import { runProviderPipeline } from "@core/sync/pipeline";
 import { t } from "@server/i18n";
 import { consola } from "consola";

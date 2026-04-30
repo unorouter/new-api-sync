@@ -1,12 +1,12 @@
 import { throwIfRunAborted } from "@core/runtime/abort";
 import { getConcurrencyGate } from "@core/runtime/semaphore";
-import { CHANNEL_TYPES } from "@core/models/constants/channel-types";
+import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
 import {
   inferModelType,
   isTestableModel,
-} from "@core/models/constants/inference";
+} from "@core/catalog/constants/inference";
 import { TIMEOUTS, type ModelType } from "@core/types";
-import { logTestSummary } from "@core/models/test-log";
+import { logTestSummary } from "@core/catalog/test-log";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";

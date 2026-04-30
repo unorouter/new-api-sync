@@ -1,11 +1,12 @@
 import {
-  VENDOR_MATCHERS,
+  forEachVendor,
   inferVendorFromModelName,
-} from "@core/models/constants/vendor-matchers";
+} from "@core/catalog/constants/vendor-matchers";
 import {
   type BasellmEntry,
   buildFuzzyIndex,
-} from "@core/models/metadata";
+} from "@core/catalog/metadata";
+import { splitCsv } from "@core/catalog/naming";
 import { consola } from "consola";
 import {
   type BaseModelPricing,
@@ -20,13 +21,13 @@ import {
  */
 function buildVendorNameSet(): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>();
-  for (const [vendor, matcher] of Object.entries(VENDOR_MATCHERS)) {
+  forEachVendor((vendor, matcher) => {
     const set = new Set<string>();
     if (matcher.displayName) set.add(matcher.displayName.toLowerCase());
     set.add(vendor.toLowerCase());
     for (const alias of matcher.nameAliases ?? []) set.add(alias.toLowerCase());
     result.set(vendor, set);
-  }
+  });
   return result;
 }
 
@@ -58,7 +59,7 @@ function entryToPricing(entry: BasellmEntry): BaseModelPricing | undefined {
 function entryToMetadata(entry: BasellmEntry): SourceMetadata {
   const md: SourceMetadata = {};
   if (entry.tags) {
-    const tags = entry.tags.split(",").map((t) => t.trim());
+    const tags = splitCsv(entry.tags);
     md.supportsTools = tags.some((t) => /^Tools$/i.test(t));
     md.supportsVision = tags.some((t) => /^Vision$/i.test(t));
     md.isReasoning = tags.some((t) => /^Reasoning$/i.test(t));

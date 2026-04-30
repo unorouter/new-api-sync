@@ -1,18 +1,18 @@
 import { getTestModelTypes, type RuntimeConfig } from "@core/config";
 import type { Sub2ApiProviderConfig } from "@core/validations/config";
-import { CHANNEL_TYPES } from "@core/models/constants/channel-types";
-import { inferModelType } from "@core/models/constants/inference";
+import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
+import { inferModelType } from "@core/catalog/constants/inference";
 import {
   sanitizeGroupName,
   SUB2API_PLATFORM_CHANNEL_TYPES,
   SUB2API_PLATFORM_TO_VENDOR,
   VENDOR_TO_SUB2API_PLATFORMS,
-} from "@core/models/constants/patterns";
-import { filterModels } from "@core/models/filter";
+} from "@core/catalog/constants/patterns";
+import { filterModels } from "@core/catalog/filter";
 import {
   recordProviderCost,
   testAndFilterModels,
-} from "@core/models/testing/runner";
+} from "@core/testing/runner";
 import type {
   OfferModel,
   ProviderResult,

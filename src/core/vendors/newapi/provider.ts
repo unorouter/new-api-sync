@@ -3,18 +3,18 @@ import {
   getTestModelTypes,
   type RuntimeConfig,
 } from "@core/config";
-import { normalizeEndpointTypes } from "@core/models/constants/endpoints";
-import { inferModelType } from "@core/models/constants/inference";
+import { normalizeEndpointTypes } from "@core/catalog/constants/endpoints";
+import { inferModelType } from "@core/catalog/constants/inference";
 import {
   matchesAnyPattern,
   matchesBlacklist,
   sanitizeGroupName,
-} from "@core/models/constants/patterns";
-import { inferVendorFromModelName } from "@core/models/constants/vendor-matchers";
+} from "@core/catalog/constants/patterns";
+import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
 import {
   recordProviderCost,
   testAndFilterModels,
-} from "@core/models/testing/runner";
+} from "@core/testing/runner";
 import type {
   EndpointPathInfo,
   OfferModel,
@@ -26,22 +26,9 @@ import type { GroupInfo, ProviderReport } from "@core/types";
 import type { ProviderConfig } from "@core/validations/config";
 import { consola } from "consola";
 import { colorize } from "consola/utils";
+import { partitionByVendor } from "../shared/partition";
 import { NewApiClient } from "./client";
 import { probeChannelType } from "./probe-channel-type";
-
-/**
- * Partition a flat model list into vendor buckets. Models without a known
- * vendor matcher land in `unknown` so they still get a channel.
- */
-function partitionByVendor(models: string[]): Map<string, string[]> {
-  const out = new Map<string, string[]>();
-  for (const model of models) {
-    const vendor = inferVendorFromModelName(model) ?? "unknown";
-    if (!out.has(vendor)) out.set(vendor, []);
-    out.get(vendor)!.push(model);
-  }
-  return out;
-}
 
 function filterGroupModels(
   models: string[],
@@ -247,7 +234,11 @@ export async function processNewApiProvider(
     const groupResults = await Promise.all(
       prepared.map(async (p) => {
         throwIfRunAborted();
-        const vendorBuckets = partitionByVendor(p.candidateModels);
+        const vendorBuckets = partitionByVendor(
+          p.candidateModels,
+          (m) => m,
+          "unknown",
+        );
         const probeLabel = `${providerConfig.name}/${p.group.name}`;
 
         const bucketResults = await Promise.all(

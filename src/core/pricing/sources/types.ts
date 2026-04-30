@@ -1,4 +1,4 @@
-import type { FuzzyIndex } from "@core/models/metadata";
+import type { FuzzyIndex } from "@core/catalog/metadata";
 import type { PricingSourceName as AllPricingSourceName } from "@core/types";
 
 /** Subset of PricingSourceName that can supply pricing data (excludes "channel"). */

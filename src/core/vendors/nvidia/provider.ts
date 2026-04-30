@@ -7,14 +7,13 @@ import type { NvidiaProviderConfig } from "@core/validations/config";
 import {
   buildChannelModelMapping,
   resolveBareNames,
-} from "@core/models/bare-name";
-import { CHANNEL_TYPES } from "@core/models/constants/channel-types";
-import { inferModelType } from "@core/models/constants/inference";
-import { sanitizeGroupName } from "@core/models/constants/patterns";
-import { inferVendorFromModelName } from "@core/models/constants/vendor-matchers";
-import { filterModels } from "@core/models/filter";
-import { NVIDIA_RETRY_POLICY } from "@core/models/testing/execution";
-import { testAndFilterModels } from "@core/models/testing/runner";
+} from "@core/catalog/bare-name";
+import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
+import { inferModelType } from "@core/catalog/constants/inference";
+import { sanitizeGroupName } from "@core/catalog/constants/patterns";
+import { filterModels } from "@core/catalog/filter";
+import { NVIDIA_RETRY_POLICY } from "@core/testing/execution";
+import { testAndFilterModels } from "@core/testing/runner";
 import type {
   OfferModel,
   ProviderResult,
@@ -23,27 +22,12 @@ import type {
 import type { ProviderReport } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
+import { partitionByVendor } from "../shared/partition";
 import { discoverNvidiaModels } from "./discovery";
 
 interface BareResolution {
   exposed: string;
   upstream: string;
-}
-
-function partitionByVendor(
-  resolutions: BareResolution[],
-): Map<string, BareResolution[]> {
-  const out = new Map<string, BareResolution[]>();
-  for (const r of resolutions) {
-    const vendor = inferVendorFromModelName(r.exposed) ?? "other";
-    let arr = out.get(vendor);
-    if (!arr) {
-      arr = [];
-      out.set(vendor, arr);
-    }
-    arr.push(r);
-  }
-  return out;
 }
 
 export async function processNvidiaProvider(
@@ -188,7 +172,11 @@ export async function processNvidiaProvider(
 
     // Text offers: free, one per vendor.
     if (textResolutions.length > 0) {
-      const byVendor = partitionByVendor(textResolutions);
+      const byVendor = partitionByVendor(
+        textResolutions,
+        (r) => r.exposed,
+        "other",
+      );
       for (const [vendor, vendorResolutions] of byVendor) {
         const offerModels: OfferModel[] = vendorResolutions.map((r) => {
           const detail = textDetails.find((d) => d.model === r.upstream);
@@ -229,7 +217,11 @@ export async function processNvidiaProvider(
     // -img suffix on the sanitized base so emit produces distinct channel
     // names from the text offers.
     if (imageResolutions.length > 0) {
-      const byVendor = partitionByVendor(imageResolutions);
+      const byVendor = partitionByVendor(
+        imageResolutions,
+        (r) => r.exposed,
+        "other",
+      );
       const imgSanitizedBase = `${sanitizedBase}-img`;
       for (const [vendor, vendorResolutions] of byVendor) {
         const offerModels: OfferModel[] = vendorResolutions.map((r) => ({

@@ -3,8 +3,8 @@ import type { RuntimeConfig } from "@core/config";
 import {
   matchesAnyPattern,
   parseModelList,
-} from "@core/models/constants/patterns";
-import { NewApiClient } from "@core/providers/newapi/client";
+} from "@core/catalog/constants/patterns";
+import { NewApiClient } from "@core/vendors/newapi/client";
 
 export interface ResetResult {
   channelsDeleted: number;

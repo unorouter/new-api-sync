@@ -11,7 +11,7 @@
 // a global PricedPlan. There is no mid-pipeline state mutation.
 
 import type { ModelType } from "@core/types";
-import type { ModelTestDetail } from "@core/models/testing/types";
+import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
 import type { AnyProviderConfig } from "@core/validations/config";
 

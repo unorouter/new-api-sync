@@ -1,10 +1,10 @@
 import { consola } from "consola";
-import { CHANNEL_TYPES } from "@core/models/constants/channel-types";
-import { inferModelType } from "@core/models/constants/inference";
+import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
+import { inferModelType } from "@core/catalog/constants/inference";
 import { TIMEOUTS } from "@core/types";
-import { getRequestConfig } from "@core/models/testing/request-configs";
-import { testRequest } from "@core/models/testing/execution";
-import type { ModelRequestOpts } from "@core/models/testing/types";
+import { getRequestConfig } from "@core/testing/request-configs";
+import { testRequest } from "@core/testing/execution";
+import type { ModelRequestOpts } from "@core/testing/types";
 
 /**
  * The probe's job is to pick between OpenAI / Anthropic / Gemini text-chat

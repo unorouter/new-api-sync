@@ -1,10 +1,14 @@
 import { throwIfRunAborted } from "@core/runtime/abort";
 import type { RuntimeConfig } from "@core/config";
-import { VENDOR_MATCHERS } from "@core/models/constants/vendor-matchers";
+import {
+  findVendorByAlias,
+  forEachVendor,
+  VENDOR_MATCHERS,
+} from "@core/catalog/constants/vendor-matchers";
 import { MANAGED_OPTION_KEYS } from "@core/types";
-import { loadAuthenticityBlacklist } from "@core/models/testing/authenticity";
-import { writeTestReport } from "@core/models/testing/runner";
-import { NewApiClient } from "@core/providers/newapi/client";
+import { loadAuthenticityBlacklist } from "@core/testing/authenticity";
+import { writeTestReport } from "@core/testing/runner";
+import { NewApiClient } from "@core/vendors/newapi/client";
 import { applySyncDiff } from "@core/sync/apply";
 import { buildSyncDiff } from "@core/sync/diff";
 import { runProviderPipeline } from "@core/sync/pipeline";
@@ -25,28 +29,10 @@ async function ensureVendors(
 
   // Build a lookup: canonical vendor name → existing vendor (by name or alias)
   const existingByCanonical = new Map<string, (typeof snap.vendors)[0]>();
-  for (const [canonical, matcher] of Object.entries(VENDOR_MATCHERS)) {
-    // Direct name match
-    const direct = snap.vendors.find(
-      (v) =>
-        v.name.toLowerCase() === canonical ||
-        v.name.toLowerCase() === matcher.displayName?.toLowerCase(),
-    );
-    if (direct) {
-      existingByCanonical.set(canonical, direct);
-      continue;
-    }
-    // Alias match
-    for (const alias of matcher.nameAliases ?? []) {
-      const match = snap.vendors.find((v) =>
-        v.name.toLowerCase().includes(alias.toLowerCase()),
-      );
-      if (match) {
-        existingByCanonical.set(canonical, match);
-        break;
-      }
-    }
-  }
+  forEachVendor((canonical) => {
+    const found = findVendorByAlias(snap.vendors, canonical);
+    if (found) existingByCanonical.set(canonical, found);
+  });
 
   let changed = 0;
   for (const vendor of neededVendors) {

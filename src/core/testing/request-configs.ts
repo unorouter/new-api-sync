@@ -1,4 +1,4 @@
-import { CHANNEL_TYPES } from "@core/models/constants/channel-types";
+import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
 import type {
   ModelRequestOpts,
   RequestConfig,

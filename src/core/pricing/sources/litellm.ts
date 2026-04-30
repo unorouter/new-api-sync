@@ -1,6 +1,7 @@
-import { buildFuzzyIndex } from "@core/models/metadata";
+import { buildFuzzyIndex } from "@core/catalog/metadata";
 import { tryFetchJson } from "@core/runtime/http";
 import { consola } from "consola";
+import { buildPricingMaps } from "./build";
 import {
   type BaseModelPricing,
   type PricingSource,
@@ -37,11 +38,6 @@ interface LiteLLMEntry {
 }
 
 type LiteLLMResponse = Record<string, LiteLLMEntry | unknown>;
-
-function bareName(key: string): string {
-  const slash = key.lastIndexOf("/");
-  return slash >= 0 ? key.slice(slash + 1) : key;
-}
 
 function toPricing(
   key: string,
@@ -114,28 +110,17 @@ export async function fetchLiteLLMSource(): Promise<PricingSource | null> {
     return null;
   }
 
-  const pricingMap = new Map<string, BaseModelPricing>();
-  const metadataMap = new Map<string, SourceMetadata>();
-
+  const validEntries: [string, LiteLLMEntry][] = [];
   for (const [key, value] of Object.entries(raw)) {
     if (key === "sample_spec" || !isLiteLLMEntry(value)) continue;
-    const entry = value;
-
-    const pricing = toPricing(key, entry);
-    const metadata = toMetadata(entry);
-
-    const bare = bareName(key);
-    if (pricing) {
-      // Index under both the full key and the bare suffix. Prefer the full
-      // key when both forms collide (more specific).
-      if (!pricingMap.has(key)) pricingMap.set(key, pricing);
-      if (!pricingMap.has(bare)) pricingMap.set(bare, pricing);
-    }
-    if (Object.keys(metadata).length > 0) {
-      if (!metadataMap.has(key)) metadataMap.set(key, metadata);
-      if (!metadataMap.has(bare)) metadataMap.set(bare, metadata);
-    }
+    validEntries.push([key, value]);
   }
+
+  const { pricingMap, metadataMap } = buildPricingMaps({
+    entries: validEntries,
+    toPricing,
+    toMetadata,
+  });
 
   consola.info(
     `[pricing] LiteLLM loaded ${pricingMap.size} pricing entries, ${metadataMap.size} metadata entries`,

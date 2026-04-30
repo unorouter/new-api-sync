@@ -1,6 +1,7 @@
-import { buildFuzzyIndex } from "@core/models/metadata";
+import { buildFuzzyIndex } from "@core/catalog/metadata";
 import { tryFetchJson } from "@core/runtime/http";
 import { consola } from "consola";
+import { buildPricingMaps } from "./build";
 import {
   type BaseModelPricing,
   type PricingSource,
@@ -48,11 +49,6 @@ function parseUsdPerToken(s: string | undefined): number | undefined {
   if (s == null || s === "") return undefined;
   const n = Number(s);
   return Number.isFinite(n) ? n : undefined;
-}
-
-function bareName(id: string): string {
-  const slash = id.lastIndexOf("/");
-  return slash >= 0 ? id.slice(slash + 1) : id;
 }
 
 function toPricing(model: OpenRouterModel): BaseModelPricing | undefined {
@@ -120,23 +116,17 @@ export async function fetchOpenRouterPricingSource(): Promise<PricingSource | nu
     return null;
   }
 
-  const pricingMap = new Map<string, BaseModelPricing>();
-  const metadataMap = new Map<string, SourceMetadata>();
-
+  const validEntries: [string, OpenRouterModel][] = [];
   for (const model of raw.data) {
     if (!model.id) continue;
-    const pricing = toPricing(model);
-    const metadata = toMetadata(model);
-    const bare = bareName(model.id);
-    if (pricing) {
-      if (!pricingMap.has(model.id)) pricingMap.set(model.id, pricing);
-      if (!pricingMap.has(bare)) pricingMap.set(bare, pricing);
-    }
-    if (Object.keys(metadata).length > 0) {
-      if (!metadataMap.has(model.id)) metadataMap.set(model.id, metadata);
-      if (!metadataMap.has(bare)) metadataMap.set(bare, metadata);
-    }
+    validEntries.push([model.id, model]);
   }
+
+  const { pricingMap, metadataMap } = buildPricingMaps({
+    entries: validEntries,
+    toPricing: (_key, model) => toPricing(model),
+    toMetadata,
+  });
 
   consola.info(
     `[pricing] OpenRouter loaded ${pricingMap.size} pricing entries, ${metadataMap.size} metadata entries`,

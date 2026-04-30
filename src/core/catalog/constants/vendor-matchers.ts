@@ -161,3 +161,42 @@ export function inferVendorFromModelName(name: string): string | undefined {
   }
   return undefined;
 }
+
+/**
+ * Iterate every (canonical, matcher) pair in VENDOR_MATCHERS. Co-located
+ * here so callers don't repeat `Object.entries(VENDOR_MATCHERS)` and so the
+ * iteration shape is decoupled from the storage shape.
+ */
+export function forEachVendor(
+  fn: (canonical: string, matcher: VendorMatcher) => void,
+): void {
+  for (const [canonical, matcher] of Object.entries(VENDOR_MATCHERS)) {
+    fn(canonical, matcher);
+  }
+}
+
+/**
+ * Find a vendor entry from a list whose name matches the canonical key,
+ * its `displayName`, or any of its `nameAliases`. Returns undefined if no
+ * match is found. Used by the sync/diff code to map our canonical vendor
+ * keys onto whatever names the upstream new-api instance uses.
+ */
+export function findVendorByAlias<V extends { name: string }>(
+  vendors: V[],
+  canonical: string,
+): V | undefined {
+  const matcher = VENDOR_MATCHERS[canonical];
+  const direct = vendors.find(
+    (v) =>
+      v.name.toLowerCase() === canonical ||
+      v.name.toLowerCase() === matcher?.displayName?.toLowerCase(),
+  );
+  if (direct) return direct;
+  for (const alias of matcher?.nameAliases ?? []) {
+    const match = vendors.find((v) =>
+      v.name.toLowerCase().includes(alias.toLowerCase()),
+    );
+    if (match) return match;
+  }
+  return undefined;
+}

@@ -1,4 +1,4 @@
-import { matchesAnyPattern } from "@core/models/constants/patterns";
+import { matchesAnyPattern } from "@core/catalog/constants/patterns";
 import type { AnyProviderConfig } from "@core/validations/config";
 
 /**

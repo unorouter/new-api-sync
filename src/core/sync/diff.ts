@@ -2,8 +2,8 @@ import type { RuntimeConfig } from "@core/config";
 import {
   matchesAnyPattern,
   parseModelList,
-} from "@core/models/constants/patterns";
-import { VENDOR_MATCHERS } from "@core/models/constants/vendor-matchers";
+} from "@core/catalog/constants/patterns";
+import { forEachVendor } from "@core/catalog/constants/vendor-matchers";
 import { deepEqual } from "fast-equals";
 import stringify from "safe-stable-stringify";
 import type {
@@ -158,6 +158,16 @@ function buildManagedOptionValues(
     }
   };
 
+  // Merge `desired` into the parsed snapshot value at `key`, preserving any
+  // existing keys covered by `guard`. Collapses the eight near-identical
+  // mergeProtected(parse(...), guard, desired) calls below.
+  const mergeOption = <T>(
+    key: string,
+    guard: Set<string>,
+    desired: Record<string, T>,
+  ): Record<string, T> =>
+    mergeProtected(parse<Record<string, T>>(key, {}), guard, desired);
+
   // During partial syncs (--only), guard existing option keys from providers
   // NOT in this run. Groups belonging to managed providers must be updatable.
   const managedGroups = new Set(
@@ -187,18 +197,16 @@ function buildManagedOptionValues(
       ])
     : modelRatioGuard;
 
-  const mergedGroupRatio = mergeProtected(
-    parse<Record<string, number>>("GroupRatio", {}),
+  const mergedGroupRatio = mergeOption(
+    "GroupRatio",
     groupGuard,
     desired.options.groupRatio,
   );
-
   const mergedUserGroups = mergeProtected(
     parse<Record<string, string>>("UserUsableGroups", {}),
     groupGuard,
     { auto: DEFAULT_AUTO_LABEL, ...desired.options.userUsableGroups },
   );
-
   const mergedAutoGroups = [
     ...new Set([
       ...parse<string[]>("AutoGroups", []).filter((g) => groupGuard.has(g)),
@@ -206,43 +214,43 @@ function buildManagedOptionValues(
     ]),
   ].sort((a, b) => (mergedGroupRatio[a] ?? 1) - (mergedGroupRatio[b] ?? 1));
 
-  const mergedModelRatio = mergeProtected(
-    parse<Record<string, number>>("ModelRatio", {}),
+  const mergedModelRatio = mergeOption(
+    "ModelRatio",
     modelGuard,
     desired.options.modelRatio,
   );
-  const mergedCompletionRatio = mergeProtected(
-    parse<Record<string, number>>("CompletionRatio", {}),
+  const mergedCompletionRatio = mergeOption(
+    "CompletionRatio",
     modelGuard,
     desired.options.completionRatio,
   );
-  const mergedModelPrice = mergeProtected(
-    parse<Record<string, number>>("ModelPrice", {}),
+  const mergedModelPrice = mergeOption(
+    "ModelPrice",
     modelGuard,
     desired.options.modelPrice,
   );
-  const mergedImageRatio = mergeProtected(
-    parse<Record<string, number>>("ImageRatio", {}),
+  const mergedImageRatio = mergeOption(
+    "ImageRatio",
     modelGuard,
     desired.options.imageRatio,
   );
-  const mergedCacheRatio = mergeProtected(
-    parse<Record<string, number>>("CacheRatio", {}),
+  const mergedCacheRatio = mergeOption(
+    "CacheRatio",
     modelGuard,
     desired.options.cacheRatio,
   );
-  const mergedCreateCacheRatio = mergeProtected(
-    parse<Record<string, number>>("CreateCacheRatio", {}),
+  const mergedCreateCacheRatio = mergeOption(
+    "CreateCacheRatio",
     modelGuard,
     desired.options.createCacheRatio,
   );
-  const mergedModelQuotaType = mergeProtected(
-    parse<Record<string, number>>("ModelQuotaType", {}),
+  const mergedModelQuotaType = mergeOption(
+    "ModelQuotaType",
     modelGuard,
     desired.options.modelQuotaType,
   );
-  const mergedModelGridPricing = mergeProtected(
-    parse<Record<string, unknown>>("ModelGridPricing", {}),
+  const mergedModelGridPricing = mergeOption(
+    "ModelGridPricing",
     modelGuard,
     desired.options.modelGridPricing as Record<string, unknown>,
   );
@@ -283,20 +291,20 @@ function buildVendorIdMap(vendors: Vendor[]): Record<string, number> {
     map[vendor.name.toLowerCase()] = vendor.id;
   }
 
-  for (const [canonical, matcher] of Object.entries(VENDOR_MATCHERS)) {
+  forEachVendor((canonical, matcher) => {
     const names = matcher.nameAliases;
-    if (!names || names.length === 0) continue;
-    if (map[canonical] !== undefined) continue;
+    if (!names || names.length === 0) return;
+    if (map[canonical] !== undefined) return;
     for (const name of names) {
       const match = vendors.find((v) =>
         v.name.toLowerCase().includes(name.toLowerCase()),
       );
       if (match) {
         map[canonical] = match.id;
-        break;
+        return;
       }
     }
-  }
+  });
 
   return map;
 }

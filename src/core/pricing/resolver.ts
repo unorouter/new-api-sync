@@ -1,4 +1,4 @@
-import { type BasellmEntry, lookup } from "@core/models/metadata";
+import { type BasellmEntry, lookup } from "@core/catalog/metadata";
 import { buildBasellmCanonicalSource } from "./sources/basellm";
 import { fetchLiteLLMSource } from "./sources/litellm";
 import { fetchOpenRouterPricingSource } from "./sources/openrouter";

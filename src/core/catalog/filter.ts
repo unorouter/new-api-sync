@@ -3,11 +3,11 @@ import type {
   NvidiaProviderConfig,
   Sub2ApiProviderConfig,
 } from "@core/validations/config";
-import { inferModelType } from "@core/models/constants/inference";
+import { inferModelType } from "@core/catalog/constants/inference";
 import {
   matchesAnyPattern,
   matchesBlacklist,
-} from "@core/models/constants/patterns";
+} from "@core/catalog/constants/patterns";
 
 export function filterModels(
   models: string[],

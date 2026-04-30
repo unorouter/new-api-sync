@@ -1,4 +1,4 @@
-import { buildReverseMapping } from "@core/models/constants/patterns";
+import { buildReverseMapping } from "@core/catalog/constants/patterns";
 import { tryFetchJson } from "@core/runtime/http";
 import { t } from "@server/i18n";
 import { consola } from "consola";

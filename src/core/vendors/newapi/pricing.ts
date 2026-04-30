@@ -2,7 +2,7 @@ import { tryFetchJson } from "@core/runtime/http";
 import {
   CHANNEL_TYPES,
   inferChannelType,
-} from "@core/models/constants/channel-types";
+} from "@core/catalog/constants/channel-types";
 import type { GroupInfo } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";

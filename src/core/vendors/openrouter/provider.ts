@@ -3,18 +3,14 @@ import {
   buildChannelModelMapping,
   resolveBareNames,
   toBareName,
-} from "@core/models/bare-name";
-import { CHANNEL_TYPES } from "@core/models/constants/channel-types";
+} from "@core/catalog/bare-name";
+import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
 import {
   matchesAnyPattern,
   matchesBlacklist,
   sanitizeGroupName,
-} from "@core/models/constants/patterns";
-import { inferVendorFromModelName } from "@core/models/constants/vendor-matchers";
-import {
-  recordProviderCost,
-  testAndFilterModels,
-} from "@core/models/testing/runner";
+} from "@core/catalog/constants/patterns";
+import { testAndFilterModels } from "@core/testing/runner";
 import { tryFetchJson } from "@core/runtime/http";
 import type {
   OfferModel,
@@ -25,12 +21,9 @@ import type { OpenRouterProviderConfig } from "@core/validations/config";
 import type { ProviderReport } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
+import { withCostTracking } from "../shared/cost-tracker";
+import { partitionByVendor } from "../shared/partition";
 import { discoverOpenRouterFreeModels } from "./discovery";
-
-interface BareResolution {
-  exposed: string;
-  upstream: string;
-}
 
 /**
  * Fetch the OpenRouter account balance via /api/v1/credits. Returns the
@@ -56,22 +49,6 @@ async function fetchOpenRouterBalance(
   return data.data.total_credits - data.data.total_usage;
 }
 
-function partitionByVendor(
-  resolutions: BareResolution[],
-): Map<string, BareResolution[]> {
-  const out = new Map<string, BareResolution[]>();
-  for (const r of resolutions) {
-    const vendor = inferVendorFromModelName(r.exposed) ?? "other";
-    let arr = out.get(vendor);
-    if (!arr) {
-      arr = [];
-      out.set(vendor, arr);
-    }
-    arr.push(r);
-  }
-  return out;
-}
-
 export async function processOpenRouterProvider(
   providerConfig: OpenRouterProviderConfig,
   config: RuntimeConfig,
@@ -86,17 +63,11 @@ export async function processOpenRouterProvider(
   const offers: UpstreamOffer[] = [];
   const endpointMetadata = { endpointPaths: new Map() };
 
-  const startBalance = await fetchOpenRouterBalance(
-    providerConfig.baseUrl,
-    providerConfig.apiKey,
-  );
-  if (startBalance !== null) {
-    consola.info(
-      `[${providerConfig.name}] Balance: $${startBalance.toFixed(4)}`,
-    );
-  }
+  const fetchBalance = () =>
+    fetchOpenRouterBalance(providerConfig.baseUrl, providerConfig.apiKey);
 
-  try {
+  await withCostTracking(providerConfig.name, fetchBalance, async () => {
+    try {
     let candidateIds: string[];
     let isFreeById = new Map<string, boolean>();
 
@@ -231,7 +202,11 @@ export async function processOpenRouterProvider(
 
     // Free offers — one per vendor.
     if (freeResolutions.length > 0) {
-      const byVendor = partitionByVendor(freeResolutions);
+      const byVendor = partitionByVendor(
+        freeResolutions,
+        (r) => r.exposed,
+        "other",
+      );
       for (const [vendor, vendorResolutions] of byVendor) {
         const offerModels: OfferModel[] = vendorResolutions.map((r) => {
           const detail = details.find((d) => d.model === r.upstream);
@@ -266,7 +241,11 @@ export async function processOpenRouterProvider(
     // Paid offers — one per vendor with paidTier:true. Compute picks the
     // single shared group_ratio per offer from the discrete candidate ladder.
     if (paidResolutions.length > 0) {
-      const byVendor = partitionByVendor(paidResolutions);
+      const byVendor = partitionByVendor(
+        paidResolutions,
+        (r) => r.exposed,
+        "other",
+      );
       for (const [vendor, vendorResolutions] of byVendor) {
         const offerModels: OfferModel[] = vendorResolutions.map((r) => {
           const detail = details.find((d) => d.model === r.upstream);
@@ -307,24 +286,10 @@ export async function processOpenRouterProvider(
     report.groups = totalVendors;
     report.models = resolutions.length;
     report.success = true;
-  } catch (error) {
-    report.error = error instanceof Error ? error.message : String(error);
-  }
-
-  if (startBalance !== null) {
-    const finalBalance = await fetchOpenRouterBalance(
-      providerConfig.baseUrl,
-      providerConfig.apiKey,
-    );
-    if (finalBalance !== null) {
-      const cost = startBalance - finalBalance;
-      recordProviderCost(providerConfig.name, cost);
-      consola.info(
-        `[${providerConfig.name}] Balance: $${finalBalance.toFixed(4)}` +
-          (cost > 0 ? ` | Test cost: $${cost.toFixed(4)}` : ""),
-      );
+    } catch (error) {
+      report.error = error instanceof Error ? error.message : String(error);
     }
-  }
+  });
 
   return { report, offers, endpointMetadata };
 }

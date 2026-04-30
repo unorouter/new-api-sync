@@ -44,12 +44,12 @@
 //   sanitizedBase + "-" + vendor + "-tN"        (multiple tiers)
 //   sanitizedBase + "-" + vendor + "-tNa"       (multiple sub-tiers from task overrides)
 
-import { getTaskModelOverride } from "@core/models/constants/channel-types";
+import { getTaskModelOverride } from "@core/catalog/constants/channel-types";
 import {
   parseModelList,
   sanitizeGroupName,
-} from "@core/models/constants/patterns";
-import type { ModelTestDetail } from "@core/models/testing/types";
+} from "@core/catalog/constants/patterns";
+import type { ModelTestDetail } from "@core/testing/types";
 import type { MergedModel } from "@core/types";
 import { resolvePriceAdjustment } from "./index";
 import type { OfferModel, UpstreamOffer } from "./offers";

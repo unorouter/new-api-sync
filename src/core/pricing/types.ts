@@ -6,7 +6,7 @@
 // happens — emit() just translates tiers into Channel objects.
 
 import type { Channel, MergedGroup, MergedModel } from "@core/types";
-import type { ModelTestDetail } from "@core/models/testing/types";
+import type { ModelTestDetail } from "@core/testing/types";
 
 export interface PricedTier {
   /** Disambiguated channel name, e.g. `aigc-3-moonshot-t1`. Already includes

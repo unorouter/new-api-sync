@@ -4,7 +4,7 @@ import type {
   DiffOperation,
   SyncDiff,
 } from "@core/types";
-import type { NewApiClient } from "@core/providers/newapi/client";
+import type { NewApiClient } from "@core/vendors/newapi/client";
 
 async function applyEntityOps<T extends { id?: number }>(
   ops: DiffOperation<T>[],
