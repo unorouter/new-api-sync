@@ -1,22 +1,18 @@
-import {
-  getMetadataFromEnabledModels,
-  getPricingGridFromEnabledModels,
-  type RuntimeConfig,
-} from "@core/config";
 import { buildReverseMapping } from "@core/catalog/constants/patterns";
 import {
   fetchBasellmEntries,
   fetchOpenRouterDescriptions,
 } from "@core/catalog/metadata";
+import {
+  getMetadataFromEnabledModels,
+  getPricingGridFromEnabledModels,
+  type RuntimeConfig,
+} from "@core/config";
 import { computePricedPlan } from "@core/pricing/compute";
 import { emitChannels } from "@core/pricing/emit";
 import { fetchAllPricingSources } from "@core/pricing/resolver";
 import { ConcurrencyGate, setConcurrencyGate } from "@core/runtime";
-import type {
-  DesiredState,
-  ProviderReport,
-  TargetSnapshot,
-} from "@core/types";
+import type { DesiredState, ProviderReport, TargetSnapshot } from "@core/types";
 import { consola } from "consola";
 import { buildBaseline } from "./baseline";
 import { resolveCanonicalRetail } from "./canonical";

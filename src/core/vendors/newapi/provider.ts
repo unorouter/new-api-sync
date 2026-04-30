@@ -1,8 +1,3 @@
-import {
-  getEnabledModelGlobs,
-  getTestModelTypes,
-  type RuntimeConfig,
-} from "@core/config";
 import { normalizeEndpointTypes } from "@core/catalog/constants/endpoints";
 import { inferModelType } from "@core/catalog/constants/inference";
 import {
@@ -12,9 +7,10 @@ import {
 } from "@core/catalog/constants/patterns";
 import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
 import {
-  recordProviderCost,
-  testAndFilterModels,
-} from "@core/testing/runner";
+  getEnabledModelGlobs,
+  getTestModelTypes,
+  type RuntimeConfig,
+} from "@core/config";
 import type {
   EndpointPathInfo,
   OfferModel,
@@ -22,6 +18,7 @@ import type {
   UpstreamOffer,
 } from "@core/pricing/offers";
 import { throwIfRunAborted } from "@core/runtime";
+import { recordProviderCost, testAndFilterModels } from "@core/testing/runner";
 import type { GroupInfo, ProviderReport } from "@core/types";
 import type { ProviderConfig } from "@core/validations/config";
 import { consola } from "consola";
@@ -256,7 +253,11 @@ export async function processNewApiProvider(
               consola.warn(
                 `[${probeLabel}] vendor=${vendor} probe failed; skipping ${vendorModels.length} models`,
               );
-              return { tested: 0, working: 0, offer: null as null | UpstreamOffer };
+              return {
+                tested: 0,
+                working: 0,
+                offer: null as null | UpstreamOffer,
+              };
             }
 
             const filterResult = await testAndFilterModels({

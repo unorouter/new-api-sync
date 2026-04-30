@@ -1,7 +1,7 @@
 import type { RuntimeConfig } from "@core/config";
 import type { BaselineInputs } from "@core/pricing/types";
-import { NewApiClient } from "@core/vendors/newapi/client";
 import type { TargetSnapshot } from "@core/types";
+import { NewApiClient } from "@core/vendors/newapi/client";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 

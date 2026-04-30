@@ -1,43 +1,42 @@
-import { throwIfRunAborted } from "@core/runtime";
-import { getConcurrencyGate } from "@core/runtime";
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
 import {
   inferModelType,
   isTestableModel,
 } from "@core/catalog/constants/inference";
-import { TIMEOUTS, type ModelType } from "@core/types";
 import { logTestSummary } from "@core/catalog/test-log";
+import { getConcurrencyGate, throwIfRunAborted } from "@core/runtime";
+import { TIMEOUTS, type ModelType } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import {
-  withRetry,
+  authenticityProbeAccumulator,
+  isAuthenticityBlacklisted,
+  loadAuthenticityBlacklist,
+  saveAuthenticityBlacklist,
+  testAnthropicAuthenticity,
+} from "./authenticity";
+import {
   testRequest,
   testStreamRequest,
   testToolCall,
+  withRetry,
   type RetryPolicy,
 } from "./execution";
 import {
-  testAnthropicAuthenticity,
-  isAuthenticityBlacklisted,
-  authenticityProbeAccumulator,
-  loadAuthenticityBlacklist,
-  saveAuthenticityBlacklist,
-} from "./authenticity";
-import {
+  getAudioTestConfig,
+  getEmbeddingTestConfig,
+  getImageTestConfig,
   getRequestConfig,
   getStreamRequestConfig,
   getToolCallConfig,
-  getImageTestConfig,
   getVideoTestConfig,
-  getEmbeddingTestConfig,
-  getAudioTestConfig,
 } from "./request-configs";
 import type {
+  ModelRequestOpts,
   ModelTestDetail,
   ModelTestLog,
-  ModelRequestOpts,
   TestExchange,
   TestReport,
 } from "./types";

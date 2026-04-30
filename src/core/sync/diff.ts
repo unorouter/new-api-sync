@@ -1,11 +1,9 @@
-import type { RuntimeConfig } from "@core/config";
 import {
   matchesAnyPattern,
   parseModelList,
 } from "@core/catalog/constants/patterns";
 import { forEachVendor } from "@core/catalog/constants/vendor-matchers";
-import { deepEqual } from "fast-equals";
-import stringify from "safe-stable-stringify";
+import type { RuntimeConfig } from "@core/config";
 import type {
   Channel,
   DesiredState,
@@ -15,6 +13,8 @@ import type {
   TargetSnapshot,
   Vendor,
 } from "@core/types";
+import { deepEqual } from "fast-equals";
+import stringify from "safe-stable-stringify";
 
 const DEFAULT_AUTO_LABEL = "Auto (Smart Routing with Failover)";
 
@@ -482,8 +482,12 @@ export function buildSyncDiff(
     // Skip deletion of models outside the model filter scope. Same
     // reasoning as channels above — narrow the diff to the slice the
     // user actually asked about.
-    if (modelFilter && modelFilter.length > 0
-        && !matchesAnyPattern(modelName, modelFilter)) continue;
+    if (
+      modelFilter &&
+      modelFilter.length > 0 &&
+      !matchesAnyPattern(modelName, modelFilter)
+    )
+      continue;
 
     const isMappingSource = desired.mappingSources.has(modelName);
     if (!isMappingSource && existing.sync_official !== 1) continue;

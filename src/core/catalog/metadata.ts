@@ -12,7 +12,9 @@ const BASELLM_MODELS_URL =
 const TEMPLATE_DESCRIPTION_RE = /^.+ is an AI model provided by .+\.$/;
 
 function stripMarkdown(text: string): string {
-  return removeMd(text).replace(/\n{3,}/g, "\n\n").trim();
+  return removeMd(text)
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 // ---- Raw API response types ----

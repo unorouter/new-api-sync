@@ -1,5 +1,3 @@
-import { getTestModelTypes, type RuntimeConfig } from "@core/config";
-import type { Sub2ApiProviderConfig } from "@core/validations/config";
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
 import { inferModelType } from "@core/catalog/constants/inference";
 import {
@@ -9,16 +7,15 @@ import {
   VENDOR_TO_SUB2API_PLATFORMS,
 } from "@core/catalog/constants/patterns";
 import { filterModels } from "@core/catalog/filter";
-import {
-  recordProviderCost,
-  testAndFilterModels,
-} from "@core/testing/runner";
+import { getTestModelTypes, type RuntimeConfig } from "@core/config";
 import type {
   OfferModel,
   ProviderResult,
   UpstreamOffer,
 } from "@core/pricing/offers";
+import { recordProviderCost, testAndFilterModels } from "@core/testing/runner";
 import type { ProviderReport } from "@core/types";
+import type { Sub2ApiProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { Sub2ApiClient } from "./client";

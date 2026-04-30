@@ -1,13 +1,12 @@
 import { customValidateConfig } from "@core/config";
 import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
 import { typeboxResolver } from "@hookform/resolvers/typebox";
-import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
 } from "@web/components/ui/card";
 import { Form } from "@web/components/ui/form";
 import { Skeleton } from "@web/components/ui/skeleton";
@@ -16,6 +15,7 @@ import { useUiStore } from "@web/store/ui-store";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { useTranslations } from "use-intl";
 import { GlobalSection } from "./sections/global-section";
 import { GlobalSettingsSection } from "./sections/global-settings-section";
 import { ProvidersSection } from "./sections/providers-section";

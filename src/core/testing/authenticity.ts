@@ -195,11 +195,7 @@ const CLOUD_HOST_PATTERNS = [
 // "Amazon Q" is Kiro's coding-assistant model. If model-name comes back
 // with "amazon q" (or similar AWS-coding-product names), that's a real
 // substitution despite "amazon" also appearing in cloud-host names.
-const FOREIGN_MODEL_NAME_FROM_CLOUD = [
-  "amazon q",
-  "q developer",
-  "kiro",
-];
+const FOREIGN_MODEL_NAME_FROM_CLOUD = ["amazon q", "q developer", "kiro"];
 
 function hasForeignVendor(text: string): boolean {
   return FOREIGN_VENDOR_PATTERNS.some((p) => text.includes(p));
@@ -217,7 +213,10 @@ function hasForeignModelFromCloud(text: string): boolean {
 // decide if the response identifies as a non-Anthropic model. For
 // model-name we also catch coding-product names that happen to share
 // substrings with cloud hosts (Amazon Q / Kiro / Q Developer).
-function hasForeignIdentity(text: string, probe: "identity" | "model-name"): boolean {
+function hasForeignIdentity(
+  text: string,
+  probe: "identity" | "model-name",
+): boolean {
   if (hasForeignVendor(text)) return true;
   if (probe === "model-name" && hasForeignModelFromCloud(text)) return true;
   return false;
@@ -274,9 +273,7 @@ function detectSignal(text: string, probeLabel: string): ProbeSignal {
   if (hasCodingToolRefusal(text)) return "coding-tool";
   if (hasScamPage(text)) return "scam";
   if (probeLabel === "identity" || probeLabel === "model-name") {
-    if (
-      hasForeignIdentity(text, probeLabel as "identity" | "model-name")
-    )
+    if (hasForeignIdentity(text, probeLabel as "identity" | "model-name"))
       return "foreign";
     if (probeLabel === "identity" && hasCloudHost(text)) return "cloud-host";
   }
@@ -422,8 +419,7 @@ export async function testAnthropicAuthenticity(opts: {
       if (hasCodingToolRefusal(text)) return false;
       if (hasScamPage(text)) return false;
       if (hasForeignIdentity(text, "model-name")) return false;
-      if (!text.includes("claude") && !text.includes("anthropic"))
-        return false;
+      if (!text.includes("claude") && !text.includes("anthropic")) return false;
       // Known-fake response-signature blocklist. Multiple upstreams
       // returning identical, unusually-formatted model-name responses
       // are a signature of a shared substitution backend being resold —

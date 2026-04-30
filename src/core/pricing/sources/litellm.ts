@@ -58,8 +58,7 @@ function toPricing(
     pricing.cacheRatio = entry.cache_read_input_token_cost / inCost;
   }
   if (entry.cache_creation_input_token_cost != null) {
-    pricing.createCacheRatio =
-      entry.cache_creation_input_token_cost / inCost;
+    pricing.createCacheRatio = entry.cache_creation_input_token_cost / inCost;
   }
   return pricing;
 }
@@ -73,7 +72,8 @@ function toMetadata(entry: LiteLLMEntry): SourceMetadata {
   if (entry.max_output_tokens != null)
     md.maxOutputTokens = entry.max_output_tokens;
   else if (entry.max_tokens != null) md.maxOutputTokens = entry.max_tokens;
-  if (entry.supports_reasoning != null) md.isReasoning = entry.supports_reasoning;
+  if (entry.supports_reasoning != null)
+    md.isReasoning = entry.supports_reasoning;
   if (entry.supports_function_calling != null)
     md.supportsTools = entry.supports_function_calling;
   if (entry.supports_parallel_function_calling != null)
@@ -81,14 +81,18 @@ function toMetadata(entry: LiteLLMEntry): SourceMetadata {
   if (entry.supports_vision != null) md.supportsVision = entry.supports_vision;
   else if (entry.supports_image_input != null)
     md.supportsVision = entry.supports_image_input;
-  if (entry.supports_audio_input != null) md.supportsAudio = entry.supports_audio_input;
-  if (entry.supports_video_input != null) md.supportsVideo = entry.supports_video_input;
-  if (entry.supports_pdf_input != null) md.supportsPdf = entry.supports_pdf_input;
+  if (entry.supports_audio_input != null)
+    md.supportsAudio = entry.supports_audio_input;
+  if (entry.supports_video_input != null)
+    md.supportsVideo = entry.supports_video_input;
+  if (entry.supports_pdf_input != null)
+    md.supportsPdf = entry.supports_pdf_input;
   if (entry.supports_prompt_caching != null)
     md.supportsCache = entry.supports_prompt_caching;
   if (entry.supports_response_schema != null)
     md.supportsResponseFormat = entry.supports_response_schema;
-  if (entry.supports_web_search != null) md.supportsWebSearch = entry.supports_web_search;
+  if (entry.supports_web_search != null)
+    md.supportsWebSearch = entry.supports_web_search;
   if (entry.supports_computer_use != null)
     md.supportsComputerUse = entry.supports_computer_use;
   if (entry.mode) md.mode = entry.mode;

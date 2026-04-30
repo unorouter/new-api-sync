@@ -1,9 +1,5 @@
 import type { RuntimeConfig } from "@core/config";
 import type { UpstreamOffer } from "@core/pricing/offers";
-import { processNewApiProvider } from "@core/vendors/newapi/provider";
-import { processNvidiaProvider } from "@core/vendors/nvidia/provider";
-import { processOpenRouterProvider } from "@core/vendors/openrouter/provider";
-import { processSub2ApiProvider } from "@core/vendors/sub2api/provider";
 import { throwIfRunAborted } from "@core/runtime";
 import type { ProviderReport } from "@core/types";
 import type {
@@ -12,6 +8,10 @@ import type {
   ProviderConfig,
   Sub2ApiProviderConfig,
 } from "@core/validations/config";
+import { processNewApiProvider } from "@core/vendors/newapi/provider";
+import { processNvidiaProvider } from "@core/vendors/nvidia/provider";
+import { processOpenRouterProvider } from "@core/vendors/openrouter/provider";
+import { processSub2ApiProvider } from "@core/vendors/sub2api/provider";
 
 const TYPE_ORDER: Record<string, number> = {
   newapi: 0,

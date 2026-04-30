@@ -86,7 +86,8 @@ function toMetadata(model: OpenRouterModel): SourceMetadata {
     md.isReasoning =
       params.includes("reasoning") || params.includes("include_reasoning");
     md.supportsResponseFormat =
-      params.includes("response_format") || params.includes("structured_outputs");
+      params.includes("response_format") ||
+      params.includes("structured_outputs");
     md.supportsWebSearch = params.includes("web_search_options");
   }
   const inputs = model.architecture?.input_modalities ?? [];
@@ -99,7 +100,8 @@ function toMetadata(model: OpenRouterModel): SourceMetadata {
     md.supportsPdf = inputs.includes("file");
   }
   if (outputs.length > 0) md.outputModalities = outputs;
-  if (model.architecture?.tokenizer) md.tokenizer = model.architecture.tokenizer;
+  if (model.architecture?.tokenizer)
+    md.tokenizer = model.architecture.tokenizer;
   if (model.pricing?.input_cache_read) md.supportsCache = true;
   if (model.knowledge_cutoff) md.knowledgeCutoff = model.knowledge_cutoff;
   if (model.description) md.description = model.description;

@@ -1,13 +1,13 @@
-import { getEnabledModelGlobs, type RuntimeConfig } from "@core/config";
-import type {
-  NvidiaProviderConfig,
-  Sub2ApiProviderConfig,
-} from "@core/validations/config";
 import { inferModelType } from "@core/catalog/constants/inference";
 import {
   matchesAnyPattern,
   matchesBlacklist,
 } from "@core/catalog/constants/patterns";
+import { getEnabledModelGlobs, type RuntimeConfig } from "@core/config";
+import type {
+  NvidiaProviderConfig,
+  Sub2ApiProviderConfig,
+} from "@core/validations/config";
 
 export function filterModels(
   models: string[],

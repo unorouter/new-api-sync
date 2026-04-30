@@ -70,10 +70,11 @@ export async function updateChannel(
   channel: Channel,
 ): Promise<boolean> {
   if (!channel.id) return false;
-  const data = await tryFetchJson<ApiResponse>(
-    `${ctx.baseUrl}/api/channel/`,
-    { method: "PUT", headers: ctx.headers, body: channel },
-  );
+  const data = await tryFetchJson<ApiResponse>(`${ctx.baseUrl}/api/channel/`, {
+    method: "PUT",
+    headers: ctx.headers,
+    body: channel,
+  });
   return data?.success ?? false;
 }
 
@@ -134,10 +135,11 @@ export async function createModel(
   ctx: ClientContext,
   model: Omit<ModelMeta, "id">,
 ): Promise<boolean> {
-  const data = await tryFetchJson<ApiResponse>(
-    `${ctx.baseUrl}/api/models/`,
-    { method: "POST", headers: ctx.headers, body: model },
-  );
+  const data = await tryFetchJson<ApiResponse>(`${ctx.baseUrl}/api/models/`, {
+    method: "POST",
+    headers: ctx.headers,
+    body: model,
+  });
   return data?.success ?? false;
 }
 
@@ -145,10 +147,11 @@ export async function updateModel(
   ctx: ClientContext,
   model: ModelMeta,
 ): Promise<boolean> {
-  const data = await tryFetchJson<ApiResponse>(
-    `${ctx.baseUrl}/api/models/`,
-    { method: "PUT", headers: ctx.headers, body: model },
-  );
+  const data = await tryFetchJson<ApiResponse>(`${ctx.baseUrl}/api/models/`, {
+    method: "PUT",
+    headers: ctx.headers,
+    body: model,
+  });
   return data?.success ?? false;
 }
 
@@ -202,14 +205,11 @@ export async function updateVendor(
   ctx: ClientContext,
   vendor: { id: number; name: string; icon?: string },
 ): Promise<boolean> {
-  const data = await tryFetchJson<ApiResponse>(
-    `${ctx.baseUrl}/api/vendors/`,
-    {
-      method: "PUT",
-      headers: ctx.headers,
-      body: vendor,
-    },
-  );
+  const data = await tryFetchJson<ApiResponse>(`${ctx.baseUrl}/api/vendors/`, {
+    method: "PUT",
+    headers: ctx.headers,
+    body: vendor,
+  });
   return data?.success ?? false;
 }
 
@@ -217,15 +217,15 @@ export async function updateVendor(
 // Cleanup
 // ---------------------------------------------------------------------------
 
-export async function cleanupOrphanedModels(ctx: ClientContext): Promise<number> {
+export async function cleanupOrphanedModels(
+  ctx: ClientContext,
+): Promise<number> {
   const data = await tryFetchJson<ApiResponse<{ deleted: number }>>(
     `${ctx.baseUrl}/api/models/orphaned`,
     { method: "DELETE", headers: ctx.headers },
   );
   if (!data) {
-    consola.warn(
-      t("CORE.NEWAPI.ORPHAN_CLEANUP_FAILED", { name: ctx.name }),
-    );
+    consola.warn(t("CORE.NEWAPI.ORPHAN_CLEANUP_FAILED", { name: ctx.name }));
     return 0;
   }
   const deleted = data.data?.deleted ?? 0;

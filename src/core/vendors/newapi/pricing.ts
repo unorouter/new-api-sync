@@ -1,8 +1,8 @@
-import { tryFetchJson } from "@core/runtime";
 import {
   CHANNEL_TYPES,
   inferChannelType,
 } from "@core/catalog/constants/channel-types";
+import { tryFetchJson } from "@core/runtime";
 import type { GroupInfo } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -14,11 +14,10 @@ import type {
   UpstreamPricing,
 } from "./types";
 
-export async function fetchPricing(ctx: ClientContext): Promise<UpstreamPricing> {
-  const urls = [
-    `${ctx.baseUrl}/api/pricing_new`,
-    `${ctx.baseUrl}/api/pricing`,
-  ];
+export async function fetchPricing(
+  ctx: ClientContext,
+): Promise<UpstreamPricing> {
+  const urls = [`${ctx.baseUrl}/api/pricing_new`, `${ctx.baseUrl}/api/pricing`];
   let raw: { success: boolean; [key: string]: unknown } | undefined;
   for (const url of urls) {
     const body = await tryFetchJson<{
@@ -49,7 +48,10 @@ export async function fetchPricing(ctx: ClientContext): Promise<UpstreamPricing>
   return result;
 }
 
-function parsePricingV1(ctx: ClientContext, data: PricingResponse): UpstreamPricing {
+function parsePricingV1(
+  ctx: ClientContext,
+  data: PricingResponse,
+): UpstreamPricing {
   const groupModels = new Map<string, Set<string>>();
   const groupEndpoints = new Map<string, Set<string>>();
   for (const model of data.data) {
@@ -66,16 +68,16 @@ function parsePricingV1(ctx: ClientContext, data: PricingResponse): UpstreamPric
     }
   }
 
-  const groups: GroupInfo[] = Object.entries(data.usable_group ?? data.group_names ?? {})
+  const groups: GroupInfo[] = Object.entries(
+    data.usable_group ?? data.group_names ?? {},
+  )
     .filter(([name]) => name !== "")
     .map(([name, description]) => ({
       name,
       description,
       ratio: data.group_ratio[name] ?? 1,
       models: Array.from(groupModels.get(name) ?? []),
-      channelType: inferChannelType(
-        Array.from(groupEndpoints.get(name) ?? []),
-      ),
+      channelType: inferChannelType(Array.from(groupEndpoints.get(name) ?? [])),
     }));
 
   const models: ModelInfo[] = data.data.map((m) => ({
@@ -132,7 +134,10 @@ function parsePricingV1(ctx: ClientContext, data: PricingResponse): UpstreamPric
   };
 }
 
-function parsePricingV2(ctx: ClientContext, raw: PricingResponseV2): UpstreamPricing {
+function parsePricingV2(
+  ctx: ClientContext,
+  raw: PricingResponseV2,
+): UpstreamPricing {
   const d = raw.data;
   const groupRatios: Record<string, number> = {};
   const modelRatios: Record<string, number> = {};

@@ -1,10 +1,4 @@
 import {
-  getEnabledModelGlobs,
-  getTestModelTypes,
-  type RuntimeConfig,
-} from "@core/config";
-import type { NvidiaProviderConfig } from "@core/validations/config";
-import {
   buildChannelModelMapping,
   resolveBareNames,
 } from "@core/catalog/bare-name";
@@ -12,14 +6,20 @@ import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
 import { inferModelType } from "@core/catalog/constants/inference";
 import { sanitizeGroupName } from "@core/catalog/constants/patterns";
 import { filterModels } from "@core/catalog/filter";
-import { NVIDIA_RETRY_POLICY } from "@core/testing/execution";
-import { testAndFilterModels } from "@core/testing/runner";
+import {
+  getEnabledModelGlobs,
+  getTestModelTypes,
+  type RuntimeConfig,
+} from "@core/config";
 import type {
   OfferModel,
   ProviderResult,
   UpstreamOffer,
 } from "@core/pricing/offers";
+import { NVIDIA_RETRY_POLICY } from "@core/testing/execution";
+import { testAndFilterModels } from "@core/testing/runner";
 import type { ProviderReport } from "@core/types";
+import type { NvidiaProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { partitionByVendor } from "../shared/partition";
@@ -160,10 +160,7 @@ export async function processNvidiaProvider(
       workingTextModels,
       config.modelMapping,
     );
-    const imageResolutions = resolveBareNames(
-      imageModels,
-      config.modelMapping,
-    );
+    const imageResolutions = resolveBareNames(imageModels, config.modelMapping);
     const textReverseMapping = buildChannelModelMapping(textResolutions);
     const imageReverseMapping = buildChannelModelMapping(imageResolutions);
 
