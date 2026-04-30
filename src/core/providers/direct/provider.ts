@@ -1,9 +1,15 @@
 import { getTestModelTypes, type RuntimeConfig } from "@core/config";
 import type { DirectProviderConfig } from "@core/validations/config";
-import { CHANNEL_TYPES, VENDOR_CHANNEL_TYPES } from "@core/models/constants";
+import {
+  CHANNEL_TYPES,
+  inferModelType,
+  inferVendorFromModelName,
+  sanitizeGroupName,
+  VENDOR_CHANNEL_TYPES,
+} from "@core/models/constants";
 import { filterModels } from "@core/models/filter";
 import { testAndFilterModels } from "@core/models/tester";
-import { seedAndPushTieredChannels } from "@core/providers/shared/pipeline";
+import type { OfferModel, UpstreamOffer } from "@core/pricing/offers";
 import type { ProviderReport, SyncState } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -13,14 +19,15 @@ export async function processDirectProvider(
   providerConfig: DirectProviderConfig,
   config: RuntimeConfig,
   state: SyncState,
-): Promise<ProviderReport> {
-  const providerReport: ProviderReport = {
+): Promise<{ report: ProviderReport; offers: UpstreamOffer[] }> {
+  const report: ProviderReport = {
     name: providerConfig.name,
     success: false,
     groups: 0,
     models: 0,
     tokens: { created: 0, existing: 0, deleted: 0 },
   };
+  const offers: UpstreamOffer[] = [];
 
   try {
     let allModels: string[];
@@ -40,8 +47,8 @@ export async function processDirectProvider(
         providerConfig.discoverEndpoint,
       );
       if (allModels.length === 0) {
-        providerReport.error = t("CORE.ERROR.NO_MODELS_DISCOVERED");
-        return providerReport;
+        report.error = t("CORE.ERROR.NO_MODELS_DISCOVERED");
+        return { report, offers };
       }
       consola.info(
         t("CORE.PROVIDER.DISCOVERED_MODELS_LIST", {
@@ -54,8 +61,8 @@ export async function processDirectProvider(
 
     allModels = filterModels(allModels, config, providerConfig);
     if (allModels.length === 0) {
-      providerReport.error = t("CORE.ERROR.ALL_MODELS_FILTERED");
-      return providerReport;
+      report.error = t("CORE.ERROR.ALL_MODELS_FILTERED");
+      return { report, offers };
     }
 
     const channelType =
@@ -74,10 +81,10 @@ export async function processDirectProvider(
     const workingModels = filterResult.workingModels;
 
     if (workingModels.length === 0) {
-      providerReport.error = t("CORE.ERROR.NO_WORKING_MODELS_COUNT", {
+      report.error = t("CORE.ERROR.NO_WORKING_MODELS_COUNT", {
         total: filterResult.testedCount,
       });
-      return providerReport;
+      return { report, offers };
     }
 
     consola.info(
@@ -96,45 +103,47 @@ export async function processDirectProvider(
       }
     }
 
-    const mappedModels = workingModels.map(
-      (m) => config.modelMapping?.[m] ?? m,
-    );
-
-    const { ratioToModels } = seedAndPushTieredChannels({
-      models: mappedModels,
-      providerName: providerConfig.name,
-      seedPrefix: "direct",
-      channelType,
-      apiKey: providerConfig.apiKey,
-      baseUrl: providerConfig.baseUrl,
-      vendor: providerConfig.vendor,
-      description: `${providerConfig.vendor} via ${providerConfig.name}`,
-      priceAdjustment: providerConfig.priceAdjustment,
-      defaultAdjustment: 0,
-      ratio: providerConfig.ratio,
-      state,
-      modelMapping: config.modelMapping,
+    // One offer per vendor (direct providers serve a single vendor each).
+    // upstreamRatio is undefined: the compute function uses the
+    // "cheapest existing group ratio across baseline + other tiers" path.
+    const offerModels: OfferModel[] = workingModels.map((upstreamName) => {
+      const exposed = config.modelMapping?.[upstreamName] ?? upstreamName;
+      const detail = filterResult.details?.find((d) => d.model === upstreamName);
+      return {
+        exposed,
+        upstream: upstreamName,
+        modelType: inferModelType(exposed, undefined, state.modelEndpoints),
+        endpoints: state.modelEndpoints.get(upstreamName),
+        testDetail: detail,
+      };
     });
 
-    providerReport.groups = ratioToModels.size;
-    providerReport.models = mappedModels.length;
-    providerReport.success = true;
+    const sanitizedBase = sanitizeGroupName(providerConfig.name);
 
-    const ratios = [...ratioToModels.keys()]
-      .map((r) => r.toFixed(4))
-      .join(", ");
-    consola.info(
-      t("CORE.PROVIDER.TIERS_SUMMARY", {
-        name: providerConfig.name,
-        count: mappedModels.length,
-        tiers: ratioToModels.size,
-        ratios,
-      }),
-    );
+    offers.push({
+      provider: providerConfig.name,
+      providerKind: "direct",
+      group: providerConfig.name,
+      sanitizedBase,
+      vendor: providerConfig.vendor,
+      channelType,
+      baseUrl: providerConfig.baseUrl,
+      apiKey: providerConfig.apiKey,
+      groupRatio: providerConfig.ratio,
+      channelRemark: `${providerConfig.vendor} via ${providerConfig.name}`,
+      models: offerModels,
+      priceAdjustment: providerConfig.priceAdjustment,
+      defaultAdjustment: 0,
+      maxRatioCap: providerConfig.maxRatioCap ?? config.maxRatioCap,
+    });
+
+    report.groups = 1;
+    report.models = offerModels.length;
+    report.success = true;
+    void inferVendorFromModelName; // kept for future use
   } catch (error) {
-    providerReport.error =
-      error instanceof Error ? error.message : String(error);
+    report.error = error instanceof Error ? error.message : String(error);
   }
 
-  return providerReport;
+  return { report, offers };
 }

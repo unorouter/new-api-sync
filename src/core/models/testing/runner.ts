@@ -176,16 +176,9 @@ export function recordTestResult(entry: {
   });
 }
 
-export function setTestCost(
-  provider: string,
-  model: string,
-  cost: number,
-): void {
-  const entry = testReport.results.find(
-    (r) => r.provider === provider && r.model === model,
-  );
-  if (entry) entry.cost = cost;
-}
+// Per-model cost tracking removed: providers now log only total balance
+// delta (start - end). Total-only tracking unblocks future multi-threaded
+// model testing where balance reads cannot be serialised against tests.
 
 // ---------------------------------------------------------------------------
 // Test report I/O
@@ -283,7 +276,6 @@ export async function testModels(opts: {
   timeoutMs?: number;
   logPrefix?: string;
   modelEndpoints?: Map<string, string[]>;
-  onModelTested?: (detail: ModelTestDetail) => void | Promise<void>;
   /**
    * Retry policy for flaky upstreams. Default: 2 attempts, retry any failure
    * (preserves legacy behavior). NVIDIA passes NVIDIA_RETRY_POLICY so transient
@@ -308,7 +300,6 @@ export async function testModels(opts: {
   const concurrency = opts.concurrency ?? 5;
   const retryPolicy = opts.retryPolicy;
   const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
-  const onModelTested = opts.onModelTested;
   const prefix = opts.logPrefix ?? "unknown";
 
   const results: ModelTestDetail[] = [];
@@ -520,11 +511,6 @@ export async function testModels(opts: {
       }),
     );
     results.push(...batchResults);
-    if (onModelTested) {
-      for (const detail of batchResults) {
-        await onModelTested(detail);
-      }
-    }
   }
 
   return {
@@ -549,7 +535,6 @@ export async function testAndFilterModels(opts: {
   testableModelTypes: Set<ModelType>;
   modelEndpoints?: Map<string, string[]>;
   useResponsesAPI?: boolean;
-  onModelTested?: (detail: ModelTestDetail) => void | Promise<void>;
   /** Passed through to `testModels` for providers that need custom retry. */
   retryPolicy?: RetryPolicy<TestExchange>;
   /** Passed through to `testModels`. See `testModels.acceptRateLimited`. */
@@ -600,7 +585,6 @@ export async function testAndFilterModels(opts: {
       useResponsesAPI: opts.useResponsesAPI,
       modelEndpoints: opts.modelEndpoints,
       logPrefix: opts.providerLabel,
-      onModelTested: opts.onModelTested,
       retryPolicy: opts.retryPolicy,
       acceptRateLimited: opts.acceptRateLimited,
     });

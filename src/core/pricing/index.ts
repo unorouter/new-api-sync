@@ -1,8 +1,5 @@
-import { matchesAnyPattern, parseModelList } from "@core/models/constants";
-import type { SyncState } from "@core/types";
+import { matchesAnyPattern } from "@core/models/constants";
 import type { AnyProviderConfig } from "@core/validations/config";
-import { t } from "@server/i18n";
-import { consola } from "consola";
 
 /**
  * Resolve the priceAdjustment value for a specific model.
@@ -28,9 +25,9 @@ export function resolvePriceAdjustment(opts: {
   if (typeof opts.adj === "number") return opts.adj;
 
   const adj = opts.adj;
+  const keys = Object.keys(adj);
 
   // 1. Try every key as a glob pattern against the model name
-  const keys = Object.keys(adj);
   const match = keys.find((k) => matchesAnyPattern(opts.model, [k]));
   if (match) return adj[match]!;
 
@@ -54,129 +51,4 @@ export function resolvePriceAdjustment(opts: {
 
   // 4. Default
   return adj["default"] ?? opts.fallback;
-}
-
-/**
- * Build price tiers by grouping models by their adjusted ratio.
- * For each model, finds the cheapest existing group ratio from other providers,
- * then applies the per-model adjustment to get the final ratio.
- */
-export function buildPriceTiers(opts: {
-  models: string[];
-  adj: AnyProviderConfig["priceAdjustment"];
-  defaultAdjustment: number;
-  vendor: string;
-  state: SyncState;
-  excludeProvider: string;
-  modelMapping?: Record<string, string>;
-}): Map<number, string[]> {
-  const groupRatioByName = new Map(
-    opts.state.mergedGroups.map((g) => [g.name, g.ratio]),
-  );
-  const cheapestGroupForModel = new Map<string, number>();
-  for (const ch of opts.state.channelsToCreate) {
-    if (ch.tag === opts.excludeProvider) continue;
-    const gRatio = groupRatioByName.get(ch.group) ?? 1;
-    for (const model of parseModelList(ch.models)) {
-      const existing = cheapestGroupForModel.get(model);
-      if (existing === undefined || gRatio < existing) {
-        cheapestGroupForModel.set(model, gRatio);
-      }
-    }
-  }
-
-  consola.debug(
-    t("CORE.PRICING.BUILD_TIERS_HEADER", {
-      models: opts.models.length,
-      channels: opts.state.channelsToCreate.length,
-      groups: opts.state.mergedGroups.length,
-      excluding: opts.excludeProvider,
-    }),
-  );
-
-  const ratioToModels = new Map<number, string[]>();
-  for (const model of opts.models) {
-    const cheapest = cheapestGroupForModel.get(model) ?? 1;
-    const adjustment = resolvePriceAdjustment({
-      adj: opts.adj,
-      model,
-      vendor: opts.vendor,
-      modelType: "text",
-      fallback: opts.defaultAdjustment,
-      modelMapping: opts.modelMapping,
-    });
-    const ratio = cheapest * (1 + adjustment);
-    consola.debug(
-      t("CORE.PRICING.BUILD_TIERS_LINE", {
-        model,
-        cheapest: cheapest.toFixed(4),
-        adjustment,
-        ratio: ratio.toFixed(6),
-      }),
-    );
-    const key = Math.round(ratio * 1e6) / 1e6;
-    if (!ratioToModels.has(key)) ratioToModels.set(key, []);
-    ratioToModels.get(key)!.push(model);
-  }
-  return ratioToModels;
-}
-
-/**
- * Push tiered channels and groups into SyncState from a ratio→models map.
- */
-export function pushTieredChannels(
-  ratioToModels: Map<number, string[]>,
-  baseName: string,
-  opts: {
-    type: number;
-    key: string;
-    baseUrl: string;
-    provider: string;
-    description: string;
-    modelMapping?: Record<string, string>;
-  },
-  state: SyncState,
-): void {
-  const sortedTiers = [...ratioToModels.entries()].sort(([a], [b]) => a - b);
-  let tierIdx = 0;
-  const fullMapping = opts.modelMapping;
-  for (const [groupRatio, models] of sortedTiers) {
-    const suffix = ratioToModels.size > 1 ? `-t${tierIdx}` : "";
-    const tierName = `${baseName}${suffix}`;
-
-    state.mergedGroups.push({
-      name: tierName,
-      ratio: groupRatio,
-      description: opts.description,
-      provider: opts.provider,
-    });
-
-    // Scope the reverse mapping to only the models in this tier, since a
-    // channel's model_mapping is only meaningful for its own `models` list.
-    let tierMapping: Record<string, string> | undefined;
-    if (fullMapping) {
-      const scoped: Record<string, string> = {};
-      for (const m of models) {
-        if (fullMapping[m] !== undefined) scoped[m] = fullMapping[m];
-      }
-      if (Object.keys(scoped).length > 0) tierMapping = scoped;
-    }
-
-    state.channelsToCreate.push({
-      name: tierName,
-      type: opts.type,
-      key: opts.key,
-      base_url: opts.baseUrl.replace(/\/$/, ""),
-      models: models.join(","),
-      group: tierName,
-      priority: 0,
-      weight: 1,
-      status: 1,
-      tag: opts.provider,
-      remark: tierName,
-      model_mapping: tierMapping ? JSON.stringify(tierMapping) : undefined,
-    });
-
-    tierIdx++;
-  }
 }

@@ -2,7 +2,6 @@ export {
   testModels,
   testAndFilterModels,
   recordTestResult,
-  setTestCost,
   writeTestReport,
   initTestReportForDate,
   writeTestReportForDate,

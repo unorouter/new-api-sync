@@ -9,20 +9,42 @@ import {
   inferVendorFromModelName,
   matchesAnyPattern,
   matchesBlacklist,
+  sanitizeGroupName,
 } from "@core/models/constants";
 import { testAndFilterModels } from "@core/models/tester";
-import { pushPerVendorChannels } from "@core/providers/shared/pipeline";
+import type { OfferModel, UpstreamOffer } from "@core/pricing/offers";
 import type { OpenRouterProviderConfig } from "@core/validations/config";
 import type { ProviderReport, SyncState } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { discoverOpenRouterFreeModels } from "./discovery";
 
+interface BareResolution {
+  exposed: string;
+  upstream: string;
+}
+
+function partitionByVendor(
+  resolutions: BareResolution[],
+): Map<string, BareResolution[]> {
+  const out = new Map<string, BareResolution[]>();
+  for (const r of resolutions) {
+    const vendor = inferVendorFromModelName(r.exposed) ?? "other";
+    let arr = out.get(vendor);
+    if (!arr) {
+      arr = [];
+      out.set(vendor, arr);
+    }
+    arr.push(r);
+  }
+  return out;
+}
+
 export async function processOpenRouterProvider(
   providerConfig: OpenRouterProviderConfig,
   config: RuntimeConfig,
-  state: SyncState,
-): Promise<ProviderReport> {
+  _state: SyncState,
+): Promise<{ report: ProviderReport; offers: UpstreamOffer[] }> {
   const report: ProviderReport = {
     name: providerConfig.name,
     success: false,
@@ -30,6 +52,7 @@ export async function processOpenRouterProvider(
     models: 0,
     tokens: { created: 0, existing: 0, deleted: 0 },
   };
+  const offers: UpstreamOffer[] = [];
 
   try {
     let candidateIds: string[];
@@ -37,7 +60,6 @@ export async function processOpenRouterProvider(
 
     if (providerConfig.models?.length) {
       candidateIds = [...providerConfig.models];
-      // Without discovery we can't classify; assume :free suffix means free.
       for (const id of candidateIds) isFreeById.set(id, id.endsWith(":free"));
       consola.info(
         t("CORE.OPENROUTER.EXPLICIT_SKIP_DISCOVERY", {
@@ -67,7 +89,6 @@ export async function processOpenRouterProvider(
       for (const extra of extras) {
         if (!set.has(extra)) {
           set.add(extra);
-          // Catalogue may not contain extras; fall back to :free suffix.
           if (!isFreeById.has(extra)) {
             isFreeById.set(extra, extra.endsWith(":free"));
           }
@@ -84,7 +105,7 @@ export async function processOpenRouterProvider(
 
     if (candidateIds.length === 0) {
       report.error = t("CORE.ERROR.NO_MODELS_FOUND");
-      return report;
+      return { report, offers };
     }
 
     const vendorFilter = providerConfig.enabledVendors;
@@ -116,7 +137,7 @@ export async function processOpenRouterProvider(
 
     if (filtered.length === 0) {
       report.error = t("CORE.ERROR.ALL_MODELS_FILTERED_SHORT");
-      return report;
+      return { report, offers };
     }
 
     consola.info(
@@ -136,6 +157,7 @@ export async function processOpenRouterProvider(
       acceptRateLimited: true,
     });
     const working = filterResult.workingModels;
+    const details = filterResult.details ?? [];
 
     consola.info(
       t("CORE.OPENROUTER.WORKING", {
@@ -147,16 +169,12 @@ export async function processOpenRouterProvider(
 
     if (working.length === 0) {
       report.error = t("CORE.ERROR.NO_WORKING_MODELS");
-      return report;
+      return { report, offers };
     }
 
     const resolutions = resolveBareNames(working, config.modelMapping);
     const reverseMapping = buildChannelModelMapping(resolutions);
 
-    // Split into free and paid buckets. Default OpenRouter discovery only
-    // returns free ids; paid ids enter exclusively via explicit `enabledModels`
-    // entries. Paid models go into a separate `${name}-paid-${vendor}` channel
-    // at ratio=1 so users actually pay for them; free stays at ratio=0.
     const freeResolutions = resolutions.filter(
       (r) => isFreeById.get(r.upstream) ?? r.upstream.endsWith(":free"),
     );
@@ -164,137 +182,80 @@ export async function processOpenRouterProvider(
       (r) => !(isFreeById.get(r.upstream) ?? r.upstream.endsWith(":free")),
     );
 
+    const sanitizedFree = sanitizeGroupName(providerConfig.name);
+    const sanitizedPaid = sanitizeGroupName(`${providerConfig.name}-paid`);
+
     let totalVendors = 0;
 
+    // Free offers — one per vendor.
     if (freeResolutions.length > 0) {
-      const exposed = freeResolutions.map((r) => r.exposed);
-      const { vendorToModels } = pushPerVendorChannels({
-        models: exposed,
-        providerName: providerConfig.name,
-        channelType: CHANNEL_TYPES.OPENROUTER,
-        apiKey: providerConfig.apiKey,
-        baseUrl: providerConfig.baseUrl,
-        description: `OpenRouter free via ${providerConfig.name}`,
-        ratio: providerConfig.ratio,
-        state,
-        channelModelMapping:
-          Object.keys(reverseMapping).length > 0 ? reverseMapping : undefined,
-      });
-      totalVendors += vendorToModels.size;
-
-      // Force-zero pricing for free models so they don't accidentally get
-      // billed when canonical retail data later supplies a non-zero ratio.
-      for (const r of freeResolutions) {
-        const existing = state.mergedModels.get(r.exposed);
-        if (existing && (existing.ratio > 0 || (existing.modelPrice ?? 0) > 0)) {
-          continue;
-        }
-        state.mergedModels.set(r.exposed, {
-          ratio: 0,
-          completionRatio: 0,
+      const byVendor = partitionByVendor(freeResolutions);
+      for (const [vendor, vendorResolutions] of byVendor) {
+        const offerModels: OfferModel[] = vendorResolutions.map((r) => {
+          const detail = details.find((d) => d.model === r.upstream);
+          return {
+            exposed: r.exposed,
+            upstream: reverseMapping[r.exposed] ?? r.upstream,
+            modelType: "text",
+            isFree: true,
+            testDetail: detail,
+          };
         });
+        offers.push({
+          provider: providerConfig.name,
+          providerKind: "openrouter",
+          group: vendor,
+          sanitizedBase: sanitizedFree,
+          vendor,
+          channelType: CHANNEL_TYPES.OPENROUTER,
+          baseUrl: providerConfig.baseUrl,
+          apiKey: providerConfig.apiKey,
+          groupRatio: providerConfig.ratio,
+          channelRemark: `OpenRouter free via ${providerConfig.name}`,
+          models: offerModels,
+          priceAdjustment: providerConfig.priceAdjustment,
+          defaultAdjustment: 0,
+          maxRatioCap: providerConfig.maxRatioCap ?? config.maxRatioCap,
+        });
+        totalVendors++;
       }
     }
 
+    // Paid offers — one per vendor with paidTier:true. Compute picks the
+    // single shared group_ratio per offer from the discrete candidate ladder.
     if (paidResolutions.length > 0) {
-      // Group paid models per-vendor and pick a per-vendor `groupRatio` such
-      // that `model_ratio × groupRatio` lands close to canonical retail. The
-      // group must still be a single ratio per channel, so we use the lowest
-      // ratio that keeps every model within `maxRatioCap × canonical`. Any
-      // model that can't fit (canonical too low even at min ratio) is dropped.
-      const cap = providerConfig.maxRatioCap ?? config.maxRatioCap;
-      const paidByVendor = new Map<string, typeof paidResolutions>();
-      for (const r of paidResolutions) {
-        const vendor = inferVendorFromModelName(r.exposed) ?? "other";
-        if (!paidByVendor.has(vendor)) paidByVendor.set(vendor, []);
-        paidByVendor.get(vendor)!.push(r);
-      }
-
-      let paidVendors = 0;
-      for (const [vendor, vendorResolutions] of paidByVendor) {
-        // For each candidate group_ratio (1.0, 0.5, 0.1, 0.01), include
-        // only models whose `model_ratio × ratio ≤ canonical × cap`.
-        // Pick the highest ratio that keeps at least one model.
-        const candidates = [1, 0.5, 0.25, 0.1, 0.05, 0.01];
-        let chosen: { ratio: number; kept: typeof vendorResolutions } | null =
-          null;
-        for (const ratio of candidates) {
-          const kept = vendorResolutions.filter((r) => {
-            const merged = state.mergedModels.get(r.exposed);
-            const modelRatio = merged?.ratio ?? 1;
-            const canonical = state.canonicalLookup(r.exposed);
-            const ceiling = (canonical ?? modelRatio) * cap;
-            return modelRatio * ratio <= ceiling;
-          });
-          if (kept.length === vendorResolutions.length) {
-            chosen = { ratio, kept };
-            break;
-          }
-          if (kept.length > 0 && !chosen) {
-            chosen = { ratio, kept };
-          }
-        }
-        if (!chosen || chosen.kept.length === 0) {
-          for (const r of vendorResolutions) {
-            consola.info(
-              `[pricing] drop ${r.exposed} ${providerConfig.name}-paid/${vendor} no group_ratio fits within cap=${cap}x`,
-            );
-          }
-          continue;
-        }
-
-        const channelName = `${providerConfig.name}-paid-${vendor}`;
-        state.mergedGroups.push({
-          name: channelName,
-          ratio: chosen.ratio,
-          description: `OpenRouter paid via ${providerConfig.name}`,
+      const byVendor = partitionByVendor(paidResolutions);
+      for (const [vendor, vendorResolutions] of byVendor) {
+        const offerModels: OfferModel[] = vendorResolutions.map((r) => {
+          const detail = details.find((d) => d.model === r.upstream);
+          return {
+            exposed: r.exposed,
+            upstream: reverseMapping[r.exposed] ?? r.upstream,
+            modelType: "text",
+            // upstreamRatio is undefined; compute uses canonical for written
+            // ratio and the cap-fit ladder for group_ratio.
+            testDetail: detail,
+          };
+        });
+        offers.push({
           provider: providerConfig.name,
+          providerKind: "openrouter",
+          group: vendor,
+          sanitizedBase: sanitizedPaid,
+          vendor,
+          channelType: CHANNEL_TYPES.OPENROUTER,
+          baseUrl: providerConfig.baseUrl,
+          apiKey: providerConfig.apiKey,
+          groupRatio: 1,
+          channelRemark: `OpenRouter paid via ${providerConfig.name}`,
+          models: offerModels,
+          priceAdjustment: providerConfig.priceAdjustment,
+          defaultAdjustment: 0,
+          maxRatioCap: providerConfig.maxRatioCap ?? config.maxRatioCap,
+          paidTier: true,
         });
-
-        const exposed = chosen.kept.map((r) => r.exposed);
-        const scopedMapping: Record<string, string> = {};
-        for (const r of chosen.kept) {
-          const upstream = reverseMapping[r.exposed];
-          if (upstream !== undefined) {
-            scopedMapping[r.exposed] = upstream;
-          }
-        }
-        state.channelsToCreate.push({
-          name: channelName,
-          type: CHANNEL_TYPES.OPENROUTER,
-          key: providerConfig.apiKey,
-          base_url: providerConfig.baseUrl.replace(/\/$/, ""),
-          models: exposed.join(","),
-          group: channelName,
-          priority: 0,
-          weight: 1,
-          status: 1,
-          tag: providerConfig.name,
-          remark: channelName,
-          model_mapping:
-            Object.keys(scopedMapping).length > 0
-              ? JSON.stringify(scopedMapping)
-              : undefined,
-        });
-        paidVendors++;
-        for (const r of chosen.kept) {
-          const merged = state.mergedModels.get(r.exposed);
-          const modelRatio = merged?.ratio ?? 1;
-          const canonical = state.canonicalLookup(r.exposed);
-          consola.debug(
-            `[pricing] paid ${r.exposed} ${channelName} model_ratio=${modelRatio} group_ratio=${chosen.ratio} → $${(modelRatio * chosen.ratio * 2).toFixed(2)}/M (canonical $${canonical !== undefined ? (canonical * 2).toFixed(2) : "?"}/M)`,
-          );
-        }
-        const dropped = vendorResolutions.filter(
-          (r) => !chosen!.kept.includes(r),
-        );
-        for (const r of dropped) {
-          consola.info(
-            `[pricing] drop ${r.exposed} ${channelName} exceeds cap=${cap}x at chosen group_ratio=${chosen.ratio}`,
-          );
-        }
+        totalVendors++;
       }
-      totalVendors += paidVendors;
     }
 
     consola.info(
@@ -308,5 +269,5 @@ export async function processOpenRouterProvider(
     report.error = error instanceof Error ? error.message : String(error);
   }
 
-  return report;
+  return { report, offers };
 }

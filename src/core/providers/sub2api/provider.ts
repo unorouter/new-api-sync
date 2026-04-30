@@ -2,13 +2,15 @@ import { getTestModelTypes, type RuntimeConfig } from "@core/config";
 import type { Sub2ApiProviderConfig } from "@core/validations/config";
 import {
   CHANNEL_TYPES,
+  inferModelType,
+  sanitizeGroupName,
   SUB2API_PLATFORM_CHANNEL_TYPES,
   SUB2API_PLATFORM_TO_VENDOR,
   VENDOR_TO_SUB2API_PLATFORMS,
 } from "@core/models/constants";
 import { filterModels } from "@core/models/filter";
 import { testAndFilterModels } from "@core/models/tester";
-import { buildPriceTiers, pushTieredChannels } from "@core/pricing";
+import type { OfferModel, UpstreamOffer } from "@core/pricing/offers";
 import type { ProviderReport, SyncState } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -35,7 +37,6 @@ async function resolveViaAdmin(
   providerConfig: Sub2ApiProviderConfig,
   config: RuntimeConfig,
 ): Promise<ResolvedGroup[]> {
-  // Fetch all active groups, filtered by enabledVendors
   const allGroups = await client.listGroups();
   let activeGroups = allGroups.filter((g) => g.status === "active");
 
@@ -48,7 +49,6 @@ async function resolveViaAdmin(
 
   if (activeGroups.length === 0) return [];
 
-  // Resolve API key for each group
   const groupKeys = new Map<
     number,
     { name: string; platform: string; apiKey: string }
@@ -79,7 +79,6 @@ async function resolveViaAdmin(
     }),
   );
 
-  // Fetch models from all active accounts, grouped by platform
   const accounts = await client.listAccounts();
   const activeAccounts = accounts.filter((a) => a.status === "active");
   consola.info(
@@ -104,7 +103,6 @@ async function resolveViaAdmin(
     }
   }
 
-  // Combine into resolved groups
   const resolved: ResolvedGroup[] = [];
   for (const [, info] of groupKeys) {
     const models = platformModels.get(info.platform);
@@ -162,29 +160,32 @@ export async function processSub2ApiProvider(
   providerConfig: Sub2ApiProviderConfig,
   config: RuntimeConfig,
   state: SyncState,
-): Promise<ProviderReport> {
-  const providerReport: ProviderReport = {
+): Promise<{ report: ProviderReport; offers: UpstreamOffer[] }> {
+  const report: ProviderReport = {
     name: providerConfig.name,
     success: false,
     groups: 0,
     models: 0,
     tokens: { created: 0, existing: 0, deleted: 0 },
   };
+  const offers: UpstreamOffer[] = [];
 
   try {
     const client = new Sub2ApiClient(providerConfig);
 
-    // Resolve groups: admin mode or explicit groups mode
     const resolvedGroups = providerConfig.adminApiKey
       ? await resolveViaAdmin(client, providerConfig, config)
       : await resolveViaGroups(client, providerConfig, config);
 
     if (resolvedGroups.length === 0) {
-      providerReport.error = t("CORE.ERROR.NO_GROUPS_WITH_MODELS");
-      return providerReport;
+      report.error = t("CORE.ERROR.NO_GROUPS_WITH_MODELS");
+      return { report, offers };
     }
 
-    // Process each group: test models via group API key, create channel with working models
+    // sub2api semantics: each group tests its own models, and the resulting
+    // offer is "no upstream ratio" so compute() finds the cheapest existing
+    // group ratio for each model across baseline + other tiers and applies
+    // the per-provider adjustment.
     const defaultAdjustment = -0.1;
     let totalModels = 0;
     let groupsProcessed = 0;
@@ -228,8 +229,6 @@ export async function processSub2ApiProvider(
         }),
       );
 
-      // Register endpoint type for sub2api openai models so pipeline.ts can
-      // include them in the chat_completions_to_responses_policy.
       if (useResponsesAPI) {
         for (const m of workingModels) {
           if (!state.modelEndpoints.has(m)) {
@@ -238,58 +237,54 @@ export async function processSub2ApiProvider(
         }
       }
 
-      const mappedModels = workingModels.map(
-        (m) => config.modelMapping?.[m] ?? m,
-      );
-
-      const ratioToModels = buildPriceTiers({
-        models: mappedModels,
-        adj: providerConfig.priceAdjustment,
-        defaultAdjustment,
-        vendor,
-        state,
-        excludeProvider: providerConfig.name,
-        modelMapping: config.modelMapping,
+      const offerModels: OfferModel[] = workingModels.map((upstreamName) => {
+        const exposed = config.modelMapping?.[upstreamName] ?? upstreamName;
+        const detail = filterResult.details?.find(
+          (d) => d.model === upstreamName,
+        );
+        return {
+          exposed,
+          upstream: upstreamName,
+          modelType: inferModelType(exposed, undefined, state.modelEndpoints),
+          endpoints: state.modelEndpoints.get(upstreamName),
+          testDetail: detail,
+        };
       });
-      pushTieredChannels(
-        ratioToModels,
+
+      const sanitizedBase = sanitizeGroupName(
         `${groupInfo.name}-${providerConfig.name}`,
-        {
-          type: channelType,
-          key: groupInfo.apiKey,
-          baseUrl: providerConfig.baseUrl,
-          provider: providerConfig.name,
-          description: `${groupInfo.platform} via ${providerConfig.name}`,
-        },
-        state,
       );
 
-      totalModels += mappedModels.length;
+      offers.push({
+        provider: providerConfig.name,
+        providerKind: "sub2api",
+        group: groupInfo.name,
+        sanitizedBase,
+        vendor,
+        channelType,
+        baseUrl: providerConfig.baseUrl,
+        apiKey: groupInfo.apiKey,
+        groupRatio: 1,
+        channelRemark: `${groupInfo.platform} via ${providerConfig.name}`,
+        models: offerModels,
+        priceAdjustment: providerConfig.priceAdjustment,
+        defaultAdjustment,
+        maxRatioCap: providerConfig.maxRatioCap ?? config.maxRatioCap,
+      });
+
+      totalModels += offerModels.length;
       groupsProcessed++;
-      const ratios = [...ratioToModels.keys()]
-        .map((r) => r.toFixed(4))
-        .join(", ");
-      consola.info(
-        t("CORE.SUB2API.GROUP_TIERS_SUMMARY", {
-          name: providerConfig.name,
-          platform: groupInfo.platform,
-          count: mappedModels.length,
-          tiers: ratioToModels.size,
-          ratios,
-        }),
-      );
     }
 
-    providerReport.groups = groupsProcessed;
-    providerReport.models = totalModels;
-    providerReport.success = groupsProcessed > 0;
-    if (!providerReport.success) {
-      providerReport.error = t("CORE.ERROR.NO_GROUPS_PRODUCED_CHANNELS");
+    report.groups = groupsProcessed;
+    report.models = totalModels;
+    report.success = groupsProcessed > 0;
+    if (!report.success) {
+      report.error = t("CORE.ERROR.NO_GROUPS_PRODUCED_CHANNELS");
     }
   } catch (error) {
-    providerReport.error =
-      error instanceof Error ? error.message : String(error);
+    report.error = error instanceof Error ? error.message : String(error);
   }
 
-  return providerReport;
+  return { report, offers };
 }

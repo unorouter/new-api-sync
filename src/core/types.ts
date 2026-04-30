@@ -85,25 +85,20 @@ export interface MergedModel {
 }
 
 export interface SyncState {
+  /** Final groups (one per priced tier) — populated by emit() after compute().
+   *  Read by buildOptionMaps. */
   mergedGroups: MergedGroup[];
+  /** Final per-model ratio map — populated by emit() from compute()'s
+   *  PricedPlan.modelRatios. Read by buildOptionMaps. */
   mergedModels: Map<string, MergedModel>;
-  /** Model → normalized endpoint types (for classification / testability) */
+  /** Model → normalized endpoint types (for classification / testability).
+   *  Populated during provider discovery. Used by buildDesiredModels and
+   *  collectResponsesApiModels. */
   modelEndpoints: Map<string, string[]>;
-  /** Model → original endpoint types as returned by upstream (for path lookup) */
+  /** Model → original endpoint types as returned by upstream (for path lookup). */
   modelOriginalEndpoints: Map<string, string[]>;
-  /** Endpoint type → {path, method} from upstream's supported_endpoint map (original keys) */
+  /** Endpoint type → {path, method} from upstream's supported_endpoint map (original keys). */
   endpointPaths: Map<string, { path: string; method: string }>;
-  channelsToCreate: Channel[];
-  /** Canonical retail model ratios resolved from external sources only
-   *  (LiteLLM > OpenRouter > basellm). Independent of channel-supplied
-   *  ratios so per-tier "above 1x" decisions can compare against retail.
-   *  Lazily populated on first lookup via canonicalLookup(). */
-  canonicalRatios: Map<string, number>;
-  /** Lazy canonical lookup. Returns the canonical model ratio (USD/M / 2) by
-   *  walking the priority chain LiteLLM > OpenRouter > basellm. Caches into
-   *  canonicalRatios so subsequent lookups are O(1). Returns undefined when
-   *  no source matches. Set up by pipeline once pricing sources are fetched. */
-  canonicalLookup: (model: string) => number | undefined;
 }
 
 // ============ Sync Core Types ============

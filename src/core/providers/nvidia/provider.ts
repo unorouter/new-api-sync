@@ -8,28 +8,55 @@ import {
   buildChannelModelMapping,
   resolveBareNames,
 } from "@core/models/bare-name";
-import { CHANNEL_TYPES, inferModelType } from "@core/models/constants";
+import {
+  CHANNEL_TYPES,
+  inferModelType,
+  inferVendorFromModelName,
+  sanitizeGroupName,
+} from "@core/models/constants";
 import { filterModels } from "@core/models/filter";
 import { NVIDIA_RETRY_POLICY } from "@core/models/testing/execution";
 import { testAndFilterModels } from "@core/models/tester";
-import { pushPerVendorChannels } from "@core/providers/shared/pipeline";
+import type { OfferModel, UpstreamOffer } from "@core/pricing/offers";
 import type { ProviderReport, SyncState } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { discoverNvidiaModels } from "./discovery";
 
+interface BareResolution {
+  exposed: string;
+  upstream: string;
+}
+
+function partitionByVendor(
+  resolutions: BareResolution[],
+): Map<string, BareResolution[]> {
+  const out = new Map<string, BareResolution[]>();
+  for (const r of resolutions) {
+    const vendor = inferVendorFromModelName(r.exposed) ?? "other";
+    let arr = out.get(vendor);
+    if (!arr) {
+      arr = [];
+      out.set(vendor, arr);
+    }
+    arr.push(r);
+  }
+  return out;
+}
+
 export async function processNvidiaProvider(
   providerConfig: NvidiaProviderConfig,
   config: RuntimeConfig,
   state: SyncState,
-): Promise<ProviderReport> {
-  const providerReport: ProviderReport = {
+): Promise<{ report: ProviderReport; offers: UpstreamOffer[] }> {
+  const report: ProviderReport = {
     name: providerConfig.name,
     success: false,
     groups: 0,
     models: 0,
     tokens: { created: 0, existing: 0, deleted: 0 },
   };
+  const offers: UpstreamOffer[] = [];
 
   try {
     let allModels: string[];
@@ -73,25 +100,21 @@ export async function processNvidiaProvider(
     }
 
     if (allModels.length === 0) {
-      providerReport.error = t("CORE.ERROR.NO_MODELS_FOUND");
-      return providerReport;
+      report.error = t("CORE.ERROR.NO_MODELS_FOUND");
+      return { report, offers };
     }
 
     allModels = filterModels(allModels, config, providerConfig);
     if (allModels.length === 0) {
-      providerReport.error = t("CORE.ERROR.ALL_MODELS_FILTERED_SHORT");
-      return providerReport;
+      report.error = t("CORE.ERROR.ALL_MODELS_FILTERED_SHORT");
+      return { report, offers };
     }
 
     const textModels: string[] = [];
     const imageModels: string[] = [];
-    for (const model of allModels) {
-      const modelType = inferModelType(model);
-      if (modelType === "image") {
-        imageModels.push(model);
-      } else {
-        textModels.push(model);
-      }
+    for (const m of allModels) {
+      if (inferModelType(m) === "image") imageModels.push(m);
+      else textModels.push(m);
     }
 
     consola.debug(
@@ -103,6 +126,9 @@ export async function processNvidiaProvider(
     );
 
     let workingTextModels: string[] = [];
+    let textDetails: NonNullable<
+      Awaited<ReturnType<typeof testAndFilterModels>>["details"]
+    > = [];
     if (textModels.length > 0) {
       const filterResult = await testAndFilterModels({
         allModels: textModels,
@@ -114,7 +140,7 @@ export async function processNvidiaProvider(
         retryPolicy: NVIDIA_RETRY_POLICY,
       });
       workingTextModels = filterResult.workingModels;
-
+      textDetails = filterResult.details ?? [];
       if (workingTextModels.length > 0) {
         consola.info(
           t("CORE.NVIDIA.TEXT_WORKING", {
@@ -137,11 +163,11 @@ export async function processNvidiaProvider(
 
     const allWorking = [...workingTextModels, ...imageModels];
     if (allWorking.length === 0) {
-      providerReport.error = t("CORE.ERROR.NO_WORKING_MODELS_SPLIT", {
+      report.error = t("CORE.ERROR.NO_WORKING_MODELS_SPLIT", {
         textTotal: textModels.length,
         imageCount: imageModels.length,
       });
-      return providerReport;
+      return { report, offers };
     }
 
     const textResolutions = resolveBareNames(
@@ -152,90 +178,94 @@ export async function processNvidiaProvider(
       imageModels,
       config.modelMapping,
     );
-    const mappedTextModels = textResolutions.map((r) => r.exposed);
-    const mappedImageModels = imageResolutions.map((r) => r.exposed);
     const textReverseMapping = buildChannelModelMapping(textResolutions);
     const imageReverseMapping = buildChannelModelMapping(imageResolutions);
 
-    let textVendorCount = 0;
-    let imageVendorCount = 0;
+    let totalVendors = 0;
+    const sanitizedBase = sanitizeGroupName(providerConfig.name);
 
-    if (mappedTextModels.length > 0) {
-      const { vendorToModels } = pushPerVendorChannels({
-        models: mappedTextModels,
-        providerName: providerConfig.name,
-        channelType: CHANNEL_TYPES.OPENAI,
-        apiKey: providerConfig.apiKey,
-        baseUrl: providerConfig.baseUrl,
-        description: `NVIDIA NIM text via ${providerConfig.name}`,
-        ratio: providerConfig.ratio,
-        state,
-        channelModelMapping:
-          Object.keys(textReverseMapping).length > 0
-            ? textReverseMapping
-            : undefined,
-      });
-      textVendorCount = vendorToModels.size;
-
-      for (const model of mappedTextModels) {
-        const existing = state.mergedModels.get(model);
-        if (existing && (existing.ratio > 0 || (existing.modelPrice ?? 0) > 0)) {
-          continue;
-        }
-        state.mergedModels.set(model, {
-          ratio: 0,
-          completionRatio: 0,
+    // Text offers: free, one per vendor.
+    if (textResolutions.length > 0) {
+      const byVendor = partitionByVendor(textResolutions);
+      for (const [vendor, vendorResolutions] of byVendor) {
+        const offerModels: OfferModel[] = vendorResolutions.map((r) => {
+          const detail = textDetails.find((d) => d.model === r.upstream);
+          // Apply mapping to offer model so emit's model_mapping JSON works.
+          const exposed = textReverseMapping[r.exposed] ? r.exposed : r.exposed;
+          return {
+            exposed,
+            upstream: textReverseMapping[r.exposed] ?? r.upstream,
+            modelType: "text",
+            isFree: true,
+            testDetail: detail,
+          };
         });
+        offers.push({
+          provider: providerConfig.name,
+          providerKind: "nvidia",
+          group: vendor,
+          sanitizedBase,
+          vendor,
+          channelType: CHANNEL_TYPES.OPENAI,
+          baseUrl: providerConfig.baseUrl,
+          apiKey: providerConfig.apiKey,
+          groupRatio: providerConfig.ratio,
+          channelRemark: `NVIDIA NIM text via ${providerConfig.name}`,
+          models: offerModels,
+          priceAdjustment: providerConfig.priceAdjustment,
+          defaultAdjustment: 0,
+          maxRatioCap: providerConfig.maxRatioCap ?? config.maxRatioCap,
+        });
+        totalVendors++;
       }
-
       consola.info(
-        `[${providerConfig.name}] ${mappedTextModels.length} text model(s) across ${textVendorCount} vendor channel(s)`,
+        `[${providerConfig.name}] ${textResolutions.length} text model(s) across ${byVendor.size} vendor channel(s)`,
       );
     }
 
-    if (mappedImageModels.length > 0) {
-      const { vendorToModels } = pushPerVendorChannels({
-        models: mappedImageModels,
-        providerName: providerConfig.name,
-        channelType: CHANNEL_TYPES.NVIDIA_NIM,
-        apiKey: providerConfig.apiKey,
-        baseUrl: providerConfig.imageBaseUrl,
-        description: `NVIDIA NIM image via ${providerConfig.name}`,
-        ratio: providerConfig.ratio,
-        state,
-        channelModelMapping:
-          Object.keys(imageReverseMapping).length > 0
-            ? imageReverseMapping
-            : undefined,
-        channelNameSuffix: "-img",
-      });
-      imageVendorCount = vendorToModels.size;
-
-      for (const model of mappedImageModels) {
-        const existing = state.mergedModels.get(model);
-        if (existing && (existing.ratio > 0 || (existing.modelPrice ?? 0) > 0)) {
-          continue;
-        }
-        state.mergedModels.set(model, {
-          ratio: 0,
-          completionRatio: 0,
+    // Image offers: fixed-price (modelPrice=0, quotaType=1), per-vendor with
+    // -img suffix on the sanitized base so emit produces distinct channel
+    // names from the text offers.
+    if (imageResolutions.length > 0) {
+      const byVendor = partitionByVendor(imageResolutions);
+      const imgSanitizedBase = `${sanitizedBase}-img`;
+      for (const [vendor, vendorResolutions] of byVendor) {
+        const offerModels: OfferModel[] = vendorResolutions.map((r) => ({
+          exposed: r.exposed,
+          upstream: imageReverseMapping[r.exposed] ?? r.upstream,
+          modelType: "image",
           modelPrice: 0,
           quotaType: 1,
+        }));
+        offers.push({
+          provider: providerConfig.name,
+          providerKind: "nvidia",
+          group: vendor,
+          sanitizedBase: imgSanitizedBase,
+          vendor,
+          channelType: CHANNEL_TYPES.NVIDIA_NIM,
+          baseUrl: providerConfig.imageBaseUrl,
+          apiKey: providerConfig.apiKey,
+          groupRatio: providerConfig.ratio,
+          channelRemark: `NVIDIA NIM image via ${providerConfig.name}`,
+          models: offerModels,
+          priceAdjustment: providerConfig.priceAdjustment,
+          defaultAdjustment: 0,
+          maxRatioCap: providerConfig.maxRatioCap ?? config.maxRatioCap,
         });
+        totalVendors++;
       }
-
       consola.info(
-        `[${providerConfig.name}] ${mappedImageModels.length} image model(s) across ${imageVendorCount} vendor channel(s)`,
+        `[${providerConfig.name}] ${imageResolutions.length} image model(s) across ${byVendor.size} vendor channel(s)`,
       );
     }
 
-    providerReport.groups = textVendorCount + imageVendorCount;
-    providerReport.models = allWorking.length;
-    providerReport.success = true;
+    report.groups = totalVendors;
+    report.models = allWorking.length;
+    report.success = true;
   } catch (error) {
-    providerReport.error =
-      error instanceof Error ? error.message : String(error);
+    report.error = error instanceof Error ? error.message : String(error);
   }
 
-  return providerReport;
+  return { report, offers };
 }
