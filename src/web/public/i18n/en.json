@@ -440,9 +440,9 @@
       "ACCOUNTS_FOUND": "[{name}] {count} accounts found"
     },
     "OPENROUTER": {
-      "EXPLICIT_SKIP_DISCOVERY": "[{name}] Using {count} explicit model(s); skipping discovery",
+      "PROBING_ENDPOINTS": "Probing per-endpoint pricing for {count} candidate model(s)",
       "DISCOVERED_FREE": "[{name}] Discovered {count} free model(s)",
-      "ADDED_EXTRA": "[{name}] Added explicit extra: {model}",
+      "ADDED_PAID_EXTRA": "[{name}] Added paid opt-in model: {model}",
       "PROBING": "[{name}] Probing {count} model(s)",
       "FAILED": "[{name}] Failed: {models}",
       "WORKING": "[{name}] {working}/{total} model(s) working (429 counts as working)"

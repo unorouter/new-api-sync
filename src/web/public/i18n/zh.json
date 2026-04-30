@@ -440,9 +440,9 @@
       "ACCOUNTS_FOUND": "[{name}] 找到 {count} 个账号"
     },
     "OPENROUTER": {
-      "EXPLICIT_SKIP_DISCOVERY": "[{name}] 使用 {count} 个显式模型，跳过发现",
+      "PROBING_ENDPOINTS": "正在探测 {count} 个候选模型的端点定价",
       "DISCOVERED_FREE": "[{name}] 发现 {count} 个免费模型",
-      "ADDED_EXTRA": "[{name}] 已额外添加显式模型：{model}",
+      "ADDED_PAID_EXTRA": "[{name}] 已添加付费可选模型：{model}",
       "PROBING": "[{name}] 正在探测 {count} 个模型",
       "FAILED": "[{name}] 失败：{models}",
       "WORKING": "[{name}] {working}/{total} 个模型可用（429 视为可用）"

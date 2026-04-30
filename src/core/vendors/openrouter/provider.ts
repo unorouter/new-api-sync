@@ -105,54 +105,44 @@ export async function processOpenRouterProvider(
 
   await withCostTracking(providerConfig.name, fetchBalance, async () => {
     try {
-      let candidateIds: string[];
-      let isFreeById = new Map<string, boolean>();
+      // Default sync: every truly-free model from the catalogue, where
+      // "free" means at least one healthy upstream endpoint has zero
+      // pricing. The :free suffix alone is not trusted - some headline-free
+      // models still bill on every actual endpoint.
+      const catalogue = await discoverOpenRouterFreeModels(
+        providerConfig.baseUrl,
+        providerConfig.apiKey,
+      );
+      consola.info(
+        t("CORE.OPENROUTER.DISCOVERED_FREE", {
+          name: providerConfig.name,
+          count: catalogue.freeIds.length,
+        }),
+      );
 
-      if (providerConfig.models?.length) {
-        candidateIds = [...providerConfig.models];
-        for (const id of candidateIds) isFreeById.set(id, id.endsWith(":free"));
-        consola.info(
-          t("CORE.OPENROUTER.EXPLICIT_SKIP_DISCOVERY", {
+      // enabledModels is the paid opt-in surface: any literal IDs added
+      // here are forced into the paid set. Globs are unsupported here
+      // because each entry must resolve to a concrete OpenRouter ID.
+      const enabledGlobs =
+        getEnabledModelGlobs(providerConfig.enabledModels) ?? [];
+      const explicitPaidIds = enabledGlobs.filter(
+        (g) => !g.includes("*") && !g.includes("?"),
+      );
+
+      const freeSet = new Set(catalogue.freeIds);
+      const paidSet = new Set<string>();
+      for (const id of explicitPaidIds) {
+        if (freeSet.has(id)) continue; // already free, no need to opt in
+        paidSet.add(id);
+        consola.debug(
+          t("CORE.OPENROUTER.ADDED_PAID_EXTRA", {
             name: providerConfig.name,
-            count: candidateIds.length,
+            model: id,
           }),
         );
-      } else {
-        const catalogue = await discoverOpenRouterFreeModels(
-          providerConfig.baseUrl,
-          providerConfig.apiKey,
-        );
-        isFreeById = catalogue.isFreeById;
-        consola.info(
-          t("CORE.OPENROUTER.DISCOVERED_FREE", {
-            name: providerConfig.name,
-            count: catalogue.freeIds.length,
-          }),
-        );
-
-        const enabledGlobs =
-          getEnabledModelGlobs(providerConfig.enabledModels) ?? [];
-        const extras = enabledGlobs.filter(
-          (g) => !g.includes("*") && !g.includes("?"),
-        );
-        const set = new Set(catalogue.freeIds);
-        for (const extra of extras) {
-          if (!set.has(extra)) {
-            set.add(extra);
-            if (!isFreeById.has(extra)) {
-              isFreeById.set(extra, extra.endsWith(":free"));
-            }
-            consola.debug(
-              t("CORE.OPENROUTER.ADDED_EXTRA", {
-                name: providerConfig.name,
-                model: extra,
-              }),
-            );
-          }
-        }
-        candidateIds = [...set];
       }
 
+      const candidateIds = [...freeSet, ...paidSet];
       if (candidateIds.length === 0) {
         report.error = t("CORE.ERROR.NO_MODELS_FOUND");
         return { report, offers, endpointMetadata };
@@ -227,12 +217,8 @@ export async function processOpenRouterProvider(
       const resolutions = resolveBareNames(working, config.modelMapping);
       const reverseMapping = buildChannelModelMapping(resolutions);
 
-      const freeResolutions = resolutions.filter(
-        (r) => isFreeById.get(r.upstream) ?? r.upstream.endsWith(":free"),
-      );
-      const paidResolutions = resolutions.filter(
-        (r) => !(isFreeById.get(r.upstream) ?? r.upstream.endsWith(":free")),
-      );
+      const freeResolutions = resolutions.filter((r) => freeSet.has(r.upstream));
+      const paidResolutions = resolutions.filter((r) => !freeSet.has(r.upstream));
 
       const sanitizedFree = sanitizeGroupName(providerConfig.name);
       const sanitizedPaid = sanitizeGroupName(`${providerConfig.name}-paid`);
@@ -291,8 +277,6 @@ export async function processOpenRouterProvider(
               exposed: r.exposed,
               upstream: reverseMapping[r.exposed] ?? r.upstream,
               modelType: "text",
-              // upstreamRatio is undefined; compute uses canonical for written
-              // ratio and the cap-fit ladder for group_ratio.
               testDetail: detail,
             };
           });
