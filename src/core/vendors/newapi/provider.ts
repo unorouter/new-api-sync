@@ -21,7 +21,7 @@ import type {
   ProviderResult,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import { throwIfRunAborted } from "@core/runtime/abort";
+import { throwIfRunAborted } from "@core/runtime";
 import type { GroupInfo, ProviderReport } from "@core/types";
 import type { ProviderConfig } from "@core/validations/config";
 import { consola } from "consola";

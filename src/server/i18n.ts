@@ -1,4 +1,4 @@
-import { configDir } from "@core/config/paths";
+import { configDir } from "@core/config";
 import { LOCALES, type TranslationKey } from "@web/lib/constants";
 import en from "@web/public/i18n/en.json";
 import zh from "@web/public/i18n/zh.json";

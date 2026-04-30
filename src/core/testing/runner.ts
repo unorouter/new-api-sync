@@ -1,5 +1,5 @@
-import { throwIfRunAborted } from "@core/runtime/abort";
-import { getConcurrencyGate } from "@core/runtime/semaphore";
+import { throwIfRunAborted } from "@core/runtime";
+import { getConcurrencyGate } from "@core/runtime";
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
 import {
   inferModelType,

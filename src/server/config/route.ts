@@ -1,10 +1,10 @@
-import { loadConfig } from "@core/config";
 import {
+  configDir,
   GLOBAL_CONFIG_PATH,
+  loadConfig,
   loadGlobalConfig,
   writeGlobalConfig,
-} from "@core/config/global";
-import { configDir } from "@core/config/paths";
+} from "@core/config";
 import { type ConfigSchemaType } from "@core/validations/config";
 import {
   ConfigCreateBodySchema,

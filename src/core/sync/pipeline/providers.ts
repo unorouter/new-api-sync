@@ -4,7 +4,7 @@ import { processNewApiProvider } from "@core/vendors/newapi/provider";
 import { processNvidiaProvider } from "@core/vendors/nvidia/provider";
 import { processOpenRouterProvider } from "@core/vendors/openrouter/provider";
 import { processSub2ApiProvider } from "@core/vendors/sub2api/provider";
-import { throwIfRunAborted } from "@core/runtime/abort";
+import { throwIfRunAborted } from "@core/runtime";
 import type { ProviderReport } from "@core/types";
 import type {
   NvidiaProviderConfig,

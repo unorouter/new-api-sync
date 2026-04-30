@@ -1,5 +1,5 @@
 import { buildReverseMapping } from "@core/catalog/constants/patterns";
-import { tryFetchJson } from "@core/runtime/http";
+import { tryFetchJson } from "@core/runtime";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import removeMd from "remove-markdown";

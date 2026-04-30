@@ -1,16 +1,90 @@
 import { MODEL_TYPES, type ModelType } from "@core/types";
 import {
   ConfigSchema,
+  GlobalConfigSchema,
   type AnyProviderConfig,
   type ConfigSchemaType,
   type EnabledModelEntry,
+  type GlobalConfigType,
 } from "@core/validations/config";
 import { t } from "@server/i18n";
 import { type TSchema } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-import { join } from "node:path";
-import { loadGlobalConfig } from "./global";
-import { configDir } from "./paths";
+import { basename, dirname, join } from "node:path";
+import YAML from "yaml";
+
+// ============ Paths ============
+
+/**
+ * Resolve the directory where `config.yml`, `config.global.yml`, and named
+ * `config.<name>.yml` files live.
+ *
+ * Dev mode (`bun run`): use `process.cwd()` so configs stay next to the source
+ * tree the developer is editing.
+ *
+ * Compiled single-file binary: use the directory of the binary itself so the
+ * UI writes configs next to the executable, regardless of where it was
+ * launched from (double-click, PATH, different cwd, etc.).
+ *
+ * `@core/config` is imported by the browser bundle (for `customValidateConfig`)
+ * which has no `process`. Guard every `process` access so calling this from
+ * the browser returns a harmless empty string instead of throwing.
+ */
+export function configDir(): string {
+  if (typeof process === "undefined") return "";
+  const exe = process.execPath;
+  const exeName = basename(exe).toLowerCase();
+  const isBunRuntime = exeName === "bun" || exeName.startsWith("bun.");
+  if (isBunRuntime) return process.cwd();
+  return dirname(exe);
+}
+
+// ============ Global config (config.global.yml) ============
+
+/**
+ * Loader/writer for `config.global.yml` — the cross-config file that holds
+ * `locale`, `theme`, and the shared `blacklist` / `modelMapping` that merge
+ * into every per-config on load. See `loadConfig()` below.
+ */
+export const GLOBAL_CONFIG_PATH = join(configDir(), "config.global.yml");
+
+export async function loadGlobalConfig(): Promise<GlobalConfigType> {
+  const file = Bun.file(GLOBAL_CONFIG_PATH);
+  if (!(await file.exists())) return {};
+  let parsedRaw: unknown;
+  try {
+    parsedRaw = Bun.YAML.parse(await file.text());
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      t("ERROR.GLOBAL_CONFIG_INVALID_YAML", {
+        path: GLOBAL_CONFIG_PATH,
+        detail,
+      }),
+    );
+  }
+  // Treat an empty document (null) as "no settings".
+  if (parsedRaw === null || parsedRaw === undefined) return {};
+  if (!Value.Check(GlobalConfigSchema, parsedRaw)) {
+    const errors = [...Value.Errors(GlobalConfigSchema, parsedRaw)]
+      .map((e) => `${e.path || "root"}: ${e.message}`)
+      .join("\n");
+    throw new Error(
+      t("ERROR.GLOBAL_CONFIG_VALIDATION_FAILED", { detail: errors }),
+    );
+  }
+  return parsedRaw as GlobalConfigType;
+}
+
+export async function writeGlobalConfig(next: GlobalConfigType): Promise<void> {
+  const yaml = YAML.stringify(next, {
+    lineWidth: 0,
+    defaultStringType: "QUOTE_DOUBLE",
+  });
+  await Bun.write(GLOBAL_CONFIG_PATH, yaml);
+}
+
+// ============ enabledModels accessors ============
 
 const NON_TEXT_TYPES: Set<string> = new Set(
   MODEL_TYPES.filter((t) => t !== "text"),

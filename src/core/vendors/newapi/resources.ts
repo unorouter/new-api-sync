@@ -1,4 +1,4 @@
-import { fetchJson, tryFetchJson } from "@core/runtime/http";
+import { fetchJson, tryFetchJson } from "@core/runtime";
 import type { Channel, ModelMeta, Vendor } from "@core/types";
 import { PAGINATION } from "@core/types";
 import { t } from "@server/i18n";

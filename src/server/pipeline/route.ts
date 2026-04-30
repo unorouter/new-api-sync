@@ -1,4 +1,4 @@
-import { runWithSignal } from "@core/runtime/abort";
+import { runWithSignal } from "@core/runtime";
 import { runReset } from "@core/sync/reset";
 import { runSync } from "@core/sync/run";
 import { runTestPipeline } from "@core/sync/test-runner";

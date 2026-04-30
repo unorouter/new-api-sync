@@ -1,4 +1,4 @@
-import { tryFetchJson } from "@core/runtime/http";
+import { tryFetchJson } from "@core/runtime";
 import type { Channel, GroupInfo, ModelMeta, Vendor } from "@core/types";
 import { t } from "@server/i18n";
 import type { ClientContext } from "./context";

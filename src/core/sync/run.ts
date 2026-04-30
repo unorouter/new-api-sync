@@ -1,4 +1,4 @@
-import { throwIfRunAborted } from "@core/runtime/abort";
+import { throwIfRunAborted } from "@core/runtime";
 import type { RuntimeConfig } from "@core/config";
 import {
   findVendorByAlias,

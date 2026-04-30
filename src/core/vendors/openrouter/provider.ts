@@ -11,7 +11,7 @@ import {
   sanitizeGroupName,
 } from "@core/catalog/constants/patterns";
 import { testAndFilterModels } from "@core/testing/runner";
-import { tryFetchJson } from "@core/runtime/http";
+import { tryFetchJson } from "@core/runtime";
 import type {
   OfferModel,
   ProviderResult,

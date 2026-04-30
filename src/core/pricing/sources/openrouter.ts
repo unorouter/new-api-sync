@@ -1,5 +1,5 @@
 import { buildFuzzyIndex } from "@core/catalog/metadata";
-import { tryFetchJson } from "@core/runtime/http";
+import { tryFetchJson } from "@core/runtime";
 import { consola } from "consola";
 import { buildPricingMaps } from "./build";
 import {
