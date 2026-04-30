@@ -290,6 +290,11 @@ async function runAnthropicProbe(opts: {
   evaluate: (text: string) => boolean;
   timeoutMs: number;
   logKey: string;
+  /** Optional nonce expected to appear in the response. Used to guard
+   *  against reseller proxies that mux concurrent /v1/messages calls and
+   *  return responses in the wrong order. When set, a response missing
+   *  the nonce fails closed. */
+  nonce?: string;
 }): Promise<ProbeResult> {
   const reqBody = {
     model: opts.model,
@@ -337,6 +342,20 @@ async function runAnthropicProbe(opts: {
     });
     return { pass: false, authenticityRefusal: false, signal: null };
   }
+  // Nonce mismatch = response was paired with a different prompt by a
+  // reseller's response-mixing proxy. Fail closed but don't tag it as a
+  // foreign/scam/refusal signal — that would penalise the wrong probe.
+  if (opts.nonce && !text.includes(opts.nonce.toLowerCase())) {
+    addAuthenticityProbe(opts.logKey, {
+      probe: opts.label,
+      pass: false,
+      authenticityRefusal: false,
+      request: { url: reqUrl, body: reqBody },
+      response: text,
+      error: `nonce_mismatch: expected "${opts.nonce}"`,
+    });
+    return { pass: false, authenticityRefusal: false, signal: null };
+  }
   const signal = detectSignal(text, opts.label);
   const refusal = signal === "coding-tool";
   const result = opts.evaluate(text);
@@ -350,6 +369,10 @@ async function runAnthropicProbe(opts: {
   return { pass: result, authenticityRefusal: refusal, signal };
 }
 
+function makeNonce(): string {
+  return Math.random().toString(36).slice(2, 8);
+}
+
 export async function testAnthropicAuthenticity(opts: {
   baseUrl: string;
   apiKey: string;
@@ -357,82 +380,79 @@ export async function testAnthropicAuthenticity(opts: {
   timeoutMs: number;
   logKey: string;
 }): Promise<boolean> {
-  // Probes run sequentially, not in parallel. Several upstream resellers
-  // mux concurrent /v1/messages requests through a single connection and
-  // return responses in the wrong order, so the "identity" prompt comes
-  // back with the haiku response and vice versa. That looked like a fake
-  // model to the detector and blacklisted real upstreams. Sequential
-  // probes are slower (~4x latency for the auth check) but eliminate the
-  // false positive completely.
-  const r1 = await runAnthropicProbe({
-    ...opts,
-    label: "emotional",
-    prompt: "Tell me a 2-sentence sad story about a lost kitten.",
-    maxTokens: 150,
-    evaluate: (text) => {
-      if (hasCodingToolRefusal(text)) return false;
-      return text.length >= 40;
-    },
-  });
-  const r2 = await runAnthropicProbe({
-    ...opts,
-    label: "creative",
-    prompt:
-      "Write a haiku about the ocean at sunrise. Only the haiku, nothing else.",
-    maxTokens: 80,
-    evaluate: (text) => {
-      if (hasCodingToolRefusal(text)) return false;
-      return text.length >= 25;
-    },
-  });
-  const r3 = await runAnthropicProbe({
-    ...opts,
-    label: "identity",
-    prompt:
-      "Which AI lab developed and trained the model you are running on? " +
-      "Not the company hosting you, the lab that trained the model. " +
-      "Reply with only the lab name, one word.",
-    maxTokens: 30,
-    evaluate: (text) => {
-      if (hasCodingToolRefusal(text)) return false;
-      if (hasScamPage(text)) return false;
-      // Reject hard foreign vendors (gemini, openai, deepseek, etc.).
-      if (hasForeignIdentity(text, "identity")) return false;
-      // Accept "anthropic" — the canonical correct answer.
-      if (text.includes("anthropic")) return true;
-      // Accept cloud-host names as a soft pass: real Claude on
-      // Bedrock/Vertex/Foundry sometimes still answers "amazon" / "google"
-      // because of platform-injected system prompts that override the
-      // distinction we asked for. Less reliable than "anthropic" but not
-      // proof of substitution.
-      if (hasCloudHost(text)) return true;
-      return false;
-    },
-  });
-  const r4 = await runAnthropicProbe({
-    ...opts,
-    label: "model-name",
-    prompt:
-      "Which model are you? Reply with only your model name, nothing else.",
-    maxTokens: 50,
-    evaluate: (text) => {
-      if (hasCodingToolRefusal(text)) return false;
-      if (hasScamPage(text)) return false;
-      if (hasForeignIdentity(text, "model-name")) return false;
-      if (!text.includes("claude") && !text.includes("anthropic")) return false;
-      // Known-fake response-signature blocklist. Multiple upstreams
-      // returning identical, unusually-formatted model-name responses
-      // are a signature of a shared substitution backend being resold —
-      // real Claude doesn't produce exact-string-match responses across
-      // different providers. We don't enforce general family/version
-      // mismatch because real Anthropic Claude is genuinely unreliable
-      // about its own model name. We only flag specific signatures
-      // observed in the wild.
-      const trimmed = text.trim();
-      if (FAKE_RESPONSE_SIGNATURES.includes(trimmed)) return false;
-      return true;
-    },
-  });
+  // Probes run in parallel. Some reseller proxies mux concurrent requests
+  // through a shared connection and return responses paired with the wrong
+  // prompt. We guard against that by embedding a unique nonce in each
+  // prompt and requiring it back in the response — a mismatched response
+  // fails the probe cleanly without tagging it as a foreign/scam signal.
+  const nonceEmotional = makeNonce();
+  const nonceCreative = makeNonce();
+  const nonceIdentity = makeNonce();
+  const nonceModelName = makeNonce();
+
+  const nonceTag = (n: string) =>
+    `Begin your reply with the tag [${n}] then a space, then your answer.`;
+
+  const [r1, r2, r3, r4] = await Promise.all([
+    runAnthropicProbe({
+      ...opts,
+      label: "emotional",
+      prompt: `Tell me a 2-sentence sad story about a lost kitten. ${nonceTag(nonceEmotional)}`,
+      maxTokens: 200,
+      nonce: nonceEmotional,
+      evaluate: (text) => {
+        if (hasCodingToolRefusal(text)) return false;
+        return text.length >= 40;
+      },
+    }),
+    runAnthropicProbe({
+      ...opts,
+      label: "creative",
+      prompt: `Write a haiku about the ocean at sunrise. ${nonceTag(nonceCreative)}`,
+      maxTokens: 120,
+      nonce: nonceCreative,
+      evaluate: (text) => {
+        if (hasCodingToolRefusal(text)) return false;
+        return text.length >= 25;
+      },
+    }),
+    runAnthropicProbe({
+      ...opts,
+      label: "identity",
+      prompt:
+        "Which AI lab developed and trained the model you are running on? " +
+        "Not the company hosting you, the lab that trained the model. " +
+        `One word answer. ${nonceTag(nonceIdentity)}`,
+      maxTokens: 60,
+      nonce: nonceIdentity,
+      evaluate: (text) => {
+        if (hasCodingToolRefusal(text)) return false;
+        if (hasScamPage(text)) return false;
+        if (hasForeignIdentity(text, "identity")) return false;
+        if (text.includes("anthropic")) return true;
+        if (hasCloudHost(text)) return true;
+        return false;
+      },
+    }),
+    runAnthropicProbe({
+      ...opts,
+      label: "model-name",
+      prompt: `Which model are you? Reply with only your model name. ${nonceTag(nonceModelName)}`,
+      maxTokens: 80,
+      nonce: nonceModelName,
+      evaluate: (text) => {
+        if (hasCodingToolRefusal(text)) return false;
+        if (hasScamPage(text)) return false;
+        if (hasForeignIdentity(text, "model-name")) return false;
+        if (!text.includes("claude") && !text.includes("anthropic")) return false;
+        // Strip the nonce tag before checking fake-signature blocklist so a
+        // tag prefix doesn't break exact-match.
+        const stripped = text.replace(/^\s*\[[a-z0-9]{4,8}\]\s*/i, "").trim();
+        if (FAKE_RESPONSE_SIGNATURES.includes(stripped)) return false;
+        return true;
+      },
+    }),
+  ]);
 
   const results = [
     { ...r1, label: "emotional" },

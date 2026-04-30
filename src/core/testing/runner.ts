@@ -153,10 +153,20 @@ const testReport: TestReport = {
   modelTests: [],
 };
 
+// Index of passing entries for O(1) "have we already tested this model?"
+// lookups during testModels. Without this index the test loop scans the
+// entire modelTests array per model — O(N²) on large syncs.
+const passingByKey = new Map<string, ModelTestLog>();
+
+function passKey(provider: string, model: string): string {
+  return `${provider}|${model}`;
+}
+
 function addTestResult(entry: ModelTestLog): void {
-  const key = `${entry.provider}|${entry.model}`;
+  const key = passKey(entry.provider, entry.model);
   entry.authenticityProbes = authenticityProbeAccumulator.get(key);
   testReport.modelTests.push(entry);
+  if (entry.http.pass) passingByKey.set(key, entry);
 }
 
 /**
@@ -217,6 +227,10 @@ export function initTestReportForDate(): void {
     };
     const tests = existing.modelTests ?? existing.results ?? [];
     testReport.modelTests = tests.filter((r) => r.http.pass);
+    passingByKey.clear();
+    for (const entry of testReport.modelTests) {
+      passingByKey.set(passKey(entry.provider, entry.model), entry);
+    }
     if (existing.providers) testReport.providers = existing.providers;
     consola.info(
       t("CORE.TESTER.REPORT_RESUMED", {
@@ -327,9 +341,7 @@ export async function testModels(opts: {
     models.map((model) =>
       gate.run(baseUrl, async () => {
         throwIfRunAborted();
-        const existingPass = testReport.modelTests.find(
-          (r) => r.provider === prefix && r.model === model && r.http.pass,
-        );
+        const existingPass = passingByKey.get(passKey(prefix, model));
         if (existingPass) {
           consola.debug(t("CORE.TESTER.ALREADY_PASSED", { prefix, model }));
           return {
@@ -387,63 +399,50 @@ export async function testModels(opts: {
         const modelType = inferModelType(model, undefined, opts.modelEndpoints);
         const isNonTextModel = modelType !== "text";
 
-        let httpResult: TestExchange;
-        if (modelType === "image") {
-          httpResult = await withRetry(
-            () => testRequest(getImageTestConfig(reqOpts), timeoutMs),
-            (r) => r.pass,
-            retryPolicy,
-          );
-        } else if (modelType === "video") {
-          httpResult = await withRetry(
-            () => testRequest(getVideoTestConfig(reqOpts), timeoutMs),
-            (r) => r.pass,
-            retryPolicy,
-          );
-        } else if (modelType === "embedding") {
-          httpResult = await withRetry(
-            () => testRequest(getEmbeddingTestConfig(reqOpts), timeoutMs),
-            (r) => r.pass,
-            retryPolicy,
-          );
-        } else if (modelType === "audio") {
-          httpResult = await withRetry(
-            () => testRequest(getAudioTestConfig(reqOpts), timeoutMs),
-            (r) => r.pass,
-            retryPolicy,
-          );
-        } else {
-          httpResult = await withRetry(
-            () => testRequest(getRequestConfig(reqOpts), timeoutMs),
-            (r) => r.pass,
-            retryPolicy,
-          );
-        }
-        const success = httpResult.pass;
+        // For text models, fire HTTP / stream / tool in parallel. They are
+        // independent calls to the same model, and the pass rate is high
+        // enough that the speedup outweighs spending the cost of stream/tool
+        // probes on models that fail HTTP. For non-text models only the HTTP
+        // probe runs.
+        const httpConfigByType = {
+          image: getImageTestConfig,
+          video: getVideoTestConfig,
+          embedding: getEmbeddingTestConfig,
+          audio: getAudioTestConfig,
+          text: getRequestConfig,
+        } as const;
+        const httpConfig = httpConfigByType[modelType](reqOpts);
 
         const streamConfig = isNonTextModel
           ? null
           : getStreamRequestConfig(reqOpts);
-        const streamResult = streamConfig
-          ? await withRetry(
-              () => testStreamRequest(streamConfig, timeoutMs),
-              (r) => r.pass,
-              retryPolicy,
-            )
-          : null;
-        const streamSuccess = streamResult?.pass ?? null;
-
         const toolCallConfig = isNonTextModel
           ? null
           : getToolCallConfig(reqOpts);
-        const toolResult =
-          (success || streamSuccess) && toolCallConfig
-            ? await withRetry(
+
+        const [httpResult, streamResult, toolResult] = await Promise.all([
+          withRetry(
+            () => testRequest(httpConfig, timeoutMs),
+            (r) => r.pass,
+            retryPolicy,
+          ),
+          streamConfig
+            ? withRetry(
+                () => testStreamRequest(streamConfig, timeoutMs),
+                (r) => r.pass,
+                retryPolicy,
+              )
+            : Promise.resolve(null as TestExchange | null),
+          toolCallConfig
+            ? withRetry(
                 () => testToolCall(toolCallConfig, timeoutMs),
                 (r) => r.pass,
                 retryPolicy,
               )
-            : null;
+            : Promise.resolve(null as TestExchange | null),
+        ]);
+        const success = httpResult.pass;
+        const streamSuccess = streamResult?.pass ?? null;
         // If the upstream rejects the request with a tool_choice-related
         // error (e.g. reasoning-only models like deepseek-reasoner or
         // *-thinking variants that aliased to one), the model isn't broken,

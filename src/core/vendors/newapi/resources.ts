@@ -10,8 +10,8 @@ import type { ApiResponse } from "./types";
 // requests. Default ofetch retry is 1; a single missed page truncates the
 // result, which then makes the diff phase delete live entities as "stale".
 const PAGINATED_FETCH_OPTS = {
-  timeoutMs: 30_000,
-  retry: 3,
+  timeoutMs: 15_000,
+  retry: 2,
   retryDelayMs: 2000,
 } as const;
 

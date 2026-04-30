@@ -132,7 +132,7 @@ export function getMetadataFromEnabledModels(
 export const CONFIG_DEFAULTS = {
   skipUnprofitableText: true,
   maxRatioCap: 3,
-  globalConcurrency: 20,
+  globalConcurrency: 100,
   perUpstreamConcurrency: 5,
 } as const;
 

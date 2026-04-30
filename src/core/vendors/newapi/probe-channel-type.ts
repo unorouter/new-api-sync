@@ -1,10 +1,22 @@
 import { consola } from "consola";
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
 import { inferModelType } from "@core/catalog/constants/inference";
+import { withDiskCache } from "@core/runtime";
 import { TIMEOUTS } from "@core/types";
 import { getRequestConfig } from "@core/testing/request-configs";
 import { testRequest } from "@core/testing/execution";
 import type { ModelRequestOpts } from "@core/testing/types";
+
+// Shape (channel-type) probe results don't change between syncs of the
+// same upstream/vendor pair on a short timescale. Cache for 1 hour to
+// turn a per-bucket 5-30s probe into instant on warm runs. Failures
+// (probe returned null) are not cached so flaky upstreams get retried.
+const SHAPE_PROBE_TTL_MS = 60 * 60 * 1000;
+
+function shapeCacheKey(baseUrl: string, vendor: string): string {
+  const safe = `${baseUrl}|${vendor}`.replace(/[^a-z0-9]+/gi, "_");
+  return `shape-probe-${safe}`;
+}
 
 /**
  * The probe's job is to pick between OpenAI / Anthropic / Gemini text-chat
@@ -89,6 +101,18 @@ export async function probeChannelType(
     return { channelType: native, shape: "no-text-models" };
   }
 
+  return withDiskCache<ProbeOutcome>({
+    key: shapeCacheKey(opts.baseUrl, opts.vendor),
+    ttlMs: SHAPE_PROBE_TTL_MS,
+    produce: () => runShapeProbe(opts, textModels, native),
+  });
+}
+
+async function runShapeProbe(
+  opts: ProbeOpts,
+  textModels: string[],
+  native: number,
+): Promise<ProbeOutcome | null> {
   const representative = pickRepresentativeModel(textModels);
   const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
 
@@ -117,7 +141,7 @@ export async function probeChannelType(
   const tryShape = async (
     channelType: number,
   ): Promise<{ pass: boolean; status?: number; error?: string }> => {
-    const backoffsMs = [0, 5_000, 10_000];
+    const backoffsMs = [0, 1_000, 2_000];
     let last: { pass: boolean; status?: number; error?: string } = {
       pass: false,
     };
