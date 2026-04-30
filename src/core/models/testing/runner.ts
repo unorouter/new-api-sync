@@ -1,4 +1,5 @@
 import { throwIfRunAborted } from "@core/runtime/abort";
+import { getConcurrencyGate } from "@core/runtime/semaphore";
 import {
   CHANNEL_TYPES,
   inferModelType,
@@ -297,18 +298,20 @@ export async function testModels(opts: {
   const models = opts.models;
   const channelType = opts.channelType;
   const useResponsesAPI = opts.useResponsesAPI ?? false;
-  const concurrency = opts.concurrency ?? 5;
   const retryPolicy = opts.retryPolicy;
   const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
   const prefix = opts.logPrefix ?? "unknown";
+  const gate = getConcurrencyGate();
 
-  const results: ModelTestDetail[] = [];
+  // All models run as a single Promise.all; the shared ConcurrencyGate
+  // enforces both the global cap and the per-upstream cap. opts.concurrency
+  // is intentionally ignored now — the gate is the only knob.
+  void opts.concurrency;
 
-  for (let i = 0; i < models.length; i += concurrency) {
-    throwIfRunAborted();
-    const batch = models.slice(i, i + concurrency);
-    const batchResults = await Promise.all(
-      batch.map(async (model) => {
+  const results: ModelTestDetail[] = await Promise.all(
+    models.map((model) =>
+      gate.run(baseUrl, async () => {
+        throwIfRunAborted();
         const existingPass = testReport.results.find(
           (r) => r.provider === prefix && r.model === model && r.http.pass,
         );
@@ -509,9 +512,8 @@ export async function testModels(opts: {
           channelType,
         };
       }),
-    );
-    results.push(...batchResults);
-  }
+    ),
+  );
 
   return {
     workingModels: results

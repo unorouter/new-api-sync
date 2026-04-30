@@ -1,4 +1,5 @@
 import { throwIfRunAborted } from "@core/runtime/abort";
+import { ConcurrencyGate, setConcurrencyGate } from "@core/runtime/semaphore";
 import {
   getMetadataFromEnabledModels,
   getPricingGridFromEnabledModels,
@@ -354,6 +355,23 @@ export async function runProviderPipeline(
     endpointPaths: new Map(),
   };
 
+  // Initialise the shared concurrency gate. Per-upstream overrides are keyed
+  // by baseUrl so testModels / probe code can look them up without knowing
+  // the provider name.
+  const overrides = new Map<string, number>();
+  for (const p of config.providers) {
+    if ("baseUrl" in p && p.baseUrl && p.perUpstreamConcurrency) {
+      overrides.set(p.baseUrl, p.perUpstreamConcurrency);
+    }
+  }
+  setConcurrencyGate(
+    new ConcurrencyGate({
+      globalLimit: config.globalConcurrency,
+      perUpstreamLimit: config.perUpstreamConcurrency,
+      overrides,
+    }),
+  );
+
   // Build BaselineInputs from the target snapshot. Pricing computation needs
   // these so partial-sync (--only) and sub2api/direct's "cheapest existing
   // group ratio" lookup can see what other (non-managed) channels exist.
@@ -460,43 +478,54 @@ export async function runProviderPipeline(
   const sorted = [...config.providers].sort(
     (a, b) => (typeOrder[a.type] ?? 2) - (typeOrder[b.type] ?? 2),
   );
+  // All providers run concurrently. The shared ConcurrencyGate (keyed on
+  // baseUrl) caps simultaneous requests per upstream, so opening up the
+  // outer loop is safe. typeOrder still drives provider sort here so the
+  // returned providerReports stay in deterministic order regardless of
+  // completion order.
   const providerReports: ProviderReport[] = [];
   const allOffers: UpstreamOffer[] = [];
-  for (const [i, provider] of sorted.entries()) {
-    throwIfRunAborted();
-    if (i > 0) console.log();
-    let result: { report: ProviderReport; offers: UpstreamOffer[] };
-    if (provider.type === "newapi") {
-      result = await processNewApiProvider(
-        provider as ProviderConfig,
-        config,
-        state,
-      );
-    } else if (provider.type === "nvidia") {
-      result = await processNvidiaProvider(
-        provider as NvidiaProviderConfig,
-        config,
-        state,
-      );
-    } else if (provider.type === "openrouter") {
-      result = await processOpenRouterProvider(
-        provider as OpenRouterProviderConfig,
-        config,
-        state,
-      );
-    } else if (provider.type === "direct") {
-      result = await processDirectProvider(
-        provider as DirectProviderConfig,
-        config,
-        state,
-      );
-    } else {
-      result = await processSub2ApiProvider(
+
+  const settled = await Promise.all(
+    sorted.map((provider) => {
+      throwIfRunAborted();
+      if (provider.type === "newapi") {
+        return processNewApiProvider(
+          provider as ProviderConfig,
+          config,
+          state,
+        );
+      }
+      if (provider.type === "nvidia") {
+        return processNvidiaProvider(
+          provider as NvidiaProviderConfig,
+          config,
+          state,
+        );
+      }
+      if (provider.type === "openrouter") {
+        return processOpenRouterProvider(
+          provider as OpenRouterProviderConfig,
+          config,
+          state,
+        );
+      }
+      if (provider.type === "direct") {
+        return processDirectProvider(
+          provider as DirectProviderConfig,
+          config,
+          state,
+        );
+      }
+      return processSub2ApiProvider(
         provider as Sub2ApiProviderConfig,
         config,
         state,
       );
-    }
+    }),
+  );
+
+  for (const result of settled) {
     providerReports.push(result.report);
     allOffers.push(...result.offers);
   }

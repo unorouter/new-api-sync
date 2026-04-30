@@ -195,8 +195,18 @@ export async function processNewApiProvider(
     const groupsWithNoWorkingModels: string[] = [];
     const usedSanitizedNames = new Map<string, number>();
 
+    // Pre-pass: assign deterministic sanitized names per group (sequential
+    // because the disambiguator depends on group order). Filter out empty
+    // groups here too. Test work below runs in parallel.
+    type Prepared = {
+      group: (typeof groups)[number];
+      originalName: string;
+      sanitizedName: string;
+      candidateModels: string[];
+      apiKey: string;
+    };
+    const prepared: Prepared[] = [];
     for (const group of groups) {
-      throwIfRunAborted();
       const originalName = `${group.name}-${providerConfig.name}`;
       let sanitizedName = sanitizeGroupName(originalName);
       const count = usedSanitizedNames.get(sanitizedName) ?? 0;
@@ -204,7 +214,6 @@ export async function processNewApiProvider(
       if (count > 0) {
         sanitizedName = `${sanitizedName}-${count + 1}`;
       }
-
       const candidateModels = filterGroupModels(
         group.models,
         config,
@@ -212,112 +221,156 @@ export async function processNewApiProvider(
         group.name,
       );
       if (candidateModels.length === 0) continue;
-
       const apiKey = tokenResult.tokens[group.name] ?? "";
-      const vendorBuckets = partitionByVendor(candidateModels);
+      prepared.push({
+        group,
+        originalName,
+        sanitizedName,
+        candidateModels,
+        apiKey,
+      });
+    }
 
-      let groupTotalTested = 0;
-      let groupTotalWorking = 0;
-      let groupHadAnyOffer = false;
-
-      for (const [vendor, vendorModels] of vendorBuckets) {
+    // Fan out: every (group, vendor-bucket) becomes a parallel task. The
+    // shared concurrency gate (keyed on baseUrl) ensures we don't exceed
+    // perUpstreamConcurrency simultaneous requests against this newapi
+    // instance, so opening up the structural loop is safe.
+    const groupResults = await Promise.all(
+      prepared.map(async (p) => {
         throwIfRunAborted();
-        const probeLabel = `${providerConfig.name}/${group.name}`;
+        const vendorBuckets = partitionByVendor(p.candidateModels);
+        const probeLabel = `${providerConfig.name}/${p.group.name}`;
 
-        const probe = await probeChannelType({
-          baseUrl: providerConfig.baseUrl,
-          apiKey,
-          vendor,
-          models: vendorModels,
-          modelEndpoints: state.modelEndpoints,
-          logPrefix: probeLabel,
-        });
+        const bucketResults = await Promise.all(
+          [...vendorBuckets.entries()].map(async ([vendor, vendorModels]) => {
+            throwIfRunAborted();
+            const probe = await probeChannelType({
+              baseUrl: providerConfig.baseUrl,
+              apiKey: p.apiKey,
+              vendor,
+              models: vendorModels,
+              modelEndpoints: state.modelEndpoints,
+              logPrefix: probeLabel,
+            });
+            if (!probe) {
+              consola.warn(
+                `[${probeLabel}] vendor=${vendor} probe failed; skipping ${vendorModels.length} models`,
+              );
+              return { tested: 0, working: 0, offer: null as null | UpstreamOffer };
+            }
 
-        if (!probe) {
-          consola.warn(
-            `[${probeLabel}] vendor=${vendor} probe failed; skipping ${vendorModels.length} models`,
-          );
-          continue;
-        }
+            const filterResult = await testAndFilterModels({
+              allModels: vendorModels,
+              baseUrl: providerConfig.baseUrl,
+              apiKey: p.apiKey,
+              channelType: probe.channelType,
+              providerLabel: `${probeLabel}/${vendor}`,
+              testableModelTypes: getTestModelTypes(config, providerConfig),
+              modelEndpoints: state.modelEndpoints,
+            });
 
-        const filterResult = await testAndFilterModels({
-          allModels: vendorModels,
-          baseUrl: providerConfig.baseUrl,
-          apiKey,
-          channelType: probe.channelType,
-          providerLabel: `${probeLabel}/${vendor}`,
-          testableModelTypes: getTestModelTypes(config, providerConfig),
-          modelEndpoints: state.modelEndpoints,
-        });
+            const workingUpstream = filterResult.workingModels;
+            if (workingUpstream.length === 0) {
+              return {
+                tested: filterResult.testedCount,
+                working: 0,
+                offer: null,
+              };
+            }
 
-        groupTotalTested += filterResult.testedCount;
-        groupTotalWorking += filterResult.workingModels.length;
+            const offerModels: OfferModel[] = workingUpstream.map(
+              (upstreamName) => {
+                const exposed =
+                  config.modelMapping?.[upstreamName] ?? upstreamName;
+                const detail = filterResult.details?.find(
+                  (d) => d.model === upstreamName,
+                );
+                const mt = inferModelType(
+                  exposed,
+                  undefined,
+                  state.modelEndpoints,
+                );
+                const m = pricing.models.find((pm) => pm.name === upstreamName);
+                return {
+                  exposed,
+                  upstream: upstreamName,
+                  modelType: mt,
+                  upstreamRatio: m?.ratio,
+                  upstreamCompletionRatio: m?.completionRatio,
+                  cacheRatio: m?.cacheRatio,
+                  createCacheRatio: m?.createCacheRatio,
+                  modelPrice: m?.modelPrice,
+                  quotaType: m?.quotaType,
+                  endpoints: state.modelOriginalEndpoints.get(upstreamName),
+                  testDetail: detail,
+                };
+              },
+            );
 
-        const workingUpstream = filterResult.workingModels;
-        if (workingUpstream.length === 0) continue;
+            // Deduplicate by exposed (model_mapping can collapse two
+            // upstreams into the same exposed; first occurrence wins).
+            const seen = new Set<string>();
+            const dedupedOfferModels: OfferModel[] = [];
+            for (const om of offerModels) {
+              if (seen.has(om.exposed)) continue;
+              seen.add(om.exposed);
+              dedupedOfferModels.push(om);
+            }
 
-        // Build offer models. Each working model retains its upstream name
-        // and its mapped exposed name; compute uses upstreamRatio for
-        // rescale, and emit attaches modelMapping JSON when names differ.
-        const offerModels: OfferModel[] = workingUpstream.map((upstreamName) => {
-          const exposed = config.modelMapping?.[upstreamName] ?? upstreamName;
-          const detail = filterResult.details?.find(
-            (d) => d.model === upstreamName,
-          );
-          const mt = inferModelType(exposed, undefined, state.modelEndpoints);
-          // Pick this upstream's per-model pricing fields.
-          const m = pricing.models.find((pm) => pm.name === upstreamName);
-          return {
-            exposed,
-            upstream: upstreamName,
-            modelType: mt,
-            upstreamRatio: m?.ratio,
-            upstreamCompletionRatio: m?.completionRatio,
-            cacheRatio: m?.cacheRatio,
-            createCacheRatio: m?.createCacheRatio,
-            modelPrice: m?.modelPrice,
-            quotaType: m?.quotaType,
-            endpoints: state.modelOriginalEndpoints.get(upstreamName),
-            testDetail: detail,
-          };
-        });
-
-        // Deduplicate by exposed (model_mapping can collapse two upstreams
-        // into the same exposed; first occurrence wins for offers).
-        const seen = new Set<string>();
-        const dedupedOfferModels: OfferModel[] = [];
-        for (const om of offerModels) {
-          if (seen.has(om.exposed)) continue;
-          seen.add(om.exposed);
-          dedupedOfferModels.push(om);
-        }
-
-        offers.push({
-          provider: providerConfig.name,
-          providerKind: "newapi",
-          group: group.name,
-          sanitizedBase: sanitizedName,
-          vendor,
-          channelType: probe.channelType,
-          baseUrl: providerConfig.baseUrl,
-          apiKey,
-          groupRatio: group.ratio,
-          channelRemark: originalName,
-          models: dedupedOfferModels,
-          priceAdjustment: providerConfig.priceAdjustment,
-          defaultAdjustment: 0,
-          maxRatioCap: providerConfig.maxRatioCap ?? config.maxRatioCap,
-        });
-        groupHadAnyOffer = true;
-      }
-
-      if (groupTotalTested > 0) {
-        consola.info(
-          `[${providerConfig.name}/${group.name}] ${groupTotalWorking}/${groupTotalTested} working across ${vendorBuckets.size} vendors`,
+            const offer: UpstreamOffer = {
+              provider: providerConfig.name,
+              providerKind: "newapi",
+              group: p.group.name,
+              sanitizedBase: p.sanitizedName,
+              vendor,
+              channelType: probe.channelType,
+              baseUrl: providerConfig.baseUrl,
+              apiKey: p.apiKey,
+              groupRatio: p.group.ratio,
+              channelRemark: p.originalName,
+              models: dedupedOfferModels,
+              priceAdjustment: providerConfig.priceAdjustment,
+              defaultAdjustment: 0,
+              maxRatioCap: providerConfig.maxRatioCap ?? config.maxRatioCap,
+            };
+            return {
+              tested: filterResult.testedCount,
+              working: workingUpstream.length,
+              offer,
+            };
+          }),
         );
-      }
-      if (!groupHadAnyOffer) {
-        groupsWithNoWorkingModels.push(group.name);
+
+        const groupTotalTested = bucketResults.reduce(
+          (a, b) => a + b.tested,
+          0,
+        );
+        const groupTotalWorking = bucketResults.reduce(
+          (a, b) => a + b.working,
+          0,
+        );
+        const groupOffers = bucketResults
+          .map((b) => b.offer)
+          .filter((o): o is UpstreamOffer => o !== null);
+
+        if (groupTotalTested > 0) {
+          consola.info(
+            `[${providerConfig.name}/${p.group.name}] ${groupTotalWorking}/${groupTotalTested} working across ${vendorBuckets.size} vendors`,
+          );
+        }
+
+        return {
+          group: p.group,
+          offers: groupOffers,
+          hadAnyOffer: groupOffers.length > 0,
+        };
+      }),
+    );
+
+    for (const gr of groupResults) {
+      offers.push(...gr.offers);
+      if (!gr.hadAnyOffer) {
+        groupsWithNoWorkingModels.push(gr.group.name);
       }
     }
 

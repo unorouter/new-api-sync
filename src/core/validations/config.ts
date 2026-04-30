@@ -85,6 +85,9 @@ const ProviderCommonProps = {
   /** Per-provider override of the global maxRatioCap. Tiers whose effective
    *  group ratio × model ratio exceeds canonical_ratio × cap are dropped. */
   maxRatioCap: T.Optional(T.Number({ minimum: 1, maximum: 100 })),
+  /** Per-provider override of perUpstreamConcurrency. Caps simultaneous
+   *  test/probe HTTP requests against this provider's baseUrl. */
+  perUpstreamConcurrency: T.Optional(T.Integer({ minimum: 1, maximum: 200 })),
 } as const;
 
 const NewApiProviderSchema = T.Object({
@@ -245,6 +248,12 @@ export const ConfigSchema = T.Object({
   /** Maximum allowed multiple of canonical retail ratio for any tier. Tiers
    *  whose user-charged price exceeds canonical × cap are dropped. Default 3. */
   maxRatioCap: T.Optional(T.Number({ minimum: 1, maximum: 100 })),
+  /** Top-level cap on simultaneous in-flight HTTP test/probe requests across
+   *  the whole sync run. Default 20. */
+  globalConcurrency: T.Optional(T.Integer({ minimum: 1, maximum: 1000 })),
+  /** Default cap on simultaneous in-flight requests per upstream baseUrl
+   *  (overridable per provider). Default 5. */
+  perUpstreamConcurrency: T.Optional(T.Integer({ minimum: 1, maximum: 200 })),
   blacklist: T.Optional(T.Array(str)),
   modelMapping: T.Optional(T.Record(T.String(), T.String())),
   providers: T.Array(AnyProviderSchema, { minItems: 1 }),

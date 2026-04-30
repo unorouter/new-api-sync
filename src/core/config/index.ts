@@ -1,6 +1,4 @@
-import { loadGlobalConfig } from "./global";
 import { MODEL_TYPES, type ModelType } from "@core/models/types";
-import { configDir } from "./paths";
 import {
   ConfigSchema,
   type AnyProviderConfig,
@@ -11,6 +9,8 @@ import { t } from "@server/i18n";
 import { type TSchema } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { join } from "node:path";
+import { loadGlobalConfig } from "./global";
+import { configDir } from "./paths";
 
 const NON_TEXT_TYPES: Set<string> = new Set(
   MODEL_TYPES.filter((t) => t !== "text"),
@@ -57,11 +57,19 @@ export function getMetadataFromEnabledModels(
 // Defaults applied post-parse to match the previous Zod .default() semantics.
 export interface RuntimeConfig extends Omit<
   ConfigSchemaType,
-  "blacklist" | "modelMapping" | "skipUnprofitableText" | "providers" | "maxRatioCap"
+  | "blacklist"
+  | "modelMapping"
+  | "skipUnprofitableText"
+  | "providers"
+  | "maxRatioCap"
+  | "globalConcurrency"
+  | "perUpstreamConcurrency"
 > {
   providers: AnyProviderConfig[];
   skipUnprofitableText: boolean;
   maxRatioCap: number;
+  globalConcurrency: number;
+  perUpstreamConcurrency: number;
   blacklist: string[];
   modelMapping: Record<string, string>;
   onlyProviders?: Set<string>;
@@ -229,6 +237,8 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
     providers,
     skipUnprofitableText: typed.skipUnprofitableText ?? true,
     maxRatioCap: typed.maxRatioCap ?? 3,
+    globalConcurrency: typed.globalConcurrency ?? 20,
+    perUpstreamConcurrency: typed.perUpstreamConcurrency ?? 5,
     blacklist: mergedBlacklist,
     modelMapping: mergedMapping,
   };
