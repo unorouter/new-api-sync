@@ -1,50 +1,14 @@
-/**
- * Counting semaphore. Limits the number of concurrent holders to `permits`.
- * `acquire()` resolves when a permit is available; the caller must then call
- * `release()` exactly once (typically in a `finally`).
- */
-export class Semaphore {
-  private available: number;
-  private waiters: Array<() => void> = [];
-
-  constructor(permits: number) {
-    if (permits < 1) throw new Error("Semaphore permits must be >= 1");
-    this.available = permits;
-  }
-
-  async acquire(): Promise<void> {
-    if (this.available > 0) {
-      this.available--;
-      return;
-    }
-    await new Promise<void>((resolve) => this.waiters.push(resolve));
-  }
-
-  release(): void {
-    const next = this.waiters.shift();
-    if (next) next();
-    else this.available++;
-  }
-
-  async run<T>(fn: () => Promise<T>): Promise<T> {
-    await this.acquire();
-    try {
-      return await fn();
-    } finally {
-      this.release();
-    }
-  }
-}
+import pLimit, { type LimitFunction } from "p-limit";
 
 /**
- * Composite gate: every call passes through the global semaphore AND the
- * per-upstream semaphore. Use this in test/probe code so a single noisy
+ * Composite gate: every call passes through the global limiter AND the
+ * per-upstream limiter. Use this in test/probe code so a single noisy
  * upstream cannot starve other providers, while the total in-flight count
  * stays bounded.
  */
 export class ConcurrencyGate {
-  private global: Semaphore;
-  private perUpstream = new Map<string, Semaphore>();
+  private global: LimitFunction;
+  private perUpstream = new Map<string, LimitFunction>();
   private perUpstreamLimit: number;
   private overrides: Map<string, number>;
 
@@ -53,31 +17,29 @@ export class ConcurrencyGate {
     perUpstreamLimit: number;
     overrides?: Map<string, number>;
   }) {
-    this.global = new Semaphore(opts.globalLimit);
+    this.global = pLimit(opts.globalLimit);
     this.perUpstreamLimit = opts.perUpstreamLimit;
     this.overrides = opts.overrides ?? new Map();
   }
 
-  private semFor(upstreamKey: string): Semaphore {
-    let sem = this.perUpstream.get(upstreamKey);
-    if (!sem) {
-      const limit = this.overrides.get(upstreamKey) ?? this.perUpstreamLimit;
-      sem = new Semaphore(limit);
-      this.perUpstream.set(upstreamKey, sem);
+  private limitFor(upstreamKey: string): LimitFunction {
+    let limit = this.perUpstream.get(upstreamKey);
+    if (!limit) {
+      const cap = this.overrides.get(upstreamKey) ?? this.perUpstreamLimit;
+      limit = pLimit(cap);
+      this.perUpstream.set(upstreamKey, limit);
     }
-    return sem;
+    return limit;
   }
 
-  async run<T>(upstreamKey: string, fn: () => Promise<T>): Promise<T> {
-    const sem = this.semFor(upstreamKey);
-    await sem.acquire();
-    await this.global.acquire();
-    try {
-      return await fn();
-    } finally {
-      this.global.release();
-      sem.release();
-    }
+  /**
+   * Run `fn` under both the per-upstream and global limiter. The global
+   * limiter is acquired inside the per-upstream limiter so a slow upstream
+   * cannot hog global permits while waiting on its own per-upstream cap.
+   */
+  run<T>(upstreamKey: string, fn: () => Promise<T>): Promise<T> {
+    const perUpstream = this.limitFor(upstreamKey);
+    return perUpstream(() => this.global(fn));
   }
 }
 

@@ -1,4 +1,5 @@
 import { t } from "@server/i18n";
+import { FetchError, ofetch } from "ofetch";
 
 interface FetchOptions {
   headers?: Record<string, string>;
@@ -7,36 +8,28 @@ interface FetchOptions {
   timeoutMs?: number;
 }
 
-function buildRequest(
-  url: string,
-  options?: FetchOptions,
-): [string, RequestInit] {
-  return [
-    url,
-    {
-      method: options?.method,
-      headers: options?.headers,
-      body:
-        options?.body !== undefined ? JSON.stringify(options.body) : undefined,
-      signal: AbortSignal.timeout(options?.timeoutMs ?? 10_000),
-    },
-  ];
-}
-
 export async function fetchJson<T>(
   url: string,
   options?: FetchOptions,
 ): Promise<T> {
-  const response = await fetch(...buildRequest(url, options));
-  if (!response.ok) {
-    throw new Error(
-      t("ERROR.HTTP_ERROR", {
-        status: response.status,
-        statusText: response.statusText,
-      }),
-    );
+  try {
+    return await ofetch<T>(url, {
+      method: options?.method,
+      headers: options?.headers,
+      body: options?.body as Record<string, unknown> | undefined,
+      timeout: options?.timeoutMs ?? 10_000,
+    });
+  } catch (err) {
+    if (err instanceof FetchError && err.response) {
+      throw new Error(
+        t("ERROR.HTTP_ERROR", {
+          status: err.response.status,
+          statusText: err.response.statusText,
+        }),
+      );
+    }
+    throw err;
   }
-  return response.json() as Promise<T>;
 }
 
 /** Like fetchJson but returns null on any HTTP or network error. */

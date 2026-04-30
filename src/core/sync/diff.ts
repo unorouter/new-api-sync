@@ -4,6 +4,8 @@ import {
   parseModelList,
   VENDOR_MATCHERS,
 } from "@core/models/constants";
+import { deepEqual } from "fast-equals";
+import stringify from "safe-stable-stringify";
 import type {
   Channel,
   DesiredState,
@@ -25,11 +27,7 @@ function collectModelsFromChannels(channels: Channel[]): Set<string> {
 }
 
 function stableJson(input: Record<string, unknown>): string {
-  return JSON.stringify(
-    Object.fromEntries(
-      Object.entries(input).sort(([a], [b]) => a.localeCompare(b)),
-    ),
-  );
+  return stringify(input) ?? "{}";
 }
 
 /** Extract only the capabilities portion of a setting JSON for comparison. */
@@ -337,8 +335,10 @@ export function buildSyncDiff(
       desiredChannel.setting,
     );
     if (
-      JSON.stringify(normalizeChannel(existing)) !==
-      JSON.stringify(normalizeChannel(normalizedDesired))
+      !deepEqual(
+        normalizeChannel(existing),
+        normalizeChannel(normalizedDesired),
+      )
     ) {
       channelOps.push({
         type: "update",

@@ -2,6 +2,7 @@ import { buildReverseMapping } from "@core/models/constants";
 import { tryFetchJson } from "@core/runtime/http";
 import { t } from "@server/i18n";
 import { consola } from "consola";
+import removeMd from "remove-markdown";
 
 const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
 const BASELLM_MODELS_URL =
@@ -10,20 +11,8 @@ const BASELLM_MODELS_URL =
 // Template description pattern from basellm (auto-generated, not useful)
 const TEMPLATE_DESCRIPTION_RE = /^.+ is an AI model provided by .+\.$/;
 
-/** Strip markdown formatting from a description, keeping plain text. */
 function stripMarkdown(text: string): string {
-  return text
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // [text](url) -> text
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1") // ![alt](url) -> alt
-    .replace(/#{1,6}\s+/g, "") // headings
-    .replace(/(\*{1,3}|_{1,3})(.+?)\1/g, "$2") // bold/italic
-    .replace(/~~(.+?)~~/g, "$1") // strikethrough
-    .replace(/`{1,3}[^`]*`{1,3}/g, (m) => m.replace(/`/g, "")) // inline code
-    .replace(/^\s*[-*+]\s+/gm, "") // unordered list markers
-    .replace(/^\s*\d+\.\s+/gm, "") // ordered list markers
-    .replace(/^\s*>\s+/gm, "") // blockquotes
-    .replace(/\n{3,}/g, "\n\n") // collapse excessive newlines
-    .trim();
+  return removeMd(text).replace(/\n{3,}/g, "\n\n").trim();
 }
 
 // ---- Raw API response types ----
