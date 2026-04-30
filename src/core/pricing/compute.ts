@@ -160,9 +160,21 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
     //     pre-computed map), use the ratio alone and fall back to channel
     //     completion/cache values.
     const canonicalRatio = canonical.get(model);
-    const sourceHit =
+    // sourceHit is used to populate completion/cache fields alongside the
+    // canonical ratio. We only consult pricingSources when their resolved
+    // ratio matches what's in the canonical map — when the pipeline has
+    // detected canonical is an outlier and substituted a higher ratio, we
+    // skip sourceHit and let the cheapest upstream provide completion/cache
+    // (which actually matches the higher ratio).
+    const rawSourceHit =
       canonicalRatio !== undefined && pricingSources.length > 0
         ? resolveBasePricing(model, pricingSources, reverseMapping)
+        : undefined;
+    const sourceHit =
+      rawSourceHit !== undefined &&
+      canonicalRatio !== undefined &&
+      Math.abs(rawSourceHit.modelRatio - canonicalRatio) < 1e-6
+        ? rawSourceHit
         : undefined;
 
     // Cheapest upstream offering (only paid, non-free offers contribute).
