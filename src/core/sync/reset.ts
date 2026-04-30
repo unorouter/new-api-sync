@@ -4,7 +4,22 @@ import {
 } from "@core/catalog/constants/patterns";
 import type { RuntimeConfig } from "@core/config";
 import { throwIfRunAborted } from "@core/runtime";
+import { MANAGED_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
+
+const OPTION_RESET_VALUES: Record<string, string> = {
+  UserUsableGroups: JSON.stringify({
+    auto: "Auto (Smart Routing with Failover)",
+  }),
+  AutoGroups: "[]",
+  DefaultUseAutoGroup: "true",
+  "global.chat_completions_to_responses_policy": JSON.stringify({
+    enabled: false,
+    all_channels: false,
+    channel_types: [1],
+    model_patterns: [],
+  }),
+};
 
 export interface ResetResult {
   channelsDeleted: number;
@@ -116,22 +131,12 @@ export async function runReset(
 
   const optionsUpdated: string[] = [];
   if (!hasAnyFilter) {
-    const options: Record<string, string> = {
-      GroupRatio: "{}",
-      UserUsableGroups: JSON.stringify({
-        auto: "Auto (Smart Routing with Failover)",
-      }),
-      AutoGroups: "[]",
-      DefaultUseAutoGroup: "true",
-      ModelRatio: "{}",
-      CompletionRatio: "{}",
-      ModelPrice: "{}",
-      ImageRatio: "{}",
-      CacheRatio: "{}",
-      CreateCacheRatio: "{}",
-      ModelQuotaType: "{}",
-      ModelGridPricing: "{}",
-    };
+    const options: Record<string, string> = Object.fromEntries(
+      MANAGED_OPTION_KEYS.map((key) => [
+        key,
+        OPTION_RESET_VALUES[key] ?? "{}",
+      ]),
+    );
     for (const [key, value] of Object.entries(options)) {
       if (await target.updateOption(key, value)) optionsUpdated.push(key);
     }

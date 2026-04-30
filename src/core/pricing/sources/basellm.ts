@@ -2,11 +2,11 @@ import {
   forEachVendor,
   inferVendorFromModelName,
 } from "@core/catalog/constants/vendor-matchers";
+import { parseModelList } from "@core/catalog/constants/patterns";
 import {
   type BasellmEntry,
   buildFuzzyIndex,
 } from "@core/catalog/metadata";
-import { splitCsv } from "@core/catalog/naming";
 import { consola } from "consola";
 import {
   type BaseModelPricing,
@@ -59,7 +59,7 @@ function entryToPricing(entry: BasellmEntry): BaseModelPricing | undefined {
 function entryToMetadata(entry: BasellmEntry): SourceMetadata {
   const md: SourceMetadata = {};
   if (entry.tags) {
-    const tags = splitCsv(entry.tags);
+    const tags = parseModelList(entry.tags);
     md.supportsTools = tags.some((t) => /^Tools$/i.test(t));
     md.supportsVision = tags.some((t) => /^Vision$/i.test(t));
     md.isReasoning = tags.some((t) => /^Reasoning$/i.test(t));

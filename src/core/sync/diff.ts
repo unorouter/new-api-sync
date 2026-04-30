@@ -214,51 +214,20 @@ function buildManagedOptionValues(
     ]),
   ].sort((a, b) => (mergedGroupRatio[a] ?? 1) - (mergedGroupRatio[b] ?? 1));
 
-  const mergedModelRatio = mergeOption(
-    "ModelRatio",
-    modelGuard,
-    desired.options.modelRatio,
-  );
-  const mergedCompletionRatio = mergeOption(
-    "CompletionRatio",
-    modelGuard,
-    desired.options.completionRatio,
-  );
-  const mergedModelPrice = mergeOption(
-    "ModelPrice",
-    modelGuard,
-    desired.options.modelPrice,
-  );
-  const mergedImageRatio = mergeOption(
-    "ImageRatio",
-    modelGuard,
-    desired.options.imageRatio,
-  );
-  const mergedCacheRatio = mergeOption(
-    "CacheRatio",
-    modelGuard,
-    desired.options.cacheRatio,
-  );
-  const mergedCreateCacheRatio = mergeOption(
-    "CreateCacheRatio",
-    modelGuard,
-    desired.options.createCacheRatio,
-  );
-  const mergedModelQuotaType = mergeOption(
-    "ModelQuotaType",
-    modelGuard,
-    desired.options.modelQuotaType,
-  );
-  const mergedModelGridPricing = mergeOption(
-    "ModelGridPricing",
-    modelGuard,
-    desired.options.modelGridPricing as Record<string, unknown>,
-  );
+  const modelOptions: [string, Record<string, unknown>][] = [
+    ["ModelRatio", desired.options.modelRatio],
+    ["CompletionRatio", desired.options.completionRatio],
+    ["ModelPrice", desired.options.modelPrice],
+    ["ImageRatio", desired.options.imageRatio],
+    ["CacheRatio", desired.options.cacheRatio],
+    ["CreateCacheRatio", desired.options.createCacheRatio],
+    ["ModelQuotaType", desired.options.modelQuotaType],
+    ["ModelGridPricing", desired.options.modelGridPricing],
+  ];
 
   // Build model_patterns for chat/completions → /v1/responses policy.
   // Each model name is escaped and anchored as an exact match.
-  const responsesModels = desired.options.responsesApiModels;
-  const modelPatterns = responsesModels.map(
+  const modelPatterns = desired.options.responsesApiModels.map(
     (m) => `^${m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
   );
   const responsesPolicy = JSON.stringify({
@@ -273,14 +242,12 @@ function buildManagedOptionValues(
     UserUsableGroups: stableJson(mergedUserGroups),
     AutoGroups: JSON.stringify(mergedAutoGroups),
     DefaultUseAutoGroup: desired.options.defaultUseAutoGroup ? "true" : "false",
-    ModelRatio: stableJson(mergedModelRatio),
-    CompletionRatio: stableJson(mergedCompletionRatio),
-    ModelPrice: stableJson(mergedModelPrice),
-    ImageRatio: stableJson(mergedImageRatio),
-    CacheRatio: stableJson(mergedCacheRatio),
-    CreateCacheRatio: stableJson(mergedCreateCacheRatio),
-    ModelQuotaType: stableJson(mergedModelQuotaType),
-    ModelGridPricing: stableJson(mergedModelGridPricing),
+    ...Object.fromEntries(
+      modelOptions.map(([key, value]) => [
+        key,
+        stableJson(mergeOption(key, modelGuard, value)),
+      ]),
+    ),
     "global.chat_completions_to_responses_policy": responsesPolicy,
   };
 }

@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import pLimit, { type LimitFunction } from "p-limit";
+import { CONFIG_DEFAULTS } from "@core/config";
 import { t } from "@server/i18n";
 import { FetchError, ofetch } from "ofetch";
 
@@ -152,8 +153,8 @@ export function setConcurrencyGate(gate: ConcurrencyGate): void {
 export function getConcurrencyGate(): ConcurrencyGate {
   if (!sharedGate) {
     sharedGate = new ConcurrencyGate({
-      globalLimit: 20,
-      perUpstreamLimit: 5,
+      globalLimit: CONFIG_DEFAULTS.globalConcurrency,
+      perUpstreamLimit: CONFIG_DEFAULTS.perUpstreamConcurrency,
     });
   }
   return sharedGate;

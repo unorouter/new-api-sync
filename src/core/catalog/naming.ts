@@ -11,11 +11,3 @@ export function bareSlash(key: string): string {
   const slash = key.lastIndexOf("/");
   return slash >= 0 ? key.slice(slash + 1) : key;
 }
-
-/** Split a CSV-like string and trim/filter empties. */
-export function splitCsv(input: string): string[] {
-  return input
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}

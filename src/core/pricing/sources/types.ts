@@ -82,12 +82,7 @@ export interface PricingSource {
   metadata: FuzzyIndex<SourceMetadata>;
 }
 
-/** USD per 1M tokens to new-api ratio (2 USD per quota unit). */
-export function usdPerMToRatio(usdPerM: number): number {
-  return usdPerM / 2;
-}
-
-/** USD per token (LiteLLM format) to new-api ratio. */
+/** USD per token (LiteLLM format) to new-api ratio (2 USD per quota unit). */
 export function usdPerTokenToRatio(usdPerToken: number): number {
   return (usdPerToken * 1_000_000) / 2;
 }

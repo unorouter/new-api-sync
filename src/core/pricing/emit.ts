@@ -101,31 +101,26 @@ export function emitChannels(args: EmitArgs): EmitResult {
 
 function buildSettingJson(tier: PricedTier): string | undefined {
   if (!tier.testDetails || tier.testDetails.length === 0) return undefined;
-  const capabilities: Record<string, boolean | null> = {};
 
-  const toolResults = tier.testDetails
-    .map((d) => d.toolCallSuccess)
-    .filter((v): v is boolean => v !== null && v !== undefined);
-  if (toolResults.length > 0) {
-    capabilities.tool_calling = toolResults.every(Boolean);
-  } else {
-    capabilities.tool_calling = false;
-  }
+  const summarize = (
+    pick: (d: NonNullable<PricedTier["testDetails"]>[number]) => boolean | null | undefined,
+  ): boolean | undefined => {
+    const results = tier.testDetails!
+      .map(pick)
+      .filter((v): v is boolean => v !== null && v !== undefined);
+    return results.length > 0 ? results.every(Boolean) : undefined;
+  };
 
-  const streamResults = tier.testDetails
-    .map((d) => d.streamSuccess)
-    .filter((v): v is boolean => v !== null && v !== undefined);
-  if (streamResults.length > 0) {
-    capabilities.streaming = streamResults.every(Boolean);
-  }
+  const capabilities: Record<string, boolean> = {
+    // tool_calling=false when all test results were null — matches legacy
+    // behaviour: reasoning-only buckets get marked tool-incapable so they
+    // don't 400 on tool-call requests routed here.
+    tool_calling: summarize((d) => d.toolCallSuccess) ?? false,
+  };
+  const streaming = summarize((d) => d.streamSuccess);
+  if (streaming !== undefined) capabilities.streaming = streaming;
+  const http = summarize((d) => d.success);
+  if (http !== undefined) capabilities.http = http;
 
-  const httpResults = tier.testDetails
-    .map((d) => d.success)
-    .filter((v): v is boolean => v !== null && v !== undefined);
-  if (httpResults.length > 0) {
-    capabilities.http = httpResults.every(Boolean);
-  }
-
-  if (Object.keys(capabilities).length === 0) return undefined;
   return JSON.stringify({ capabilities });
 }

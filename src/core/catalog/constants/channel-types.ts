@@ -1,5 +1,3 @@
-import { inferVendorFromModelName } from "./vendor-matchers";
-
 export const CHANNEL_TYPES = {
   UNKNOWN: 0,
   OPENAI: 1,
@@ -58,24 +56,6 @@ export const CHANNEL_TYPES = {
   NVIDIA_NIM: 58,
 } as const;
 
-export const VENDOR_CHANNEL_TYPES: Record<string, number> = {
-  openai: CHANNEL_TYPES.OPENAI,
-  anthropic: CHANNEL_TYPES.ANTHROPIC,
-  google: CHANNEL_TYPES.GEMINI,
-  deepseek: CHANNEL_TYPES.DEEPSEEK,
-  moonshot: CHANNEL_TYPES.MOONSHOT,
-  mistral: CHANNEL_TYPES.MISTRAL,
-  xai: CHANNEL_TYPES.XAI,
-  siliconflow: CHANNEL_TYPES.SILICONFLOW,
-  cohere: CHANNEL_TYPES.COHERE,
-  zhipu: CHANNEL_TYPES.ZHIPU_V4,
-  volcengine: CHANNEL_TYPES.VOLCENGINE,
-  minimax: CHANNEL_TYPES.MINIMAX,
-  perplexity: CHANNEL_TYPES.PERPLEXITY,
-  alibaba: CHANNEL_TYPES.ALI,
-  bailian: CHANNEL_TYPES.ALI,
-};
-
 interface TaskModelOverride {
   channelType: number;
   baseUrlSuffix?: string;
@@ -114,53 +94,5 @@ export function inferChannelType(endpoints: string[]): number {
   if (endpoints.includes("openai-video")) return CHANNEL_TYPES.SORA;
   if (endpoints.includes("anthropic")) return CHANNEL_TYPES.ANTHROPIC;
   if (endpoints.includes("gemini")) return CHANNEL_TYPES.GEMINI;
-  return CHANNEL_TYPES.OPENAI;
-}
-
-export function inferChannelTypeFromModels(
-  models: string[],
-  modelEndpoints: Map<string, string[]>,
-): number {
-  const endpoints = new Set<string>();
-  for (const model of models) {
-    const eps = modelEndpoints.get(model);
-    if (eps) {
-      for (const ep of eps) endpoints.add(ep);
-    }
-  }
-
-  if (endpoints.size > 0) {
-    const openaiOnly = [...endpoints].every(
-      (ep) => ep === "openai" || ep === "openai-response",
-    );
-    if (openaiOnly) {
-      return CHANNEL_TYPES.OPENAI;
-    }
-  }
-
-  const vendorCounts = new Map<string, number>();
-  for (const model of models) {
-    const vendor = inferVendorFromModelName(model);
-    if (vendor) {
-      vendorCounts.set(vendor, (vendorCounts.get(vendor) ?? 0) + 1);
-    }
-  }
-
-  let topVendor: string | undefined;
-  let topCount = 0;
-  for (const [vendor, count] of vendorCounts) {
-    if (count > topCount) {
-      topVendor = vendor;
-      topCount = count;
-    }
-  }
-
-  if (topVendor) {
-    const channelType = VENDOR_CHANNEL_TYPES[topVendor];
-    if (channelType !== undefined) {
-      return channelType;
-    }
-  }
-
   return CHANNEL_TYPES.OPENAI;
 }

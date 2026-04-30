@@ -22,8 +22,11 @@ export const MANAGED_OPTION_KEYS = [
   "CompletionRatio",
   "ModelPrice",
   "ImageRatio",
+  "CacheRatio",
+  "CreateCacheRatio",
   "ModelQuotaType",
   "ModelGridPricing",
+  "global.chat_completions_to_responses_policy",
 ] as const;
 
 export const PAGINATION = {

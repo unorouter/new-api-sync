@@ -11,7 +11,6 @@ import {
   type BasellmEntry,
   buildMetadataMap,
 } from "@core/catalog/metadata";
-import { splitCsv } from "@core/catalog/naming";
 import {
   buildModelMetadata,
   deriveTagsFromMetadata,
@@ -136,9 +135,9 @@ export function buildDesiredModels(opts: {
       .join(",");
 
     const seen = new Set<string>();
-    const deduped = splitCsv(rawTags)
-      .filter((t) => {
-        const lower = t.toLowerCase();
+    const deduped = parseModelList(rawTags)
+      .filter((tag) => {
+        const lower = tag.toLowerCase();
         if (seen.has(lower)) return false;
         seen.add(lower);
         return true;

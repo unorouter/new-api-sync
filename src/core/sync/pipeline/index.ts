@@ -63,7 +63,7 @@ export async function runProviderPipeline(
     fetchOpenRouterDescriptions(),
   ]);
   const pricingSources = await fetchAllPricingSources(basellmEntries);
-  const reverseMappingForCanon = buildReverseMapping(config.modelMapping);
+  const reverseMapping = buildReverseMapping(config.modelMapping);
 
   const {
     reports: providerReports,
@@ -77,7 +77,7 @@ export async function runProviderPipeline(
     allOffers,
     baseline,
     pricingSources,
-    reverseMapping: reverseMappingForCanon,
+    reverseMapping,
     maxRatioCap: config.maxRatioCap,
   });
 
@@ -87,7 +87,7 @@ export async function runProviderPipeline(
     baseline,
     canonical,
     pricingSources,
-    reverseMapping: reverseMappingForCanon,
+    reverseMapping,
     modelMapping: config.modelMapping,
   });
 
@@ -123,8 +123,6 @@ export async function runProviderPipeline(
     config.modelMapping,
     allPricingGrids,
   );
-
-  const reverseMapping = buildReverseMapping(config.modelMapping);
 
   const models = buildDesiredModels({
     channels,

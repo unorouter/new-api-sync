@@ -25,11 +25,6 @@ import { consola } from "consola";
 import { partitionByVendor } from "../shared/partition";
 import { discoverNvidiaModels } from "./discovery";
 
-interface BareResolution {
-  exposed: string;
-  upstream: string;
-}
-
 export async function processNvidiaProvider(
   providerConfig: NvidiaProviderConfig,
   config: RuntimeConfig,
@@ -177,10 +172,8 @@ export async function processNvidiaProvider(
       for (const [vendor, vendorResolutions] of byVendor) {
         const offerModels: OfferModel[] = vendorResolutions.map((r) => {
           const detail = textDetails.find((d) => d.model === r.upstream);
-          // Apply mapping to offer model so emit's model_mapping JSON works.
-          const exposed = textReverseMapping[r.exposed] ? r.exposed : r.exposed;
           return {
-            exposed,
+            exposed: r.exposed,
             upstream: textReverseMapping[r.exposed] ?? r.upstream,
             modelType: "text",
             isFree: true,

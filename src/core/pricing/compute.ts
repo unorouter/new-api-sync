@@ -278,7 +278,7 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
   // Phase A.
   for (const offer of phaseAOffers) {
     if (offer.paidTier) {
-      processPaidOffer(offer, modelRatios, canonical, args, tiers, drops);
+      processPaidOffer(offer, modelRatios, canonical, tiers, drops);
     } else {
       processStandardOffer(offer, modelRatios, canonical, args, tiers, drops);
     }
@@ -425,7 +425,6 @@ function processPaidOffer(
   offer: UpstreamOffer,
   modelRatios: Map<string, MergedModel>,
   canonical: Map<string, number>,
-  args: ComputeArgs,
   tiers: PricedTier[],
   drops: PricedDrop[],
 ): void {
@@ -480,7 +479,6 @@ function processPaidOffer(
   const buckets = new Map<number, OfferModel[]>();
   buckets.set(chosen.ratio, chosen.kept);
   pushBucketsAsTiers(offer, buckets, tiers);
-  void args; // unused but matches signature
 }
 
 // =========================================================================

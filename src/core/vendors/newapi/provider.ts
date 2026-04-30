@@ -178,13 +178,6 @@ export async function processNewApiProvider(
       );
     }
 
-    // Pull this upstream's per-model ratios from pricing.models. Used by
-    // compute() to rescale tier group_ratios.
-    const upstreamModelRatios = new Map<string, number>();
-    for (const model of pricing.models) {
-      if (model.ratio > 0) upstreamModelRatios.set(model.name, model.ratio);
-    }
-
     const groupsWithNoWorkingModels: string[] = [];
     const usedSanitizedNames = new Map<string, number>();
 
@@ -397,7 +390,6 @@ export async function processNewApiProvider(
       }
     }
 
-    void upstreamModelRatios; // exported via offer.models[].upstreamRatio
     report.groups = groups.length;
     report.models = pricing.models.length;
     report.success = true;
