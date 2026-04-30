@@ -12,9 +12,14 @@ import {
   sanitizeGroupName,
 } from "@core/models/constants";
 import { testAndFilterModels } from "@core/models/tester";
-import type { OfferModel, UpstreamOffer } from "@core/pricing/offers";
+import type {
+  EndpointPathInfo,
+  OfferModel,
+  ProviderResult,
+  UpstreamOffer,
+} from "@core/pricing/offers";
 import { throwIfRunAborted } from "@core/runtime/abort";
-import type { GroupInfo, ProviderReport, SyncState } from "@core/types";
+import type { GroupInfo, ProviderReport } from "@core/types";
 import type { ProviderConfig } from "@core/validations/config";
 import { consola } from "consola";
 import { colorize } from "consola/utils";
@@ -91,8 +96,7 @@ async function cleanupEmptyGroupTokens(
 export async function processNewApiProvider(
   providerConfig: ProviderConfig,
   config: RuntimeConfig,
-  state: SyncState,
-): Promise<{ report: ProviderReport; offers: UpstreamOffer[] }> {
+): Promise<ProviderResult> {
   const report: ProviderReport = {
     name: providerConfig.name,
     success: false,
@@ -101,25 +105,27 @@ export async function processNewApiProvider(
     tokens: { created: 0, existing: 0, deleted: 0 },
   };
   const offers: UpstreamOffer[] = [];
+  const endpointPaths = new Map<string, EndpointPathInfo>();
+  // Per-upstream-name endpoint maps, scoped to this provider only. Compute and
+  // emit consume the per-OfferModel `endpoints` / `normalizedEndpoints` fields
+  // directly, but inferModelType still wants a Map<string,string[]>.
+  const localNormalizedEndpoints = new Map<string, string[]>();
 
   try {
     const upstream = new NewApiClient(providerConfig, providerConfig.name);
 
     const pricing = await upstream.fetchPricing();
 
-    // Populate model endpoints maps. These are read by buildDesiredModels in
-    // pipeline.ts to build the metadata.endpoints field.
     for (const model of pricing.models) {
       if (model.supportedEndpoints?.length) {
-        state.modelEndpoints.set(
+        localNormalizedEndpoints.set(
           model.name,
           normalizeEndpointTypes(model.supportedEndpoints),
         );
-        state.modelOriginalEndpoints.set(model.name, model.supportedEndpoints);
       }
     }
     for (const [ep, info] of Object.entries(pricing.endpointPaths)) {
-      state.endpointPaths.set(ep, info);
+      endpointPaths.set(ep, info);
     }
 
     let groups: GroupInfo[] = pricing.groups;
@@ -249,7 +255,7 @@ export async function processNewApiProvider(
               apiKey: p.apiKey,
               vendor,
               models: vendorModels,
-              modelEndpoints: state.modelEndpoints,
+              modelEndpoints: localNormalizedEndpoints,
               logPrefix: probeLabel,
             });
             if (!probe) {
@@ -266,7 +272,7 @@ export async function processNewApiProvider(
               channelType: probe.channelType,
               providerLabel: `${probeLabel}/${vendor}`,
               testableModelTypes: getTestModelTypes(config, providerConfig),
-              modelEndpoints: state.modelEndpoints,
+              modelEndpoints: localNormalizedEndpoints,
             });
 
             const workingUpstream = filterResult.workingModels;
@@ -285,11 +291,8 @@ export async function processNewApiProvider(
                 const detail = filterResult.details?.find(
                   (d) => d.model === upstreamName,
                 );
-                const mt = inferModelType(
-                  exposed,
-                  undefined,
-                  state.modelEndpoints,
-                );
+                const normalized = localNormalizedEndpoints.get(upstreamName);
+                const mt = inferModelType(exposed, normalized);
                 const m = pricing.models.find((pm) => pm.name === upstreamName);
                 return {
                   exposed,
@@ -301,7 +304,8 @@ export async function processNewApiProvider(
                   createCacheRatio: m?.createCacheRatio,
                   modelPrice: m?.modelPrice,
                   quotaType: m?.quotaType,
-                  endpoints: state.modelOriginalEndpoints.get(upstreamName),
+                  endpoints: m?.supportedEndpoints,
+                  normalizedEndpoints: normalized,
                   testDetail: detail,
                 };
               },
@@ -405,5 +409,5 @@ export async function processNewApiProvider(
     report.error = error instanceof Error ? error.message : String(error);
   }
 
-  return { report, offers };
+  return { report, offers, endpointMetadata: { endpointPaths } };
 }

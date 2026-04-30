@@ -9,8 +9,12 @@ import {
 } from "@core/models/constants";
 import { filterModels } from "@core/models/filter";
 import { testAndFilterModels } from "@core/models/tester";
-import type { OfferModel, UpstreamOffer } from "@core/pricing/offers";
-import type { ProviderReport, SyncState } from "@core/types";
+import type {
+  OfferModel,
+  ProviderResult,
+  UpstreamOffer,
+} from "@core/pricing/offers";
+import type { ProviderReport } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { discoverModels } from "./discovery";
@@ -18,8 +22,7 @@ import { discoverModels } from "./discovery";
 export async function processDirectProvider(
   providerConfig: DirectProviderConfig,
   config: RuntimeConfig,
-  state: SyncState,
-): Promise<{ report: ProviderReport; offers: UpstreamOffer[] }> {
+): Promise<ProviderResult> {
   const report: ProviderReport = {
     name: providerConfig.name,
     success: false,
@@ -28,6 +31,7 @@ export async function processDirectProvider(
     tokens: { created: 0, existing: 0, deleted: 0 },
   };
   const offers: UpstreamOffer[] = [];
+  const endpointMetadata = { endpointPaths: new Map() };
 
   try {
     let allModels: string[];
@@ -48,7 +52,7 @@ export async function processDirectProvider(
       );
       if (allModels.length === 0) {
         report.error = t("CORE.ERROR.NO_MODELS_DISCOVERED");
-        return { report, offers };
+        return { report, offers, endpointMetadata };
       }
       consola.info(
         t("CORE.PROVIDER.DISCOVERED_MODELS_LIST", {
@@ -62,7 +66,7 @@ export async function processDirectProvider(
     allModels = filterModels(allModels, config, providerConfig);
     if (allModels.length === 0) {
       report.error = t("CORE.ERROR.ALL_MODELS_FILTERED");
-      return { report, offers };
+      return { report, offers, endpointMetadata };
     }
 
     const channelType =
@@ -84,7 +88,7 @@ export async function processDirectProvider(
       report.error = t("CORE.ERROR.NO_WORKING_MODELS_COUNT", {
         total: filterResult.testedCount,
       });
-      return { report, offers };
+      return { report, offers, endpointMetadata };
     }
 
     consola.info(
@@ -95,13 +99,10 @@ export async function processDirectProvider(
       }),
     );
 
-    if (providerConfig.vendor.toLowerCase() === "openai") {
-      for (const m of workingModels) {
-        if (!state.modelEndpoints.has(m)) {
-          state.modelEndpoints.set(m, ["openai-response"]);
-        }
-      }
-    }
+    const responsesApiEndpoints =
+      providerConfig.vendor.toLowerCase() === "openai"
+        ? ["openai-response"]
+        : undefined;
 
     // One offer per vendor (direct providers serve a single vendor each).
     // upstreamRatio is undefined: the compute function uses the
@@ -112,8 +113,9 @@ export async function processDirectProvider(
       return {
         exposed,
         upstream: upstreamName,
-        modelType: inferModelType(exposed, undefined, state.modelEndpoints),
-        endpoints: state.modelEndpoints.get(upstreamName),
+        modelType: inferModelType(exposed, responsesApiEndpoints),
+        endpoints: responsesApiEndpoints,
+        normalizedEndpoints: responsesApiEndpoints,
         testDetail: detail,
       };
     });
@@ -145,5 +147,5 @@ export async function processDirectProvider(
     report.error = error instanceof Error ? error.message : String(error);
   }
 
-  return { report, offers };
+  return { report, offers, endpointMetadata };
 }

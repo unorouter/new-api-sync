@@ -84,23 +84,6 @@ export interface MergedModel {
   pricingSource?: PricingSourceName;
 }
 
-export interface SyncState {
-  /** Final groups (one per priced tier) — populated by emit() after compute().
-   *  Read by buildOptionMaps. */
-  mergedGroups: MergedGroup[];
-  /** Final per-model ratio map — populated by emit() from compute()'s
-   *  PricedPlan.modelRatios. Read by buildOptionMaps. */
-  mergedModels: Map<string, MergedModel>;
-  /** Model → normalized endpoint types (for classification / testability).
-   *  Populated during provider discovery. Used by buildDesiredModels and
-   *  collectResponsesApiModels. */
-  modelEndpoints: Map<string, string[]>;
-  /** Model → original endpoint types as returned by upstream (for path lookup). */
-  modelOriginalEndpoints: Map<string, string[]>;
-  /** Endpoint type → {path, method} from upstream's supported_endpoint map (original keys). */
-  endpointPaths: Map<string, { path: string; method: string }>;
-}
-
 // ============ Sync Core Types ============
 
 export interface DesiredModelSpec {

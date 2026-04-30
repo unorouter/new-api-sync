@@ -12,6 +12,7 @@
 
 import type { ModelType } from "@core/models/types";
 import type { ModelTestDetail } from "@core/models/testing/types";
+import type { ProviderReport } from "@core/types";
 import type { AnyProviderConfig } from "@core/validations/config";
 
 export type ProviderKind =
@@ -50,6 +51,11 @@ export interface OfferModel {
   /** Original upstream endpoint type strings, for task-override sub-split
    *  detection (e.g. presence of "openai-video" gates the override). */
   endpoints?: string[];
+  /** Normalized endpoint types (passed through normalizeEndpointTypes). Used
+   *  by inferModelType, capabilities JSON, and the openai-response detection
+   *  in collectResponsesApiModels. Replaces the previous shared
+   *  state.modelEndpoints map. */
+  normalizedEndpoints?: string[];
 }
 
 export interface UpstreamOffer {
@@ -79,4 +85,26 @@ export interface UpstreamOffer {
    *  of the standard rescale formula. The compute function picks one
    *  group_ratio for the whole offer that keeps every model under cap. */
   paidTier?: boolean;
+}
+
+/** Endpoint type -> path/method, sourced from upstream supported_endpoint
+ *  metadata (newapi only). Aggregated across all providers post-discovery
+ *  so buildDesiredModels can render the per-channel `endpoints` JSON. */
+export interface EndpointPathInfo {
+  path: string;
+  method: string;
+}
+
+/** Per-provider discovery output, returned alongside offers. Replaces the
+ *  former shared SyncState.endpointPaths map. Empty Map when the provider
+ *  has no endpoint metadata to share (sub2api, direct, nvidia, openrouter). */
+export interface ProviderEndpointMetadata {
+  endpointPaths: Map<string, EndpointPathInfo>;
+}
+
+/** Standard return shape for every provider's process function. */
+export interface ProviderResult {
+  report: ProviderReport;
+  offers: UpstreamOffer[];
+  endpointMetadata: ProviderEndpointMetadata;
 }

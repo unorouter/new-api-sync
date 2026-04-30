@@ -47,7 +47,6 @@ import type {
   MergedGroup,
   MergedModel,
   ProviderReport,
-  SyncState,
   TargetSnapshot,
 } from "@core/types";
 import type {
@@ -67,7 +66,8 @@ import { consola } from "consola";
 // computePricedPlan + emitChannels to produce the final state.
 
 function buildOptionMaps(
-  state: SyncState,
+  mergedGroups: MergedGroup[],
+  mergedModels: Map<string, MergedModel>,
   modelMapping: Record<string, string>,
   configGridPricing: Record<string, Record<string, string | number>[]>,
 ): Omit<ManagedOptionMaps, "responsesApiModels" | "defaultUseAutoGroup"> {
@@ -76,12 +76,12 @@ function buildOptionMaps(
     auto: "Auto (Smart Routing with Failover)",
   };
 
-  for (const group of state.mergedGroups) {
+  for (const group of mergedGroups) {
     groupRatio[group.name] = Math.round(group.ratio * 10000) / 10000;
     userUsableGroups[group.name] = group.description;
   }
 
-  const autoGroups = [...state.mergedGroups]
+  const autoGroups = [...mergedGroups]
     .sort((a, b) => a.ratio - b.ratio)
     .map((group) => group.name);
 
@@ -92,7 +92,7 @@ function buildOptionMaps(
   const cacheRatio: Record<string, number> = {};
   const createCacheRatio: Record<string, number> = {};
   const modelQuotaType: Record<string, number> = {};
-  for (const [name, ratios] of state.mergedModels) {
+  for (const [name, ratios] of mergedModels) {
     const mappedName = modelMapping?.[name] ?? name;
     const isPerRequest =
       ratios.quotaType !== undefined && ratios.quotaType >= 1;
@@ -157,7 +157,15 @@ function buildOptionMaps(
 
 function buildDesiredModels(opts: {
   channels: Channel[];
-  state: SyncState;
+  /** Original upstream endpoint type strings, keyed by both `exposed` and
+   *  `upstream` for each OfferModel. Replaces SyncState.modelOriginalEndpoints. */
+  originalEndpointsByName: Map<string, string[]>;
+  /** Normalized endpoint type strings, keyed by both `exposed` and `upstream`.
+   *  Replaces SyncState.modelEndpoints. */
+  normalizedEndpointsByName: Map<string, string[]>;
+  /** Endpoint type -> {path, method} aggregated across all providers.
+   *  Replaces SyncState.endpointPaths. */
+  endpointPaths: Map<string, { path: string; method: string }>;
   reverseMapping: Map<string, string>;
   basellmEntries: BasellmEntry[];
   openRouterDescriptions: Map<string, string>;
@@ -180,8 +188,8 @@ function buildDesiredModels(opts: {
     for (const modelName of channelModels) {
       const vendor = inferVendorFromModelName(modelName);
       const originalEps =
-        opts.state.modelOriginalEndpoints.get(modelName) ??
-        opts.state.modelOriginalEndpoints.get(
+        opts.originalEndpointsByName.get(modelName) ??
+        opts.originalEndpointsByName.get(
           opts.reverseMapping.get(modelName) ?? "",
         );
       let endpoints: string | undefined;
@@ -189,7 +197,7 @@ function buildDesiredModels(opts: {
         const epMap: Record<string, string> = {};
         for (const origEp of originalEps) {
           const normalized = normalizeEndpointType(origEp);
-          const info = opts.state.endpointPaths.get(origEp);
+          const info = opts.endpointPaths.get(origEp);
           const path = info?.path ?? ENDPOINT_DEFAULT_PATHS[normalized];
           if (path) epMap[normalized] = path;
         }
@@ -242,8 +250,8 @@ function buildDesiredModels(opts: {
   for (const [modelName, spec] of models) {
     const originalName = opts.reverseMapping.get(modelName) ?? modelName;
     const eps =
-      opts.state.modelEndpoints.get(modelName) ??
-      opts.state.modelEndpoints.get(originalName);
+      opts.normalizedEndpointsByName.get(modelName) ??
+      opts.normalizedEndpointsByName.get(originalName);
     const modelType = inferModelType(modelName, eps);
     const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
     const isTaskModel =
@@ -323,7 +331,7 @@ function buildDesiredModels(opts: {
 
 function collectResponsesApiModels(
   channels: Channel[],
-  state: SyncState,
+  normalizedEndpointsByName: Map<string, string[]>,
   reverseMapping: Map<string, string>,
   modelMapping: Record<string, string>,
 ): string[] {
@@ -333,8 +341,8 @@ function collectResponsesApiModels(
       const mappedName = modelMapping?.[modelName] ?? modelName;
       const originalName = reverseMapping.get(mappedName) ?? mappedName;
       const eps =
-        state.modelEndpoints.get(modelName) ??
-        state.modelEndpoints.get(originalName);
+        normalizedEndpointsByName.get(modelName) ??
+        normalizedEndpointsByName.get(originalName);
       if (eps?.includes("openai-response")) {
         result.push(mappedName);
       }
@@ -347,14 +355,6 @@ export async function runProviderPipeline(
   config: RuntimeConfig,
   targetSnapshot?: TargetSnapshot,
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
-  const state: SyncState = {
-    mergedGroups: [],
-    mergedModels: new Map(),
-    modelEndpoints: new Map(),
-    modelOriginalEndpoints: new Map(),
-    endpointPaths: new Map(),
-  };
-
   // Initialise the shared concurrency gate. Per-upstream overrides are keyed
   // by baseUrl so testModels / probe code can look them up without knowing
   // the provider name.
@@ -490,44 +490,60 @@ export async function runProviderPipeline(
     sorted.map((provider) => {
       throwIfRunAborted();
       if (provider.type === "newapi") {
-        return processNewApiProvider(
-          provider as ProviderConfig,
-          config,
-          state,
-        );
+        return processNewApiProvider(provider as ProviderConfig, config);
       }
       if (provider.type === "nvidia") {
         return processNvidiaProvider(
           provider as NvidiaProviderConfig,
           config,
-          state,
         );
       }
       if (provider.type === "openrouter") {
         return processOpenRouterProvider(
           provider as OpenRouterProviderConfig,
           config,
-          state,
         );
       }
       if (provider.type === "direct") {
         return processDirectProvider(
           provider as DirectProviderConfig,
           config,
-          state,
         );
       }
       return processSub2ApiProvider(
         provider as Sub2ApiProviderConfig,
         config,
-        state,
       );
     }),
   );
 
+  // Aggregate per-provider endpoint metadata into single maps. Sorted-order
+  // merge mirrors the pre-refactor behaviour where the last provider wins
+  // on collision (deterministic across runs since `sorted` is stable).
+  const aggregatedEndpointPaths = new Map<
+    string,
+    { path: string; method: string }
+  >();
+  const originalEndpointsByName = new Map<string, string[]>();
+  const normalizedEndpointsByName = new Map<string, string[]>();
   for (const result of settled) {
     providerReports.push(result.report);
     allOffers.push(...result.offers);
+    for (const [k, v] of result.endpointMetadata.endpointPaths) {
+      aggregatedEndpointPaths.set(k, v);
+    }
+    for (const offer of result.offers) {
+      for (const m of offer.models) {
+        if (m.endpoints?.length) {
+          originalEndpointsByName.set(m.exposed, m.endpoints);
+          originalEndpointsByName.set(m.upstream, m.endpoints);
+        }
+        if (m.normalizedEndpoints?.length) {
+          normalizedEndpointsByName.set(m.exposed, m.normalizedEndpoints);
+          normalizedEndpointsByName.set(m.upstream, m.normalizedEndpoints);
+        }
+      }
+    }
   }
 
   // Build the canonical retail map up front (one lookup per unique exposed
@@ -609,8 +625,8 @@ export async function runProviderPipeline(
   }
 
   const emitted = emitChannels({ plan, baseline });
-  state.mergedGroups = emitted.mergedGroups;
-  state.mergedModels = emitted.mergedModels;
+  const mergedGroups = emitted.mergedGroups;
+  const mergedModels = emitted.mergedModels;
   const channels = emitted.channels;
 
   // Collect pricing grid data from all providers' enabledModels
@@ -628,7 +644,8 @@ export async function runProviderPipeline(
   }
 
   const optionMaps = buildOptionMaps(
-    state,
+    mergedGroups,
+    mergedModels,
     config.modelMapping,
     allPricingGrids,
   );
@@ -637,7 +654,9 @@ export async function runProviderPipeline(
 
   const models = buildDesiredModels({
     channels,
-    state,
+    originalEndpointsByName,
+    normalizedEndpointsByName,
+    endpointPaths: aggregatedEndpointPaths,
     reverseMapping,
     basellmEntries,
     openRouterDescriptions,
@@ -648,7 +667,7 @@ export async function runProviderPipeline(
 
   const responsesApiModels = collectResponsesApiModels(
     channels,
-    state,
+    normalizedEndpointsByName,
     reverseMapping,
     config.modelMapping,
   );

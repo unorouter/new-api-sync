@@ -10,8 +10,12 @@ import {
 } from "@core/models/constants";
 import { filterModels } from "@core/models/filter";
 import { testAndFilterModels } from "@core/models/tester";
-import type { OfferModel, UpstreamOffer } from "@core/pricing/offers";
-import type { ProviderReport, SyncState } from "@core/types";
+import type {
+  OfferModel,
+  ProviderResult,
+  UpstreamOffer,
+} from "@core/pricing/offers";
+import type { ProviderReport } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { Sub2ApiClient } from "./client";
@@ -159,8 +163,7 @@ async function resolveViaGroups(
 export async function processSub2ApiProvider(
   providerConfig: Sub2ApiProviderConfig,
   config: RuntimeConfig,
-  state: SyncState,
-): Promise<{ report: ProviderReport; offers: UpstreamOffer[] }> {
+): Promise<ProviderResult> {
   const report: ProviderReport = {
     name: providerConfig.name,
     success: false,
@@ -169,6 +172,7 @@ export async function processSub2ApiProvider(
     tokens: { created: 0, existing: 0, deleted: 0 },
   };
   const offers: UpstreamOffer[] = [];
+  const endpointMetadata = { endpointPaths: new Map() };
 
   try {
     const client = new Sub2ApiClient(providerConfig);
@@ -179,7 +183,7 @@ export async function processSub2ApiProvider(
 
     if (resolvedGroups.length === 0) {
       report.error = t("CORE.ERROR.NO_GROUPS_WITH_MODELS");
-      return { report, offers };
+      return { report, offers, endpointMetadata };
     }
 
     // sub2api semantics: each group tests its own models, and the resulting
@@ -229,13 +233,9 @@ export async function processSub2ApiProvider(
         }),
       );
 
-      if (useResponsesAPI) {
-        for (const m of workingModels) {
-          if (!state.modelEndpoints.has(m)) {
-            state.modelEndpoints.set(m, ["openai-response"]);
-          }
-        }
-      }
+      const responsesApiEndpoints = useResponsesAPI
+        ? ["openai-response"]
+        : undefined;
 
       const offerModels: OfferModel[] = workingModels.map((upstreamName) => {
         const exposed = config.modelMapping?.[upstreamName] ?? upstreamName;
@@ -245,8 +245,9 @@ export async function processSub2ApiProvider(
         return {
           exposed,
           upstream: upstreamName,
-          modelType: inferModelType(exposed, undefined, state.modelEndpoints),
-          endpoints: state.modelEndpoints.get(upstreamName),
+          modelType: inferModelType(exposed, responsesApiEndpoints),
+          endpoints: responsesApiEndpoints,
+          normalizedEndpoints: responsesApiEndpoints,
           testDetail: detail,
         };
       });
@@ -286,5 +287,5 @@ export async function processSub2ApiProvider(
     report.error = error instanceof Error ? error.message : String(error);
   }
 
-  return { report, offers };
+  return { report, offers, endpointMetadata };
 }

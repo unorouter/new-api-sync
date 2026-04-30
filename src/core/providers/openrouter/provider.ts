@@ -12,9 +12,13 @@ import {
   sanitizeGroupName,
 } from "@core/models/constants";
 import { testAndFilterModels } from "@core/models/tester";
-import type { OfferModel, UpstreamOffer } from "@core/pricing/offers";
+import type {
+  OfferModel,
+  ProviderResult,
+  UpstreamOffer,
+} from "@core/pricing/offers";
 import type { OpenRouterProviderConfig } from "@core/validations/config";
-import type { ProviderReport, SyncState } from "@core/types";
+import type { ProviderReport } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { discoverOpenRouterFreeModels } from "./discovery";
@@ -43,8 +47,7 @@ function partitionByVendor(
 export async function processOpenRouterProvider(
   providerConfig: OpenRouterProviderConfig,
   config: RuntimeConfig,
-  _state: SyncState,
-): Promise<{ report: ProviderReport; offers: UpstreamOffer[] }> {
+): Promise<ProviderResult> {
   const report: ProviderReport = {
     name: providerConfig.name,
     success: false,
@@ -53,6 +56,7 @@ export async function processOpenRouterProvider(
     tokens: { created: 0, existing: 0, deleted: 0 },
   };
   const offers: UpstreamOffer[] = [];
+  const endpointMetadata = { endpointPaths: new Map() };
 
   try {
     let candidateIds: string[];
@@ -105,7 +109,7 @@ export async function processOpenRouterProvider(
 
     if (candidateIds.length === 0) {
       report.error = t("CORE.ERROR.NO_MODELS_FOUND");
-      return { report, offers };
+      return { report, offers, endpointMetadata };
     }
 
     const vendorFilter = providerConfig.enabledVendors;
@@ -137,7 +141,7 @@ export async function processOpenRouterProvider(
 
     if (filtered.length === 0) {
       report.error = t("CORE.ERROR.ALL_MODELS_FILTERED_SHORT");
-      return { report, offers };
+      return { report, offers, endpointMetadata };
     }
 
     consola.info(
@@ -169,7 +173,7 @@ export async function processOpenRouterProvider(
 
     if (working.length === 0) {
       report.error = t("CORE.ERROR.NO_WORKING_MODELS");
-      return { report, offers };
+      return { report, offers, endpointMetadata };
     }
 
     const resolutions = resolveBareNames(working, config.modelMapping);
@@ -269,5 +273,5 @@ export async function processOpenRouterProvider(
     report.error = error instanceof Error ? error.message : String(error);
   }
 
-  return { report, offers };
+  return { report, offers, endpointMetadata };
 }

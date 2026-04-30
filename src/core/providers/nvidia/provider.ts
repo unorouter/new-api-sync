@@ -17,8 +17,12 @@ import {
 import { filterModels } from "@core/models/filter";
 import { NVIDIA_RETRY_POLICY } from "@core/models/testing/execution";
 import { testAndFilterModels } from "@core/models/tester";
-import type { OfferModel, UpstreamOffer } from "@core/pricing/offers";
-import type { ProviderReport, SyncState } from "@core/types";
+import type {
+  OfferModel,
+  ProviderResult,
+  UpstreamOffer,
+} from "@core/pricing/offers";
+import type { ProviderReport } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { discoverNvidiaModels } from "./discovery";
@@ -47,8 +51,7 @@ function partitionByVendor(
 export async function processNvidiaProvider(
   providerConfig: NvidiaProviderConfig,
   config: RuntimeConfig,
-  state: SyncState,
-): Promise<{ report: ProviderReport; offers: UpstreamOffer[] }> {
+): Promise<ProviderResult> {
   const report: ProviderReport = {
     name: providerConfig.name,
     success: false,
@@ -57,6 +60,7 @@ export async function processNvidiaProvider(
     tokens: { created: 0, existing: 0, deleted: 0 },
   };
   const offers: UpstreamOffer[] = [];
+  const endpointMetadata = { endpointPaths: new Map() };
 
   try {
     let allModels: string[];
@@ -101,13 +105,13 @@ export async function processNvidiaProvider(
 
     if (allModels.length === 0) {
       report.error = t("CORE.ERROR.NO_MODELS_FOUND");
-      return { report, offers };
+      return { report, offers, endpointMetadata };
     }
 
     allModels = filterModels(allModels, config, providerConfig);
     if (allModels.length === 0) {
       report.error = t("CORE.ERROR.ALL_MODELS_FILTERED_SHORT");
-      return { report, offers };
+      return { report, offers, endpointMetadata };
     }
 
     const textModels: string[] = [];
@@ -167,7 +171,7 @@ export async function processNvidiaProvider(
         textTotal: textModels.length,
         imageCount: imageModels.length,
       });
-      return { report, offers };
+      return { report, offers, endpointMetadata };
     }
 
     const textResolutions = resolveBareNames(
@@ -267,5 +271,5 @@ export async function processNvidiaProvider(
     report.error = error instanceof Error ? error.message : String(error);
   }
 
-  return { report, offers };
+  return { report, offers, endpointMetadata };
 }
