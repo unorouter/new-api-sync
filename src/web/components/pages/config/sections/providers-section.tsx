@@ -36,13 +36,6 @@ const TEMPLATES: Record<ProviderType, () => Provider> = {
     baseUrl: "",
     adminApiKey: "",
   }),
-  direct: () => ({
-    type: "direct",
-    name: "",
-    baseUrl: "",
-    apiKey: "",
-    vendor: "",
-  }),
   nvidia: () => ({
     type: "nvidia",
     name: "",
@@ -58,7 +51,6 @@ const TEMPLATES: Record<ProviderType, () => Provider> = {
 const TYPE_ORDER: ProviderType[] = [
   "newapi",
   "sub2api",
-  "direct",
   "nvidia",
   "openrouter",
 ];

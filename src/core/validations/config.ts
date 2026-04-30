@@ -112,18 +112,6 @@ const Sub2ApiProviderSchema = T.Object({
   groups: T.Optional(T.Array(Sub2ApiGroupSchema, { minItems: 1 })),
 });
 
-const DirectProviderSchema = T.Object({
-  type: T.Literal("direct"),
-  ...ProviderCommonProps,
-  baseUrl: T.String({ format: "uri" }),
-  apiKey: str,
-  vendor: str,
-  models: T.Optional(T.Array(str, { minItems: 1 })),
-  channelType: T.Optional(T.Integer({ minimum: 1 })),
-  ratio: T.Optional(T.Number({ exclusiveMinimum: 0 })),
-  discoverEndpoint: T.Optional(str),
-});
-
 const NvidiaProviderSchema = T.Object({
   type: T.Literal("nvidia"),
   ...ProviderCommonProps,
@@ -146,7 +134,6 @@ const OpenRouterProviderSchema = T.Object({
 export const AnyProviderSchema = T.Union([
   NewApiProviderSchema,
   Sub2ApiProviderSchema,
-  DirectProviderSchema,
   NvidiaProviderSchema,
   OpenRouterProviderSchema,
 ]);
@@ -154,9 +141,6 @@ export const AnyProviderSchema = T.Union([
 export type ProviderConfig = Static<typeof NewApiProviderSchema>;
 export type Sub2ApiProviderConfig = Static<typeof Sub2ApiProviderSchema>;
 // Runtime types have defaults applied for `ratio` and the nvidia URLs.
-export type DirectProviderConfig = Static<typeof DirectProviderSchema> & {
-  ratio: number;
-};
 export type NvidiaProviderConfig = Static<typeof NvidiaProviderSchema> & {
   baseUrl: string;
   imageBaseUrl: string;
@@ -171,7 +155,6 @@ export type OpenRouterProviderConfig = Static<
 export type AnyProviderConfig =
   | ProviderConfig
   | Sub2ApiProviderConfig
-  | DirectProviderConfig
   | NvidiaProviderConfig
   | OpenRouterProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;

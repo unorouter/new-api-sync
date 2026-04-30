@@ -15,7 +15,7 @@
 //
 //   written_ratio = canonical[model] if canonical resolves
 //                   else cheapest upstream_ratio across offers serving model
-//                   else 1 (fallback for sub2api/direct with no canonical)
+//                   else 1 (fallback for sub2api with no canonical)
 //
 //   For each (offer, model):
 //     if model.isFree:
@@ -26,7 +26,7 @@
 //     elif model.upstreamRatio is defined:
 //         rescale = model.upstreamRatio / written_ratio
 //         tier_group_ratio = offer.groupRatio * (1 + adjustment) * rescale
-//     else:  # sub2api, direct
+//     else:  # sub2api
 //         tier_group_ratio = cheapest_existing_group_ratio_for(model) * (1 + adjustment)
 //
 //     # Cap (only if tier_group_ratio > 1)
@@ -250,7 +250,7 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
   // Two-phase: phase A handles offers that produce ratios independently of
   // other tiers — free/paid/upstream-priced. Phase B handles offers that
   // need the "cheapest existing group ratio across baseline + phase A
-  // tiers" lookup (sub2api, direct).
+  // tiers" lookup (sub2api).
   const phaseAOffers: UpstreamOffer[] = [];
   const phaseBOffers: UpstreamOffer[] = [];
   for (const offer of offers) {
@@ -285,7 +285,7 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
   }
 
   // Build the cumulative cheapest-group map: baseline + phase A tiers.
-  // sub2api / direct lookups will use this.
+  // sub2api lookups will use this.
   const cheapestForPhaseB = new Map(baselineCheapestGroupForModel);
   for (const tier of tiers) {
     if (tier.groupRatio < 0) continue;
@@ -297,7 +297,7 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
     }
   }
 
-  // Phase B (direct, sub2api). One tier per (offer, distinct group_ratio).
+  // Phase B (sub2api). One tier per (offer, distinct group_ratio).
   for (const offer of phaseBOffers) {
     processNoUpstreamOffer(
       offer,
@@ -484,7 +484,7 @@ function processPaidOffer(
 }
 
 // =========================================================================
-// No-upstream-ratio offers (direct, sub2api): use cheapest existing
+// No-upstream-ratio offers (sub2api): use cheapest existing
 // group_ratio for the model across baseline + phase A tiers, then apply
 // the per-model adjustment. Tiers are bucketed by computed ratio.
 // =========================================================================

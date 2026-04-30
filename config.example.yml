@@ -22,15 +22,6 @@ providers:
       - gpt-5*
     priceAdjustment: -0.67
 
-  # ── Direct vendor API ──
-  - type: direct
-    name: kimi-code
-    baseUrl: https://api.kimi.com/coding
-    apiKey: sk-kimi-...
-    vendor: moonshot
-    models:
-      - kimi-for-coding
-
   # ── sub2api ──
   - type: sub2api
     name: sub2api-fallback

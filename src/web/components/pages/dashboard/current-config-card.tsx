@@ -32,8 +32,8 @@ export function CurrentConfigCard(props: {
                 ? t("HEALTH.PROVIDERS_BREAKDOWN_VALUE", {
                     newapi: props.metrics.providerBreakdown.newapi,
                     sub2api: props.metrics.providerBreakdown.sub2api,
-                    direct: props.metrics.providerBreakdown.direct,
                     nvidia: props.metrics.providerBreakdown.nvidia,
+                    openrouter: props.metrics.providerBreakdown.openrouter,
                   })
                 : t("HEALTH.CONFIG_LOADING")}
             </span>

@@ -1,6 +1,5 @@
 import { getEnabledModelGlobs, type RuntimeConfig } from "@core/config";
 import type {
-  DirectProviderConfig,
   NvidiaProviderConfig,
   Sub2ApiProviderConfig,
 } from "@core/validations/config";
@@ -13,10 +12,7 @@ import {
 export function filterModels(
   models: string[],
   config: RuntimeConfig,
-  providerConfig:
-    | DirectProviderConfig
-    | NvidiaProviderConfig
-    | Sub2ApiProviderConfig,
+  providerConfig: NvidiaProviderConfig | Sub2ApiProviderConfig,
 ): string[] {
   const modelGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
   // Blacklist only applies to text models — image/video/audio/embedding are never blacklisted

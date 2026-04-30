@@ -72,7 +72,6 @@ async function configSummary() {
   const counts = {
     newapi: 0,
     sub2api: 0,
-    direct: 0,
     nvidia: 0,
     openrouter: 0,
     total: 0,

@@ -37,7 +37,7 @@ export interface TestReport {
   timestamp: string;
   /** Per-provider summary keyed by provider config name. Only providers that
    *  expose a balance API contribute entries (newapi, openrouter, sub2api).
-   *  Providers without balance access (nvidia, direct) are omitted. */
+   *  Providers without balance access (nvidia) are omitted. */
   providers: Record<string, ProviderCostEntry>;
   /** All per-model test logs across the run. Replaces the legacy `results`
    *  field (still accepted on read for back-compat with old report files). */

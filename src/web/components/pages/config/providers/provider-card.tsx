@@ -1,6 +1,5 @@
 import type { ConfigSchemaType } from "@core/validations/config";
 import { ProviderCommonFields } from "./provider-common-fields";
-import { ProviderDirectPanel } from "./provider-direct-panel";
 import { ProviderNewApiPanel } from "./provider-newapi-panel";
 import { ProviderNvidiaPanel } from "./provider-nvidia-panel";
 import { ProviderSub2ApiPanel } from "./provider-sub2api-panel";
@@ -128,7 +127,6 @@ export function ProviderCard(props: Props) {
 function renderTypePanel(type: string | undefined, index: number) {
   if (type === "newapi") return <ProviderNewApiPanel index={index} />;
   if (type === "sub2api") return <ProviderSub2ApiPanel index={index} />;
-  if (type === "direct") return <ProviderDirectPanel index={index} />;
   if (type === "nvidia") return <ProviderNvidiaPanel index={index} />;
   return null;
 }

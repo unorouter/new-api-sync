@@ -19,7 +19,6 @@ export type ProviderKind =
   | "newapi"
   | "nvidia"
   | "openrouter"
-  | "direct"
   | "sub2api";
 
 export interface OfferModel {
@@ -28,7 +27,7 @@ export interface OfferModel {
   /** Original upstream name. Identical to `exposed` when no mapping applies. */
   upstream: string;
   /** Upstream's per-model ratio. Undefined for providers that don't expose
-   *  per-model pricing (sub2api, direct). When undefined, compute uses
+   *  per-model pricing (sub2api). When undefined, compute uses
    *  "cheapest existing group ratio across other tiers + baseline" instead
    *  of the rescale formula. */
   upstreamRatio?: number;
@@ -62,8 +61,8 @@ export interface UpstreamOffer {
   /** Provider tag (config name). Used for channel.tag and managedProviders. */
   provider: string;
   providerKind: ProviderKind;
-  /** Upstream's group name (or a synthetic placeholder for direct/sub2api
-   *  which have no upstream group concept). */
+  /** Upstream's group name (or a synthetic placeholder for sub2api which
+   *  has no upstream group concept). */
   group: string;
   /** Sanitized base for tier channel names, e.g. `${groupName}-${providerName}`
    *  already passed through sanitizeGroupName + collision-disambiguation. */
@@ -73,7 +72,7 @@ export interface UpstreamOffer {
   baseUrl: string;
   apiKey: string;
   /** Upstream's own group ratio. 1.0 if the provider has no group concept
-   *  (direct, sub2api). 0 for free providers (NVIDIA, OpenRouter free). */
+   *  (sub2api). 0 for free providers (NVIDIA, OpenRouter free). */
   groupRatio: number;
   channelRemark: string;
   models: OfferModel[];
@@ -97,7 +96,7 @@ export interface EndpointPathInfo {
 
 /** Per-provider discovery output, returned alongside offers. Replaces the
  *  former shared SyncState.endpointPaths map. Empty Map when the provider
- *  has no endpoint metadata to share (sub2api, direct, nvidia, openrouter). */
+ *  has no endpoint metadata to share (sub2api, nvidia, openrouter). */
 export interface ProviderEndpointMetadata {
   endpointPaths: Map<string, EndpointPathInfo>;
 }

@@ -199,9 +199,6 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
 
   // Apply provider-level defaults that Zod's .default() used to handle
   const providers = typed.providers.map((p) => {
-    if (p.type === "direct") {
-      return { ...p, ratio: p.ratio ?? 1 };
-    }
     if (p.type === "nvidia") {
       return {
         ...p,

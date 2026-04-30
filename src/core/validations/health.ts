@@ -3,8 +3,8 @@ import { Type as T, type Static } from "@sinclair/typebox";
 export const ProviderCountsSchema = T.Object({
   newapi: T.Number(),
   sub2api: T.Number(),
-  direct: T.Number(),
   nvidia: T.Number(),
+  openrouter: T.Number(),
   total: T.Number(),
 });
 

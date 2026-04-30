@@ -14,7 +14,7 @@ interface Props {
 
 /**
  * Repeater over a list of strings. Used by blacklist, enabledVendors,
- * direct.models, nvidia.models.
+ * nvidia.models.
  *
  * Stable row keys come from a ref-counter so deleting a row doesn't remap
  * React's DOM nodes by index and steal focus from the next input.

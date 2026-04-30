@@ -33,7 +33,6 @@ import {
   resolveSourceMetadata,
 } from "@core/pricing/resolver";
 import type { BaselineInputs } from "@core/pricing/types";
-import { processDirectProvider } from "@core/providers/direct/provider";
 import { NewApiClient } from "@core/providers/newapi/client";
 import { processNewApiProvider } from "@core/providers/newapi/provider";
 import { processNvidiaProvider } from "@core/providers/nvidia/provider";
@@ -53,7 +52,6 @@ import type {
   TargetSnapshot,
 } from "@core/types";
 import type {
-  DirectProviderConfig,
   NvidiaProviderConfig,
   OpenRouterProviderConfig,
   ProviderConfig,
@@ -63,7 +61,7 @@ import { t } from "@server/i18n";
 import { consola } from "consola";
 
 // Pricing math (canonical override, rescale, cap drops, free clobber-skip,
-// OpenRouter paid bucketing, sub2api/direct cheapest-existing lookup) lives
+// OpenRouter paid bucketing, sub2api cheapest-existing lookup) lives
 // in src/core/pricing/compute.ts. The orchestration below collects offers
 // from each provider, resolves canonical retail ratios up front, then calls
 // computePricedPlan + emitChannels to produce the final state.
@@ -371,7 +369,7 @@ export async function runProviderPipeline(
   );
 
   // Build BaselineInputs from the target snapshot. Pricing computation needs
-  // these so partial-sync (--only) and sub2api/direct's "cheapest existing
+  // these so partial-sync (--only) and sub2api's "cheapest existing
   // group ratio" lookup can see what other (non-managed) channels exist.
   const managedProviders = new Set(config.providers.map((p) => p.name));
   const baseline: BaselineInputs = {
@@ -470,8 +468,7 @@ export async function runProviderPipeline(
     newapi: 0,
     nvidia: 1,
     openrouter: 2,
-    direct: 3,
-    sub2api: 4,
+    sub2api: 3,
   };
   const sorted = [...config.providers].sort(
     (a, b) => (typeOrder[a.type] ?? 2) - (typeOrder[b.type] ?? 2),
@@ -498,9 +495,6 @@ export async function runProviderPipeline(
           provider as OpenRouterProviderConfig,
           config,
         );
-      }
-      if (provider.type === "direct") {
-        return processDirectProvider(provider as DirectProviderConfig, config);
       }
       return processSub2ApiProvider(provider as Sub2ApiProviderConfig, config);
     }),

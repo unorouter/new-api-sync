@@ -8,7 +8,6 @@ export type ConfigMetrics = {
   providerBreakdown: {
     newapi: number;
     sub2api: number;
-    direct: number;
     nvidia: number;
     openrouter: number;
     total: number;
@@ -27,7 +26,7 @@ function getConfigMetrics(configData: ConfigSchemaType | undefined): ConfigMetri
           counts[provider.type] += 1;
           return counts;
         },
-        { newapi: 0, sub2api: 0, direct: 0, nvidia: 0, openrouter: 0, total: 0 },
+        { newapi: 0, sub2api: 0, nvidia: 0, openrouter: 0, total: 0 },
       )
     : null;
   const providersWithOverrides = configData
