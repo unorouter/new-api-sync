@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 # new-api-sync
 
-Sync pricing, channels, and models from upstream providers to your [new-api](https://github.com/QuantumNous/new-api) instance. Supports [new-api](https://github.com/QuantumNous/new-api), [sub2api](https://github.com/Wei-Shaw/sub2api), and direct vendor APIs.
+Sync pricing, channels, and models from upstream providers to your [new-api](https://github.com/QuantumNous/new-api) instance. Supports [new-api](https://github.com/QuantumNous/new-api), [sub2api](https://github.com/Wei-Shaw/sub2api), [OpenRouter](https://openrouter.ai/), and [NVIDIA NIM](https://build.nvidia.com/) upstreams.
 
 ## Quick Start
 
@@ -72,10 +72,13 @@ Testing ignores `enabledVendors`, `enabledModels`, and the ratio-gate filters (s
 
 | Field                  | Description                                                                                                                                     |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `testModelTypes`       | Model types to test during sync: `["text", "image", "video", "audio", "embedding"]` (default: `["text"]`). Per-provider setting overrides this. |
-| `skipUnprofitableText` | Drop text models whose effective ratio ≥ 1 (default: `true`). See Behaviors to Know.                                                            |
-| `blacklist`            | Exclude matching groups/models (text only, case-insensitive). Supports glob wildcards and provider-scoped patterns. See Blacklist below.        |
-| `modelMapping`         | Rename models: `{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                                        |
+| `testModelTypes`         | Model types to test during sync: `["text", "image", "video", "audio", "embedding"]` (default: `["text"]`). Per-provider setting overrides this. |
+| `skipUnprofitableText`   | Drop text models whose effective ratio ≥ 1 (default: `true`). See Behaviors to Know.                                                            |
+| `maxRatioCap`            | Cap on user-charged price as a multiple of canonical retail (default: `3`). Tiers above the cap are dropped. Per-provider override allowed.     |
+| `globalConcurrency`      | Total simultaneous test/probe HTTP requests across the whole run (default: `20`).                                                               |
+| `perUpstreamConcurrency` | Default per-baseUrl request cap (default: `5`). Per-provider override allowed for upstreams that tolerate more or less.                         |
+| `blacklist`              | Exclude matching groups/models (text only, case-insensitive). Supports glob wildcards and provider-scoped patterns. See Blacklist below.        |
+| `modelMapping`           | Rename models: `{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                                        |
 
 ### new-api Provider (`type: "newapi"`)
 
@@ -89,24 +92,6 @@ Testing ignores `enabledVendors`, `enabledModels`, and the ratio-gate filters (s
 | `enabledModels`     |          | Glob patterns: `["claude-*-4-5*", "gpt-5*"]`            |
 | `testModelTypes`    |          | Override global test types: `["text", "image"]`         |
 | `priceAdjustment`   |          | Number or per-key object (see Price Adjustment below)   |
-
-### Direct Provider (`type: "direct"`)
-
-Connect directly to a vendor API (OpenAI, Anthropic, Google, Moonshot, etc.) without an intermediary.
-
-| Field              | Required | Description                                                    |
-| ------------------ | -------- | -------------------------------------------------------------- |
-| `name`             | yes      | Unique identifier, used as channel tag                         |
-| `baseUrl`          | yes      | Vendor API base URL                                            |
-| `apiKey`           | yes      | Vendor API key                                                 |
-| `vendor`           | yes      | Vendor name: `openai`, `anthropic`, `google`, `moonshot`, etc. |
-| `models`           |          | Explicit model list (skips auto-discovery)                     |
-| `enabledModels`    |          | Glob patterns for auto-discovered models: `["kimi-*"]`         |
-| `channelType`      |          | Override inferred channel type number                          |
-| `ratio`            |          | Base group ratio (default 1.0)                                 |
-| `discoverEndpoint` |          | Custom discovery endpoint (default `/v1/models`)               |
-| `testModelTypes`   |          | Override global test types                                     |
-| `priceAdjustment`  |          | Number or per-key object (see Price Adjustment below)          |
 
 ### sub2api Provider (`type: "sub2api"`)
 
@@ -122,6 +107,39 @@ Provide either `adminApiKey` (auto-discovers groups) or `groups` (explicit group
 | `enabledModels`   |          | Glob patterns: `["claude-*-4-5*", "gpt-5*"]`                      |
 | `testModelTypes`  |          | Override global test types                                        |
 | `priceAdjustment` |          | Number or per-key object (see Price Adjustment below)             |
+
+### OpenRouter Provider (`type: "openrouter"`)
+
+Pulls from [OpenRouter](https://openrouter.ai/). Free models (`prompt=0` and `completion=0`) become a free tier; paid models are bucketed under a per-vendor channel with a single shared `group_ratio` chosen so every model fits under `maxRatioCap`.
+
+| Field             | Required | Description                                                          |
+| ----------------- | -------- | -------------------------------------------------------------------- |
+| `name`            | yes      | Unique identifier, used as channel tag                               |
+| `apiKey`          | yes      | OpenRouter API key                                                   |
+| `baseUrl`         |          | Defaults to `https://openrouter.ai/api`                              |
+| `models`          |          | Explicit model IDs (e.g. `moonshotai/kimi-k2.6:free`); skips discovery |
+| `enabledVendors`  |          | Filter discovered models by vendor prefix (`anthropic`, `openai`, …) |
+| `enabledModels`   |          | Glob patterns. Bare IDs (no `*`) are also added to the candidate set |
+| `ratio`           |          | Free-tier group ratio (default `0`)                                  |
+| `testModelTypes`  |          | Override global test types                                           |
+| `priceAdjustment` |          | Number or per-key object (see Price Adjustment below)                |
+
+### NVIDIA NIM Provider (`type: "nvidia"`)
+
+Pulls from [NVIDIA NIM](https://build.nvidia.com/). Text models are emitted as a free tier; image models are emitted with fixed per-request pricing (`quotaType: 1`) against a separate `imageBaseUrl`.
+
+| Field             | Required | Description                                                          |
+| ----------------- | -------- | -------------------------------------------------------------------- |
+| `name`            | yes      | Unique identifier, used as channel tag                               |
+| `apiKey`          | yes      | NVIDIA API key                                                       |
+| `baseUrl`         |          | Defaults to `https://integrate.api.nvidia.com`                       |
+| `imageBaseUrl`    |          | Defaults to `https://ai.api.nvidia.com`                              |
+| `models`          |          | Explicit model IDs; skips auto-discovery                             |
+| `enabledVendors`  |          | Filter by inferred vendor                                            |
+| `enabledModels`   |          | Glob patterns. Bare image-model IDs (no `*`) are added to the set    |
+| `ratio`           |          | Text-tier group ratio (default `1`)                                  |
+| `testModelTypes`  |          | Override global test types                                           |
+| `priceAdjustment` |          | Number or per-key object (see Price Adjustment below)                |
 
 ### Blacklist
 

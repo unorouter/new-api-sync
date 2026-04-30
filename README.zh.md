@@ -4,7 +4,7 @@
 
 # new-api-sync
 
-将上游提供商的定价、渠道和模型同步到你的 [new-api](https://github.com/QuantumNous/new-api) 实例。支持 [new-api](https://github.com/QuantumNous/new-api)、[sub2api](https://github.com/Wei-Shaw/sub2api) 以及厂商直连 API。
+将上游提供商的定价、渠道和模型同步到你的 [new-api](https://github.com/QuantumNous/new-api) 实例。支持 [new-api](https://github.com/QuantumNous/new-api)、[sub2api](https://github.com/Wei-Shaw/sub2api)、[OpenRouter](https://openrouter.ai/) 以及 [NVIDIA NIM](https://build.nvidia.com/) 上游。
 
 ## 快速开始
 
@@ -72,10 +72,13 @@ bun sync test --verbose               # 以调试日志级别测试
 
 | 字段                   | 说明                                                                                                                     |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `testModelTypes`       | 同步时测试的模型类型：`["text", "image", "video", "audio", "embedding"]`（默认：`["text"]`）。提供商级别设置可覆盖全局。 |
-| `skipUnprofitableText` | 跳过有效倍率 ≥ 1 的文本模型（默认：`true`）。详见下方"行为说明"。                                                        |
-| `blacklist`            | 排除匹配的文本模型（大小写不敏感）。支持 Glob 通配符和提供商作用域模式。详见下方"黑名单"。                               |
-| `modelMapping`         | 重命名模型：`{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                    |
+| `testModelTypes`         | 同步时测试的模型类型：`["text", "image", "video", "audio", "embedding"]`（默认：`["text"]`）。提供商级别设置可覆盖全局。 |
+| `skipUnprofitableText`   | 跳过有效倍率 ≥ 1 的文本模型（默认：`true`）。详见下方"行为说明"。                                                       |
+| `maxRatioCap`            | 用户最终价格相对官方零售的上限倍率（默认：`3`）。超过的层级会被丢弃。可在提供商级别覆盖。                               |
+| `globalConcurrency`      | 整次运行中同时进行的测试 / 探测 HTTP 请求总数（默认：`20`）。                                                           |
+| `perUpstreamConcurrency` | 单个 baseUrl 的默认并发上限（默认：`5`）。可在提供商级别覆盖以适配各上游的限频策略。                                    |
+| `blacklist`              | 排除匹配的文本模型（大小写不敏感）。支持 Glob 通配符和提供商作用域模式。详见下方"黑名单"。                              |
+| `modelMapping`           | 重命名模型：`{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                   |
 
 ### new-api 提供商 (`type: "newapi"`)
 
@@ -89,24 +92,6 @@ bun sync test --verbose               # 以调试日志级别测试
 | `enabledModels`     |      | Glob 模式：`["claude-*-4-5*", "gpt-5*"]`       |
 | `testModelTypes`    |      | 覆盖全局测试类型：`["text", "image"]`          |
 | `priceAdjustment`   |      | 数字或按键对象（见下方"价格调整"）             |
-
-### 直连提供商 (`type: "direct"`)
-
-无需中间层，直接连接厂商 API（OpenAI、Anthropic、Google、Moonshot 等）。
-
-| 字段               | 必填 | 说明                                                     |
-| ------------------ | ---- | -------------------------------------------------------- |
-| `name`             | 是   | 唯一标识符，用作渠道标签                                 |
-| `baseUrl`          | 是   | 厂商 API 基础地址                                        |
-| `apiKey`           | 是   | 厂商 API 密钥                                            |
-| `vendor`           | 是   | 厂商名称：`openai`、`anthropic`、`google`、`moonshot` 等 |
-| `models`           |      | 显式模型列表（跳过自动发现）                             |
-| `enabledModels`    |      | 自动发现模型的 Glob 模式：`["kimi-*"]`                   |
-| `channelType`      |      | 覆盖推断的渠道类型编号                                   |
-| `ratio`            |      | 基础组倍率（默认 1.0）                                   |
-| `discoverEndpoint` |      | 自定义发现端点（默认 `/v1/models`）                      |
-| `testModelTypes`   |      | 覆盖全局测试类型                                         |
-| `priceAdjustment`  |      | 数字或按键对象（见下方"价格调整"）                       |
 
 ### sub2api 提供商 (`type: "sub2api"`)
 
@@ -122,6 +107,39 @@ bun sync test --verbose               # 以调试日志级别测试
 | `enabledModels`   |      | Glob 模式：`["claude-*-4-5*", "gpt-5*"]`                 |
 | `testModelTypes`  |      | 覆盖全局测试类型                                         |
 | `priceAdjustment` |      | 数字或按键对象（见下方"价格调整"）                       |
+
+### OpenRouter 提供商 (`type: "openrouter"`)
+
+接入 [OpenRouter](https://openrouter.ai/)。`prompt=0` 且 `completion=0` 的模型作为免费层；付费模型按厂商聚合到一个渠道，并从候选倍率梯度中挑选满足 `maxRatioCap` 的最高 `group_ratio`。
+
+| 字段              | 必填 | 说明                                                                 |
+| ----------------- | ---- | -------------------------------------------------------------------- |
+| `name`            | 是   | 唯一标识符，用作渠道标签                                             |
+| `apiKey`          | 是   | OpenRouter API 密钥                                                  |
+| `baseUrl`         |      | 默认 `https://openrouter.ai/api`                                     |
+| `models`          |      | 显式模型 ID（如 `moonshotai/kimi-k2.6:free`），跳过自动发现          |
+| `enabledVendors`  |      | 按 ID 前缀筛选厂商（`anthropic`、`openai` 等）                       |
+| `enabledModels`   |      | Glob 模式。无通配的纯 ID 也会加入候选集                              |
+| `ratio`           |      | 免费层组倍率（默认 `0`）                                             |
+| `testModelTypes`  |      | 覆盖全局测试类型                                                     |
+| `priceAdjustment` |      | 数字或按键对象（见下方"价格调整"）                                   |
+
+### NVIDIA NIM 提供商 (`type: "nvidia"`)
+
+接入 [NVIDIA NIM](https://build.nvidia.com/)。文本模型作为免费层发布；图像模型使用按次定价（`quotaType: 1`），单独走 `imageBaseUrl`。
+
+| 字段              | 必填 | 说明                                                |
+| ----------------- | ---- | --------------------------------------------------- |
+| `name`            | 是   | 唯一标识符，用作渠道标签                            |
+| `apiKey`          | 是   | NVIDIA API 密钥                                     |
+| `baseUrl`         |      | 默认 `https://integrate.api.nvidia.com`             |
+| `imageBaseUrl`    |      | 默认 `https://ai.api.nvidia.com`                    |
+| `models`          |      | 显式模型 ID（跳过自动发现）                         |
+| `enabledVendors`  |      | 按推断厂商筛选                                      |
+| `enabledModels`   |      | Glob 模式。无通配的图像模型 ID 也会加入候选集       |
+| `ratio`           |      | 文本层组倍率（默认 `1`）                            |
+| `testModelTypes`  |      | 覆盖全局测试类型                                    |
+| `priceAdjustment` |      | 数字或按键对象（见下方"价格调整"）                  |
 
 ### 黑名单
 

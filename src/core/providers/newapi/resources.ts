@@ -6,6 +6,15 @@ import { consola } from "consola";
 import type { ClientContext } from "./context";
 import type { ApiResponse } from "./types";
 
+// Pagination loops over flaky upstreams need higher tolerance than one-shot
+// requests. Default ofetch retry is 1; a single missed page truncates the
+// result, which then makes the diff phase delete live entities as "stale".
+const PAGINATED_FETCH_OPTS = {
+  timeoutMs: 30_000,
+  retry: 3,
+  retryDelayMs: 2000,
+} as const;
+
 // ---------------------------------------------------------------------------
 // Channel CRUD
 // ---------------------------------------------------------------------------
@@ -19,7 +28,7 @@ export async function listChannels(ctx: ClientContext): Promise<Channel[]> {
       data: { data?: Channel[]; items?: Channel[] } | Channel[];
     }>(
       `${ctx.baseUrl}/api/channel/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-      { headers: ctx.headers },
+      { headers: ctx.headers, ...PAGINATED_FETCH_OPTS },
     );
     if (!data.success) {
       throw new Error(t("ERROR.NEWAPI_CHANNEL_LIST_API_FAILED"));
@@ -93,7 +102,7 @@ export async function listModels(ctx: ClientContext): Promise<ModelMeta[]> {
   ): Promise<{ base: string; items: ModelMeta[] } | null> => {
     const data = await tryFetchJson<ApiResponse<{ items?: ModelMeta[] }>>(
       `${base}?p=0&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-      { headers: ctx.headers },
+      { headers: ctx.headers, ...PAGINATED_FETCH_OPTS },
     );
     const items = data?.data?.items;
     if (!Array.isArray(items)) return null;
@@ -111,7 +120,7 @@ export async function listModels(ctx: ClientContext): Promise<ModelMeta[]> {
   while (true) {
     const data = await fetchJson<ApiResponse<{ items?: ModelMeta[] }>>(
       `${winner.base}?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-      { headers: ctx.headers },
+      { headers: ctx.headers, ...PAGINATED_FETCH_OPTS },
     );
     const items = data.data?.items ?? [];
     all.push(...items);
@@ -164,7 +173,7 @@ export async function listVendors(ctx: ClientContext): Promise<Vendor[]> {
   while (true) {
     const data = await fetchJson<ApiResponse<{ items?: Vendor[] }>>(
       `${ctx.baseUrl}/api/vendors/?page=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-      { headers: ctx.headers },
+      { headers: ctx.headers, ...PAGINATED_FETCH_OPTS },
     );
     const items = data.data?.items ?? [];
     all.push(...items);

@@ -11,9 +11,18 @@ export async function listTokens(ctx: ClientContext): Promise<UpstreamToken[]> {
   const allTokens: UpstreamToken[] = [];
   let page = PAGINATION.START_PAGE_ZERO;
   while (true) {
+    // Retry token-list pages 3x with backoff. A single missed page during
+    // pagination silently truncates the result, which then causes ensureTokens
+    // to consider live tokens "stale" and delete them. Better to slow down on
+    // a flaky upstream than corrupt state.
     const data = await fetchJson<TokenListResponse>(
       `${ctx.baseUrl}/api/token/?p=${page}&page_size=${PAGINATION.DEFAULT_PAGE_SIZE}`,
-      { headers: ctx.headers },
+      {
+        headers: ctx.headers,
+        timeoutMs: 30_000,
+        retry: 3,
+        retryDelayMs: 2000,
+      },
     );
     if (!data.success) {
       throw new Error(
@@ -173,11 +182,17 @@ export async function ensureTokens(
   const normalizeKey = (key: string) =>
     key.startsWith("sk-") ? key : `sk-${key}`;
 
+  // Phase 1: resolve keys for groups that already had a token in the snapshot
+  // we paginated above, and issue create requests for the rest in parallel.
+  // upstream's POST /api/token/ returns no ID, so we cannot wire creates to
+  // the key endpoint directly — we must re-list once after all creates have
+  // happened. Doing this in two phases (vs. relisting after every create)
+  // turns N+1 paginated list calls into 2.
+  const groupsAwaitingCreate: { group: GroupInfo; tokenName: string }[] = [];
   for (const group of groups) {
     throwIfRunAborted();
     const tokenName = tokenNameForGroup(group.name);
     const existingToken = tokensByName.get(tokenName);
-
     if (existingToken) {
       const fullKey = await resolveFullKey(ctx, existingToken);
       if (!fullKey) {
@@ -192,30 +207,49 @@ export async function ensureTokens(
       result[group.name] = normalizeKey(fullKey);
       existing++;
     } else {
-      if (!(await createToken(ctx, tokenName, group.name))) continue;
-      created++;
-      const updatedTokens = await listTokens(ctx);
-      const newToken = updatedTokens.find((t) => t.name === tokenName);
-      if (!newToken) {
-        consola.warn(
-          t("CORE.NEWAPI.TOKEN_CREATED_NOT_FOUND", {
-            name: ctx.name,
-            token: tokenName,
-          }),
-        );
-        continue;
-      }
-      const fullKey = await resolveFullKey(ctx, newToken);
-      if (!fullKey) {
-        consola.warn(
-          t("CORE.NEWAPI.TOKEN_NEW_KEY_UNAVAILABLE", {
-            name: ctx.name,
-            token: tokenName,
-          }),
-        );
-        continue;
-      }
-      result[group.name] = normalizeKey(fullKey);
+      groupsAwaitingCreate.push({ group, tokenName });
+    }
+  }
+
+  if (groupsAwaitingCreate.length > 0) {
+    const createResults = await Promise.all(
+      groupsAwaitingCreate.map(async (entry) => ({
+        ...entry,
+        ok: await createToken(ctx, entry.tokenName, entry.group.name),
+      })),
+    );
+    const successfulCreates = createResults.filter((r) => r.ok);
+    created += successfulCreates.length;
+
+    if (successfulCreates.length > 0) {
+      throwIfRunAborted();
+      const refreshed = await listTokens(ctx);
+      const refreshedByName = new Map(refreshed.map((tk) => [tk.name, tk]));
+      await Promise.all(
+        successfulCreates.map(async (entry) => {
+          const newToken = refreshedByName.get(entry.tokenName);
+          if (!newToken) {
+            consola.warn(
+              t("CORE.NEWAPI.TOKEN_CREATED_NOT_FOUND", {
+                name: ctx.name,
+                token: entry.tokenName,
+              }),
+            );
+            return;
+          }
+          const fullKey = await resolveFullKey(ctx, newToken);
+          if (!fullKey) {
+            consola.warn(
+              t("CORE.NEWAPI.TOKEN_NEW_KEY_UNAVAILABLE", {
+                name: ctx.name,
+                token: entry.tokenName,
+              }),
+            );
+            return;
+          }
+          result[entry.group.name] = normalizeKey(fullKey);
+        }),
+      );
     }
   }
 

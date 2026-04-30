@@ -28,6 +28,9 @@ providers:
     baseUrl: https://sub2api.unorouter.ai
     adminApiKey: admin-api-key
   # disabled providers (uncomment to enable)
+  # - type: openrouter
+  #   name: openrouter
+  #   apiKey: sk-or-...
   # - type: nvidia
   #   name: nvidia-nim
   #   apiKey: nvapi-...
