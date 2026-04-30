@@ -10,7 +10,7 @@ import { buildSyncDiff } from "@core/sync/diff";
 import { runProviderPipeline } from "@core/sync/pipeline";
 import type { ResetResult } from "@core/sync/reset";
 import { loadAuthenticityBlacklist } from "@core/testing/authenticity";
-import { writeTestReport } from "@core/testing/runner";
+import { recordRunSummary, writeTestReport } from "@core/testing/runner";
 import type { DesiredState, SyncRunResult, TargetSnapshot } from "@core/types";
 import { MANAGED_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
@@ -125,21 +125,24 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
     await target.updateCache();
   }
 
-  writeTestReport();
-
   const successfulProviders = providerReports.filter(
     (provider) => provider.success,
   ).length;
   const hasProviderSuccess =
     successfulProviders > 0 || config.providers.length === 0;
+  const elapsedMs = Date.now() - start;
+  const success = hasProviderSuccess && apply.errors.length === 0;
+
+  recordRunSummary({ providerReports, apply, diff, elapsedMs, success });
+  writeTestReport();
 
   return {
-    success: hasProviderSuccess && apply.errors.length === 0,
+    success,
     providerReports,
     desired,
     diff,
     apply,
-    elapsedMs: Date.now() - start,
+    elapsedMs,
   };
 }
 

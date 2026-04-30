@@ -271,7 +271,6 @@ export async function processOpenRouterProvider(
             models: offerModels,
             priceAdjustment: providerConfig.priceAdjustment,
             defaultAdjustment: 0,
-            maxRatioCap: providerConfig.maxRatioCap ?? config.maxRatioCap,
           });
           totalVendors++;
         }
@@ -311,7 +310,6 @@ export async function processOpenRouterProvider(
             models: offerModels,
             priceAdjustment: providerConfig.priceAdjustment,
             defaultAdjustment: 0,
-            maxRatioCap: providerConfig.maxRatioCap ?? config.maxRatioCap,
             paidTier: true,
           });
           totalVendors++;

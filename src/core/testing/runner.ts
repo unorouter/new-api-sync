@@ -39,9 +39,11 @@ import type {
   ModelTestLog,
   OpenRouterEndpointsLog,
   PricingGateLog,
+  ProviderCostEntry,
   TestExchange,
   TestReport,
 } from "./types";
+import type { ApplyReport, ProviderReport, SyncDiff } from "@core/types";
 
 // ---------------------------------------------------------------------------
 // Redaction — strip auth secrets before writing to disk
@@ -141,6 +143,7 @@ function redactedReport(): TestReport {
   return {
     timestamp: testReport.timestamp,
     providers: testReport.providers,
+    summary: testReport.summary,
     modelTests: testReport.modelTests.map(redactResult),
     pricingGate:
       testReport.pricingGate && testReport.pricingGate.length > 0
@@ -180,22 +183,80 @@ function addTestResult(entry: ModelTestLog): void {
   if (entry.http.pass) passingByKey.set(key, entry);
 }
 
+function ensureProviderEntry(provider: string): ProviderCostEntry {
+  let entry = testReport.providers[provider];
+  if (!entry) {
+    entry = {};
+    testReport.providers[provider] = entry;
+  }
+  return entry;
+}
+
 /**
  * Record a per-provider total test cost (start_balance - end_balance).
  * Called once per provider after all its tests complete. Subsequent calls
  * for the same provider overwrite the previous value (last-writer wins).
  */
 export function recordProviderCost(provider: string, testCost: number): void {
-  testReport.providers[provider] = { testCost };
+  ensureProviderEntry(provider).testCost = testCost;
 }
 
 /**
- * Append a pre-test pricing-gate decision (kept/dropped/no-canonical) for one
- * (provider, group, vendor, model) tuple. Caller is responsible for shape
- * conversion from internal types — see provider.ts.
+ * Capture run-level outcome (apply counts, per-provider deltas, elapsed)
+ * into the test report so the JSON on disk mirrors what `printRunSummary`
+ * writes to stdout. Must be called before `writeTestReport`.
+ */
+export function recordRunSummary(input: {
+  providerReports: ProviderReport[];
+  apply: ApplyReport;
+  diff: SyncDiff;
+  elapsedMs: number;
+  success: boolean;
+}): void {
+  for (const report of input.providerReports) {
+    const entry = ensureProviderEntry(report.name);
+    entry.success = report.success;
+    if (report.error) entry.error = report.error;
+    entry.groups = report.groups;
+    entry.models = report.models;
+    entry.tokens = report.tokens;
+  }
+
+  // Bucket channel ops by their `tag` (the provider name) so per-provider
+  // channel deltas match the global counts when summed.
+  for (const op of input.diff.channels) {
+    const channel = op.type === "delete" ? op.existing : op.value;
+    const tag = channel.tag;
+    if (!tag) continue;
+    const entry = ensureProviderEntry(tag);
+    if (!entry.channels) entry.channels = { created: 0, updated: 0, deleted: 0 };
+    if (op.type === "create") entry.channels.created++;
+    else if (op.type === "update") entry.channels.updated++;
+    else entry.channels.deleted++;
+  }
+
+  testReport.summary = {
+    providers: {
+      passed: input.providerReports.filter((p) => p.success).length,
+      total: input.providerReports.length,
+    },
+    channels: input.apply.channels,
+    models: input.apply.models,
+    optionsUpdated: input.apply.options.updated.length,
+    elapsedSeconds: +(input.elapsedMs / 1000).toFixed(2),
+    success: input.success,
+    errors: input.apply.errors.length > 0 ? input.apply.errors : undefined,
+  };
+}
+
+/**
+ * Record one model's vote result. Deduplicated by exposed name — the same
+ * model evaluated across multiple (provider, group, vendor) buckets only
+ * gets logged once, since the vote is a global property of the model.
  */
 export function recordPricingGate(entry: PricingGateLog): void {
   if (!testReport.pricingGate) testReport.pricingGate = [];
+  if (testReport.pricingGate.some((e) => e.exposed === entry.exposed)) return;
   testReport.pricingGate.push(entry);
 }
 

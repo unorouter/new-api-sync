@@ -1,6 +1,6 @@
 import { lookup } from "@core/catalog/metadata";
 import type { PricingSourceName } from "@core/types";
-import type { BaseModelPricing, PricingSource } from "./sources/types";
+import type { PricingSource } from "./sources/types";
 
 /**
  * Per-source result for one model lookup, suitable for serializing into a
@@ -120,21 +120,18 @@ export function resolveCanonicalByVote(
 }
 
 /**
- * Pre-test gate predictor that mirrors the post-test cap math in
- * `processStandardOffer` but uses the *voted* canonical.
- *
- * Returns a drop reason when the predicted customer charge would exceed the
- * canonical-times-cap ceiling, or undefined when it's safe to test.
+ * Pre-test gate predictor: drop a model when the predicted customer charge
+ * exceeds canonical retail. Hard rule, no multiplier — we never sell above
+ * 1x of the voted canonical.
  *
  * When the voter returns no-majority/no-matches we return undefined too —
  * better to spend the test request than to drop based on a single possibly-
- * promo'd source.
+ * promo'd source. Caller falls through to whatever new-api already has stored.
  */
 export interface PredictAboveCanonicalArgs {
   upstreamRatio: number;
   groupRatio: number;
   adjustment: number;
-  cap: number;
   vote: PricingVoteResult;
 }
 
@@ -151,18 +148,17 @@ export function predictAboveCanonical(
   const canonical = args.vote.cluster?.modelRatio;
   if (canonical === undefined) return undefined;
 
-  // Mirrors processStandardOffer's math:
-  //     writtenRatio = canonical ?? upstreamRatio
+  // Mirrors processStandardOffer's math, with ceiling = canonical (1x):
+  //     writtenRatio = canonical
   //     rescale      = upstreamRatio / writtenRatio
   //     effective    = groupRatio * (1 + adjustment) * rescale
   //     charge       = writtenRatio * effective
-  //     ceiling      = canonical * cap
   const writtenRatio = canonical;
   const rescale =
     writtenRatio > 0 ? args.upstreamRatio / writtenRatio : 1;
   const effective = args.groupRatio * (1 + args.adjustment) * rescale;
   const charge = writtenRatio * effective;
-  const ceiling = canonical * args.cap;
+  const ceiling = canonical;
 
   if (charge <= ceiling) return undefined;
   return {

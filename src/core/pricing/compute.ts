@@ -345,17 +345,16 @@ function processStandardOffer(
     const groupRatio = computeStandardGroupRatio(offer, m, ctx, args);
     if (groupRatio === undefined) continue;
 
-    // Cap check.
+    // Cap check: never sell above 1x of canonical.
     if (groupRatio > 1) {
       const charge = ctx.writtenRatio * groupRatio;
-      const ceiling = (ctx.canonical ?? ctx.writtenRatio) * offer.maxRatioCap;
+      const ceiling = ctx.canonical ?? ctx.writtenRatio;
       if (charge > ceiling) {
         drops.push({
           model: m.exposed,
           channel: `${offer.sanitizedBase}-${offer.vendor}`,
           reason: "cap-exceeded",
           effectiveRatio: groupRatio,
-          cap: offer.maxRatioCap,
           detail: `charge=$${(charge * 2).toFixed(2)}/M canonical=${
             ctx.canonical !== undefined
               ? "$" + (ctx.canonical * 2).toFixed(2) + "/M"
@@ -435,7 +434,7 @@ function processPaidOffer(
     const kept = offer.models.filter((m) => {
       const written = modelRatios.get(m.exposed);
       const ratio = written?.ratio ?? 1;
-      const ceiling = (canonical.get(m.exposed) ?? ratio) * offer.maxRatioCap;
+      const ceiling = canonical.get(m.exposed) ?? ratio;
       return ratio * candidate <= ceiling;
     });
     if (kept.length === offer.models.length) {
@@ -453,8 +452,7 @@ function processPaidOffer(
         model: m.exposed,
         channel: `${offer.sanitizedBase}-${offer.vendor}`,
         reason: "no-fit",
-        cap: offer.maxRatioCap,
-        detail: "no group_ratio candidate fits within cap",
+        detail: "no group_ratio candidate fits within canonical",
       });
     }
     return;
@@ -469,7 +467,6 @@ function processPaidOffer(
         channel: `${offer.sanitizedBase}-${offer.vendor}`,
         reason: "cap-exceeded",
         effectiveRatio: chosen.ratio,
-        cap: offer.maxRatioCap,
         detail: `at chosen group_ratio=${chosen.ratio}`,
       });
     }
@@ -510,18 +507,17 @@ function processNoUpstreamOffer(
     const cheapest = cheapestForModel.get(m.exposed) ?? offer.groupRatio;
     const groupRatio = cheapest * (1 + adjustment);
 
-    // Cap check uses the global model_ratio entry.
+    // Cap check: never sell above 1x of canonical.
     if (groupRatio > 1) {
       const written = modelRatios.get(m.exposed)?.ratio ?? 1;
       const charge = written * groupRatio;
-      const ceiling = (canonical.get(m.exposed) ?? written) * offer.maxRatioCap;
+      const ceiling = canonical.get(m.exposed) ?? written;
       if (charge > ceiling) {
         drops.push({
           model: m.exposed,
           channel: `${offer.sanitizedBase}-${offer.vendor}`,
           reason: "cap-exceeded",
           effectiveRatio: groupRatio,
-          cap: offer.maxRatioCap,
         });
         continue;
       }

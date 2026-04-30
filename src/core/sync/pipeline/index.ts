@@ -78,7 +78,6 @@ export async function runProviderPipeline(
     baseline,
     pricingSources,
     reverseMapping,
-    maxRatioCap: config.maxRatioCap,
   });
 
   // Compute the priced plan and emit it as concrete state.

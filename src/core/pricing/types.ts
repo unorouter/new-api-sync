@@ -45,7 +45,6 @@ export interface PricedDrop {
   channel: string;
   reason: PricedDropReason;
   effectiveRatio?: number;
-  cap: number;
   /** Optional human-readable detail for log lines. */
   detail?: string;
 }

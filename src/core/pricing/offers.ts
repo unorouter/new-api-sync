@@ -78,11 +78,9 @@ export interface UpstreamOffer {
   models: OfferModel[];
   priceAdjustment?: AnyProviderConfig["priceAdjustment"];
   defaultAdjustment: number;
-  /** Per-provider cap override, falling back to global config. */
-  maxRatioCap: number;
   /** OpenRouter paid offers: trigger the cap-fitting binary search instead
    *  of the standard rescale formula. The compute function picks one
-   *  group_ratio for the whole offer that keeps every model under cap. */
+   *  group_ratio for the whole offer that keeps every model under canonical. */
   paidTier?: boolean;
 }
 

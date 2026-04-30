@@ -114,136 +114,229 @@ function buildCapabilityMap(
 }
 
 /**
- * Per-model trace captured during the pre-test gate so testing logs / debug
- * UI can show why a model was dropped (or kept) before any HTTP test fired.
+ * Per-bucket pre-test decision keyed by `groupName|vendor|upstreamModelName`.
+ * The planner builds this once for the whole provider before any HTTP tests
+ * fire, then each (group, vendor) bucket consults it to filter its models.
  */
-export interface PreTestGateTrace {
-  upstream: string;
-  exposed: string;
-  upstreamRatio: number;
-  groupRatio: number;
-  adjustment: number;
-  vote: PricingVoteResult;
-  decision: "kept" | "dropped" | "no-canonical-kept";
-  /** Set when decision === "dropped". */
-  drop?: {
-    canonicalRatio: number;
-    effectiveRatio: number;
-    charge: number;
-    ceiling: number;
-  };
-}
+type GateDecisionMap = Map<string, "keep" | "drop">;
 
-function applyPreTestCanonicalGate(opts: {
-  vendorModels: string[];
-  vendor: string;
+const decisionKey = (group: string, vendor: string, upstream: string) =>
+  `${group}|${vendor}|${upstream}`;
+
+/**
+ * Build the per-(group, vendor, model) keep/drop decision map for a whole
+ * newapi provider in one pass.
+ *
+ * Decision policy (per exposed model name across all of this provider's
+ * (group, vendor) buckets):
+ *
+ *   1. Compute predicted charge for every bucket that offers the model.
+ *      charge = canonical * groupRatio * (1 + adjustment) * (upstreamRatio / canonical)
+ *      When voting yields no canonical, charge falls back to upstreamRatio
+ *      (we can't reason about canonical, so the model is kept everywhere).
+ *
+ *   2. If any bucket has charge <= canonical → drop only the buckets above
+ *      canonical, keep the at-or-below ones. This is the "normal" case.
+ *
+ *   3. If every bucket charges above canonical → keep ONLY the cheapest one.
+ *      We have no choice but to sell above 1x; pick the least bad option.
+ *      (User-visible price will show the actual upstream rate; new-api's
+ *      "original price" still surfaces canonical for comparison.)
+ *
+ *   4. When voting returns no canonical for the model → keep all buckets
+ *      (we can't judge), let normal testing decide.
+ */
+function planPreTestDecisions(opts: {
+  prepared: Array<{
+    group: GroupInfo;
+    candidateModels: string[];
+  }>;
   providerConfig: ProviderConfig;
   config: RuntimeConfig;
-  group: GroupInfo;
-  localNormalizedEndpoints: Map<string, string[]>;
   upstreamPricing: Map<string, number>;
   pricingSources: PricingSource[];
   reverseMapping: Map<string, string>;
-  /** Output: per-model trace appended for downstream logging. */
-  traces: PreTestGateTrace[];
-}): string[] {
-  const kept: string[] = [];
-  const cap = opts.providerConfig.maxRatioCap ?? opts.config.maxRatioCap;
+  localNormalizedEndpoints: Map<string, string[]>;
+}): GateDecisionMap {
+  // For each exposed model, collect candidate buckets with their predicted
+  // charge so the policy step can decide keep/drop globally.
+  interface BucketCandidate {
+    key: string;
+    group: string;
+    vendor: string;
+    upstream: string;
+    exposed: string;
+    upstreamRatio: number;
+    groupRatio: number;
+    adjustment: number;
+    vote: PricingVoteResult;
+    /** undefined when no canonical → keep automatically. */
+    charge?: number;
+    /** undefined when no canonical. */
+    canonical?: number;
+  }
+  const byExposed = new Map<string, BucketCandidate[]>();
 
-  for (const upstreamName of opts.vendorModels) {
-    const exposed = opts.config.modelMapping?.[upstreamName] ?? upstreamName;
-    const modelType = inferModelType(
-      exposed,
-      undefined,
-      opts.localNormalizedEndpoints,
+  for (const p of opts.prepared) {
+    const vendorBuckets = partitionByVendor(
+      p.candidateModels,
+      (m) => m,
+      "unknown",
     );
-    const adjustment = resolvePriceAdjustment({
-      adj: opts.providerConfig.priceAdjustment,
-      model: exposed,
-      vendor: opts.vendor,
-      modelType,
-      fallback: 0,
-      modelMapping: opts.config.modelMapping,
-    });
+    for (const [vendor, vendorModels] of vendorBuckets) {
+      for (const upstreamName of vendorModels) {
+        const exposed =
+          opts.config.modelMapping?.[upstreamName] ?? upstreamName;
+        const modelType = inferModelType(
+          exposed,
+          undefined,
+          opts.localNormalizedEndpoints,
+        );
+        const adjustment = resolvePriceAdjustment({
+          adj: opts.providerConfig.priceAdjustment,
+          model: exposed,
+          vendor,
+          modelType,
+          fallback: 0,
+          modelMapping: opts.config.modelMapping,
+        });
+        const upstreamRatio = opts.upstreamPricing.get(upstreamName) ?? 1;
+        const vote = resolveCanonicalByVote(
+          exposed,
+          opts.pricingSources,
+          opts.reverseMapping,
+        );
+        const canonical = vote.cluster?.modelRatio;
+        // Mirrors processStandardOffer's math:
+        //   writtenRatio = canonical (when present)
+        //   rescale      = upstreamRatio / writtenRatio
+        //   effective    = groupRatio * (1 + adjustment) * rescale
+        //   charge       = writtenRatio * effective
+        // When canonical is missing we leave charge undefined → "keep".
+        let charge: number | undefined;
+        if (canonical !== undefined && canonical > 0) {
+          const rescale = upstreamRatio / canonical;
+          const effective = p.group.ratio * (1 + adjustment) * rescale;
+          charge = canonical * effective;
+        }
 
-    const upstreamRatio = opts.upstreamPricing.get(upstreamName) ?? 1;
-    const vote = resolveCanonicalByVote(
-      exposed,
-      opts.pricingSources,
-      opts.reverseMapping,
-    );
-
-    const drop = predictAboveCanonical({
-      upstreamRatio,
-      groupRatio: opts.group.ratio,
-      adjustment,
-      cap,
-      vote,
-    });
-
-    const trace: PreTestGateTrace = {
-      upstream: upstreamName,
-      exposed,
-      upstreamRatio,
-      groupRatio: opts.group.ratio,
-      adjustment,
-      vote,
-      decision: drop
-        ? "dropped"
-        : vote.cluster === null
-          ? "no-canonical-kept"
-          : "kept",
-    };
-
-    if (drop) {
-      trace.drop = {
-        canonicalRatio: drop.canonicalRatio,
-        effectiveRatio: drop.effectiveRatio,
-        charge: drop.charge,
-        ceiling: drop.ceiling,
-      };
-      consola.info(
-        `[pricing] pre-test drop ${exposed} ${opts.providerConfig.name}/${opts.group.name}/${opts.vendor} ` +
-          `charge=${drop.charge.toFixed(3)} ceiling=${drop.ceiling.toFixed(3)} ` +
-          `(canonical=${drop.canonicalRatio.toFixed(3)} via [${vote.cluster?.members.join(",")}], ` +
-          `upstream=${upstreamRatio.toFixed(3)}, cap=${cap})`,
-      );
-    } else {
-      kept.push(upstreamName);
+        const cand: BucketCandidate = {
+          key: decisionKey(p.group.name, vendor, upstreamName),
+          group: p.group.name,
+          vendor,
+          upstream: upstreamName,
+          exposed,
+          upstreamRatio,
+          groupRatio: p.group.ratio,
+          adjustment,
+          vote,
+          charge,
+          canonical,
+        };
+        let bucket = byExposed.get(exposed);
+        if (!bucket) {
+          bucket = [];
+          byExposed.set(exposed, bucket);
+        }
+        bucket.push(cand);
+      }
     }
+  }
 
-    opts.traces.push(trace);
+  const decisions: GateDecisionMap = new Map();
+
+  for (const [exposed, candidates] of byExposed) {
+    // Record the vote once per exposed model (deduped by recorder).
+    const firstWithVote = candidates[0]!;
     recordPricingGate({
-      provider: opts.providerConfig.name,
-      group: opts.group.name,
-      vendor: opts.vendor,
-      upstream: upstreamName,
       exposed,
-      upstreamRatio,
-      groupRatio: opts.group.ratio,
-      adjustment,
-      decision: trace.decision,
       vote: {
-        candidates: vote.candidates,
-        cluster: vote.cluster,
-        decision: vote.decision,
+        candidates: firstWithVote.vote.candidates.map((c) => {
+          const inputUsdPerM =
+            c.modelRatio !== undefined ? c.modelRatio * 2 : undefined;
+          const outputUsdPerM =
+            inputUsdPerM !== undefined && c.completionRatio !== undefined
+              ? inputUsdPerM * c.completionRatio
+              : undefined;
+          return { ...c, inputUsdPerM, outputUsdPerM };
+        }),
+        cluster: firstWithVote.vote.cluster
+          ? {
+              ...firstWithVote.vote.cluster,
+              inputUsdPerM: firstWithVote.vote.cluster.modelRatio * 2,
+              outputUsdPerM:
+                firstWithVote.vote.cluster.modelRatio *
+                2 *
+                firstWithVote.vote.cluster.completionRatio,
+            }
+          : null,
+        decision: firstWithVote.vote.decision,
       },
-      drop: trace.drop,
     });
-
-    // Attach the openrouter /endpoints raw rows for THIS model only — keeps
-    // the testing log focused on models we actually evaluated rather than
-    // dumping all 370 prefetched models. Dedup is handled by the recorder.
-    const orHit = vote.candidates.find(
+    const orHit = firstWithVote.vote.candidates.find(
       (c) => c.source === "openrouter" && c.matchedKey,
     );
     if (orHit?.matchedKey) {
       const orTrace = getOpenRouterEndpointsTrace(orHit.matchedKey);
       if (orTrace) recordOpenRouterEndpointsForModel(orTrace);
     }
+
+    // No canonical → keep everything for this model.
+    const haveCanonical = candidates.some((c) => c.charge !== undefined);
+    if (!haveCanonical) {
+      for (const c of candidates) decisions.set(c.key, "keep");
+      continue;
+    }
+
+    const canonical = candidates.find((c) => c.canonical !== undefined)!
+      .canonical!;
+    const atOrBelow = candidates.filter(
+      (c) => c.charge !== undefined && c.charge <= canonical,
+    );
+
+    if (atOrBelow.length > 0) {
+      // Normal case: drop only above-canonical buckets.
+      for (const c of candidates) {
+        if (c.charge !== undefined && c.charge > canonical) {
+          decisions.set(c.key, "drop");
+          consola.info(
+            `[pricing] pre-test drop ${exposed} ${opts.providerConfig.name}/${c.group}/${c.vendor} ` +
+              `charge=${c.charge.toFixed(3)} ceiling=${canonical.toFixed(3)} ` +
+              `(canonical via [${c.vote.cluster?.members.join(",")}], ` +
+              `upstream=${c.upstreamRatio.toFixed(3)})`,
+          );
+        } else {
+          decisions.set(c.key, "keep");
+        }
+      }
+      continue;
+    }
+
+    // All buckets charge above canonical → keep only the cheapest. We have
+    // no source at-or-below 1x, so selling above is the only option; pick
+    // the least bad and let new-api show the canonical strikethrough.
+    const cheapest = candidates.reduce((min, c) =>
+      (c.charge ?? Infinity) < (min.charge ?? Infinity) ? c : min,
+    );
+    consola.info(
+      `[pricing] all buckets above 1x for ${exposed} on ${opts.providerConfig.name}; ` +
+        `keeping cheapest ${cheapest.group}/${cheapest.vendor} ` +
+        `(charge=${cheapest.charge!.toFixed(3)}, canonical=${canonical.toFixed(3)})`,
+    );
+    for (const c of candidates) {
+      if (c.key === cheapest.key) {
+        decisions.set(c.key, "keep");
+      } else {
+        decisions.set(c.key, "drop");
+        consola.info(
+          `[pricing] pre-test drop ${exposed} ${opts.providerConfig.name}/${c.group}/${c.vendor} ` +
+            `charge=${c.charge!.toFixed(3)} (above 1x, not cheapest; cheapest kept at ${cheapest.charge!.toFixed(3)})`,
+        );
+      }
+    }
   }
 
-  return kept;
+  return decisions;
 }
 
 async function cleanupEmptyGroupTokens(
@@ -352,11 +445,6 @@ export async function processNewApiProvider(
       if (typeof m.ratio === "number") upstreamPricing.set(m.name, m.ratio);
     }
 
-    // Per-(group/vendor/model) trace from the pre-test cap gate. Captured
-    // here at the provider level so we can serialize one combined log file
-    // per provider after all groups have been processed.
-    const gateTraces: PreTestGateTrace[] = [];
-
     const tokenPrefix = config.target.targetPrefix ?? providerConfig.name;
     const partialSync = (config.modelFilter?.length ?? 0) > 0;
     const tokenResult = await upstream.ensureTokens(groups, tokenPrefix, {
@@ -417,6 +505,22 @@ export async function processNewApiProvider(
       });
     }
 
+    // Plan pre-test decisions globally across all (group, vendor) buckets
+    // *before* the parallel test loop. This lets the policy reason about
+    // every offering of a given model — needed for the "all above 1x → keep
+    // cheapest only" rule which can't be decided from a single bucket.
+    const gateDecisions = config.skipUnprofitableText
+      ? planPreTestDecisions({
+          prepared,
+          providerConfig,
+          config,
+          upstreamPricing,
+          pricingSources: ctx.pricingSources,
+          reverseMapping: ctx.reverseMapping,
+          localNormalizedEndpoints,
+        })
+      : null;
+
     // Fan out: every (group, vendor-bucket) becomes a parallel task. The
     // shared concurrency gate (keyed on baseUrl) ensures we don't exceed
     // perUpstreamConcurrency simultaneous requests against this newapi
@@ -453,24 +557,15 @@ export async function processNewApiProvider(
               };
             }
 
-            // Pre-test gate: drop models whose predicted customer charge
-            // (writtenRatio * effective) would exceed canonical * cap. The
-            // canonical comes from voting across all 4 pricing sources —
-            // this defends against any single source being promo-distorted
-            // (e.g. OpenRouter mirrors DeepSeek's 75% off-peak as base price).
-            const gatedModels = config.skipUnprofitableText
-              ? applyPreTestCanonicalGate({
-                  vendorModels,
-                  vendor,
-                  providerConfig,
-                  config,
-                  group: p.group,
-                  localNormalizedEndpoints,
-                  upstreamPricing,
-                  pricingSources: ctx.pricingSources,
-                  reverseMapping: ctx.reverseMapping,
-                  traces: gateTraces,
-                })
+            // Pre-test gate: filter using the precomputed cross-bucket
+            // decision map. The planner already logged the why and
+            // dedup-recorded the vote; here we just consult the map.
+            const gatedModels = gateDecisions
+              ? vendorModels.filter(
+                  (m) =>
+                    gateDecisions.get(decisionKey(p.group.name, vendor, m)) !==
+                    "drop",
+                )
               : vendorModels;
 
             if (gatedModels.length === 0) {
@@ -558,7 +653,6 @@ export async function processNewApiProvider(
               models: dedupedOfferModels,
               priceAdjustment: providerConfig.priceAdjustment,
               defaultAdjustment: 0,
-              maxRatioCap: providerConfig.maxRatioCap ?? config.maxRatioCap,
             };
             return {
               tested: filterResult.testedCount,

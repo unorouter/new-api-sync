@@ -131,7 +131,6 @@ export function getMetadataFromEnabledModels(
 // Defaults applied post-parse to match the previous Zod .default() semantics.
 export const CONFIG_DEFAULTS = {
   skipUnprofitableText: true,
-  maxRatioCap: 3,
   globalConcurrency: 100,
   perUpstreamConcurrency: 5,
 } as const;
@@ -142,13 +141,11 @@ export interface RuntimeConfig extends Omit<
   | "modelMapping"
   | "skipUnprofitableText"
   | "providers"
-  | "maxRatioCap"
   | "globalConcurrency"
   | "perUpstreamConcurrency"
 > {
   providers: AnyProviderConfig[];
   skipUnprofitableText: boolean;
-  maxRatioCap: number;
   globalConcurrency: number;
   perUpstreamConcurrency: number;
   blacklist: string[];
@@ -315,7 +312,6 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
     providers,
     skipUnprofitableText:
       typed.skipUnprofitableText ?? CONFIG_DEFAULTS.skipUnprofitableText,
-    maxRatioCap: typed.maxRatioCap ?? CONFIG_DEFAULTS.maxRatioCap,
     globalConcurrency:
       typed.globalConcurrency ?? CONFIG_DEFAULTS.globalConcurrency,
     perUpstreamConcurrency:

@@ -332,7 +332,6 @@ export async function processSub2ApiProvider(
         models: offerModels,
         priceAdjustment: providerConfig.priceAdjustment,
         defaultAdjustment,
-        maxRatioCap: providerConfig.maxRatioCap ?? config.maxRatioCap,
       });
 
       totalModels += offerModels.length;

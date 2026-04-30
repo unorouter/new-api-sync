@@ -30,46 +30,66 @@ export interface ModelTestLog {
 
 export interface ProviderCostEntry {
   /** Net balance delta (start - end) for the provider during this run. */
-  testCost: number;
+  testCost?: number;
+  /** Pipeline outcome for this provider, if a sync ran. */
+  success?: boolean;
+  /** Pipeline error message, if the provider failed. */
+  error?: string;
+  /** Channel diff scoped to this provider (by Channel.tag). */
+  channels?: { created: number; updated: number; deleted: number };
+  /** Group/model/token counts as reported by the provider pipeline. */
+  groups?: number;
+  models?: number;
+  tokens?: { created: number; existing: number; deleted: number };
+}
+
+export interface RunSummary {
+  providers: { passed: number; total: number };
+  channels: { created: number; updated: number; deleted: number };
+  models: {
+    created: number;
+    updated: number;
+    deleted: number;
+    orphansDeleted: number;
+  };
+  optionsUpdated: number;
+  elapsedSeconds: number;
+  success: boolean;
+  errors?: Array<{ phase: string; key: string; message: string }>;
 }
 
 /**
- * One per-model pre-test gate decision, captured before any test request
- * fires. Lets operators see why a model was dropped (or kept) and which
- * pricing sources voted with which.
+ * One vote result per unique exposed model name. The vote (which sources
+ * matched, what they returned, which cluster won) is a global property of
+ * the model — it doesn't change per (provider, group, vendor) bucket — so
+ * we deduplicate to one entry per model rather than logging the same vote
+ * 18 times across buckets.
  *
- * Stored as opaque JSON in the test report; the runtime types live in
- * src/core/pricing/vote.ts and src/core/vendors/newapi/provider.ts.
+ * The per-bucket drop/keep math derived from this vote is logged inline
+ * with `consola.info` and reflected in the working/dropped model counts;
+ * it does not need its own structured field.
  */
 export interface PricingGateLog {
-  provider: string;
-  group: string;
-  vendor: string;
-  upstream: string;
   exposed: string;
-  upstreamRatio: number;
-  groupRatio: number;
-  adjustment: number;
-  decision: "kept" | "dropped" | "no-canonical-kept";
   vote: {
     candidates: Array<{
       source: string;
       matchedKey?: string;
       modelRatio?: number;
       completionRatio?: number;
+      /** Human-readable USD per million tokens, derived from modelRatio × 2. */
+      inputUsdPerM?: number;
+      /** USD per million output tokens, derived from inputUsdPerM × completionRatio. */
+      outputUsdPerM?: number;
     }>;
     cluster: {
       members: string[];
       modelRatio: number;
       completionRatio: number;
+      inputUsdPerM: number;
+      outputUsdPerM: number;
     } | null;
     decision: "voted" | "no-majority" | "no-matches";
-  };
-  drop?: {
-    canonicalRatio: number;
-    effectiveRatio: number;
-    charge: number;
-    ceiling: number;
   };
 }
 
@@ -98,10 +118,11 @@ export interface OpenRouterEndpointsLog {
 
 export interface TestReport {
   timestamp: string;
-  /** Per-provider summary keyed by provider config name. Only providers that
-   *  expose a balance API contribute entries (newapi, openrouter, sub2api).
-   *  Providers without balance access (nvidia) are omitted. */
+  /** Per-provider summary keyed by provider config name. Carries balance
+   *  delta, pipeline outcome, and per-provider channel diff counts. */
   providers: Record<string, ProviderCostEntry>;
+  /** Run-level summary (matches what `printRunSummary` prints to stdout). */
+  summary?: RunSummary;
   /** All per-model test logs across the run. Replaces the legacy `results`
    *  field (still accepted on read for back-compat with old report files). */
   modelTests: ModelTestLog[];
