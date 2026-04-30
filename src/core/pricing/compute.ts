@@ -142,16 +142,10 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       continue;
     }
 
-    // All-free check: every offer of this model is free.
-    const allFree = occurrences.every((o) => o.model.isFree);
-    if (allFree) {
-      modelRatios.set(model, {
-        ratio: 0,
-        completionRatio: 0,
-        pricingSource: "channel",
-      });
-      continue;
-    }
+    // Note: an all-free model still flows through the canonical/sourceHit
+    // path below so the gateway can render the retail ratio as struck-
+    // through "Original price". The user is not charged because free
+    // channels have group_ratio=0 (effective = model_ratio * 0).
 
     // Canonical retail lookup. Two paths:
     //   - If pricingSources are available, resolve through them to also get
@@ -217,13 +211,17 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       createCacheRatio = cheapestOffer.model.createCacheRatio;
       pricingSource = "channel";
     } else {
-      // No canonical, no upstream ratio (e.g. sub2api models). Keep baseline
-      // entry if any; otherwise the model gets ratio=1 as a last resort
-      // (matches old fallback behaviour).
+      // No canonical, no paid upstream ratio. Keep baseline entry if any;
+      // otherwise pick the fallback by whether every occurrence is free:
+      // all-free with no canonical -> 0/0 (free model, no retail to show);
+      // otherwise -> 1/1 (legacy last-resort, matches old behaviour for
+      // models like sub2api where neither canonical nor upstream ratios
+      // exist).
       const existing = modelRatios.get(model);
       if (existing) continue;
-      writtenRatio = 1;
-      completionRatio = 1;
+      const allFree = occurrences.every((o) => o.model.isFree);
+      writtenRatio = allFree ? 0 : 1;
+      completionRatio = allFree ? 0 : 1;
       pricingSource = "channel";
     }
 
