@@ -1,15 +1,21 @@
 /**
  * Strip the `vendor/` prefix and any `:suffix` (e.g. `:free`) from a full
- * upstream model ID to produce a user-facing bare name.
+ * upstream model ID to produce a user-facing bare name. The result is
+ * lowercased so the same model exposed by different upstreams with
+ * different casing (e.g. NVIDIA `minimaxai/minimax-m2.5`, yun `MiniMax-M2.5`)
+ * collapses into one catalogue entry. The original upstream ID is preserved
+ * separately on each channel's model_mapping so the gateway forwards the
+ * exact form upstream expects.
  *   "openai/gpt-oss-120b:free"    -> "gpt-oss-120b"
+ *   "MiniMax-M2.5"                -> "minimax-m2.5"
  *   "moonshotai/kimi-k2.5"        -> "kimi-k2.5"
- *   "stabilityai/stable-diffusion" -> "stable-diffusion"
  */
 export function toBareName(upstreamId: string): string {
   const slash = upstreamId.indexOf("/");
   const withoutVendor = slash >= 0 ? upstreamId.slice(slash + 1) : upstreamId;
   const colon = withoutVendor.indexOf(":");
-  return colon >= 0 ? withoutVendor.slice(0, colon) : withoutVendor;
+  const bare = colon >= 0 ? withoutVendor.slice(0, colon) : withoutVendor;
+  return bare.toLowerCase();
 }
 
 export interface BareNameResolution {
@@ -44,7 +50,12 @@ export function resolveBareNames(
   for (const id of upstreamIds) {
     const bare = toBareName(id);
     const collides = (bareToUpstreams.get(bare)?.size ?? 0) > 1;
-    const exposed = userMapping?.[collides ? id : bare] ?? (collides ? id : bare);
+    // Exposed names are always lowercase. The upstream form is preserved
+    // separately in `result[].upstream` and used by `buildChannelModelMapping`
+    // so the gateway forwards the upstream's exact casing back to it.
+    const fallback = (collides ? id : bare).toLowerCase();
+    const mapped = userMapping?.[collides ? id : bare];
+    const exposed = (mapped ?? fallback).toLowerCase();
     if (seen.has(exposed)) continue;
     seen.add(exposed);
     result.push({ exposed, upstream: id });

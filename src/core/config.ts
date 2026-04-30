@@ -151,6 +151,8 @@ export const BUILTIN_BLACKLIST: readonly string[] = [
   "embed-qa-4",
   "gliner-pii",
   "ising-calibration-1-35b-a3b",
+  "laguna-m.1",
+  "laguna-xs.2",
   "magistral-small-2506",
   "ministral-14b-instruct-2512",
   "mixtral-8x22b-instruct-v0.1",
@@ -341,10 +343,22 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
       ...(typed.blacklist ?? []),
     ]),
   ];
-  const mergedMapping: Record<string, string> = {
-    ...(typed.modelMapping ?? {}),
-    ...(global.modelMapping ?? {}),
-  };
+  // modelMapping values become user-facing exposed names. `toBareName`
+  // produces lowercase bare names, so we lowercase the values here to keep
+  // the catalogue consistent regardless of how the user wrote them (e.g.
+  // `Claude-Opus-4-5` -> `claude-opus-4-5`). Keys without a `/` are matched
+  // against bare names (now always lowercase) and are lowercased too so a
+  // user-written `MiniMax-M2.5: foo` still hits. Keys with a `/` are full
+  // upstream IDs which may legitimately be mixed-case (newapi returns
+  // CamelCase IDs verbatim), so those are left alone.
+  const mergedMapping: Record<string, string> = {};
+  for (const [k, v] of [
+    ...Object.entries(typed.modelMapping ?? {}),
+    ...Object.entries(global.modelMapping ?? {}),
+  ]) {
+    const normalizedKey = k.includes("/") ? k : k.toLowerCase();
+    mergedMapping[normalizedKey] = v.toLowerCase();
+  }
 
   return {
     ...typed,

@@ -22,7 +22,6 @@ interface OpenRouterPricing {
 
 interface OpenRouterModel {
   id: string;
-  canonical_slug?: string;
   pricing?: OpenRouterPricing;
 }
 
@@ -132,8 +131,14 @@ export async function discoverOpenRouterFreeModels(
   const results = await Promise.all(
     candidates.map((m) =>
       limit(async () => {
-        const slug = m.canonical_slug ?? m.id;
-        const endpoints = await fetchModelEndpoints(baseUrl, apiKey, slug);
+        // Use `m.id` not `canonical_slug`: the `:free` suffix is a routing
+        // alias that selects the free endpoint pool. canonical_slug strips
+        // the suffix (e.g. `google/gemma-4-31b-it-20260402`), and fetching
+        // `/endpoints` on the unsuffixed slug resolves to the PAID routes
+        // only - the free-pool endpoints are reachable solely via the
+        // `:free` ID. Using canonical_slug here misclassified ~30 free
+        // variants as paid.
+        const endpoints = await fetchModelEndpoints(baseUrl, apiKey, m.id);
         const freeTags: string[] = [];
         for (const ep of endpoints) {
           const healthy = (ep.status ?? 0) >= 0;

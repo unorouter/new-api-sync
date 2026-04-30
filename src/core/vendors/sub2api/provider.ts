@@ -178,7 +178,9 @@ function buildCapabilityMap(
 ): Map<string, ModelCapabilityHint> {
   const map = new Map<string, ModelCapabilityHint>();
   for (const upstream of upstreamModels) {
-    const exposed = config.modelMapping?.[upstream] ?? upstream;
+    const exposed = (
+      config.modelMapping?.[upstream] ?? upstream
+    ).toLowerCase();
     const md = resolveSourceMetadata(
       exposed,
       ctx.pricingSources,
@@ -300,7 +302,9 @@ export async function processSub2ApiProvider(
         : undefined;
 
       const offerModels: OfferModel[] = workingModels.map((upstreamName) => {
-        const exposed = config.modelMapping?.[upstreamName] ?? upstreamName;
+        const exposed = (
+          config.modelMapping?.[upstreamName] ?? upstreamName
+        ).toLowerCase();
         const detail = filterResult.details?.find(
           (d) => d.model === upstreamName,
         );

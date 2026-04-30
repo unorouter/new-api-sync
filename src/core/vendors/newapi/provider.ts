@@ -94,7 +94,9 @@ function buildCapabilityMap(
 ): Map<string, ModelCapabilityHint> {
   const map = new Map<string, ModelCapabilityHint>();
   for (const upstream of upstreamModels) {
-    const exposed = config.modelMapping?.[upstream] ?? upstream;
+    const exposed = (
+      config.modelMapping?.[upstream] ?? upstream
+    ).toLowerCase();
     const md = resolveSourceMetadata(
       exposed,
       ctx.pricingSources,
@@ -182,8 +184,9 @@ function planPreTestDecisions(opts: {
     );
     for (const [vendor, vendorModels] of vendorBuckets) {
       for (const upstreamName of vendorModels) {
-        const exposed =
-          opts.config.modelMapping?.[upstreamName] ?? upstreamName;
+        const exposed = (
+          opts.config.modelMapping?.[upstreamName] ?? upstreamName
+        ).toLowerCase();
         const modelType = inferModelType(
           exposed,
           undefined,
@@ -601,8 +604,16 @@ export async function processNewApiProvider(
 
             const offerModels: OfferModel[] = workingUpstream.map(
               (upstreamName) => {
-                const exposed =
-                  config.modelMapping?.[upstreamName] ?? upstreamName;
+                // Exposed names are always lowercase. Other providers reach
+                // this via `resolveBareNames` -> `toBareName` which already
+                // lowercases; newapi keeps the upstream's group/name model
+                // as-is, so we lowercase explicitly here. The original
+                // upstream casing is preserved on `upstream` for the
+                // channel's model_mapping (newapi expects e.g. CamelCase
+                // `MiniMax-M2.5` on outbound requests).
+                const exposed = (
+                  config.modelMapping?.[upstreamName] ?? upstreamName
+                ).toLowerCase();
                 const detail = filterResult.details?.find(
                   (d) => d.model === upstreamName,
                 );

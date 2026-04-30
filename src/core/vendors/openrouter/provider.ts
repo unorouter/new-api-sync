@@ -66,7 +66,9 @@ function buildCapabilityMap(
 ): Map<string, ModelCapabilityHint> {
   const map = new Map<string, ModelCapabilityHint>();
   for (const upstream of upstreamModels) {
-    const exposed = config.modelMapping?.[upstream] ?? upstream;
+    const exposed = (
+      config.modelMapping?.[upstream] ?? upstream
+    ).toLowerCase();
     const md = resolveSourceMetadata(
       exposed,
       ctx.pricingSources,
