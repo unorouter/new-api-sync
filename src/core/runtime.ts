@@ -60,6 +60,10 @@ export async function fetchJson<T>(
   options?: FetchOptions,
 ): Promise<T> {
   try {
+    // Force JSON parsing regardless of upstream Content-Type. GitHub raw
+    // serves JSON files as text/plain, which makes ofetch hand back a
+    // string instead of the parsed object — silently breaking
+    // Object.entries / property access on the response.
     return await ofetch<T>(url, {
       method: options?.method,
       headers: options?.headers,
@@ -67,6 +71,7 @@ export async function fetchJson<T>(
       timeout: options?.timeoutMs ?? 10_000,
       retry: options?.retry,
       retryDelay: options?.retryDelayMs,
+      responseType: "json",
     });
   } catch (err) {
     if (err instanceof FetchError && err.response) {
