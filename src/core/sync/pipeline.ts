@@ -55,25 +55,28 @@ import { consola } from "consola";
 
 /**
  * Fill in base ratios from layered pricing sources (LiteLLM > OpenRouter >
- * basellm-canonical, first-match-wins). Channel-supplied ratios are the
- * source of truth (they reflect what your upstream actually charges YOU);
- * external sources are only used for models with no channel data, plus to
- * fill missing cache_ratio / create_cache_ratio fields.
+ * basellm-canonical, first-match-wins). Canonical retail is the source of
+ * truth for `model_ratio` because individual upstream `pricing_new`
+ * listings can be bogus (e.g. zetatechs lists kimi-k2.6 at $0.93/M when
+ * the actual canonical is $0.95/M but other resellers list it at $13/M);
+ * "cheapest channel wins" leads to global undercharges that ignore actual
+ * cost. Channel ratios are kept only when no canonical source resolves
+ * the model.
  *
  * Per field, the precedence is:
- *   ratio / completionRatio:       channel > external (channel = your cost)
+ *   ratio / completionRatio:       canonical > channel (canonical = retail)
  *   cacheRatio / createCacheRatio: channel > external (channel preferred,
  *                                  external fills gaps when upstream
  *                                  doesn't expose cache pricing)
+ *
+ * Per-tier `group_ratio` × `model_ratio` cap enforcement happens in
+ * buildVendorBucketChannels — it drops models from individual tiers when
+ * `model_ratio × group_ratio > canonical × maxRatioCap`.
  *
  * Skipped:
  * - models with quotaType >= 1 (per-request / grid pricing — billing
  *   doesn't go through ratio path so model_ratio doesn't matter)
  * - models with explicit modelPrice > 0 (same)
- *
- * Group-ratio floor enforcement (preventing sales below upstream cost)
- * lives in buildPriceTiers, not here — it operates on per-tier group
- * ratios using each provider's own cheapest upstream group ratio.
  */
 function resolveAllModelPricing(
   state: SyncState,
@@ -95,6 +98,7 @@ function resolveAllModelPricing(
   let missing = 0;
   const missingModels: string[] = [];
 
+  let canonicalOverrides = 0;
   for (const model of allModels) {
     const existing = state.mergedModels.get(model);
 
@@ -135,25 +139,37 @@ function resolveAllModelPricing(
       continue;
     }
 
-    // Channel-supplied case: keep channel ratios but fill cache from sources
-    // if the upstream channel didn't expose cache pricing.
+    // Channel-supplied + canonical available: canonical wins. Reseller
+    // pricing_new listings are unreliable (some upstreams list models at
+    // promo/loss-leader rates that have nothing to do with what they
+    // actually charge), so we trust LiteLLM/OpenRouter/basellm retail.
     if (!existing) continue;
-    if (!hit) continue;
-
-    if (existing.cacheRatio === undefined && hit.cacheRatio !== undefined) {
-      existing.cacheRatio = hit.cacheRatio;
-      cacheFilled++;
-    }
-    if (
-      existing.createCacheRatio === undefined &&
-      hit.createCacheRatio !== undefined
-    ) {
-      existing.createCacheRatio = hit.createCacheRatio;
+    if (hit) {
+      const prevRatio = existing.ratio;
+      existing.ratio = hit.modelRatio;
+      existing.completionRatio = hit.completionRatio;
+      if (existing.cacheRatio === undefined && hit.cacheRatio !== undefined) {
+        existing.cacheRatio = hit.cacheRatio;
+        cacheFilled++;
+      }
+      if (
+        existing.createCacheRatio === undefined &&
+        hit.createCacheRatio !== undefined
+      ) {
+        existing.createCacheRatio = hit.createCacheRatio;
+      }
+      existing.pricingSource = hit.source;
+      if (Math.abs(prevRatio - hit.modelRatio) > 0.001) {
+        canonicalOverrides++;
+        consola.debug(
+          `[pricing] override ${model} channel=${prevRatio.toFixed(4)} <- ${hit.source} (${hit.sourceKey}) ${hit.modelRatio.toFixed(4)}`,
+        );
+      }
     }
   }
 
   consola.info(
-    `[pricing] ${allModels.size} model(s): ${backfilled} backfilled from sources, ${cacheFilled} cache filled, ${skippedFixedPrice} skipped (per-request), ${missing} unresolved`,
+    `[pricing] ${allModels.size} model(s): ${backfilled} backfilled, ${canonicalOverrides} canonical-override, ${cacheFilled} cache filled, ${skippedFixedPrice} skipped (per-request), ${missing} unresolved`,
   );
   if (missingModels.length > 0) {
     const details = missingModels.map((m) => {

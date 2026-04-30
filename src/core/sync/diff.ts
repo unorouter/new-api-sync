@@ -128,13 +128,16 @@ function buildManagedOptionValues(
 
   // Models in desired channels that don't have explicit ratio data from the
   // sync (e.g. sub2api models — sub2api has no pricing info).  We preserve
-  // their existing target values so pricing isn't wiped.
+  // their existing target values so pricing isn't wiped. Use `in` checks
+  // (not truthiness) so that a legit `0` ratio from free providers still
+  // counts as "the sync explicitly set it" and propagates to the DB —
+  // otherwise stale non-zero ratios from prior syncs survive forever.
   const desiredModelsWithoutRatio = new Set<string>();
   for (const channel of desired.channels) {
     for (const model of parseModelList(channel.models)) {
       if (
-        !desired.options.modelRatio[model] &&
-        !desired.options.modelPrice[model]
+        !(model in desired.options.modelRatio) &&
+        !(model in desired.options.modelPrice)
       ) {
         desiredModelsWithoutRatio.add(model);
       }
