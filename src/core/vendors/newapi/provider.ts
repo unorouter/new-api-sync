@@ -50,11 +50,8 @@ function filterGroupModels(
   providerConfig: ProviderConfig,
   groupName: string,
 ): string[] {
-  // Blacklist only applies to text models — image/video/audio/embedding are never blacklisted
   let result = models.filter(
-    (m) =>
-      inferModelType(m) !== "text" ||
-      !matchesBlacklist(m, config.blacklist, providerConfig.name),
+    (m) => !matchesBlacklist(m, config.blacklist, providerConfig.name),
   );
 
   if (providerConfig.enabledVendors?.length) {

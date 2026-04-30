@@ -1,4 +1,3 @@
-import { inferModelType } from "@core/catalog/constants/inference";
 import {
   matchesAnyPattern,
   matchesBlacklist,
@@ -15,12 +14,8 @@ export function filterModels(
   providerConfig: NvidiaProviderConfig | Sub2ApiProviderConfig,
 ): string[] {
   const modelGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
-  // Blacklist only applies to text models — image/video/audio/embedding are never blacklisted
   return models.filter((id) => {
-    if (
-      inferModelType(id) === "text" &&
-      matchesBlacklist(id, config.blacklist, providerConfig.name)
-    )
+    if (matchesBlacklist(id, config.blacklist, providerConfig.name))
       return false;
     if (modelGlobs?.length) {
       if (!matchesAnyPattern(id, modelGlobs)) return false;

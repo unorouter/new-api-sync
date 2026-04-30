@@ -159,6 +159,7 @@ export const BUILTIN_BLACKLIST: readonly string[] = [
   "nv-embedcode-7b-v1",
   "nv-embedqa-e5-v5",
   "owl-alpha",
+  "phi-4-mini-instruct",
   "phi-4-multimodal-instruct",
   "riva-translate-4b-instruct-v1.1",
   "sarvam-m",
@@ -329,8 +330,9 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
   });
 
   // Merge in cross-config settings from `config.global.yml`. Missing file is
-  // treated as empty. For `blacklist` we union+dedupe; for `modelMapping` we
-  // let global win on key collisions (per user's "global wins" directive).
+  // treated as empty. For `blacklist` we union+dedupe (built-in + global +
+  // per-config); for `modelMapping` we let global win on key collisions
+  // (per user's "global wins" directive).
   const global = await loadGlobalConfig();
   const mergedBlacklist = [
     ...new Set([
