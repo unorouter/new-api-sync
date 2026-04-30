@@ -1,10 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import pLimit, { type LimitFunction } from "p-limit";
 import { CONFIG_DEFAULTS } from "@core/config";
 import { t } from "@server/i18n";
-import { consola } from "consola";
 import { FetchError, ofetch } from "ofetch";
 
 // ============ Abort signal (per-pipeline) ============
@@ -94,45 +91,6 @@ export async function tryFetchJson<T>(
   } catch {
     return null;
   }
-}
-
-// ============ Disk TTL cache ============
-
-const DISK_CACHE_DIR = join(process.cwd(), ".cache");
-
-/**
- * Wrap a network-bound producer with a disk-backed TTL cache. Pricing
- * sources (LiteLLM, OpenRouter, basellm) and the OpenRouter description
- * map don't change between syncs of the same day; caching them turns a
- * 5-15s pre-pipeline phase into instant on warm runs. `null` results
- * (fetch failure) are not cached so the next run retries.
- */
-export async function withDiskCache<T>(opts: {
-  key: string;
-  ttlMs: number;
-  produce: () => Promise<T | null>;
-}): Promise<T | null> {
-  const path = join(DISK_CACHE_DIR, `${opts.key}.json`);
-  try {
-    const stat = statSync(path);
-    if (Date.now() - stat.mtimeMs < opts.ttlMs) {
-      const raw = readFileSync(path, "utf8");
-      consola.debug(`[cache hit] ${opts.key}`);
-      return JSON.parse(raw) as T;
-    }
-  } catch {
-    // miss / unreadable / not yet written
-  }
-  const fresh = await opts.produce();
-  if (fresh !== null && fresh !== undefined) {
-    try {
-      mkdirSync(DISK_CACHE_DIR, { recursive: true });
-      writeFileSync(path, JSON.stringify(fresh));
-    } catch {
-      // disk full / permissions / etc — cache miss next run is acceptable
-    }
-  }
-  return fresh;
 }
 
 // ============ Concurrency gate ============

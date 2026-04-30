@@ -25,6 +25,23 @@ export async function fetchAllPricingSources(
     fetchOpenRouterPricingSource(),
   ]);
   const basellm = buildBasellmCanonicalSource(basellmEntries);
+
+  // Pricing math (canonical resolution, cap drops, pre-test gate) becomes
+  // unreliable if any of the three sources is empty — we'd silently fall
+  // back to upstream-only ratios with no canonical to compare against.
+  // Fail the run loudly so the operator notices and fixes the fetch path.
+  const empty: string[] = [];
+  if (!litellm || litellm.pricing.candidates.size === 0) empty.push("LiteLLM");
+  if (!openrouter || openrouter.pricing.candidates.size === 0)
+    empty.push("OpenRouter");
+  if (!basellm || basellm.pricing.candidates.size === 0) empty.push("basellm");
+  if (empty.length > 0) {
+    throw new Error(
+      `[pricing] empty pricing sources: ${empty.join(", ")}. ` +
+        `Aborting sync — canonical resolution requires all three.`,
+    );
+  }
+
   return [litellm, openrouter, basellm].filter(
     (s): s is PricingSource => s != null,
   );
