@@ -323,7 +323,7 @@ function processStandardOffer(
   canonical: Map<string, number>,
   args: ComputeArgs,
   tiers: PricedTier[],
-  drops: PricedDrop[],
+  _drops: PricedDrop[],
 ): void {
   // Bucket models by effective ratio (1e6-rounded for stable keys).
   const buckets = new Map<number, OfferModel[]>();
@@ -345,25 +345,12 @@ function processStandardOffer(
     const groupRatio = computeStandardGroupRatio(offer, m, ctx, args);
     if (groupRatio === undefined) continue;
 
-    // Cap check: never sell above 1x of canonical.
-    if (groupRatio > 1) {
-      const charge = ctx.writtenRatio * groupRatio;
-      const ceiling = ctx.canonical ?? ctx.writtenRatio;
-      if (charge > ceiling) {
-        drops.push({
-          model: m.exposed,
-          channel: `${offer.sanitizedBase}-${offer.vendor}`,
-          reason: "cap-exceeded",
-          effectiveRatio: groupRatio,
-          detail: `charge=$${(charge * 2).toFixed(2)}/M canonical=${
-            ctx.canonical !== undefined
-              ? "$" + (ctx.canonical * 2).toFixed(2) + "/M"
-              : "n/a"
-          }`,
-        });
-        continue;
-      }
-    }
+    // No post-test cap check here. The pre-test planner in
+    // newapi/provider.ts is the single source of truth for keep/drop
+    // decisions: it gates above-1x buckets per (provider, exposed model)
+    // with full cross-bucket awareness ("if every group is above 1x, keep
+    // the cheapest"). Re-applying a 1x ceiling here would override that
+    // decision and silently drop the cheapest-fallback survivors.
 
     const key = Math.round(groupRatio * 1e6) / 1e6;
     let bucket = buckets.get(key);
