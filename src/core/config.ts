@@ -135,6 +135,39 @@ export const CONFIG_DEFAULTS = {
   perUpstreamConcurrency: 5,
 } as const;
 
+/**
+ * Hardcoded blacklist merged into every sync regardless of user config.
+ * Substring-matched against bare model names (see `matchBlacklistEntry`),
+ * so e.g. `arctic-embed-l` catches `nvidia/arctic-embed-l`. Use this for
+ * upstream IDs that are uniformly broken, mistyped (embed/audio/video
+ * models served as `text`), or otherwise never useful to expose - things
+ * the user shouldn't have to repeat in every config.
+ */
+export const BUILTIN_BLACKLIST: readonly string[] = [
+  "ai-synthetic-video-detector",
+  "arctic-embed-l",
+  "bge-m3",
+  "devstral-2-123b-instruct-2512",
+  "embed-qa-4",
+  "gliner-pii",
+  "ising-calibration-1-35b-a3b",
+  "magistral-small-2506",
+  "ministral-14b-instruct-2512",
+  "mixtral-8x22b-instruct-v0.1",
+  "mixtral-8x7b-instruct-v0.1",
+  "nv-embed-v1",
+  "nv-embedcode-7b-v1",
+  "nv-embedqa-e5-v5",
+  "owl-alpha",
+  "phi-4-multimodal-instruct",
+  "riva-translate-4b-instruct-v1.1",
+  "sarvam-m",
+  "seed-oss-36b-instruct",
+  "solar-10.7b-instruct",
+  "step-3.5-flash",
+  "stockmark-2-100b-instruct",
+];
+
 export interface RuntimeConfig extends Omit<
   ConfigSchemaType,
   | "blacklist"
@@ -300,7 +333,11 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
   // let global win on key collisions (per user's "global wins" directive).
   const global = await loadGlobalConfig();
   const mergedBlacklist = [
-    ...new Set([...(global.blacklist ?? []), ...(typed.blacklist ?? [])]),
+    ...new Set([
+      ...BUILTIN_BLACKLIST,
+      ...(global.blacklist ?? []),
+      ...(typed.blacklist ?? []),
+    ]),
   ];
   const mergedMapping: Record<string, string> = {
     ...(typed.modelMapping ?? {}),

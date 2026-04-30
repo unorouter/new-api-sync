@@ -84,7 +84,7 @@ const ProviderCommonProps = {
   priceAdjustment: T.Optional(PriceAdjustmentSchema),
   /** Per-provider override of perUpstreamConcurrency. Caps simultaneous
    *  test/probe HTTP requests against this provider's baseUrl. */
-  perUpstreamConcurrency: T.Optional(T.Integer({ minimum: 1, maximum: 200 })),
+  perUpstreamConcurrency: T.Optional(T.Integer({ minimum: 1, maximum: 1000 })),
 } as const;
 
 const NewApiProviderSchema = T.Object({
@@ -229,7 +229,7 @@ export const ConfigSchema = T.Object({
   globalConcurrency: T.Optional(T.Integer({ minimum: 1, maximum: 1000 })),
   /** Default cap on simultaneous in-flight requests per upstream baseUrl
    *  (overridable per provider). Default 5. */
-  perUpstreamConcurrency: T.Optional(T.Integer({ minimum: 1, maximum: 200 })),
+  perUpstreamConcurrency: T.Optional(T.Integer({ minimum: 1, maximum: 1000 })),
   blacklist: T.Optional(T.Array(str)),
   modelMapping: T.Optional(T.Record(T.String(), T.String())),
   providers: T.Array(AnyProviderSchema, { minItems: 1 }),
