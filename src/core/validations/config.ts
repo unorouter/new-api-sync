@@ -185,7 +185,6 @@ export const RunResultFilterEnum = T.Union([
 ]);
 export const PipelineModeEnum = T.Union([
   T.Literal("run"),
-  T.Literal("test"),
   T.Literal("reset"),
 ]);
 

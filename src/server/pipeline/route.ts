@@ -1,7 +1,6 @@
 import { runWithSignal } from "@core/runtime";
 import { runReset } from "@core/sync/reset";
 import { runSync } from "@core/sync/run";
-import { runTestPipeline } from "@core/sync/test-runner";
 import { applyModelFilter, applyOnlyProviders, loadConfig } from "@core/config";
 import { CancelBody, PipelineBody } from "@core/validations/pipeline";
 import { configPath } from "@server/config/route";
@@ -36,24 +35,6 @@ export const pipelineRoute = new Elysia({ prefix: "/pipeline" })
               errors: result.apply.errors,
             },
           };
-        },
-        request,
-        { verbose: body.verbose },
-      ),
-    { body: PipelineBody },
-  )
-  .post(
-    "/test",
-    ({ body, request }) =>
-      pipelineStream(
-        async (signal) => {
-          const path = configPath(body.configName);
-          const config = applyModelFilter(
-            applyOnlyProviders(await loadConfig(path), body.only ?? []),
-            body.models ?? [],
-          );
-          const ok = await runWithSignal(signal, () => runTestPipeline(config));
-          return { success: ok };
         },
         request,
         { verbose: body.verbose },

@@ -61,11 +61,10 @@ function renderAnsi(message: string): string {
 
 const MODE_LABELS: Record<PipelineMode, TranslationKey> = {
   run: "SYNC.MODE.RUN",
-  test: "SYNC.MODE.TEST",
   reset: "SYNC.MODE.RESET",
 };
 
-const MODE_ORDER: PipelineMode[] = ["run", "test", "reset"];
+const MODE_ORDER: PipelineMode[] = ["run", "reset"];
 
 export function SyncPanel() {
   const t = useTranslations();

@@ -1,7 +1,6 @@
 import { applyModelFilter, applyOnlyProviders, loadConfig } from "@core/config";
 import { runReset } from "@core/sync/reset";
 import { printResetSummary, printRunSummary, runSync } from "@core/sync/run";
-import { runTestPipeline } from "@core/sync/test-runner";
 import { readLocaleFromGlobal, setLocale, t } from "@server/i18n";
 import { Command } from "commander";
 import { consola } from "consola";
@@ -87,42 +86,6 @@ program
     app.listen(Number(options.port));
     consola.success(t("CLI.STATUS.UI_RUNNING", { port: options.port }));
   });
-
-program
-  .command("test")
-  .description(t("CLI.COMMAND.TEST_DESC"))
-  .option("-c, --config <path>", t("CLI.OPTION.CONFIG_PATH"))
-  .option(
-    "--only <providers>",
-    t("CLI.OPTION.ONLY_PROVIDERS"),
-    (value: string, prev: string[]) => [...prev, value],
-    [] as string[],
-  )
-  .option(
-    "--models <globs>",
-    t("CLI.OPTION.ONLY_MODELS"),
-    (value: string, prev: string[]) => [...prev, value],
-    [] as string[],
-  )
-  .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
-  .action(
-    async (options: {
-      config?: string;
-      only: string[];
-      models: string[];
-      verbose?: boolean;
-    }) => {
-      if (options.verbose) consola.level = 4;
-      const config = applyModelFilter(
-        applyOnlyProviders(await loadConfig(options.config), options.only),
-        options.models,
-      );
-      const success = await runTestPipeline(config);
-      if (!success) {
-        process.exitCode = 1;
-      }
-    },
-  );
 
 program.parseAsync(process.argv).catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));

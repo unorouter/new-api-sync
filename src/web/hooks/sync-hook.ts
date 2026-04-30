@@ -41,9 +41,7 @@ export function useSyncPipeline() {
       const call =
         args.mode === "run"
           ? rpc.api.pipeline.run.post(payload)
-          : args.mode === "test"
-            ? rpc.api.pipeline.test.post(payload)
-            : rpc.api.pipeline.reset.post(payload);
+          : rpc.api.pipeline.reset.post(payload);
 
       try {
         const res = await call;

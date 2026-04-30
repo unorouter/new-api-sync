@@ -40,15 +40,13 @@
   },
   "SYNC": {
     "TITLE": "Sync pipeline",
-    "DESCRIPTION": "Run a full sync, test provider connectivity, or reset managed resources.",
+    "DESCRIPTION": "Run a full sync or reset managed resources.",
     "RUN": "Run",
-    "TEST": "Test",
     "RESET": "Reset",
     "START": "Start",
     "STOP": "Stop",
     "MODE": {
       "RUN": "Run",
-      "TEST": "Test",
       "RESET": "Reset"
     },
     "CLEAR_LOG": "Clear log",
@@ -246,8 +244,7 @@
     "COMMAND": {
       "RUN_DESC": "run sync pipeline",
       "RESET_DESC": "delete sync managed resources",
-      "UI_DESC": "launch the web UI (Elysia and React dashboard)",
-      "TEST_DESC": "test models without applying changes to the target"
+      "UI_DESC": "launch the web UI (Elysia and React dashboard)"
     },
     "OPTION": {
       "CONFIG_PATH": "config file path",
@@ -272,13 +269,7 @@
       "APPLY_ERROR": "[{phase}/{key}] {message}",
       "COMPLETED": "Completed in {elapsed}s",
       "COMPLETED_WITH_ERRORS": "Completed with errors in {elapsed}s",
-      "RESET_COMPLETE": "Reset complete | Channels: -{channels} / ~{channelsUpdated} | Models: -{models} | Orphans: -{orphans} | Tokens: -{tokens} | Options: {options}",
-      "TEST_STATUS_PASS": "✓",
-      "TEST_STATUS_FAIL": "✗",
-      "TEST_PROVIDER": "  {status} {name}: {models} models",
-      "TEST_PROVIDER_ERROR": "    {error}",
-      "TEST_COMPLETED": "Test completed in {elapsed}s",
-      "TEST_COMPLETED_WITH_ERRORS": "Test completed with errors in {elapsed}s"
+      "RESET_COMPLETE": "Reset complete | Channels: -{channels} / ~{channelsUpdated} | Models: -{models} | Orphans: -{orphans} | Tokens: -{tokens} | Options: {options}"
     }
   },
   "MODEL_TYPE": {
