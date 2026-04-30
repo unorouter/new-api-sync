@@ -11,7 +11,6 @@ import {
   getTestModelTypes,
   type RuntimeConfig,
 } from "@core/config";
-import { predictAboveOne } from "@core/pricing/compute";
 import { resolvePriceAdjustment } from "@core/pricing/index";
 import type {
   EndpointPathInfo,
@@ -23,12 +22,20 @@ import {
   resolveSourceMetadata,
   type PricingSource,
 } from "@core/pricing/resolver";
+import {
+  predictAboveCanonical,
+  resolveCanonicalByVote,
+  type PricingVoteResult,
+} from "@core/pricing/vote";
 import { throwIfRunAborted } from "@core/runtime";
 import {
+  recordOpenRouterEndpointsForModel,
+  recordPricingGate,
   recordProviderCost,
   testAndFilterModels,
   type ModelCapabilityHint,
 } from "@core/testing/runner";
+import { getOpenRouterEndpointsTrace } from "@core/pricing/sources/openrouter";
 import type { GroupInfo, ProviderReport } from "@core/types";
 import type { ProviderConfig } from "@core/validations/config";
 import { consola } from "consola";
@@ -106,19 +113,45 @@ function buildCapabilityMap(
   return map;
 }
 
-function applyPreTestAboveOneGate(opts: {
+/**
+ * Per-model trace captured during the pre-test gate so testing logs / debug
+ * UI can show why a model was dropped (or kept) before any HTTP test fired.
+ */
+export interface PreTestGateTrace {
+  upstream: string;
+  exposed: string;
+  upstreamRatio: number;
+  groupRatio: number;
+  adjustment: number;
+  vote: PricingVoteResult;
+  decision: "kept" | "dropped" | "no-canonical-kept";
+  /** Set when decision === "dropped". */
+  drop?: {
+    canonicalRatio: number;
+    effectiveRatio: number;
+    charge: number;
+    ceiling: number;
+  };
+}
+
+function applyPreTestCanonicalGate(opts: {
   vendorModels: string[];
   vendor: string;
   providerConfig: ProviderConfig;
   config: RuntimeConfig;
   group: GroupInfo;
   localNormalizedEndpoints: Map<string, string[]>;
+  upstreamPricing: Map<string, number>;
+  pricingSources: PricingSource[];
+  reverseMapping: Map<string, string>;
+  /** Output: per-model trace appended for downstream logging. */
+  traces: PreTestGateTrace[];
 }): string[] {
   const kept: string[] = [];
+  const cap = opts.providerConfig.maxRatioCap ?? opts.config.maxRatioCap;
 
   for (const upstreamName of opts.vendorModels) {
-    const exposed =
-      opts.config.modelMapping?.[upstreamName] ?? upstreamName;
+    const exposed = opts.config.modelMapping?.[upstreamName] ?? upstreamName;
     const modelType = inferModelType(
       exposed,
       undefined,
@@ -133,18 +166,80 @@ function applyPreTestAboveOneGate(opts: {
       modelMapping: opts.config.modelMapping,
     });
 
-    const drop = predictAboveOne({
+    const upstreamRatio = opts.upstreamPricing.get(upstreamName) ?? 1;
+    const vote = resolveCanonicalByVote(
+      exposed,
+      opts.pricingSources,
+      opts.reverseMapping,
+    );
+
+    const drop = predictAboveCanonical({
+      upstreamRatio,
       groupRatio: opts.group.ratio,
       adjustment,
+      cap,
+      vote,
     });
 
+    const trace: PreTestGateTrace = {
+      upstream: upstreamName,
+      exposed,
+      upstreamRatio,
+      groupRatio: opts.group.ratio,
+      adjustment,
+      vote,
+      decision: drop
+        ? "dropped"
+        : vote.cluster === null
+          ? "no-canonical-kept"
+          : "kept",
+    };
+
     if (drop) {
+      trace.drop = {
+        canonicalRatio: drop.canonicalRatio,
+        effectiveRatio: drop.effectiveRatio,
+        charge: drop.charge,
+        ceiling: drop.ceiling,
+      };
       consola.info(
         `[pricing] pre-test drop ${exposed} ${opts.providerConfig.name}/${opts.group.name}/${opts.vendor} ` +
-          `effective=${drop.effectiveRatio.toFixed(2)} (>1x)`,
+          `charge=${drop.charge.toFixed(3)} ceiling=${drop.ceiling.toFixed(3)} ` +
+          `(canonical=${drop.canonicalRatio.toFixed(3)} via [${vote.cluster?.members.join(",")}], ` +
+          `upstream=${upstreamRatio.toFixed(3)}, cap=${cap})`,
       );
     } else {
       kept.push(upstreamName);
+    }
+
+    opts.traces.push(trace);
+    recordPricingGate({
+      provider: opts.providerConfig.name,
+      group: opts.group.name,
+      vendor: opts.vendor,
+      upstream: upstreamName,
+      exposed,
+      upstreamRatio,
+      groupRatio: opts.group.ratio,
+      adjustment,
+      decision: trace.decision,
+      vote: {
+        candidates: vote.candidates,
+        cluster: vote.cluster,
+        decision: vote.decision,
+      },
+      drop: trace.drop,
+    });
+
+    // Attach the openrouter /endpoints raw rows for THIS model only — keeps
+    // the testing log focused on models we actually evaluated rather than
+    // dumping all 370 prefetched models. Dedup is handled by the recorder.
+    const orHit = vote.candidates.find(
+      (c) => c.source === "openrouter" && c.matchedKey,
+    );
+    if (orHit?.matchedKey) {
+      const orTrace = getOpenRouterEndpointsTrace(orHit.matchedKey);
+      if (orTrace) recordOpenRouterEndpointsForModel(orTrace);
     }
   }
 
@@ -249,6 +344,19 @@ export async function processNewApiProvider(
       groups = groups.filter((g) => g.models.length > 0);
     }
 
+    // Build a flat upstream-name → ratio map from the pricing payload so the
+    // pre-test gate can compute charge = writtenRatio * effective without
+    // iterating pricing.models on every model.
+    const upstreamPricing = new Map<string, number>();
+    for (const m of pricing.models) {
+      if (typeof m.ratio === "number") upstreamPricing.set(m.name, m.ratio);
+    }
+
+    // Per-(group/vendor/model) trace from the pre-test cap gate. Captured
+    // here at the provider level so we can serialize one combined log file
+    // per provider after all groups have been processed.
+    const gateTraces: PreTestGateTrace[] = [];
+
     const tokenPrefix = config.target.targetPrefix ?? providerConfig.name;
     const partialSync = (config.modelFilter?.length ?? 0) > 0;
     const tokenResult = await upstream.ensureTokens(groups, tokenPrefix, {
@@ -345,17 +453,23 @@ export async function processNewApiProvider(
               };
             }
 
-            // Pre-test gate: drop models whose post-adjustment effective
-            // ratio (groupRatio * (1 + priceAdjustment)) is above 1x.
-            // We don't sell text above 1x, so testing them is pure cost.
+            // Pre-test gate: drop models whose predicted customer charge
+            // (writtenRatio * effective) would exceed canonical * cap. The
+            // canonical comes from voting across all 4 pricing sources —
+            // this defends against any single source being promo-distorted
+            // (e.g. OpenRouter mirrors DeepSeek's 75% off-peak as base price).
             const gatedModels = config.skipUnprofitableText
-              ? applyPreTestAboveOneGate({
+              ? applyPreTestCanonicalGate({
                   vendorModels,
                   vendor,
                   providerConfig,
                   config,
                   group: p.group,
                   localNormalizedEndpoints,
+                  upstreamPricing,
+                  pricingSources: ctx.pricingSources,
+                  reverseMapping: ctx.reverseMapping,
+                  traces: gateTraces,
                 })
               : vendorModels;
 

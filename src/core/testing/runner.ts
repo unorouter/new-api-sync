@@ -37,6 +37,8 @@ import type {
   ModelRequestOpts,
   ModelTestDetail,
   ModelTestLog,
+  OpenRouterEndpointsLog,
+  PricingGateLog,
   TestExchange,
   TestReport,
 } from "./types";
@@ -140,6 +142,15 @@ function redactedReport(): TestReport {
     timestamp: testReport.timestamp,
     providers: testReport.providers,
     modelTests: testReport.modelTests.map(redactResult),
+    pricingGate:
+      testReport.pricingGate && testReport.pricingGate.length > 0
+        ? testReport.pricingGate
+        : undefined,
+    openrouterEndpoints:
+      testReport.openrouterEndpoints &&
+      testReport.openrouterEndpoints.length > 0
+        ? testReport.openrouterEndpoints
+        : undefined,
   };
 }
 
@@ -176,6 +187,32 @@ function addTestResult(entry: ModelTestLog): void {
  */
 export function recordProviderCost(provider: string, testCost: number): void {
   testReport.providers[provider] = { testCost };
+}
+
+/**
+ * Append a pre-test pricing-gate decision (kept/dropped/no-canonical) for one
+ * (provider, group, vendor, model) tuple. Caller is responsible for shape
+ * conversion from internal types — see provider.ts.
+ */
+export function recordPricingGate(entry: PricingGateLog): void {
+  if (!testReport.pricingGate) testReport.pricingGate = [];
+  testReport.pricingGate.push(entry);
+}
+
+/**
+ * Append one OpenRouter /endpoints snapshot for a model we actually tested.
+ *
+ * Called from the pre-test gate only when the openrouter source contributed
+ * a candidate price for the model — we want the audit trail for *tested*
+ * models, not all 370 in the prefetch. Deduplicated by `id` so we don't
+ * record the same row twice when multiple buckets test the same model.
+ */
+export function recordOpenRouterEndpointsForModel(
+  entry: OpenRouterEndpointsLog,
+): void {
+  if (!testReport.openrouterEndpoints) testReport.openrouterEndpoints = [];
+  if (testReport.openrouterEndpoints.some((e) => e.id === entry.id)) return;
+  testReport.openrouterEndpoints.push(entry);
 }
 
 export function recordTestResult(entry: {

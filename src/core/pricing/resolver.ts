@@ -1,6 +1,7 @@
 import { type BasellmEntry, lookup } from "@core/catalog/metadata";
 import { buildBasellmCanonicalSource } from "./sources/basellm";
 import { fetchLiteLLMSource } from "./sources/litellm";
+import { fetchLlmPricesSource } from "./sources/llm-prices";
 import { fetchOpenRouterPricingSource } from "./sources/openrouter";
 import type {
   BaseModelPricing,
@@ -11,25 +12,35 @@ import type {
 export type { BaseModelPricing, PricingSource, SourceMetadata };
 
 /**
- * Fetch all pricing sources in parallel. Order matters: it sets the priority
- * chain for the resolver — first hit wins.
+ * Fetch all pricing sources in parallel.
+ *
+ * The order returned is the priority chain for `resolveBasePricing` (first hit
+ * wins). For canonical-by-vote (the pre-test cap gate) the order doesn't
+ * matter — every source is consulted and clustered.
+ *
+ * Sources, in priority order:
+ *   1. simonw/llm-prices  — flat list-price catalog, ignores promos
+ *   2. basellm (canonical) — per-vendor rows, vendor=upstream filtered
+ *   3. LiteLLM             — broad coverage, accurate for Anthropic/OpenAI
+ *   4. OpenRouter          — per-endpoint max prompt*(1-discount), best for breadth
  *
  * basellm entries are passed in pre-fetched (the pipeline already pulls them
  * for description/tags via fetchBasellmEntries), so we don't double-fetch.
+ *
+ * llm-prices is *advisory*: if its fetch fails we fall through to the other
+ * three. The other three remain required — empty there means a real fetch
+ * regression we want to fail loudly on.
  */
 export async function fetchAllPricingSources(
   basellmEntries: BasellmEntry[],
 ): Promise<PricingSource[]> {
-  const [litellm, openrouter] = await Promise.all([
+  const [llmPrices, litellm, openrouter] = await Promise.all([
+    fetchLlmPricesSource(),
     fetchLiteLLMSource(),
     fetchOpenRouterPricingSource(),
   ]);
   const basellm = buildBasellmCanonicalSource(basellmEntries);
 
-  // Pricing math (canonical resolution, cap drops, pre-test gate) becomes
-  // unreliable if any of the three sources is empty — we'd silently fall
-  // back to upstream-only ratios with no canonical to compare against.
-  // Fail the run loudly so the operator notices and fixes the fetch path.
   const empty: string[] = [];
   if (!litellm || litellm.pricing.candidates.size === 0) empty.push("LiteLLM");
   if (!openrouter || openrouter.pricing.candidates.size === 0)
@@ -38,11 +49,11 @@ export async function fetchAllPricingSources(
   if (empty.length > 0) {
     throw new Error(
       `[pricing] empty pricing sources: ${empty.join(", ")}. ` +
-        `Aborting sync — canonical resolution requires all three.`,
+        `Aborting sync — canonical resolution requires LiteLLM + OpenRouter + basellm.`,
     );
   }
 
-  return [litellm, openrouter, basellm].filter(
+  return [llmPrices, basellm, litellm, openrouter].filter(
     (s): s is PricingSource => s != null,
   );
 }

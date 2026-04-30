@@ -106,7 +106,12 @@ export interface MergedGroup {
   provider: string;
 }
 
-export type PricingSourceName = "litellm" | "openrouter" | "basellm" | "channel";
+export type PricingSourceName =
+  | "litellm"
+  | "openrouter"
+  | "basellm"
+  | "llm-prices"
+  | "channel";
 
 export interface MergedModel {
   ratio: number;
