@@ -1,20 +1,20 @@
-import { throwIfRunAborted } from "@core/runtime/abort";
-import { ConcurrencyGate, setConcurrencyGate } from "@core/runtime/semaphore";
 import {
   getMetadataFromEnabledModels,
   getPricingGridFromEnabledModels,
   type RuntimeConfig,
 } from "@core/config";
+import { getTaskModelOverride } from "@core/models/constants/channel-types";
 import {
-  buildReverseMapping,
   ENDPOINT_DEFAULT_PATHS,
-  getTaskModelOverride,
-  inferModelType,
-  inferVendorFromModelName,
   MODEL_TYPE_CANONICAL_ENDPOINT,
   normalizeEndpointType,
+} from "@core/models/constants/endpoints";
+import { inferModelType } from "@core/models/constants/inference";
+import {
+  buildReverseMapping,
   parseModelList,
-} from "@core/models/constants";
+} from "@core/models/constants/patterns";
+import { inferVendorFromModelName } from "@core/models/constants/vendor-matchers";
 import {
   type BasellmEntry,
   buildMetadataMap,
@@ -39,10 +39,13 @@ import { processNewApiProvider } from "@core/providers/newapi/provider";
 import { processNvidiaProvider } from "@core/providers/nvidia/provider";
 import { processOpenRouterProvider } from "@core/providers/openrouter/provider";
 import { processSub2ApiProvider } from "@core/providers/sub2api/provider";
+import { throwIfRunAborted } from "@core/runtime/abort";
+import { ConcurrencyGate, setConcurrencyGate } from "@core/runtime/semaphore";
 import type {
   Channel,
   DesiredModelSpec,
   DesiredState,
+  GridPricingInfo,
   ManagedOptionMaps,
   MergedGroup,
   MergedModel,
@@ -135,8 +138,7 @@ function buildOptionMaps(
       modelPrice[mappedName] !== undefined ||
       modelRatio[mappedName] !== undefined
     ) {
-      modelGridPricing[mappedName] =
-        rows as import("@core/types").GridPricingInfo;
+      modelGridPricing[mappedName] = rows as GridPricingInfo;
     }
   }
 
@@ -266,11 +268,7 @@ function buildDesiredModels(opts: {
     );
     const sourceTags = deriveTagsFromMetadata(sourceMd);
 
-    const rawTags = [
-      prefix,
-      spec.tags ?? "",
-      sourceTags.join(","),
-    ]
+    const rawTags = [prefix, spec.tags ?? "", sourceTags.join(",")]
       .filter(Boolean)
       .join(",");
 
@@ -493,10 +491,7 @@ export async function runProviderPipeline(
         return processNewApiProvider(provider as ProviderConfig, config);
       }
       if (provider.type === "nvidia") {
-        return processNvidiaProvider(
-          provider as NvidiaProviderConfig,
-          config,
-        );
+        return processNvidiaProvider(provider as NvidiaProviderConfig, config);
       }
       if (provider.type === "openrouter") {
         return processOpenRouterProvider(
@@ -505,15 +500,9 @@ export async function runProviderPipeline(
         );
       }
       if (provider.type === "direct") {
-        return processDirectProvider(
-          provider as DirectProviderConfig,
-          config,
-        );
+        return processDirectProvider(provider as DirectProviderConfig, config);
       }
-      return processSub2ApiProvider(
-        provider as Sub2ApiProviderConfig,
-        config,
-      );
+      return processSub2ApiProvider(provider as Sub2ApiProviderConfig, config);
     }),
   );
 

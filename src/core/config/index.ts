@@ -1,4 +1,4 @@
-import { MODEL_TYPES, type ModelType } from "@core/models/types";
+import { MODEL_TYPES, type ModelType } from "@core/types";
 import {
   ConfigSchema,
   type AnyProviderConfig,

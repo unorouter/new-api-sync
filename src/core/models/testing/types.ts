@@ -28,9 +28,20 @@ export interface ModelTestLog {
   authenticityProbes?: AuthenticityProbeLog[];
 }
 
+export interface ProviderCostEntry {
+  /** Net balance delta (start - end) for the provider during this run. */
+  testCost: number;
+}
+
 export interface TestReport {
   timestamp: string;
-  results: ModelTestLog[];
+  /** Per-provider summary keyed by provider config name. Only providers that
+   *  expose a balance API contribute entries (newapi, openrouter, sub2api).
+   *  Providers without balance access (nvidia, direct) are omitted. */
+  providers: Record<string, ProviderCostEntry>;
+  /** All per-model test logs across the run. Replaces the legacy `results`
+   *  field (still accepted on read for back-compat with old report files). */
+  modelTests: ModelTestLog[];
 }
 
 export interface RequestConfig {

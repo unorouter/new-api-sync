@@ -2,13 +2,13 @@ import { getTestModelTypes, type RuntimeConfig } from "@core/config";
 import type { DirectProviderConfig } from "@core/validations/config";
 import {
   CHANNEL_TYPES,
-  inferModelType,
-  inferVendorFromModelName,
-  sanitizeGroupName,
   VENDOR_CHANNEL_TYPES,
-} from "@core/models/constants";
+} from "@core/models/constants/channel-types";
+import { inferModelType } from "@core/models/constants/inference";
+import { sanitizeGroupName } from "@core/models/constants/patterns";
+import { inferVendorFromModelName } from "@core/models/constants/vendor-matchers";
 import { filterModels } from "@core/models/filter";
-import { testAndFilterModels } from "@core/models/tester";
+import { testAndFilterModels } from "@core/models/testing/runner";
 import type {
   OfferModel,
   ProviderResult,

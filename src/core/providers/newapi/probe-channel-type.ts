@@ -1,9 +1,7 @@
 import { consola } from "consola";
-import {
-  CHANNEL_TYPES,
-  TIMEOUTS,
-  inferModelType,
-} from "@core/models/constants";
+import { CHANNEL_TYPES } from "@core/models/constants/channel-types";
+import { inferModelType } from "@core/models/constants/inference";
+import { TIMEOUTS } from "@core/types";
 import { getRequestConfig } from "@core/models/testing/request-configs";
 import { testRequest } from "@core/models/testing/execution";
 import type { ModelRequestOpts } from "@core/models/testing/types";

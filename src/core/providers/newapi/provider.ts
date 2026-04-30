@@ -3,15 +3,18 @@ import {
   getTestModelTypes,
   type RuntimeConfig,
 } from "@core/config";
+import { normalizeEndpointTypes } from "@core/models/constants/endpoints";
+import { inferModelType } from "@core/models/constants/inference";
 import {
-  inferModelType,
-  inferVendorFromModelName,
   matchesAnyPattern,
   matchesBlacklist,
-  normalizeEndpointTypes,
   sanitizeGroupName,
-} from "@core/models/constants";
-import { testAndFilterModels } from "@core/models/tester";
+} from "@core/models/constants/patterns";
+import { inferVendorFromModelName } from "@core/models/constants/vendor-matchers";
+import {
+  recordProviderCost,
+  testAndFilterModels,
+} from "@core/models/testing/runner";
 import type {
   EndpointPathInfo,
   OfferModel,
@@ -391,6 +394,7 @@ export async function processNewApiProvider(
       const finalBalance = await upstream.fetchBalance();
       if (finalBalance !== null) {
         const cost = startBalance - finalBalance;
+        recordProviderCost(providerConfig.name, cost);
         const costStr =
           cost > 0
             ? ` | Test cost: ${colorize("yellow", `$${cost.toFixed(4)}`)}`

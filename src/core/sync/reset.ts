@@ -1,6 +1,9 @@
 import { throwIfRunAborted } from "@core/runtime/abort";
 import type { RuntimeConfig } from "@core/config";
-import { matchesAnyPattern, parseModelList } from "@core/models/constants";
+import {
+  matchesAnyPattern,
+  parseModelList,
+} from "@core/models/constants/patterns";
 import { NewApiClient } from "@core/providers/newapi/client";
 
 export interface ResetResult {

@@ -1,4 +1,4 @@
-import { MODEL_TYPES } from "@core/models/types";
+import { MODEL_TYPES } from "@core/types";
 import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";

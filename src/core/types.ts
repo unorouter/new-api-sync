@@ -1,3 +1,41 @@
+// ============ Model Types ============
+
+// Browser-safe model-type constants. Kept in core/types.ts so the web bundle
+// doesn't transitively pull in micromatch (Node-only) through constants.ts.
+export const MODEL_TYPES = [
+  "text",
+  "image",
+  "video",
+  "audio",
+  "embedding",
+] as const;
+export type ModelType = (typeof MODEL_TYPES)[number];
+
+// ============ Misc constants ============
+
+export const MANAGED_OPTION_KEYS = [
+  "GroupRatio",
+  "UserUsableGroups",
+  "AutoGroups",
+  "DefaultUseAutoGroup",
+  "ModelRatio",
+  "CompletionRatio",
+  "ModelPrice",
+  "ImageRatio",
+  "ModelQuotaType",
+  "ModelGridPricing",
+] as const;
+
+export const PAGINATION = {
+  DEFAULT_PAGE_SIZE: 100,
+  START_PAGE_ZERO: 0,
+  START_PAGE_ONE: 1,
+} as const;
+
+export const TIMEOUTS = {
+  MODEL_TEST_MS: 20000,
+} as const;
+
 // ============ Upstream Pricing ============
 
 export interface GroupInfo {

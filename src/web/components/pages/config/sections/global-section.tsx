@@ -1,5 +1,5 @@
 import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
-import { MODEL_TYPES } from "@core/models/types";
+import { MODEL_TYPES } from "@core/types";
 import { useTranslations } from "use-intl";
 import { MyFormCheckboxGroup } from "@web/components/elements/form/my-form-checkbox-group";
 import { MyFormSwitch } from "@web/components/elements/form/my-form-switch";

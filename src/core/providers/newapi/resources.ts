@@ -1,6 +1,6 @@
 import { fetchJson, tryFetchJson } from "@core/runtime/http";
-import { PAGINATION } from "@core/models/constants";
 import type { Channel, ModelMeta, Vendor } from "@core/types";
+import { PAGINATION } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import type { ClientContext } from "./context";

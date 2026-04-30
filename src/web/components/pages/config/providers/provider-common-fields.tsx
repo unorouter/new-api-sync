@@ -1,5 +1,5 @@
 import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
-import { MODEL_TYPES } from "@core/models/types";
+import { MODEL_TYPES } from "@core/types";
 import { EnabledModelsEditor } from "../editors/enabled-models-editor";
 import { PriceAdjustmentEditor } from "../editors/price-adjustment-editor";
 import { providerPath } from "./provider-path";

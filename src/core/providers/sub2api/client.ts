@@ -1,4 +1,4 @@
-import { fetchJson } from "@core/runtime/http";
+import { fetchJson, tryFetchJson } from "@core/runtime/http";
 import type { Sub2ApiProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -126,6 +126,24 @@ export class Sub2ApiClient {
 
     const activeKey = data.items.find((k) => k.status === "active");
     return activeKey?.key ?? null;
+  }
+
+  /**
+   * Fetch the current balance for a user/group API key via /api/v1/users/me.
+   * Returns null when the endpoint is unreachable or the response shape is
+   * unexpected. Used to compute per-provider test cost as start - end.
+   */
+  async fetchBalance(apiKey: string): Promise<number | null> {
+    const data = await tryFetchJson<{
+      code?: number;
+      data?: { balance?: number };
+    }>(`${this.baseUrl}/api/v1/users/me`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!data || data.code !== 0 || data.data?.balance === undefined) {
+      return null;
+    }
+    return data.data.balance;
   }
 
   async listGatewayModels(apiKey: string, platform: string): Promise<string[]> {

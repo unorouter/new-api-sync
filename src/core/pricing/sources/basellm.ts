@@ -1,5 +1,7 @@
-import { VENDOR_MATCHERS } from "@core/models/constants/vendor-matchers";
-import { inferVendorFromModelName } from "@core/models/constants";
+import {
+  VENDOR_MATCHERS,
+  inferVendorFromModelName,
+} from "@core/models/constants/vendor-matchers";
 import {
   type BasellmEntry,
   buildFuzzyIndex,

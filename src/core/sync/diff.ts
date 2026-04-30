@@ -2,8 +2,8 @@ import type { RuntimeConfig } from "@core/config";
 import {
   matchesAnyPattern,
   parseModelList,
-  VENDOR_MATCHERS,
-} from "@core/models/constants";
+} from "@core/models/constants/patterns";
+import { VENDOR_MATCHERS } from "@core/models/constants/vendor-matchers";
 import { deepEqual } from "fast-equals";
 import stringify from "safe-stable-stringify";
 import type {

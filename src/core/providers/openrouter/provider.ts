@@ -4,14 +4,18 @@ import {
   resolveBareNames,
   toBareName,
 } from "@core/models/bare-name";
+import { CHANNEL_TYPES } from "@core/models/constants/channel-types";
 import {
-  CHANNEL_TYPES,
-  inferVendorFromModelName,
   matchesAnyPattern,
   matchesBlacklist,
   sanitizeGroupName,
-} from "@core/models/constants";
-import { testAndFilterModels } from "@core/models/tester";
+} from "@core/models/constants/patterns";
+import { inferVendorFromModelName } from "@core/models/constants/vendor-matchers";
+import {
+  recordProviderCost,
+  testAndFilterModels,
+} from "@core/models/testing/runner";
+import { tryFetchJson } from "@core/runtime/http";
 import type {
   OfferModel,
   ProviderResult,
@@ -26,6 +30,30 @@ import { discoverOpenRouterFreeModels } from "./discovery";
 interface BareResolution {
   exposed: string;
   upstream: string;
+}
+
+/**
+ * Fetch the OpenRouter account balance via /api/v1/credits. Returns the
+ * remaining credit (total_credits - total_usage) in dollars, or null when
+ * the endpoint is unreachable or the response shape is unexpected.
+ */
+async function fetchOpenRouterBalance(
+  baseUrl: string,
+  apiKey: string,
+): Promise<number | null> {
+  const data = await tryFetchJson<{
+    data?: { total_credits?: number; total_usage?: number };
+  }>(`${baseUrl.replace(/\/$/, "")}/v1/credits`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (
+    !data ||
+    data.data?.total_credits === undefined ||
+    data.data?.total_usage === undefined
+  ) {
+    return null;
+  }
+  return data.data.total_credits - data.data.total_usage;
 }
 
 function partitionByVendor(
@@ -57,6 +85,16 @@ export async function processOpenRouterProvider(
   };
   const offers: UpstreamOffer[] = [];
   const endpointMetadata = { endpointPaths: new Map() };
+
+  const startBalance = await fetchOpenRouterBalance(
+    providerConfig.baseUrl,
+    providerConfig.apiKey,
+  );
+  if (startBalance !== null) {
+    consola.info(
+      `[${providerConfig.name}] Balance: $${startBalance.toFixed(4)}`,
+    );
+  }
 
   try {
     let candidateIds: string[];
@@ -271,6 +309,21 @@ export async function processOpenRouterProvider(
     report.success = true;
   } catch (error) {
     report.error = error instanceof Error ? error.message : String(error);
+  }
+
+  if (startBalance !== null) {
+    const finalBalance = await fetchOpenRouterBalance(
+      providerConfig.baseUrl,
+      providerConfig.apiKey,
+    );
+    if (finalBalance !== null) {
+      const cost = startBalance - finalBalance;
+      recordProviderCost(providerConfig.name, cost);
+      consola.info(
+        `[${providerConfig.name}] Balance: $${finalBalance.toFixed(4)}` +
+          (cost > 0 ? ` | Test cost: $${cost.toFixed(4)}` : ""),
+      );
+    }
   }
 
   return { report, offers, endpointMetadata };

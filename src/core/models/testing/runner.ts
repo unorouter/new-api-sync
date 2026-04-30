@@ -1,12 +1,11 @@
 import { throwIfRunAborted } from "@core/runtime/abort";
 import { getConcurrencyGate } from "@core/runtime/semaphore";
+import { CHANNEL_TYPES } from "@core/models/constants/channel-types";
 import {
-  CHANNEL_TYPES,
   inferModelType,
   isTestableModel,
-  TIMEOUTS,
-} from "@core/models/constants";
-import type { ModelType } from "@core/models/types";
+} from "@core/models/constants/inference";
+import { TIMEOUTS, type ModelType } from "@core/types";
 import { logTestSummary } from "@core/models/test-log";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -140,7 +139,8 @@ function redactResult(entry: ModelTestLog): ModelTestLog {
 function redactedReport(): TestReport {
   return {
     timestamp: testReport.timestamp,
-    results: testReport.results.map(redactResult),
+    providers: testReport.providers,
+    modelTests: testReport.modelTests.map(redactResult),
   };
 }
 
@@ -150,13 +150,23 @@ function redactedReport(): TestReport {
 
 const testReport: TestReport = {
   timestamp: new Date().toISOString(),
-  results: [],
+  providers: {},
+  modelTests: [],
 };
 
 function addTestResult(entry: ModelTestLog): void {
   const key = `${entry.provider}|${entry.model}`;
   entry.authenticityProbes = authenticityProbeAccumulator.get(key);
-  testReport.results.push(entry);
+  testReport.modelTests.push(entry);
+}
+
+/**
+ * Record a per-provider total test cost (start_balance - end_balance).
+ * Called once per provider after all its tests complete. Subsequent calls
+ * for the same provider overwrite the previous value (last-writer wins).
+ */
+export function recordProviderCost(provider: string, testCost: number): void {
+  testReport.providers[provider] = { testCost };
 }
 
 export function recordTestResult(entry: {
@@ -187,7 +197,7 @@ export function recordTestResult(entry: {
 
 export function writeTestReport(): void {
   saveAuthenticityBlacklist();
-  if (testReport.results.length === 0) return;
+  if (testReport.modelTests.length === 0) return;
   const logsDir = join(process.cwd(), "logs");
   mkdirSync(logsDir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
@@ -201,12 +211,18 @@ export function initTestReportForDate(): void {
   const path = join(process.cwd(), "logs", `${today}-model-tests.json`);
   try {
     const raw = readFileSync(path, "utf8");
-    const existing = JSON.parse(raw) as TestReport;
-    testReport.results = existing.results.filter((r) => r.http.pass);
+    // Read both old (`results`) and new (`modelTests`) field names so a
+    // mid-day upgrade doesn't lose the morning's passes.
+    const existing = JSON.parse(raw) as Partial<TestReport> & {
+      results?: ModelTestLog[];
+    };
+    const tests = existing.modelTests ?? existing.results ?? [];
+    testReport.modelTests = tests.filter((r) => r.http.pass);
+    if (existing.providers) testReport.providers = existing.providers;
     consola.info(
       t("CORE.TESTER.REPORT_RESUMED", {
         path,
-        count: testReport.results.length,
+        count: testReport.modelTests.length,
       }),
     );
   } catch {
@@ -217,7 +233,7 @@ export function initTestReportForDate(): void {
 
 export function writeTestReportForDate(): void {
   saveAuthenticityBlacklist();
-  if (testReport.results.length === 0) return;
+  if (testReport.modelTests.length === 0) return;
   const today = new Date().toISOString().slice(0, 10);
   const logsDir = join(process.cwd(), "logs");
   mkdirSync(logsDir, { recursive: true });
@@ -226,7 +242,7 @@ export function writeTestReportForDate(): void {
   consola.info(
     t("CORE.TESTER.REPORT_WRITTEN_COUNT", {
       path,
-      count: testReport.results.length,
+      count: testReport.modelTests.length,
     }),
   );
 }
@@ -312,7 +328,7 @@ export async function testModels(opts: {
     models.map((model) =>
       gate.run(baseUrl, async () => {
         throwIfRunAborted();
-        const existingPass = testReport.results.find(
+        const existingPass = testReport.modelTests.find(
           (r) => r.provider === prefix && r.model === model && r.http.pass,
         );
         if (existingPass) {

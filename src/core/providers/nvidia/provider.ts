@@ -8,15 +8,13 @@ import {
   buildChannelModelMapping,
   resolveBareNames,
 } from "@core/models/bare-name";
-import {
-  CHANNEL_TYPES,
-  inferModelType,
-  inferVendorFromModelName,
-  sanitizeGroupName,
-} from "@core/models/constants";
+import { CHANNEL_TYPES } from "@core/models/constants/channel-types";
+import { inferModelType } from "@core/models/constants/inference";
+import { sanitizeGroupName } from "@core/models/constants/patterns";
+import { inferVendorFromModelName } from "@core/models/constants/vendor-matchers";
 import { filterModels } from "@core/models/filter";
 import { NVIDIA_RETRY_POLICY } from "@core/models/testing/execution";
-import { testAndFilterModels } from "@core/models/tester";
+import { testAndFilterModels } from "@core/models/testing/runner";
 import type {
   OfferModel,
   ProviderResult,

@@ -1,7 +1,9 @@
 import { throwIfRunAborted } from "@core/runtime/abort";
 import type { RuntimeConfig } from "@core/config";
-import { MANAGED_OPTION_KEYS, VENDOR_MATCHERS } from "@core/models/constants";
-import { loadAuthenticityBlacklist, writeTestReport } from "@core/models/tester";
+import { VENDOR_MATCHERS } from "@core/models/constants/vendor-matchers";
+import { MANAGED_OPTION_KEYS } from "@core/types";
+import { loadAuthenticityBlacklist } from "@core/models/testing/authenticity";
+import { writeTestReport } from "@core/models/testing/runner";
 import { NewApiClient } from "@core/providers/newapi/client";
 import { applySyncDiff } from "@core/sync/apply";
 import { buildSyncDiff } from "@core/sync/diff";

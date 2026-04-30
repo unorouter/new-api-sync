@@ -1,15 +1,18 @@
 import { getTestModelTypes, type RuntimeConfig } from "@core/config";
 import type { Sub2ApiProviderConfig } from "@core/validations/config";
+import { CHANNEL_TYPES } from "@core/models/constants/channel-types";
+import { inferModelType } from "@core/models/constants/inference";
 import {
-  CHANNEL_TYPES,
-  inferModelType,
   sanitizeGroupName,
   SUB2API_PLATFORM_CHANNEL_TYPES,
   SUB2API_PLATFORM_TO_VENDOR,
   VENDOR_TO_SUB2API_PLATFORMS,
-} from "@core/models/constants";
+} from "@core/models/constants/patterns";
 import { filterModels } from "@core/models/filter";
-import { testAndFilterModels } from "@core/models/tester";
+import {
+  recordProviderCost,
+  testAndFilterModels,
+} from "@core/models/testing/runner";
 import type {
   OfferModel,
   ProviderResult,
@@ -173,10 +176,14 @@ export async function processSub2ApiProvider(
   };
   const offers: UpstreamOffer[] = [];
   const endpointMetadata = { endpointPaths: new Map() };
+  const client = new Sub2ApiClient(providerConfig);
+  // Lifted out of the try block so the post-loop cost calculation can read
+  // them. groupKeysForBalance is the set of API keys we measured at start;
+  // the end-of-run balance fetch reuses the same keys.
+  let totalStart: number | null = null;
+  let groupKeysForBalance: string[] = [];
 
   try {
-    const client = new Sub2ApiClient(providerConfig);
-
     const resolvedGroups = providerConfig.adminApiKey
       ? await resolveViaAdmin(client, providerConfig, config)
       : await resolveViaGroups(client, providerConfig, config);
@@ -184,6 +191,23 @@ export async function processSub2ApiProvider(
     if (resolvedGroups.length === 0) {
       report.error = t("CORE.ERROR.NO_GROUPS_WITH_MODELS");
       return { report, offers, endpointMetadata };
+    }
+
+    // Capture start balance per group key so we can compute the total test
+    // cost as sum(start_i - end_i) across all groups. sub2api's balance is
+    // per-user, so summing gives one number for the whole provider entry.
+    groupKeysForBalance = resolvedGroups.map((g) => g.apiKey);
+    const startBalances = await Promise.all(
+      groupKeysForBalance.map((k) => client.fetchBalance(k)),
+    );
+    totalStart = startBalances.reduce<number | null>((acc, b) => {
+      if (b === null) return acc;
+      return (acc ?? 0) + b;
+    }, null);
+    if (totalStart !== null) {
+      consola.info(
+        `[${providerConfig.name}] Balance: $${totalStart.toFixed(4)}`,
+      );
     }
 
     // sub2api semantics: each group tests its own models, and the resulting
@@ -285,6 +309,24 @@ export async function processSub2ApiProvider(
     }
   } catch (error) {
     report.error = error instanceof Error ? error.message : String(error);
+  }
+
+  if (totalStart !== null && groupKeysForBalance.length > 0) {
+    const endBalances = await Promise.all(
+      groupKeysForBalance.map((k) => client.fetchBalance(k)),
+    );
+    const totalEnd = endBalances.reduce<number | null>((acc, b) => {
+      if (b === null) return acc;
+      return (acc ?? 0) + b;
+    }, null);
+    if (totalEnd !== null) {
+      const cost = totalStart - totalEnd;
+      recordProviderCost(providerConfig.name, cost);
+      consola.info(
+        `[${providerConfig.name}] Balance: $${totalEnd.toFixed(4)}` +
+          (cost > 0 ? ` | Test cost: $${cost.toFixed(4)}` : ""),
+      );
+    }
   }
 
   return { report, offers, endpointMetadata };
