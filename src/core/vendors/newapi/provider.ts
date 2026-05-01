@@ -23,7 +23,6 @@ import {
   type PricingSource,
 } from "@core/pricing/resolver";
 import {
-  predictAboveCanonical,
   resolveCanonicalByVote,
   type PricingVoteResult,
 } from "@core/pricing/vote";
@@ -135,16 +134,36 @@ const decisionKey = (group: string, vendor: string, upstream: string) =>
   `${group}|${vendor}|${upstream}`;
 
 /**
+ * Soft-canonical for the planner gate when voting returned no majority but
+ * at least one source matched. Used only for keep/drop decisions, never
+ * written to UI. Falls back to the median ratio across all matched sources
+ * (with one match, that's just the single hit). Returns undefined when no
+ * source matched at all — gate then falls through to "keep all".
+ *
+ * Why median: with one source we trust it, with multiple disagreeing we
+ * pick the dominant cluster's representative without being skewed by an
+ * outlier promo or stale list price.
+ */
+function softCanonical(vote: PricingVoteResult): number | undefined {
+  const ratios = vote.candidates
+    .map((c) => c.modelRatio)
+    .filter((r): r is number => r !== undefined && r > 0);
+  if (ratios.length === 0) return undefined;
+  ratios.sort((a, b) => a - b);
+  return ratios[Math.floor(ratios.length / 2)];
+}
+
+/**
  * Build the per-(group, vendor, model) keep/drop decision map for a whole
  * newapi provider in one pass.
  *
  * Decision policy (per exposed model name across all of this provider's
  * (group, vendor) buckets):
  *
- *   1. Compute predicted charge for every bucket that offers the model.
- *      charge = canonical * groupRatio * (1 + adjustment) * (upstreamRatio / canonical)
- *      When voting yields no canonical, charge falls back to upstreamRatio
- *      (we can't reason about canonical, so the model is kept everywhere).
+ *   1. Resolve a gate canonical: voted cluster first (>= 2 sources agree),
+ *      else the median single-source ratio when only one source matched.
+ *      Compute predicted charge for every bucket:
+ *      charge = canonical * groupRatio * (1 + adjustment) * (upstreamRatio / canonical).
  *
  *   2. If any bucket has charge <= canonical → drop only the buckets above
  *      canonical, keep the at-or-below ones. This is the "normal" case.
@@ -154,8 +173,8 @@ const decisionKey = (group: string, vendor: string, upstream: string) =>
  *      (User-visible price will show the actual upstream rate; new-api's
  *      "original price" still surfaces canonical for comparison.)
  *
- *   4. When voting returns no canonical for the model → keep all buckets
- *      (we can't judge), let normal testing decide.
+ *   4. When no source matched at all → keep all buckets (we can't judge),
+ *      let normal testing decide.
  */
 function planPreTestDecisions(opts: {
   prepared: Array<{
@@ -218,7 +237,16 @@ function planPreTestDecisions(opts: {
           opts.pricingSources,
           opts.reverseMapping,
         );
-        const canonical = vote.cluster?.modelRatio;
+        // Voted canonical (>= 2 sources agree) is the strong signal. When
+        // voting yields no majority but at least one source matched, fall
+        // back to the median single-source ratio for gate decisions only.
+        // This catches models present in only one source — e.g.
+        // minimax-m2.7-highspeed which basellm carries at $0.6/M but the
+        // other 3 sources don't list at all. Without this, the planner
+        // can't gate aigc's $9.45/M bucket because vote.cluster is null.
+        // Never written to UI as canonical — resolveCanonicalRetail still
+        // requires a voted cluster.
+        const canonical = vote.cluster?.modelRatio ?? softCanonical(vote);
         // Mirrors processStandardOffer's math:
         //   writtenRatio = canonical (when present)
         //   rescale      = upstreamRatio / writtenRatio
