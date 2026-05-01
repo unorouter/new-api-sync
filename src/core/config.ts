@@ -131,7 +131,7 @@ export function getMetadataFromEnabledModels(
 // Defaults applied post-parse to match the previous Zod .default() semantics.
 export const CONFIG_DEFAULTS = {
   skipUnprofitableText: true,
-  globalConcurrency: 100,
+  globalConcurrency: 50,
   perUpstreamConcurrency: 5,
 } as const;
 
