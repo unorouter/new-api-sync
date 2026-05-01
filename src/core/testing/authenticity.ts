@@ -261,6 +261,10 @@ type ProbeResult = {
   pass: boolean;
   authenticityRefusal: boolean;
   signal: ProbeSignal;
+  /** True when every retry attempt got back a response with a wrong nonce —
+   *  the upstream proxy is mixing concurrent responses (an unsafe-proxy
+   *  signal). Distinct from `pass: false` for content reasons. */
+  muxFailure?: boolean;
 };
 
 // Probe label is passed in so identity/model-name can apply different
@@ -280,22 +284,30 @@ function detectSignal(text: string, probeLabel: string): ProbeSignal {
   return null;
 }
 
-async function runAnthropicProbe(opts: {
+/** Max sequential retries on nonce mismatch (= total attempts of 1 + this).
+ *  Cheap reseller proxies that mux concurrent /v1/messages calls return
+ *  responses paired with the wrong prompt under parallel load. The fix
+ *  isn't on our side — we can't make their proxy correct — but a sequential
+ *  retry with a fresh nonce after a short delay almost always succeeds
+ *  because the proxy has only one inflight request from us at that moment. */
+const NONCE_MISMATCH_RETRIES = 2;
+const NONCE_MISMATCH_BACKOFF_MS = 500;
+
+async function runProbeAttempt(opts: {
   baseUrl: string;
   apiKey: string;
   model: string;
   prompt: string;
   label: string;
   maxTokens: number;
-  evaluate: (text: string) => boolean;
   timeoutMs: number;
   logKey: string;
-  /** Optional nonce expected to appear in the response. Used to guard
-   *  against reseller proxies that mux concurrent /v1/messages calls and
-   *  return responses in the wrong order. When set, a response missing
-   *  the nonce fails closed. */
   nonce?: string;
-}): Promise<ProbeResult> {
+}): Promise<
+  | { kind: "ok"; text: string; reqUrl: string; reqBody: unknown }
+  | { kind: "fail"; result: ProbeResult }
+  | { kind: "nonce-mismatch"; text: string; reqUrl: string; reqBody: unknown }
+> {
   const reqBody = {
     model: opts.model,
     messages: [{ role: "user", content: opts.prompt }],
@@ -325,7 +337,10 @@ async function runAnthropicProbe(opts: {
       response: null,
       error: errMsg,
     });
-    return { pass: false, authenticityRefusal: false, signal: null };
+    return {
+      kind: "fail",
+      result: { pass: false, authenticityRefusal: false, signal: null },
+    };
   }
 
   const text = extractAnthropicText(data);
@@ -340,33 +355,108 @@ async function runAnthropicProbe(opts: {
         preview: JSON.stringify(data).slice(0, 300),
       }),
     });
-    return { pass: false, authenticityRefusal: false, signal: null };
+    return {
+      kind: "fail",
+      result: { pass: false, authenticityRefusal: false, signal: null },
+    };
   }
-  // Nonce mismatch = response was paired with a different prompt by a
-  // reseller's response-mixing proxy. Fail closed but don't tag it as a
-  // foreign/scam/refusal signal — that would penalise the wrong probe.
+
   if (opts.nonce && !text.includes(opts.nonce.toLowerCase())) {
+    return { kind: "nonce-mismatch", text, reqUrl, reqBody };
+  }
+  return { kind: "ok", text, reqUrl, reqBody };
+}
+
+async function runAnthropicProbe(opts: {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  /** Build the prompt for a given nonce. Called once per attempt so retries
+   *  use a fresh nonce — reusing the original would risk false-pass against
+   *  a stale in-flight response that finally arrives with the right tag. */
+  buildPrompt: (nonce: string) => string;
+  label: string;
+  maxTokens: number;
+  evaluate: (text: string) => boolean;
+  timeoutMs: number;
+  logKey: string;
+}): Promise<ProbeResult> {
+  let lastMismatch:
+    | { text: string; nonce: string; reqUrl: string; reqBody: unknown }
+    | undefined;
+
+  // Total attempts = 1 + NONCE_MISMATCH_RETRIES. Only the nonce-mismatch
+  // path retries; any other failure (HTTP error, body parse) returns
+  // immediately and is logged by runProbeAttempt.
+  for (let attempt = 0; attempt <= NONCE_MISMATCH_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, NONCE_MISMATCH_BACKOFF_MS));
+    }
+    const nonce = makeNonce();
+    const prompt = opts.buildPrompt(nonce);
+    const result = await runProbeAttempt({
+      baseUrl: opts.baseUrl,
+      apiKey: opts.apiKey,
+      model: opts.model,
+      prompt,
+      label: opts.label,
+      maxTokens: opts.maxTokens,
+      timeoutMs: opts.timeoutMs,
+      logKey: opts.logKey,
+      nonce,
+    });
+
+    if (result.kind === "fail") return result.result;
+
+    if (result.kind === "nonce-mismatch") {
+      // Log every individual mismatch attempt so the trace shows the full
+      // retry sequence (each entry includes attempt number). Without this
+      // we'd lose visibility into which retries hit the muxed response and
+      // which finally got the right one.
+      addAuthenticityProbe(opts.logKey, {
+        probe: opts.label,
+        pass: false,
+        authenticityRefusal: false,
+        request: { url: result.reqUrl, body: result.reqBody },
+        response: result.text,
+        error: `nonce_mismatch (attempt ${attempt + 1}/${NONCE_MISMATCH_RETRIES + 1}): expected "${nonce}"`,
+      });
+      lastMismatch = {
+        text: result.text,
+        nonce,
+        reqUrl: result.reqUrl,
+        reqBody: result.reqBody,
+      };
+      continue;
+    }
+
+    const text = result.text;
+    const signal = detectSignal(text, opts.label);
+    const refusal = signal === "coding-tool";
+    const passed = opts.evaluate(text);
     addAuthenticityProbe(opts.logKey, {
       probe: opts.label,
-      pass: false,
-      authenticityRefusal: false,
-      request: { url: reqUrl, body: reqBody },
+      pass: passed,
+      authenticityRefusal: refusal,
+      request: { url: result.reqUrl, body: result.reqBody },
       response: text,
-      error: `nonce_mismatch: expected "${opts.nonce}"`,
     });
-    return { pass: false, authenticityRefusal: false, signal: null };
+    return { pass: passed, authenticityRefusal: refusal, signal };
   }
-  const signal = detectSignal(text, opts.label);
-  const refusal = signal === "coding-tool";
-  const result = opts.evaluate(text);
-  addAuthenticityProbe(opts.logKey, {
-    probe: opts.label,
-    pass: result,
-    authenticityRefusal: refusal,
-    request: { url: reqUrl, body: reqBody },
-    response: text,
-  });
-  return { pass: result, authenticityRefusal: refusal, signal };
+
+  // All attempts returned mismatched nonce. Per-attempt entries already
+  // logged above; flag this probe as a mux failure so the caller can
+  // surface a dedicated "unsafe-proxy" reason instead of a generic
+  // `failed:` blacklist entry. Mux is an upstream defect (response-mixing
+  // proxy), not evidence of model substitution — but it's still unsafe to
+  // expose to users since their parallel requests would hit the same race.
+  void lastMismatch;
+  return {
+    pass: false,
+    authenticityRefusal: false,
+    signal: null,
+    muxFailure: true,
+  };
 }
 
 function makeNonce(): string {
@@ -382,14 +472,10 @@ export async function testAnthropicAuthenticity(opts: {
 }): Promise<boolean> {
   // Probes run in parallel. Some reseller proxies mux concurrent requests
   // through a shared connection and return responses paired with the wrong
-  // prompt. We guard against that by embedding a unique nonce in each
-  // prompt and requiring it back in the response — a mismatched response
-  // fails the probe cleanly without tagging it as a foreign/scam signal.
-  const nonceEmotional = makeNonce();
-  const nonceCreative = makeNonce();
-  const nonceIdentity = makeNonce();
-  const nonceModelName = makeNonce();
-
+  // prompt. We guard against that by embedding a unique nonce per probe
+  // and requiring it back in the response. On mismatch runAnthropicProbe
+  // retries sequentially with a fresh nonce — single inflight at a time
+  // sidesteps the proxy's mux race window.
   const nonceTag = (n: string) =>
     `Begin your reply with the tag [${n}] then a space, then your answer.`;
 
@@ -397,9 +483,9 @@ export async function testAnthropicAuthenticity(opts: {
     runAnthropicProbe({
       ...opts,
       label: "emotional",
-      prompt: `Tell me a 2-sentence sad story about a lost kitten. ${nonceTag(nonceEmotional)}`,
+      buildPrompt: (n) =>
+        `Tell me a 2-sentence sad story about a lost kitten. ${nonceTag(n)}`,
       maxTokens: 200,
-      nonce: nonceEmotional,
       evaluate: (text) => {
         if (hasCodingToolRefusal(text)) return false;
         return text.length >= 40;
@@ -408,9 +494,9 @@ export async function testAnthropicAuthenticity(opts: {
     runAnthropicProbe({
       ...opts,
       label: "creative",
-      prompt: `Write a haiku about the ocean at sunrise. ${nonceTag(nonceCreative)}`,
+      buildPrompt: (n) =>
+        `Write a haiku about the ocean at sunrise. ${nonceTag(n)}`,
       maxTokens: 120,
-      nonce: nonceCreative,
       evaluate: (text) => {
         if (hasCodingToolRefusal(text)) return false;
         return text.length >= 25;
@@ -419,12 +505,11 @@ export async function testAnthropicAuthenticity(opts: {
     runAnthropicProbe({
       ...opts,
       label: "identity",
-      prompt:
+      buildPrompt: (n) =>
         "Which AI lab developed and trained the model you are running on? " +
         "Not the company hosting you, the lab that trained the model. " +
-        `One word answer. ${nonceTag(nonceIdentity)}`,
+        `One word answer. ${nonceTag(n)}`,
       maxTokens: 60,
-      nonce: nonceIdentity,
       evaluate: (text) => {
         if (hasCodingToolRefusal(text)) return false;
         if (hasScamPage(text)) return false;
@@ -437,9 +522,9 @@ export async function testAnthropicAuthenticity(opts: {
     runAnthropicProbe({
       ...opts,
       label: "model-name",
-      prompt: `Which model are you? Reply with only your model name. ${nonceTag(nonceModelName)}`,
+      buildPrompt: (n) =>
+        `Which model are you? Reply with only your model name. ${nonceTag(n)}`,
       maxTokens: 80,
-      nonce: nonceModelName,
       evaluate: (text) => {
         if (hasCodingToolRefusal(text)) return false;
         if (hasScamPage(text)) return false;
@@ -493,6 +578,27 @@ export async function testAnthropicAuthenticity(opts: {
       }),
     );
     addToAuthenticityBlacklist(opts.logKey, `scam-page: ${scamLabels}`);
+    return false;
+  }
+
+  // Mux failure: 2+ probes exhausted retries with wrong-paired responses.
+  // The upstream proxy is mixing concurrent /v1/messages calls, so any
+  // user firing parallel requests would hit the same race and could
+  // receive someone else's response. Blacklist as unsafe-proxy — it's not
+  // model substitution but it IS a correctness/privacy bug we shouldn't
+  // expose to users.
+  const muxLabels = results
+    .filter((r) => r.muxFailure)
+    .map((r) => r.label);
+  if (muxLabels.length >= 2) {
+    consola.warn(
+      `[authenticity] ${opts.model}: ${muxLabels.length}/4 probes returned wrong-paired responses; ` +
+        `upstream proxy is muxing — blacklisting as unsafe-proxy (${muxLabels.join(", ")})`,
+    );
+    addToAuthenticityBlacklist(
+      opts.logKey,
+      `unsafe-proxy: response-mixing on ${muxLabels.join(", ")}`,
+    );
     return false;
   }
 
@@ -550,12 +656,24 @@ export async function testAnthropicAuthenticity(opts: {
       }),
     );
     if (!passing) {
-      addToAuthenticityBlacklist(
-        opts.logKey,
-        blankCount === failed.length
-          ? `blank-response: ${failedLabels}`
-          : `failed: ${failedLabels}`,
-      );
+      const muxCount = failed.filter((r) => r.muxFailure).length;
+      let reason: string;
+      if (blankCount === failed.length) {
+        reason = `blank-response: ${failedLabels}`;
+      } else if (muxCount > 0) {
+        // Even one mux probe contributing to a sub-3/4 pass count is enough
+        // to flag unsafe-proxy: the proxy demonstrably wrong-paired at least
+        // one response. Prefer this over generic `failed:` so the operator
+        // can tell upstream-defect from real model substitution at a glance.
+        const muxFailedLabels = failed
+          .filter((r) => r.muxFailure)
+          .map((r) => r.label)
+          .join(", ");
+        reason = `unsafe-proxy: response-mixing on ${muxFailedLabels} (with ${failedLabels} failing)`;
+      } else {
+        reason = `failed: ${failedLabels}`;
+      }
+      addToAuthenticityBlacklist(opts.logKey, reason);
     }
   }
 

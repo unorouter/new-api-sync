@@ -176,7 +176,11 @@ async function runShapeProbe(
     error?: string;
     billingBlockReason?: string;
   }> => {
-    const backoffsMs = [0, 1_000, 2_000];
+    // 4 attempts over ~43s. Long enough to recover from typical upstream
+    // outage blips (503/500/timeout bursts) without bloating sync time too
+    // much. Permanently-broken buckets eat the full window before skip;
+    // healthy buckets pass attempt 1 and never see the backoff.
+    const backoffsMs = [0, 3_000, 10_000, 30_000];
     let last: {
       pass: boolean;
       status?: number;
