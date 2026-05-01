@@ -100,6 +100,53 @@ async function resolveFullKey(
   return getTokenFullKey(ctx, token.id);
 }
 
+export async function findTokenByKey(
+  ctx: ClientContext,
+  fullKey: string,
+): Promise<UpstreamToken | null> {
+  const bare = fullKey.replace(/^sk-/, "");
+  const data = await tryFetchJson<TokenListResponse>(
+    `${ctx.baseUrl}/api/token/search?token=${encodeURIComponent(bare)}&p=0&page_size=10`,
+    { headers: ctx.headers },
+  );
+  if (!data?.success) return null;
+  const items = Array.isArray(data.data)
+    ? data.data
+    : (data.data?.items ?? data.data?.data ?? []);
+  // search uses LIKE; pick the row whose unmasked key starts/ends with the bare
+  // key fragments (masked keys come back from list endpoints).
+  const head = bare.slice(0, 4);
+  const tail = bare.slice(-4);
+  return (
+    items.find((t) => t.key.startsWith(head) && t.key.endsWith(tail)) ?? null
+  );
+}
+
+export async function updateTokenModelLimits(
+  ctx: ClientContext,
+  token: UpstreamToken,
+  modelLimits: string,
+): Promise<boolean> {
+  const body = {
+    id: token.id,
+    status: token.status,
+    name: token.name,
+    expired_time: token.expired_time ?? -1,
+    remain_quota: token.remain_quota ?? 0,
+    unlimited_quota: token.unlimited_quota ?? false,
+    model_limits_enabled: true,
+    model_limits: modelLimits,
+    allow_ips: token.allow_ips ?? "",
+    group: token.group,
+    cross_group_retry: token.cross_group_retry ?? false,
+  };
+  const data = await tryFetchJson<{ success: boolean }>(
+    `${ctx.baseUrl}/api/token/`,
+    { method: "PUT", headers: ctx.headers, body },
+  );
+  return data?.success ?? false;
+}
+
 export async function deleteToken(
   ctx: ClientContext,
   id: number,

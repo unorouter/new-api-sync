@@ -7,6 +7,7 @@ import type { RuntimeConfig } from "@core/config";
 import { throwIfRunAborted } from "@core/runtime";
 import { applySyncDiff } from "@core/sync/apply";
 import { buildSyncDiff } from "@core/sync/diff";
+import { updateGuestTokenIfConfigured } from "@core/sync/guest-token";
 import { runProviderPipeline } from "@core/sync/pipeline";
 import type { ResetResult } from "@core/sync/reset";
 import { loadAuthenticityBlacklist } from "@core/testing/authenticity";
@@ -124,6 +125,10 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
   if (apply.options.updated.length > 0) {
     await target.updateCache();
   }
+
+  throwIfRunAborted();
+  const postApplyPricing = await target.fetchPricing();
+  await updateGuestTokenIfConfigured(target, postApplyPricing);
 
   const successfulProviders = providerReports.filter(
     (provider) => provider.success,

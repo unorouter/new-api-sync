@@ -430,7 +430,8 @@
       "TOKEN_CREATED_NOT_FOUND": "[{name}] Token \"{token}\" created but not found",
       "TOKEN_NEW_KEY_UNAVAILABLE": "[{name}] Could not retrieve full key for new token \"{token}\"",
       "ORPHAN_CLEANUP_FAILED": "[{name}] Orphan cleanup failed or not supported",
-      "ORPHAN_CLEANUP_DONE": "[{name}] Cleaned up {deleted} orphaned models"
+      "ORPHAN_CLEANUP_DONE": "[{name}] Cleaned up {deleted} orphaned models",
+      "GUEST_TOKEN_UPDATED": "Guest token \"{name}\" updated: {count} truly-free model(s)"
     },
     "SYNC": {
       "VENDOR_UPDATED": "Updated vendor \"{name}\" (id={id}, icon={icon})",

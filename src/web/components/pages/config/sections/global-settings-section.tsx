@@ -100,7 +100,7 @@ export function GlobalSettingsSection() {
                   next[index] = event.target.value;
                   setBlacklist(next);
                 }}
-                placeholder="model name or glob"
+                placeholder={t("CONFIG.GLOBAL.BLACKLIST_PLACEHOLDER")}
               />
               <Button
                 type="button"
@@ -141,7 +141,7 @@ export function GlobalSettingsSection() {
                   next[index] = [event.target.value, value];
                   setMapping(next);
                 }}
-                placeholder="upstream model"
+                placeholder={t("CONFIG.GLOBAL.UPSTREAM_MODEL_PLACEHOLDER")}
                 className="flex-1"
               />
               <Input
@@ -151,7 +151,7 @@ export function GlobalSettingsSection() {
                   next[index] = [key, event.target.value];
                   setMapping(next);
                 }}
-                placeholder="target model"
+                placeholder={t("CONFIG.GLOBAL.TARGET_MODEL_PLACEHOLDER")}
                 className="flex-1"
               />
               <Button

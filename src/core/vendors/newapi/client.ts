@@ -21,8 +21,10 @@ import {
   createToken as _createToken,
   deleteToken as _deleteToken,
   ensureTokens as _ensureTokens,
+  findTokenByKey as _findTokenByKey,
   getTokenFullKey as _getTokenFullKey,
   listTokens as _listTokens,
+  updateTokenModelLimits as _updateTokenModelLimits,
 } from "./tokens";
 import type { NewApiConfig, UpstreamPricing, UpstreamToken } from "./types";
 
@@ -156,6 +158,15 @@ export class NewApiClient {
     deleted: number;
   }> {
     return _ensureTokens(this.ctx, groups, prefix, options);
+  }
+  findTokenByKey(fullKey: string): Promise<UpstreamToken | null> {
+    return _findTokenByKey(this.ctx, fullKey);
+  }
+  updateTokenModelLimits(
+    token: UpstreamToken,
+    modelLimits: string,
+  ): Promise<boolean> {
+    return _updateTokenModelLimits(this.ctx, token, modelLimits);
   }
 
   // Channels

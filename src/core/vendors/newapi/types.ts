@@ -35,6 +35,13 @@ export interface UpstreamToken {
   key: string;
   group: string;
   status: number;
+  expired_time?: number;
+  remain_quota?: number;
+  unlimited_quota?: boolean;
+  model_limits_enabled?: boolean;
+  model_limits?: string;
+  allow_ips?: string | null;
+  cross_group_retry?: boolean;
 }
 
 export interface EndpointInfo {
