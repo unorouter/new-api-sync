@@ -2,6 +2,7 @@ import type {
   ApplyError,
   ApplyReport,
   DiffOperation,
+  EntityChangeSet,
   SyncDiff,
 } from "@core/types";
 import type { NewApiClient } from "@core/vendors/newapi/client";
@@ -15,14 +16,14 @@ async function applyEntityOps<T extends { id?: number }>(
     delete: (id: number) => Promise<boolean>;
   },
   phase: ApplyError["phase"],
-  report: { created: number; updated: number; deleted: number },
+  changes: EntityChangeSet,
   errors: ApplyError[],
 ): Promise<void> {
   const entity = phase.slice(0, -1);
   for (const op of ops) {
     if (op.type === "create") {
       if (await handlers.create(op.value)) {
-        report.created++;
+        changes.created.push(op.key);
       } else {
         errors.push({
           phase,
@@ -35,7 +36,7 @@ async function applyEntityOps<T extends { id?: number }>(
 
     if (op.type === "update") {
       if (await handlers.update(op.value)) {
-        report.updated++;
+        changes.updated.push(op.key);
       } else {
         errors.push({
           phase,
@@ -56,7 +57,7 @@ async function applyEntityOps<T extends { id?: number }>(
     }
 
     if (await handlers.delete(op.existing.id)) {
-      report.deleted++;
+      changes.deleted.push(op.key);
     } else {
       errors.push({
         phase,
@@ -72,8 +73,8 @@ export async function applySyncDiff(
   diff: SyncDiff,
 ): Promise<ApplyReport> {
   const report: ApplyReport = {
-    channels: { created: 0, updated: 0, deleted: 0 },
-    models: { created: 0, updated: 0, deleted: 0, orphansDeleted: 0 },
+    channels: { created: [], updated: [], deleted: [] },
+    models: { created: [], updated: [], deleted: [], orphansDeleted: 0 },
     options: { updated: [] },
     errors: [],
   };

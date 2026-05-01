@@ -155,16 +155,16 @@ function RunBody(props: { data: RunData }) {
 // Summary tab — run-level outcome + per-provider counters
 // ---------------------------------------------------------------------------
 
+type ChangeSet =
+  | { created: string[]; updated: string[]; deleted: string[] }
+  | { created: number; updated: number; deleted: number };
+
 interface RunOutcome {
   providers: { passed: number; total: number };
-  channels: { created: number; updated: number; deleted: number };
-  models: {
-    created: number;
-    updated: number;
-    deleted: number;
-    orphansDeleted: number;
-  };
-  optionsUpdated: number;
+  channels: ChangeSet;
+  models: ChangeSet & { orphansDeleted: number };
+  options?: { updated: string[] };
+  optionsUpdated?: number;
   elapsedSeconds: number;
   success: boolean;
   errors?: { phase: string; key: string; message: string }[];
@@ -174,10 +174,15 @@ interface ProviderEntry {
   testCost?: number;
   success?: boolean;
   error?: string;
-  channels?: { created: number; updated: number; deleted: number };
+  channels?: ChangeSet;
   groups?: number;
   models?: number;
   tokens?: { created: number; existing: number; deleted: number };
+}
+
+function changeCount(set: ChangeSet, op: "created" | "updated" | "deleted"): number {
+  const value = set[op];
+  return Array.isArray(value) ? value.length : value;
 }
 
 function SummaryView(props: {
@@ -216,22 +221,22 @@ function SummaryView(props: {
               />
               <Stat
                 label={t("HISTORY.RUN.SUMMARY.OPTIONS")}
-                value={summary.optionsUpdated}
+                value={summary.options?.updated.length ?? summary.optionsUpdated ?? 0}
               />
               <Stat
                 label={t("HISTORY.RUN.SUMMARY.CHANNELS")}
                 value={t("HISTORY.RUN.SUMMARY.CRUD_TRIPLE", {
-                  created: summary.channels.created,
-                  updated: summary.channels.updated,
-                  deleted: summary.channels.deleted,
+                  created: changeCount(summary.channels, "created"),
+                  updated: changeCount(summary.channels, "updated"),
+                  deleted: changeCount(summary.channels, "deleted"),
                 })}
               />
               <Stat
                 label={t("HISTORY.RUN.SUMMARY.MODELS")}
                 value={t("HISTORY.RUN.SUMMARY.CRUD_TRIPLE", {
-                  created: summary.models.created,
-                  updated: summary.models.updated,
-                  deleted: summary.models.deleted,
+                  created: changeCount(summary.models, "created"),
+                  updated: changeCount(summary.models, "updated"),
+                  deleted: changeCount(summary.models, "deleted"),
                 })}
               />
               <Stat
@@ -337,9 +342,9 @@ function SummaryView(props: {
                     <td className="px-2 py-2 text-right font-mono">
                       {entry.channels
                         ? t("HISTORY.RUN.SUMMARY.CRUD_TRIPLE", {
-                            created: entry.channels.created,
-                            updated: entry.channels.updated,
-                            deleted: entry.channels.deleted,
+                            created: changeCount(entry.channels, "created"),
+                            updated: changeCount(entry.channels, "updated"),
+                            deleted: changeCount(entry.channels, "deleted"),
                           })
                         : "—"}
                     </td>

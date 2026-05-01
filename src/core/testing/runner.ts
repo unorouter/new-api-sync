@@ -221,18 +221,30 @@ export function recordRunSummary(input: {
     entry.tokens = report.tokens;
   }
 
-  // Bucket channel ops by their `tag` (the provider name) so per-provider
-  // channel deltas match the global counts when summed.
+  // Bucket applied channel changes by their `tag` (the provider name) so
+  // per-provider channel deltas match the global lists when concatenated.
+  const channelTagByName = new Map<string, string>();
   for (const op of input.diff.channels) {
     const channel = op.type === "delete" ? op.existing : op.value;
-    const tag = channel.tag;
-    if (!tag) continue;
-    const entry = ensureProviderEntry(tag);
-    if (!entry.channels) entry.channels = { created: 0, updated: 0, deleted: 0 };
-    if (op.type === "create") entry.channels.created++;
-    else if (op.type === "update") entry.channels.updated++;
-    else entry.channels.deleted++;
+    if (channel.tag) channelTagByName.set(channel.name, channel.tag);
   }
+  const bucketBy = (
+    op: "created" | "updated" | "deleted",
+    keys: string[],
+  ): void => {
+    for (const key of keys) {
+      const tag = channelTagByName.get(key);
+      if (!tag) continue;
+      const entry = ensureProviderEntry(tag);
+      if (!entry.channels) {
+        entry.channels = { created: [], updated: [], deleted: [] };
+      }
+      entry.channels[op].push(key);
+    }
+  };
+  bucketBy("created", input.apply.channels.created);
+  bucketBy("updated", input.apply.channels.updated);
+  bucketBy("deleted", input.apply.channels.deleted);
 
   testReport.summary = {
     providers: {
@@ -241,7 +253,7 @@ export function recordRunSummary(input: {
     },
     channels: input.apply.channels,
     models: input.apply.models,
-    optionsUpdated: input.apply.options.updated.length,
+    options: input.apply.options,
     elapsedSeconds: +(input.elapsedMs / 1000).toFixed(2),
     success: input.success,
     errors: input.apply.errors.length > 0 ? input.apply.errors : undefined,

@@ -151,6 +151,49 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
   };
 }
 
+function buildChannelProviderMap(result: SyncRunResult): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const op of result.diff.channels) {
+    const channel = op.type === "delete" ? op.existing : op.value;
+    if (channel.tag) map.set(channel.name, channel.tag);
+  }
+  return map;
+}
+
+function buildModelProviderMap(result: SyncRunResult): Map<string, string[]> {
+  const map = new Map<string, Set<string>>();
+  const desiredChannels = result.desired.channels;
+  for (const channel of desiredChannels) {
+    if (!channel.tag) continue;
+    if (!channel.models) continue;
+    for (const raw of channel.models.split(",")) {
+      const name = raw.trim();
+      if (!name) continue;
+      let bucket = map.get(name);
+      if (!bucket) {
+        bucket = new Set<string>();
+        map.set(name, bucket);
+      }
+      bucket.add(channel.tag);
+    }
+  }
+  for (const op of result.diff.models) {
+    if (op.type !== "delete") continue;
+    if (map.has(op.key)) continue;
+    map.set(op.key, new Set<string>());
+  }
+  return new Map(
+    Array.from(map.entries()).map(([k, v]) => [k, Array.from(v).sort()]),
+  );
+}
+
+function annotate(items: string[], lookup: (key: string) => string): string[] {
+  return items.map((key) => {
+    const tag = lookup(key);
+    return tag ? `${key} [${tag}]` : key;
+  });
+}
+
 export function printRunSummary(result: SyncRunResult): void {
   const elapsed = (result.elapsedMs / 1000).toFixed(2);
   consola.info(
@@ -160,26 +203,77 @@ export function printRunSummary(result: SyncRunResult): void {
       total: result.providerReports.length,
     }),
   );
+  const channelProviders = buildChannelProviderMap(result);
+  const modelProviders = buildModelProviderMap(result);
+  const channelLookup = (name: string) => channelProviders.get(name) ?? "";
+  const modelLookup = (name: string) => {
+    const tags = modelProviders.get(name);
+    return tags && tags.length > 0 ? tags.join(", ") : "";
+  };
+
   consola.info(
     t("CLI.SUMMARY.CHANNELS", {
-      created: result.apply.channels.created,
-      updated: result.apply.channels.updated,
-      deleted: result.apply.channels.deleted,
+      created: result.apply.channels.created.length,
+      updated: result.apply.channels.updated.length,
+      deleted: result.apply.channels.deleted.length,
     }),
   );
+  const channelsAdded = annotate(result.apply.channels.created, channelLookup);
+  if (channelsAdded.length > 0) {
+    consola.info(
+      t("CLI.SUMMARY.CHANNELS_ADDED", { items: channelsAdded.join(", ") }),
+    );
+  }
+  const channelsUpdated = annotate(result.apply.channels.updated, channelLookup);
+  if (channelsUpdated.length > 0) {
+    consola.info(
+      t("CLI.SUMMARY.CHANNELS_UPDATED", { items: channelsUpdated.join(", ") }),
+    );
+  }
+  const channelsDeleted = annotate(result.apply.channels.deleted, channelLookup);
+  if (channelsDeleted.length > 0) {
+    consola.info(
+      t("CLI.SUMMARY.CHANNELS_DELETED", { items: channelsDeleted.join(", ") }),
+    );
+  }
   consola.info(
     t("CLI.SUMMARY.MODELS", {
-      created: result.apply.models.created,
-      updated: result.apply.models.updated,
-      deleted: result.apply.models.deleted,
+      created: result.apply.models.created.length,
+      updated: result.apply.models.updated.length,
+      deleted: result.apply.models.deleted.length,
       orphans: result.apply.models.orphansDeleted,
     }),
   );
+  const modelsAdded = annotate(result.apply.models.created, modelLookup);
+  if (modelsAdded.length > 0) {
+    consola.info(
+      t("CLI.SUMMARY.MODELS_ADDED", { items: modelsAdded.join(", ") }),
+    );
+  }
+  const modelsUpdated = annotate(result.apply.models.updated, modelLookup);
+  if (modelsUpdated.length > 0) {
+    consola.info(
+      t("CLI.SUMMARY.MODELS_UPDATED", { items: modelsUpdated.join(", ") }),
+    );
+  }
+  const modelsDeleted = annotate(result.apply.models.deleted, modelLookup);
+  if (modelsDeleted.length > 0) {
+    consola.info(
+      t("CLI.SUMMARY.MODELS_DELETED", { items: modelsDeleted.join(", ") }),
+    );
+  }
   consola.info(
     t("CLI.SUMMARY.OPTIONS_UPDATED", {
       count: result.apply.options.updated.length,
     }),
   );
+  if (result.apply.options.updated.length > 0) {
+    consola.info(
+      t("CLI.SUMMARY.OPTIONS_UPDATED_LIST", {
+        items: result.apply.options.updated.join(", "),
+      }),
+    );
+  }
 
   for (const provider of result.providerReports) {
     if (provider.success) continue;

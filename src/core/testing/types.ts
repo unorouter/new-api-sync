@@ -1,3 +1,5 @@
+import type { EntityChangeSet } from "@core/types";
+
 export interface TestExchange {
   pass: boolean;
   request: { url: string; headers: Record<string, string>; body: unknown };
@@ -35,8 +37,8 @@ export interface ProviderCostEntry {
   success?: boolean;
   /** Pipeline error message, if the provider failed. */
   error?: string;
-  /** Channel diff scoped to this provider (by Channel.tag). */
-  channels?: { created: number; updated: number; deleted: number };
+  /** Applied channel changes scoped to this provider (by Channel.tag). */
+  channels?: EntityChangeSet;
   /** Group/model/token counts as reported by the provider pipeline. */
   groups?: number;
   models?: number;
@@ -45,14 +47,9 @@ export interface ProviderCostEntry {
 
 export interface RunSummary {
   providers: { passed: number; total: number };
-  channels: { created: number; updated: number; deleted: number };
-  models: {
-    created: number;
-    updated: number;
-    deleted: number;
-    orphansDeleted: number;
-  };
-  optionsUpdated: number;
+  channels: EntityChangeSet;
+  models: EntityChangeSet & { orphansDeleted: number };
+  options: { updated: string[] };
   elapsedSeconds: number;
   success: boolean;
   errors?: Array<{ phase: string; key: string; message: string }>;

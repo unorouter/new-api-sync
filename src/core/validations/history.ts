@@ -40,19 +40,28 @@ const RunSummarySchema = T.Object({
   failed: T.Number(),
 });
 
+/** Tri-bucket of entity keys (created/updated/deleted). Accepts the legacy
+ *  count form on read so old report files still validate. */
+const ChangeSetSchema = T.Union([
+  T.Object({
+    created: T.Array(T.String()),
+    updated: T.Array(T.String()),
+    deleted: T.Array(T.String()),
+  }),
+  T.Object({
+    created: T.Number(),
+    updated: T.Number(),
+    deleted: T.Number(),
+  }),
+]);
+
 /** Per-provider counters as written by `recordRunSummary`. Mirrors
  *  `ProviderCostEntry` in `core/testing/types.ts`. */
 const ProviderEntrySchema = T.Object({
   testCost: T.Optional(T.Number()),
   success: T.Optional(T.Boolean()),
   error: T.Optional(T.String()),
-  channels: T.Optional(
-    T.Object({
-      created: T.Number(),
-      updated: T.Number(),
-      deleted: T.Number(),
-    }),
-  ),
+  channels: T.Optional(ChangeSetSchema),
   groups: T.Optional(T.Number()),
   models: T.Optional(T.Number()),
   tokens: T.Optional(
@@ -67,18 +76,13 @@ const ProviderEntrySchema = T.Object({
 /** Run-level summary block (mirrors the stdout summary). */
 const RunOutcomeSchema = T.Object({
   providers: T.Object({ passed: T.Number(), total: T.Number() }),
-  channels: T.Object({
-    created: T.Number(),
-    updated: T.Number(),
-    deleted: T.Number(),
-  }),
-  models: T.Object({
-    created: T.Number(),
-    updated: T.Number(),
-    deleted: T.Number(),
-    orphansDeleted: T.Number(),
-  }),
-  optionsUpdated: T.Number(),
+  channels: ChangeSetSchema,
+  models: T.Intersect([
+    ChangeSetSchema,
+    T.Object({ orphansDeleted: T.Number() }),
+  ]),
+  options: T.Optional(T.Object({ updated: T.Array(T.String()) })),
+  optionsUpdated: T.Optional(T.Number()),
   elapsedSeconds: T.Number(),
   success: T.Boolean(),
   errors: T.Optional(

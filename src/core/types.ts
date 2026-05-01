@@ -197,14 +197,15 @@ export interface ApplyError {
   message: string;
 }
 
+export interface EntityChangeSet {
+  created: string[];
+  updated: string[];
+  deleted: string[];
+}
+
 export interface ApplyReport {
-  channels: { created: number; updated: number; deleted: number };
-  models: {
-    created: number;
-    updated: number;
-    deleted: number;
-    orphansDeleted: number;
-  };
+  channels: EntityChangeSet;
+  models: EntityChangeSet & { orphansDeleted: number };
   options: { updated: string[] };
   errors: ApplyError[];
 }
