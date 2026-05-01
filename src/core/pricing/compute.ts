@@ -137,7 +137,6 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
         cacheRatio: existing?.cacheRatio ?? m.cacheRatio,
         createCacheRatio: existing?.createCacheRatio ?? m.createCacheRatio,
         imageRatio: existing?.imageRatio,
-        pricingSource: "channel",
       });
       continue;
     }
@@ -189,27 +188,23 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
     let completionRatio: number;
     let cacheRatio: number | undefined;
     let createCacheRatio: number | undefined;
-    let pricingSource: MergedModel["pricingSource"];
 
     if (sourceHit) {
       writtenRatio = sourceHit.modelRatio;
       completionRatio = sourceHit.completionRatio;
       cacheRatio = sourceHit.cacheRatio;
       createCacheRatio = sourceHit.createCacheRatio;
-      pricingSource = sourceHit.source;
     } else if (canonicalRatio !== undefined) {
       writtenRatio = canonicalRatio;
       completionRatio =
         cheapestOffer?.model.upstreamCompletionRatio ?? 1;
       cacheRatio = cheapestOffer?.model.cacheRatio;
       createCacheRatio = cheapestOffer?.model.createCacheRatio;
-      pricingSource = "litellm";
     } else if (cheapestOffer) {
       writtenRatio = cheapestOffer.model.upstreamRatio!;
       completionRatio = cheapestOffer.model.upstreamCompletionRatio ?? 1;
       cacheRatio = cheapestOffer.model.cacheRatio;
       createCacheRatio = cheapestOffer.model.createCacheRatio;
-      pricingSource = "channel";
     } else {
       // No canonical, no paid upstream ratio. Keep baseline entry if any;
       // otherwise pick the fallback by whether every occurrence is free:
@@ -222,7 +217,6 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       const allFree = occurrences.every((o) => o.model.isFree);
       writtenRatio = allFree ? 0 : 1;
       completionRatio = allFree ? 0 : 1;
-      pricingSource = "channel";
     }
 
     // Preserve any cache fields already present (e.g. from baseline) when
@@ -237,7 +231,6 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       modelPrice: existing?.modelPrice,
       quotaType: existing?.quotaType,
       imageRatio: existing?.imageRatio,
-      pricingSource,
     });
   }
 

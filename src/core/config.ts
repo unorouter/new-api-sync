@@ -143,7 +143,7 @@ export const CONFIG_DEFAULTS = {
  * models served as `text`), or otherwise never useful to expose - things
  * the user shouldn't have to repeat in every config.
  */
-export const BUILTIN_BLACKLIST: readonly string[] = [
+const BUILTIN_BLACKLIST: readonly string[] = [
   "ai-synthetic-video-detector",
   "arctic-embed-l",
   "bge-m3",
@@ -204,7 +204,9 @@ export function customValidateConfig(config: ConfigSchemaType): string[] {
   const seen = new Set<string>();
   for (const [i, p] of config.providers.entries()) {
     if (seen.has(p.name)) {
-      errors.push(`providers.${i}.name: duplicate provider name: ${p.name}`);
+      errors.push(
+        t("ERROR.CONFIG_DUPLICATE_PROVIDER", { index: i, name: p.name }),
+      );
     }
     seen.add(p.name);
   }
@@ -213,14 +215,14 @@ export function customValidateConfig(config: ConfigSchemaType): string[] {
   const checkAdjustment = (path: string, adj: unknown): void => {
     if (adj === undefined || typeof adj !== "object" || adj === null) return;
     if (!("default" in adj)) {
-      errors.push(`${path}: priceAdjustment object must contain a default key`);
+      errors.push(t("ERROR.CONFIG_PRICE_ADJUSTMENT_NEEDS_DEFAULT", { path }));
     }
     for (const [key, val] of Object.entries(adj)) {
       if (typeof val !== "number") continue;
       // Text-type keys (vendors + default) must stay below 1
       if (!NON_TEXT_TYPES.has(key) && val >= 1) {
         errors.push(
-          `${path}.${key}: priceAdjustment values for text types (vendors/default) must be < 1; only non-text types (image, video, audio, embedding) can be >= 1`,
+          t("ERROR.CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT", { path, key }),
         );
       }
     }
@@ -237,9 +239,7 @@ export function customValidateConfig(config: ConfigSchemaType): string[] {
       !p.adminApiKey &&
       (!p.groups || p.groups.length === 0)
     ) {
-      errors.push(
-        `providers.${i}: sub2api provider requires adminApiKey or groups`,
-      );
+      errors.push(t("ERROR.CONFIG_SUB2API_REQUIRES_KEY", { index: i }));
     }
   }
 

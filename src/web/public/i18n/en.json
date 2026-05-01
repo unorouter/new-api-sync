@@ -110,6 +110,8 @@
       "TEST_MODEL_TYPES": "Test model types",
       "TEST_MODEL_TYPES_HELP": "When set, only these model types are tested. Leave off for default (text only).",
       "SKIP_UNPROFITABLE_TEXT": "Skip unprofitable text channels",
+      "GLOBAL_CONCURRENCY": "Global concurrency",
+      "PER_UPSTREAM_CONCURRENCY": "Per-upstream concurrency",
       "BLACKLIST": "Blacklist",
       "BLACKLIST_HELP": "Model names or globs to exclude from every provider.",
       "BLACKLIST_PLACEHOLDER": "model name or glob",
@@ -145,6 +147,9 @@
       "BASE_URL_PLACEHOLDER": "https://…",
       "API_KEY": "API key",
       "API_KEY_PLACEHOLDER_NVIDIA": "nvapi-…",
+      "API_KEY_PLACEHOLDER_OPENROUTER": "sk-or-v1-…",
+      "PER_UPSTREAM_CONCURRENCY": "Per-upstream concurrency",
+      "PER_UPSTREAM_CONCURRENCY_PLACEHOLDER": "override (default 5)",
       "SYSTEM_ACCESS_TOKEN": "System access token",
       "USER_ID": "User ID",
       "VENDOR": "Vendor",
@@ -237,7 +242,13 @@
     "NEWAPI_TOKEN_LIST_API_FAILED": "Token list API returned success: false{detail}",
     "NEWAPI_CHANNEL_LIST_API_FAILED": "Channel list API returned success: false",
     "TARGET_HEALTH_CHECK_FAILED": "Target health check failed: {detail}",
-    "CANCELLED_BY_USER": "cancelled by user"
+    "CANCELLED_BY_USER": "cancelled by user",
+    "CONFIG_DUPLICATE_PROVIDER": "providers.{index}.name: duplicate provider name: {name}",
+    "CONFIG_PRICE_ADJUSTMENT_NEEDS_DEFAULT": "{path}: priceAdjustment object must contain a default key",
+    "CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT": "{path}.{key}: priceAdjustment values for text types (vendors/default) must be < 1; only non-text types (image, video, audio, embedding) can be >= 1",
+    "CONFIG_SUB2API_REQUIRES_KEY": "providers.{index}: sub2api provider requires adminApiKey or groups",
+    "PRICING_EMPTY_SOURCES": "[pricing] empty pricing sources: {sources}. Aborting sync — canonical resolution requires LiteLLM + OpenRouter + basellm.",
+    "PRICING_CHANNEL_COLLISION": "Channel name collision: \"{name}\" produced twice ({first} and plan {second}). Each (provider, group, vendor, ratio-tier, base-url-suffix) bucket must produce a unique channel name."
   },
   "CLI": {
     "APP_DESCRIPTION": "new-api-sync",
@@ -317,6 +328,10 @@
       "STATUS_FAIL": "fail",
       "BADGE_YES": "yes",
       "BADGE_NO": "no",
+      "TAB_SUMMARY": "Summary",
+      "TAB_RESULTS": "Results",
+      "TAB_PRICING": "Pricing gate",
+      "TAB_ENDPOINTS": "OpenRouter endpoints",
       "TAB_HTTP": "HTTP",
       "TAB_STREAM": "Stream",
       "TAB_TOOL": "Tool Call",
@@ -326,7 +341,58 @@
       "RESPONSE_BODY": "Response Body",
       "LATENCY_MS": "{ms}ms",
       "STATUS_CODE": "Status {code}",
-      "NO_DATA": "No data"
+      "NO_DATA": "No data",
+      "SUMMARY": {
+        "TITLE": "Run outcome",
+        "SUCCESS": "success",
+        "FAILURE": "failure",
+        "PROVIDERS": "Providers",
+        "ELAPSED": "Elapsed",
+        "OPTIONS": "Options updated",
+        "CHANNELS": "Channels",
+        "MODELS": "Models",
+        "ORPHANS": "Orphans deleted",
+        "ERRORS": "Errors",
+        "CRUD_TRIPLE": "+{created} ~{updated} -{deleted}",
+        "TOKENS_TRIPLE": "+{created} ={existing} -{deleted}",
+        "PROVIDERS_TABLE": "Per-provider breakdown",
+        "COL_NAME": "Provider",
+        "COL_STATUS": "Status",
+        "COL_GROUPS": "Groups",
+        "COL_MODELS": "Models",
+        "COL_TOKENS": "Tokens",
+        "COL_CHANNELS": "Channels",
+        "COL_COST": "Test cost",
+        "OK": "ok",
+        "FAIL": "fail"
+      },
+      "PRICING": {
+        "FILTER_ALL": "All decisions",
+        "FILTER_VOTED": "Voted (cluster ≥ 2)",
+        "FILTER_NO_MAJORITY": "No majority",
+        "FILTER_NO_MATCHES": "No matches",
+        "FILTER_PLACEHOLDER": "model name",
+        "COUNT": "{shown} of {total}",
+        "MATCHED_OF": "{matched} of {total} matched",
+        "COL_SOURCE": "Source",
+        "COL_KEY": "Matched key",
+        "COL_INPUT": "Input $/M",
+        "COL_OUTPUT": "Output $/M",
+        "COL_RATIO": "Ratio",
+        "COL_IN_CLUSTER": "In cluster",
+        "NO_MATCH": "no match"
+      },
+      "ENDPOINTS": {
+        "FILTER_PLACEHOLDER": "model id",
+        "COUNT": "{shown} of {total}",
+        "COL_PROVIDER": "Provider",
+        "COL_QUANT": "Quantization",
+        "COL_PROMPT": "Prompt $/M",
+        "COL_COMPLETION": "Completion $/M",
+        "COL_DISCOUNT": "Discount",
+        "COL_EFFECTIVE": "Effective $/M",
+        "COL_PICKED": "Picked"
+      }
     },
     "AUTHENTICITY": {
       "EMPTY": "The authenticity blacklist is empty.",
@@ -385,7 +451,10 @@
       "OPENROUTER_FETCHED": "Fetched {count} model descriptions from OpenRouter",
       "BASELLM_FETCH_FAILED": "Failed to fetch basellm model library",
       "BASELLM_FETCHED": "Fetched {count} model entries from basellm",
-      "SUMMARY": "Metadata: {orHits} from OpenRouter ({orFuzzy} fuzzy), {blmHits} from basellm ({blmFuzzy} fuzzy), {total} enriched total"
+      "SUMMARY": "Metadata: {orHits} from OpenRouter ({orFuzzy} fuzzy), {blmHits} from basellm ({blmFuzzy} fuzzy), {total} enriched total",
+      "FUZZY_OR": "Fuzzy OR: \"{model}\" -> \"{key}\" ({score})",
+      "FUZZY_BLM_DESC": "Fuzzy BLM desc: \"{model}\" -> \"{key}\" ({score})",
+      "FUZZY_BLM_TAGS": "Fuzzy BLM tags: \"{model}\" -> \"{key}\" ({score})"
     },
     "TESTER": {
       "AUTHENTICITY_LOADED": "[authenticity-blacklist] Loaded {count} entries",
@@ -407,7 +476,14 @@
       "ALREADY_PASSED": "[{prefix}] {model}: already passed, skipping",
       "AUTHENTICITY_BLACKLISTED": "[{prefix}] {model}: authenticity-blacklisted, skipping",
       "PROVIDER_FAILED": "[{provider}] Failed: {models}",
-      "ERR_AUTHENTICITY_BLACKLISTED": "authenticity-blacklisted"
+      "ERR_AUTHENTICITY_BLACKLISTED": "authenticity-blacklisted",
+      "MODELS_TESTING_SKIPPED": "[{provider}] {count} models (testing skipped)",
+      "TESTABLE_COUNT": "[{provider}] Testable: {testable}, Non-testable: {nonTestable}",
+      "TESTABLE_LIST": "[{provider}] Testable models: {models}",
+      "NON_TESTABLE_LIST": "[{provider}] Non-testable models: {models}",
+      "INCLUDED_NO_TEST": "[{provider}] Included without test: {count}",
+      "INCLUDED_NO_TEST_LIST": "[{provider}] Included without test (models): {models}",
+      "AUTH_MUX_FAILURE": "[authenticity] {model}: {count}/4 probes returned wrong-paired responses; upstream proxy is muxing — blacklisting as unsafe-proxy ({labels})"
     },
     "PROVIDER": {
       "USING_EXPLICIT_MODELS": "[{name}] Using {count} explicit model(s)",
@@ -418,7 +494,11 @@
       "DISCOVERY_FETCH": "[discovery] Fetching {label} models from {url}",
       "LABEL_GEMINI": "Gemini",
       "LABEL_NVIDIA": "NVIDIA NIM",
-      "LABEL_OPENROUTER": "OpenRouter"
+      "LABEL_OPENROUTER": "OpenRouter",
+      "BALANCE": "[{name}] Balance: ${amount}",
+      "BALANCE_WITH_COST": "[{name}] Balance: ${amount} | Test cost: {cost}",
+      "WORKING_ACROSS_VENDORS": "[{provider}/{group}] {working}/{total} working across {vendors} vendors",
+      "PROBE_FAILED_SKIP": "[{label}] vendor={vendor} probe failed; skipping {count} models"
     },
     "NVIDIA": {
       "ENABLED_IMAGE_MODEL_ADDED": "[{name}] Added image model from enabledModels: {glob}",
@@ -426,7 +506,9 @@
       "TEXT_WORKING": "[{name}] {working}/{total} text models working",
       "IMAGE_INCLUDED": "[{name}] {count} image model(s) included without test",
       "TEXT_TIERS_SUMMARY": "[{name}] {count} text models, {tiers} tier(s): {ratios}",
-      "IMAGE_CHANNEL": "[{name}] {count} image model(s) → channel \"{group}\" (type={type})"
+      "IMAGE_CHANNEL": "[{name}] {count} image model(s) → channel \"{group}\" (type={type})",
+      "TEXT_VENDOR_CHANNELS": "[{name}] {count} text model(s) across {vendors} vendor channel(s)",
+      "IMAGE_VENDOR_CHANNELS": "[{name}] {count} image model(s) across {vendors} vendor channel(s)"
     },
     "SUB2API": {
       "NO_API_KEY": "[{name}] No API key for group \"{group}\", skipping",
@@ -445,11 +527,37 @@
       "ADDED_PAID_EXTRA": "[{name}] Added paid opt-in model: {model}",
       "PROBING": "[{name}] Probing {count} model(s)",
       "FAILED": "[{name}] Failed: {models}",
-      "WORKING": "[{name}] {working}/{total} model(s) working (429 counts as working)"
+      "WORKING": "[{name}] {working}/{total} model(s) working (429 counts as working)",
+      "SUMMARY": "[{name}] {total} model(s) ({free} free, {paid} paid) across {vendors} vendor channel(s)"
     },
     "PRICING": {
       "BUILD_TIERS_HEADER": "[buildPriceTiers] {models} models, {channels} baseline channels, {groups} groups, excluding=\"{excluding}\"",
-      "BUILD_TIERS_LINE": "[buildPriceTiers]   {model}: cheapest={cheapest} × (1+{adjustment}) = {ratio}"
+      "BUILD_TIERS_LINE": "[buildPriceTiers]   {model}: cheapest={cheapest} × (1+{adjustment}) = {ratio}",
+      "PRE_TEST_DROP": "[pricing] pre-test drop {model} {provider}/{group}/{vendor} charge={charge} ceiling={ceiling} (canonical via [{members}], upstream={upstream})",
+      "PRE_TEST_DROP_NOT_CHEAPEST": "[pricing] pre-test drop {model} {provider}/{group}/{vendor} charge={charge} (above 1x, not cheapest; cheapest kept at {cheapest})",
+      "ALL_BUCKETS_BROKEN": "[pricing] all buckets for {model} on {provider} exceed {limit}x canonical (cheapest={cheapest}, canonical={canonical}, ratio={ratio}x); dropping all — upstream pricing looks broken",
+      "ALL_BUCKETS_ABOVE_KEEP_CHEAPEST": "[pricing] all buckets above 1x for {model} on {provider}; keeping cheapest {group}/{vendor} (charge={charge}, canonical={canonical})",
+      "LLM_PRICES_FETCH_FAILED": "[pricing] failed to fetch simonw/llm-prices catalog",
+      "LLM_PRICES_LOADED": "[pricing] llm-prices loaded {count} pricing entries (updated {updated})",
+      "BASELLM_NO_ENTRIES_SOURCE": "[pricing] basellm returned no entries",
+      "BASELLM_LOADED": "[pricing] basellm canonical loaded {loaded} pricing entries (filtered from {total} total)",
+      "LITELLM_FETCH_FAILED": "[pricing] failed to fetch LiteLLM catalog",
+      "LITELLM_LOADED": "[pricing] LiteLLM loaded {pricing} pricing entries, {metadata} metadata entries",
+      "OPENROUTER_FETCH_FAILED": "[pricing] failed to fetch OpenRouter catalog",
+      "OPENROUTER_FETCHING_ENDPOINTS": "[pricing] OpenRouter fetching /endpoints for {count} models (concurrency={concurrency})",
+      "OPENROUTER_PREFETCH_DONE": "[pricing] OpenRouter /endpoints prefetch: {with}/{total} models with pricing in {dt}ms",
+      "OPENROUTER_LOADED": "[pricing] OpenRouter loaded {pricing} pricing entries, {metadata} metadata entries",
+      "DROP": "[pricing] drop {model} {channel} reason={reason}{detail}"
+    },
+    "PROBE": {
+      "NO_TEXT_MODELS": "[{prefix}/probe] vendor={vendor} has no text models; skipping shape probe (per-model task overrides will decide channel-type)",
+      "TRANSIENT_FAILURE": "[{prefix}/probe] vendor={vendor} shape={shape} transient failure (status={status}); will retry after backoff",
+      "NATIVE_OK": "[{prefix}/probe] vendor={vendor} native shape {shape} OK (model={model})",
+      "NATIVE_FAILED": "[{prefix}/probe] vendor={vendor} native shape {shape} FAILED (status={status}, error={error})",
+      "OPENAI_FAILED": "[{prefix}/probe] vendor={vendor} OpenAI shape failed; bucket will be skipped{block}",
+      "FALLBACK_OPENAI": "[{prefix}/probe] vendor={vendor} falling back to OpenAI shape (native {shape} rejected by upstream)",
+      "SKIPPED_BLOCK": "[{prefix}/probe] vendor={vendor} bucket will be skipped — {reason}",
+      "BOTH_FAILED": "[{prefix}/probe] vendor={vendor} both native ({native}) and OpenAI shapes failed; bucket will be skipped (native: status={ns} {ne}; openai: status={os} {oe})"
     },
     "ERROR": {
       "NO_MODELS_DISCOVERED": "No models discovered. Add an explicit 'models' array to the provider config.",

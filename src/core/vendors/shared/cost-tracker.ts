@@ -1,4 +1,5 @@
 import { recordProviderCost } from "@core/testing/runner";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 
 /**
@@ -22,7 +23,12 @@ export async function withCostTracking<T>(
 ): Promise<T> {
   const startBalance = await fetchBalance();
   if (startBalance !== null) {
-    consola.info(`[${providerName}] Balance: $${startBalance.toFixed(4)}`);
+    consola.info(
+      t("CORE.PROVIDER.BALANCE", {
+        name: providerName,
+        amount: startBalance.toFixed(4),
+      }),
+    );
   }
 
   let result: T;
@@ -38,9 +44,17 @@ export async function withCostTracking<T>(
     if (finalBalance !== null) {
       const cost = startBalance - finalBalance;
       recordProviderCost(providerName, cost);
-      const costStr = cost > 0 ? ` | Test cost: $${cost.toFixed(4)}` : "";
       consola.info(
-        `[${providerName}] Balance: $${finalBalance.toFixed(4)}${costStr}`,
+        cost > 0
+          ? t("CORE.PROVIDER.BALANCE_WITH_COST", {
+              name: providerName,
+              amount: finalBalance.toFixed(4),
+              cost: `$${cost.toFixed(4)}`,
+            })
+          : t("CORE.PROVIDER.BALANCE", {
+              name: providerName,
+              amount: finalBalance.toFixed(4),
+            }),
       );
     }
   }

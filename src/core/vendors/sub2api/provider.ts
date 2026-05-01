@@ -243,7 +243,10 @@ export async function processSub2ApiProvider(
     }, null);
     if (totalStart !== null) {
       consola.info(
-        `[${providerConfig.name}] Balance: $${totalStart.toFixed(4)}`,
+        t("CORE.PROVIDER.BALANCE", {
+          name: providerConfig.name,
+          amount: totalStart.toFixed(4),
+        }),
       );
     }
 
@@ -364,8 +367,16 @@ export async function processSub2ApiProvider(
       const cost = totalStart - totalEnd;
       recordProviderCost(providerConfig.name, cost);
       consola.info(
-        `[${providerConfig.name}] Balance: $${totalEnd.toFixed(4)}` +
-          (cost > 0 ? ` | Test cost: $${cost.toFixed(4)}` : ""),
+        cost > 0
+          ? t("CORE.PROVIDER.BALANCE_WITH_COST", {
+              name: providerConfig.name,
+              amount: totalEnd.toFixed(4),
+              cost: `$${cost.toFixed(4)}`,
+            })
+          : t("CORE.PROVIDER.BALANCE", {
+              name: providerConfig.name,
+              amount: totalEnd.toFixed(4),
+            }),
       );
     }
   }

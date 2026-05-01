@@ -1,4 +1,5 @@
 import { type BasellmEntry, lookup } from "@core/catalog/metadata";
+import { t } from "@server/i18n";
 import { buildBasellmCanonicalSource } from "./sources/basellm";
 import { fetchLiteLLMSource } from "./sources/litellm";
 import { fetchLlmPricesSource } from "./sources/llm-prices";
@@ -48,8 +49,7 @@ export async function fetchAllPricingSources(
   if (!basellm || basellm.pricing.candidates.size === 0) empty.push("basellm");
   if (empty.length > 0) {
     throw new Error(
-      `[pricing] empty pricing sources: ${empty.join(", ")}. ` +
-        `Aborting sync — canonical resolution requires LiteLLM + OpenRouter + basellm.`,
+      t("ERROR.PRICING_EMPTY_SOURCES", { sources: empty.join(", ") }),
     );
   }
 

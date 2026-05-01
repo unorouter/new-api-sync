@@ -85,10 +85,6 @@ export function getTaskModelOverride(
   return undefined;
 }
 
-export function getTaskChannelType(modelName: string): number | undefined {
-  return getTaskModelOverride(modelName)?.channelType;
-}
-
 export function inferChannelType(endpoints: string[]): number {
   if (endpoints.includes("jina-rerank")) return CHANNEL_TYPES.JINA;
   if (endpoints.includes("openai-video")) return CHANNEL_TYPES.SORA;

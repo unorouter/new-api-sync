@@ -61,13 +61,13 @@ const ModelSettingsDetailSchema = T.Object({
   metadata: T.Optional(ModelMetadataSchema),
 });
 
-export const EnabledModelEntrySchema = T.Union([
+const EnabledModelEntrySchema = T.Union([
   str,
   ModelPricingDetailSchema,
   ModelSettingsDetailSchema,
 ]);
 
-export const ModelTypeEnum = T.Union([
+const ModelTypeEnum = T.Union([
   T.Literal("text"),
   T.Literal("image"),
   T.Literal("video"),
@@ -95,7 +95,7 @@ const NewApiProviderSchema = T.Object({
   userId: T.Integer({ minimum: 1 }),
 });
 
-export const Sub2ApiGroupSchema = T.Object({
+const Sub2ApiGroupSchema = T.Object({
   key: str,
   platform: str,
   name: T.Optional(str),
@@ -128,7 +128,7 @@ const OpenRouterProviderSchema = T.Object({
   ratio: T.Optional(T.Number({ minimum: 0 })),
 });
 
-export const AnyProviderSchema = T.Union([
+const AnyProviderSchema = T.Union([
   NewApiProviderSchema,
   Sub2ApiProviderSchema,
   NvidiaProviderSchema,
@@ -156,31 +156,31 @@ export type AnyProviderConfig =
   | OpenRouterProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
-export const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);
+const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);
 export type LocaleValue = Static<typeof LocaleEnum>;
 
-export const ThemeEnum = T.Union([
+const ThemeEnum = T.Union([
   T.Literal("light"),
   T.Literal("dark"),
   T.Literal("system"),
 ]);
 export type ThemeValue = Static<typeof ThemeEnum>;
 
-export const MainTabEnum = T.Union([
+const MainTabEnum = T.Union([
   T.Literal("dashboard"),
   T.Literal("config"),
   T.Literal("history"),
 ]);
-export const HistoryTabEnum = T.Union([
+const HistoryTabEnum = T.Union([
   T.Literal("runs"),
   T.Literal("authenticity"),
 ]);
-export const RunResultFilterEnum = T.Union([
+const RunResultFilterEnum = T.Union([
   T.Literal("all"),
   T.Literal("passed"),
   T.Literal("failed"),
 ]);
-export const PipelineModeEnum = T.Union([
+const PipelineModeEnum = T.Union([
   T.Literal("run"),
   T.Literal("reset"),
 ]);

@@ -5,6 +5,7 @@ import { TIMEOUTS } from "@core/types";
 import { getRequestConfig } from "@core/testing/request-configs";
 import { testRequest } from "@core/testing/execution";
 import type { ModelRequestOpts, TestExchange } from "@core/testing/types";
+import { t } from "@server/i18n";
 
 /**
  * The probe's job is to pick between OpenAI / Anthropic / Gemini text-chat
@@ -83,8 +84,10 @@ export async function probeChannelType(
   );
   if (textModels.length === 0) {
     consola.debug(
-      `[${opts.logPrefix}/probe] vendor=${opts.vendor} has no text models; ` +
-        `skipping shape probe (per-model task overrides will decide channel-type)`,
+      t("CORE.PROBE.NO_TEXT_MODELS", {
+        prefix: opts.logPrefix,
+        vendor: opts.vendor,
+      }),
     );
     return { channelType: native, shape: "no-text-models" };
   }
@@ -200,8 +203,12 @@ async function runShapeProbe(
         last.status >= 500;
       if (!transient) return last;
       consola.debug(
-        `[${opts.logPrefix}/probe] vendor=${opts.vendor} shape=${shapeName(channelType)} ` +
-          `transient failure (status=${last.status ?? "?"}); will retry after backoff`,
+        t("CORE.PROBE.TRANSIENT_FAILURE", {
+          prefix: opts.logPrefix,
+          vendor: opts.vendor,
+          shape: shapeName(channelType),
+          status: last.status ?? "?",
+        }),
       );
     }
     return last;
@@ -210,23 +217,35 @@ async function runShapeProbe(
   const nativeResult = await tryShape(native);
   if (nativeResult.pass) {
     consola.debug(
-      `[${opts.logPrefix}/probe] vendor=${opts.vendor} native shape ${shapeName(native)} OK (model=${representative})`,
+      t("CORE.PROBE.NATIVE_OK", {
+        prefix: opts.logPrefix,
+        vendor: opts.vendor,
+        shape: shapeName(native),
+        model: representative,
+      }),
     );
     return { channelType: native, shape: "native" };
   }
 
   consola.debug(
-    `[${opts.logPrefix}/probe] vendor=${opts.vendor} native shape ${shapeName(native)} FAILED ` +
-      `(status=${nativeResult.status ?? "?"}, error=${nativeResult.error ?? "?"})`,
+    t("CORE.PROBE.NATIVE_FAILED", {
+      prefix: opts.logPrefix,
+      vendor: opts.vendor,
+      shape: shapeName(native),
+      status: nativeResult.status ?? "?",
+      error: nativeResult.error ?? "?",
+    }),
   );
 
   // No fallback if native already was OpenAI.
   if (native === SHAPE_TYPES.OPENAI) {
     const blockReason = nativeResult.billingBlockReason;
     consola.warn(
-      `[${opts.logPrefix}/probe] vendor=${opts.vendor} OpenAI shape failed; ` +
-        `bucket will be skipped` +
-        (blockReason ? ` — ${blockReason}` : ""),
+      t("CORE.PROBE.OPENAI_FAILED", {
+        prefix: opts.logPrefix,
+        vendor: opts.vendor,
+        block: blockReason ? ` — ${blockReason}` : "",
+      }),
     );
     return null;
   }
@@ -234,8 +253,11 @@ async function runShapeProbe(
   const fallbackResult = await tryShape(SHAPE_TYPES.OPENAI);
   if (fallbackResult.pass) {
     consola.info(
-      `[${opts.logPrefix}/probe] vendor=${opts.vendor} falling back to OpenAI shape ` +
-        `(native ${shapeName(native)} rejected by upstream)`,
+      t("CORE.PROBE.FALLBACK_OPENAI", {
+        prefix: opts.logPrefix,
+        vendor: opts.vendor,
+        shape: shapeName(native),
+      }),
     );
     return { channelType: SHAPE_TYPES.OPENAI, shape: "openai-fallback" };
   }
@@ -244,14 +266,23 @@ async function runShapeProbe(
     nativeResult.billingBlockReason ?? fallbackResult.billingBlockReason;
   if (blockReason) {
     consola.warn(
-      `[${opts.logPrefix}/probe] vendor=${opts.vendor} bucket will be skipped — ${blockReason}`,
+      t("CORE.PROBE.SKIPPED_BLOCK", {
+        prefix: opts.logPrefix,
+        vendor: opts.vendor,
+        reason: blockReason,
+      }),
     );
   } else {
     consola.warn(
-      `[${opts.logPrefix}/probe] vendor=${opts.vendor} both native (${shapeName(native)}) and OpenAI ` +
-        `shapes failed; bucket will be skipped ` +
-        `(native: status=${nativeResult.status ?? "?"} ${nativeResult.error ?? ""}; ` +
-        `openai: status=${fallbackResult.status ?? "?"} ${fallbackResult.error ?? ""})`,
+      t("CORE.PROBE.BOTH_FAILED", {
+        prefix: opts.logPrefix,
+        vendor: opts.vendor,
+        native: shapeName(native),
+        ns: nativeResult.status ?? "?",
+        ne: nativeResult.error ?? "",
+        os: fallbackResult.status ?? "?",
+        oe: fallbackResult.error ?? "",
+      }),
     );
   }
   return null;

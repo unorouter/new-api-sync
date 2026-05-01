@@ -1,6 +1,6 @@
 import { Type as T, type Static } from "@sinclair/typebox";
 
-export const ProviderCountsSchema = T.Object({
+const ProviderCountsSchema = T.Object({
   newapi: T.Number(),
   sub2api: T.Number(),
   nvidia: T.Number(),
@@ -8,7 +8,7 @@ export const ProviderCountsSchema = T.Object({
   total: T.Number(),
 });
 
-export const LastRunSchema = T.Union([
+const LastRunSchema = T.Union([
   T.Object({
     id: T.String(),
     timestamp: T.String(),

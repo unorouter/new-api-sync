@@ -6,7 +6,7 @@ import {
 import { ConfigSchema, GlobalConfigSchema } from "@core/validations/config";
 import { Type as T } from "@sinclair/typebox";
 
-export const ConfigFileSchema = T.Object({
+const ConfigFileSchema = T.Object({
   name: T.String(),
   path: T.String(),
   size: T.Number(),
@@ -22,13 +22,13 @@ const ConfigDataSchema = T.Object({
   config: ConfigSchema,
 });
 
-export const ConfigGetResponseSchema = successResponse(ConfigDataSchema);
+const ConfigGetResponseSchema = successResponse(ConfigDataSchema);
 
 export const ConfigPutBodySchema = T.Object({
   config: ConfigSchema,
 });
 
-export const ConfigPutResponseSchema = {
+const ConfigPutResponseSchema = {
   200: successResponse(ConfigDataSchema),
   400: ErrorResponseSchema,
 };

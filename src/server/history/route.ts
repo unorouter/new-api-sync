@@ -21,11 +21,15 @@ import { join } from "node:path";
  * History routes — exposes the `logs/` directory.
  *
  * Log files:
- *   - `<iso>-model-tests.json`        — one per test pipeline run; `{ timestamp, results[] }`
+ *   - `<iso>-model-tests.json`        — one per sync run; written by
+ *                                       `core/testing/runner.ts:writeTestReport`.
+ *                                       Top-level shape: `{ timestamp, providers,
+ *                                       summary?, modelTests, pricingGate?,
+ *                                       openrouterEndpoints? }`. Old reports
+ *                                       used `results` instead of `modelTests`;
+ *                                       the route accepts both.
  *   - `authenticity-blacklist.json`   — persistent map of
  *                                       "<provider>/<group>|<model>" → { since, reason }
- *
- * File formats come from `src/core/models/tester.ts`.
  */
 
 const LOGS_DIR = "logs";
@@ -39,7 +43,19 @@ interface RawResult {
 }
 interface RawRun {
   timestamp?: string;
+  /** Current field name (since the 2026-04-30 testing refactor). */
+  modelTests?: RawResult[];
+  /** Legacy field name. Kept so historical reports stay readable. */
   results?: RawResult[];
+  /** Pass-through fields surfaced by the run-detail endpoint. */
+  summary?: unknown;
+  providers?: unknown;
+  pricingGate?: unknown;
+  openrouterEndpoints?: unknown;
+}
+
+function runResults(run: RawRun): RawResult[] {
+  return run.modelTests ?? run.results ?? [];
 }
 
 function listRunIds(): string[] {
@@ -82,7 +98,7 @@ function summarize(id: string): {
   const stat = statSync(path);
   const run = readRun(id);
   if (!run) return null;
-  const results = run.results ?? [];
+  const results = runResults(run);
   const passed = results.filter((r) => r.http?.pass === true).length;
   return {
     id,
@@ -155,7 +171,11 @@ export const historyRoute = new Elysia({ prefix: "/history" })
         data: {
           id: params.id,
           timestamp: run.timestamp ?? params.id,
-          results: (run.results ?? []) as never,
+          results: runResults(run) as never,
+          summary: run.summary as never,
+          providers: run.providers as never,
+          pricingGate: run.pricingGate as never,
+          openrouterEndpoints: run.openrouterEndpoints as never,
         },
       };
     },

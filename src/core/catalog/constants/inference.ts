@@ -41,7 +41,7 @@ const NAME_PATTERN_TYPES: [string, ModelType][] = [
   ["moderation", "image"],
 ];
 
-export const NON_TEXT_MODEL_PATTERNS = NAME_PATTERN_TYPES.map(([p]) => p);
+const NON_TEXT_MODEL_PATTERNS = NAME_PATTERN_TYPES.map(([p]) => p);
 
 function inferModelTypeFromName(name: string): ModelType {
   const n = name.toLowerCase();

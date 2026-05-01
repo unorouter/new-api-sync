@@ -303,7 +303,13 @@ export async function processOpenRouterProvider(
       }
 
       consola.info(
-        `[${providerConfig.name}] ${resolutions.length} model(s) (${freeResolutions.length} free, ${paidResolutions.length} paid) across ${totalVendors} vendor channel(s)`,
+        t("CORE.OPENROUTER.SUMMARY", {
+          name: providerConfig.name,
+          total: resolutions.length,
+          free: freeResolutions.length,
+          paid: paidResolutions.length,
+          vendors: totalVendors,
+        }),
       );
 
       report.groups = totalVendors;

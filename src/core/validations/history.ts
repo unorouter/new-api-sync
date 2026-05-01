@@ -20,7 +20,7 @@ const ResultHttpSchema = T.Object({
   latencyMs: T.Optional(T.Number()),
 });
 
-export const ResultSchema = T.Object({
+const ResultSchema = T.Object({
   provider: T.String(),
   model: T.String(),
   cost: T.Union([T.Number(), T.Null()]),
@@ -31,7 +31,7 @@ export const ResultSchema = T.Object({
   authenticityProbes: T.Optional(T.Array(T.Unknown())),
 });
 
-export const RunSummarySchema = T.Object({
+const RunSummarySchema = T.Object({
   id: T.String(),
   timestamp: T.String(),
   size: T.Number(),
@@ -40,13 +40,122 @@ export const RunSummarySchema = T.Object({
   failed: T.Number(),
 });
 
-export const RunDetailSchema = T.Object({
+/** Per-provider counters as written by `recordRunSummary`. Mirrors
+ *  `ProviderCostEntry` in `core/testing/types.ts`. */
+const ProviderEntrySchema = T.Object({
+  testCost: T.Optional(T.Number()),
+  success: T.Optional(T.Boolean()),
+  error: T.Optional(T.String()),
+  channels: T.Optional(
+    T.Object({
+      created: T.Number(),
+      updated: T.Number(),
+      deleted: T.Number(),
+    }),
+  ),
+  groups: T.Optional(T.Number()),
+  models: T.Optional(T.Number()),
+  tokens: T.Optional(
+    T.Object({
+      created: T.Number(),
+      existing: T.Number(),
+      deleted: T.Number(),
+    }),
+  ),
+});
+
+/** Run-level summary block (mirrors the stdout summary). */
+const RunOutcomeSchema = T.Object({
+  providers: T.Object({ passed: T.Number(), total: T.Number() }),
+  channels: T.Object({
+    created: T.Number(),
+    updated: T.Number(),
+    deleted: T.Number(),
+  }),
+  models: T.Object({
+    created: T.Number(),
+    updated: T.Number(),
+    deleted: T.Number(),
+    orphansDeleted: T.Number(),
+  }),
+  optionsUpdated: T.Number(),
+  elapsedSeconds: T.Number(),
+  success: T.Boolean(),
+  errors: T.Optional(
+    T.Array(
+      T.Object({
+        phase: T.String(),
+        key: T.String(),
+        message: T.String(),
+      }),
+    ),
+  ),
+});
+
+/** Per-model pricing-vote trace, one entry per unique exposed model name. */
+const PricingGateSchema = T.Object({
+  exposed: T.String(),
+  vote: T.Object({
+    candidates: T.Array(
+      T.Object({
+        source: T.String(),
+        matchedKey: T.Optional(T.String()),
+        modelRatio: T.Optional(T.Number()),
+        completionRatio: T.Optional(T.Number()),
+        inputUsdPerM: T.Optional(T.Number()),
+        outputUsdPerM: T.Optional(T.Number()),
+      }),
+    ),
+    cluster: T.Union([
+      T.Object({
+        members: T.Array(T.String()),
+        modelRatio: T.Number(),
+        completionRatio: T.Number(),
+        inputUsdPerM: T.Number(),
+        outputUsdPerM: T.Number(),
+      }),
+      T.Null(),
+    ]),
+    decision: T.String(),
+  }),
+});
+
+/** Per-OpenRouter-model /endpoints raw rows + the picked canonical row. */
+const OpenRouterEndpointsSchema = T.Object({
+  id: T.String(),
+  endpoints: T.Array(
+    T.Object({
+      provider: T.String(),
+      quantization: T.Optional(T.String()),
+      prompt: T.Number(),
+      completion: T.Number(),
+      discount: T.Number(),
+      effectivePrompt: T.Number(),
+      effectiveCompletion: T.Number(),
+    }),
+  ),
+  picked: T.Optional(
+    T.Object({
+      provider: T.String(),
+      promptUsd: T.Number(),
+      completionUsd: T.Number(),
+    }),
+  ),
+});
+
+const RunDetailSchema = T.Object({
   id: T.String(),
   timestamp: T.String(),
   results: T.Array(ResultSchema),
+  /** Run-level outcome block (apply counts, elapsed). */
+  summary: T.Optional(RunOutcomeSchema),
+  /** Per-provider counters keyed by provider name. */
+  providers: T.Optional(T.Record(T.String(), ProviderEntrySchema)),
+  pricingGate: T.Optional(T.Array(PricingGateSchema)),
+  openrouterEndpoints: T.Optional(T.Array(OpenRouterEndpointsSchema)),
 });
 
-export const AuthenticityEntrySchema = T.Object({
+const AuthenticityEntrySchema = T.Object({
   key: T.String(),
   provider: T.String(),
   group: T.String(),

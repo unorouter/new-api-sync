@@ -75,7 +75,7 @@ function headersToRecord(headers: Headers): Record<string, string> {
   return out;
 }
 
-export async function rawPost(
+async function rawPost(
   url: string,
   headers: Record<string, string>,
   body: unknown,
@@ -118,7 +118,7 @@ export async function rawPost(
   }
 }
 
-export function extractErrorMessage(data: unknown): string | null {
+function extractErrorMessage(data: unknown): string | null {
   if (!data || typeof data !== "object") return null;
   const d = data as {
     error?: { message?: string; type?: string } | string;

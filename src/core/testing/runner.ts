@@ -8,12 +8,11 @@ import { getConcurrencyGate, throwIfRunAborted } from "@core/runtime";
 import { TIMEOUTS, type ModelType } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
-import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import {
   authenticityProbeAccumulator,
   isAuthenticityBlacklisted,
-  loadAuthenticityBlacklist,
   saveAuthenticityBlacklist,
   testAnthropicAuthenticity,
 } from "./authenticity";
@@ -276,24 +275,6 @@ export function recordOpenRouterEndpointsForModel(
   testReport.openrouterEndpoints.push(entry);
 }
 
-export function recordTestResult(entry: {
-  provider: string;
-  model: string;
-  http: TestExchange;
-  stream?: TestExchange | null;
-  toolCall?: TestExchange | null;
-}): void {
-  addTestResult({
-    provider: entry.provider,
-    model: entry.model,
-    cost: null,
-    http: entry.http,
-    stream: entry.stream ?? null,
-    toolCall: entry.toolCall ?? null,
-    authentic: null,
-  });
-}
-
 // Per-model cost tracking removed: providers now log only total balance
 // delta (start - end). Total-only tracking unblocks future multi-threaded
 // model testing where balance reads cannot be serialised against tests.
@@ -311,51 +292,6 @@ export function writeTestReport(): void {
   const path = join(logsDir, `${ts}-model-tests.json`);
   writeFileSync(path, JSON.stringify(redactedReport(), null, 2));
   consola.info(t("CORE.TESTER.REPORT_WRITTEN", { path }));
-}
-
-export function initTestReportForDate(): void {
-  const today = new Date().toISOString().slice(0, 10);
-  const path = join(process.cwd(), "logs", `${today}-model-tests.json`);
-  try {
-    const raw = readFileSync(path, "utf8");
-    // Read both old (`results`) and new (`modelTests`) field names so a
-    // mid-day upgrade doesn't lose the morning's passes.
-    const existing = JSON.parse(raw) as Partial<TestReport> & {
-      results?: ModelTestLog[];
-    };
-    const tests = existing.modelTests ?? existing.results ?? [];
-    testReport.modelTests = tests.filter((r) => r.http.pass);
-    passingByKey.clear();
-    for (const entry of testReport.modelTests) {
-      passingByKey.set(passKey(entry.provider, entry.model), entry);
-    }
-    if (existing.providers) testReport.providers = existing.providers;
-    consola.info(
-      t("CORE.TESTER.REPORT_RESUMED", {
-        path,
-        count: testReport.modelTests.length,
-      }),
-    );
-  } catch {
-    // File doesn't exist yet — start fresh
-  }
-  loadAuthenticityBlacklist();
-}
-
-export function writeTestReportForDate(): void {
-  saveAuthenticityBlacklist();
-  if (testReport.modelTests.length === 0) return;
-  const today = new Date().toISOString().slice(0, 10);
-  const logsDir = join(process.cwd(), "logs");
-  mkdirSync(logsDir, { recursive: true });
-  const path = join(logsDir, `${today}-model-tests.json`);
-  writeFileSync(path, JSON.stringify(redactedReport(), null, 2));
-  consola.info(
-    t("CORE.TESTER.REPORT_WRITTEN_COUNT", {
-      path,
-      count: testReport.modelTests.length,
-    }),
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -684,14 +620,24 @@ export async function testAndFilterModels(opts: {
   );
 
   consola.debug(
-    `[${opts.providerLabel}] Testable: ${testableModels.length}, Non-testable: ${nonTestableModels.length}`,
+    t("CORE.TESTER.TESTABLE_COUNT", {
+      provider: opts.providerLabel,
+      testable: testableModels.length,
+      nonTestable: nonTestableModels.length,
+    }),
   );
   consola.trace(
-    `[${opts.providerLabel}] Testable models: ${testableModels.join(", ") || "(none)"}`,
+    t("CORE.TESTER.TESTABLE_LIST", {
+      provider: opts.providerLabel,
+      models: testableModels.join(", ") || "(none)",
+    }),
   );
   if (nonTestableModels.length > 0) {
     consola.trace(
-      `[${opts.providerLabel}] Non-testable models: ${nonTestableModels.join(", ")}`,
+      t("CORE.TESTER.NON_TESTABLE_LIST", {
+        provider: opts.providerLabel,
+        models: nonTestableModels.join(", "),
+      }),
     );
   }
 
@@ -701,7 +647,10 @@ export async function testAndFilterModels(opts: {
   if (skipTesting) {
     testedWorkingModels = testableModels;
     consola.info(
-      `[${opts.providerLabel}] ${testableModels.length} models (testing skipped)`,
+      t("CORE.TESTER.MODELS_TESTING_SKIPPED", {
+        provider: opts.providerLabel,
+        count: testableModels.length,
+      }),
     );
   } else if (opts.apiKey && testableModels.length > 0) {
     const testResult = await testModels({
@@ -753,10 +702,16 @@ export async function testAndFilterModels(opts: {
 
   if (nonTestableModels.length > 0) {
     consola.debug(
-      `[${opts.providerLabel}] Included without test: ${nonTestableModels.length}`,
+      t("CORE.TESTER.INCLUDED_NO_TEST", {
+        provider: opts.providerLabel,
+        count: nonTestableModels.length,
+      }),
     );
     consola.trace(
-      `[${opts.providerLabel}] Included without test (models): ${nonTestableModels.join(", ")}`,
+      t("CORE.TESTER.INCLUDED_NO_TEST_LIST", {
+        provider: opts.providerLabel,
+        models: nonTestableModels.join(", "),
+      }),
     );
   }
 

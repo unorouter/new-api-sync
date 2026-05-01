@@ -110,6 +110,8 @@
       "TEST_MODEL_TYPES": "测试的模型类型",
       "TEST_MODEL_TYPES_HELP": "设置后，仅对这些类型执行连通性测试。留空表示默认（仅文本）。",
       "SKIP_UNPROFITABLE_TEXT": "跳过无利润的文本渠道",
+      "GLOBAL_CONCURRENCY": "全局并发数",
+      "PER_UPSTREAM_CONCURRENCY": "单上游并发数",
       "BLACKLIST": "黑名单",
       "BLACKLIST_HELP": "从所有提供商中排除的模型名或通配符。",
       "BLACKLIST_PLACEHOLDER": "模型名或通配符",
@@ -145,6 +147,9 @@
       "BASE_URL_PLACEHOLDER": "https://…",
       "API_KEY": "API 密钥",
       "API_KEY_PLACEHOLDER_NVIDIA": "nvapi-…",
+      "API_KEY_PLACEHOLDER_OPENROUTER": "sk-or-v1-…",
+      "PER_UPSTREAM_CONCURRENCY": "单上游并发数",
+      "PER_UPSTREAM_CONCURRENCY_PLACEHOLDER": "覆盖默认值（默认 5）",
       "SYSTEM_ACCESS_TOKEN": "系统访问令牌",
       "USER_ID": "用户 ID",
       "VENDOR": "厂商",
@@ -237,7 +242,13 @@
     "NEWAPI_TOKEN_LIST_API_FAILED": "Token 列表接口返回 success=false{detail}",
     "NEWAPI_CHANNEL_LIST_API_FAILED": "Channel 列表接口返回 success=false",
     "TARGET_HEALTH_CHECK_FAILED": "目标健康检查失败：{detail}",
-    "CANCELLED_BY_USER": "已由用户取消"
+    "CANCELLED_BY_USER": "已由用户取消",
+    "CONFIG_DUPLICATE_PROVIDER": "providers.{index}.name：提供方名称重复：{name}",
+    "CONFIG_PRICE_ADJUSTMENT_NEEDS_DEFAULT": "{path}：priceAdjustment 对象必须包含 default 键",
+    "CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT": "{path}.{key}：文本类型（vendors/default）的 priceAdjustment 取值必须 < 1；仅非文本类型（image、video、audio、embedding）可以 >= 1",
+    "CONFIG_SUB2API_REQUIRES_KEY": "providers.{index}：sub2api 提供方必须设置 adminApiKey 或 groups",
+    "PRICING_EMPTY_SOURCES": "[pricing] 定价数据源为空：{sources}。终止同步——基准定价解析需要 LiteLLM、OpenRouter、basellm 同时可用。",
+    "PRICING_CHANNEL_COLLISION": "渠道名称冲突：\"{name}\" 重复出现（{first} 与计划 {second}）。每个（提供方、分组、供应商、倍率档位、base-url 后缀）组合都必须产生唯一的渠道名。"
   },
   "CLI": {
     "APP_DESCRIPTION": "new-api-sync",
@@ -317,6 +328,10 @@
       "STATUS_FAIL": "失败",
       "BADGE_YES": "是",
       "BADGE_NO": "否",
+      "TAB_SUMMARY": "概览",
+      "TAB_RESULTS": "结果",
+      "TAB_PRICING": "定价闸门",
+      "TAB_ENDPOINTS": "OpenRouter 端点",
       "TAB_HTTP": "HTTP",
       "TAB_STREAM": "流式",
       "TAB_TOOL": "工具调用",
@@ -326,7 +341,58 @@
       "RESPONSE_BODY": "响应体",
       "LATENCY_MS": "{ms}ms",
       "STATUS_CODE": "状态码 {code}",
-      "NO_DATA": "无数据"
+      "NO_DATA": "无数据",
+      "SUMMARY": {
+        "TITLE": "运行结果",
+        "SUCCESS": "成功",
+        "FAILURE": "失败",
+        "PROVIDERS": "提供商",
+        "ELAPSED": "耗时",
+        "OPTIONS": "更新的选项",
+        "CHANNELS": "渠道",
+        "MODELS": "模型",
+        "ORPHANS": "已删除孤立模型",
+        "ERRORS": "错误",
+        "CRUD_TRIPLE": "+{created} ~{updated} -{deleted}",
+        "TOKENS_TRIPLE": "+{created} ={existing} -{deleted}",
+        "PROVIDERS_TABLE": "按提供商汇总",
+        "COL_NAME": "提供商",
+        "COL_STATUS": "状态",
+        "COL_GROUPS": "分组",
+        "COL_MODELS": "模型",
+        "COL_TOKENS": "令牌",
+        "COL_CHANNELS": "渠道",
+        "COL_COST": "测试费用",
+        "OK": "成功",
+        "FAIL": "失败"
+      },
+      "PRICING": {
+        "FILTER_ALL": "全部决策",
+        "FILTER_VOTED": "已表决（聚类 ≥ 2）",
+        "FILTER_NO_MAJORITY": "未达多数",
+        "FILTER_NO_MATCHES": "无匹配",
+        "FILTER_PLACEHOLDER": "模型名",
+        "COUNT": "{shown} / {total}",
+        "MATCHED_OF": "已匹配 {matched} / {total}",
+        "COL_SOURCE": "来源",
+        "COL_KEY": "匹配键",
+        "COL_INPUT": "输入 $/M",
+        "COL_OUTPUT": "输出 $/M",
+        "COL_RATIO": "倍率",
+        "COL_IN_CLUSTER": "在聚类中",
+        "NO_MATCH": "未匹配"
+      },
+      "ENDPOINTS": {
+        "FILTER_PLACEHOLDER": "模型 ID",
+        "COUNT": "{shown} / {total}",
+        "COL_PROVIDER": "提供商",
+        "COL_QUANT": "量化",
+        "COL_PROMPT": "提示 $/M",
+        "COL_COMPLETION": "补全 $/M",
+        "COL_DISCOUNT": "折扣",
+        "COL_EFFECTIVE": "有效 $/M",
+        "COL_PICKED": "已选"
+      }
     },
     "AUTHENTICITY": {
       "EMPTY": "真伪黑名单为空。",
@@ -385,7 +451,10 @@
       "OPENROUTER_FETCHED": "已从 OpenRouter 获取 {count} 条模型描述",
       "BASELLM_FETCH_FAILED": "获取 basellm 模型库失败",
       "BASELLM_FETCHED": "已从 basellm 获取 {count} 条模型记录",
-      "SUMMARY": "元数据：OpenRouter 命中 {orHits}（模糊匹配 {orFuzzy}），basellm 命中 {blmHits}（模糊匹配 {blmFuzzy}），共丰富 {total} 条"
+      "SUMMARY": "元数据：OpenRouter 命中 {orHits}（模糊匹配 {orFuzzy}），basellm 命中 {blmHits}（模糊匹配 {blmFuzzy}），共丰富 {total} 条",
+      "FUZZY_OR": "模糊匹配（OR）：\"{model}\" -> \"{key}\"（{score}）",
+      "FUZZY_BLM_DESC": "模糊匹配（BLM 描述）：\"{model}\" -> \"{key}\"（{score}）",
+      "FUZZY_BLM_TAGS": "模糊匹配（BLM 标签）：\"{model}\" -> \"{key}\"（{score}）"
     },
     "TESTER": {
       "AUTHENTICITY_LOADED": "[真伪黑名单] 已加载 {count} 条记录",
@@ -407,7 +476,14 @@
       "ALREADY_PASSED": "[{prefix}] {model}：已通过，跳过",
       "AUTHENTICITY_BLACKLISTED": "[{prefix}] {model}：已在真伪黑名单中，跳过",
       "PROVIDER_FAILED": "[{provider}] 失败：{models}",
-      "ERR_AUTHENTICITY_BLACKLISTED": "在真伪黑名单中"
+      "ERR_AUTHENTICITY_BLACKLISTED": "在真伪黑名单中",
+      "MODELS_TESTING_SKIPPED": "[{provider}] {count} 个模型（已跳过测试）",
+      "TESTABLE_COUNT": "[{provider}] 可测试：{testable}，不可测试：{nonTestable}",
+      "TESTABLE_LIST": "[{provider}] 可测试模型：{models}",
+      "NON_TESTABLE_LIST": "[{provider}] 不可测试模型：{models}",
+      "INCLUDED_NO_TEST": "[{provider}] 未经测试纳入 {count} 个",
+      "INCLUDED_NO_TEST_LIST": "[{provider}] 未经测试纳入的模型：{models}",
+      "AUTH_MUX_FAILURE": "[authenticity] {model}：{count}/4 个探针返回错配响应；上游代理在串扰——已加入黑名单（unsafe-proxy：{labels}）"
     },
     "PROVIDER": {
       "USING_EXPLICIT_MODELS": "[{name}] 使用 {count} 个显式模型",
@@ -418,7 +494,11 @@
       "DISCOVERY_FETCH": "[discovery] 正在从 {url} 获取 {label} 模型",
       "LABEL_GEMINI": "Gemini",
       "LABEL_NVIDIA": "NVIDIA NIM",
-      "LABEL_OPENROUTER": "OpenRouter"
+      "LABEL_OPENROUTER": "OpenRouter",
+      "BALANCE": "[{name}] 余额：${amount}",
+      "BALANCE_WITH_COST": "[{name}] 余额：${amount} | 测试花费：{cost}",
+      "WORKING_ACROSS_VENDORS": "[{provider}/{group}] {working}/{total} 个可用，跨 {vendors} 个供应商",
+      "PROBE_FAILED_SKIP": "[{label}] 供应商 {vendor} 探测失败，跳过 {count} 个模型"
     },
     "NVIDIA": {
       "ENABLED_IMAGE_MODEL_ADDED": "[{name}] 从 enabledModels 添加图像模型：{glob}",
@@ -426,7 +506,9 @@
       "TEXT_WORKING": "[{name}] {working}/{total} 个文本模型可用",
       "IMAGE_INCLUDED": "[{name}] 未经测试直接纳入 {count} 个图像模型",
       "TEXT_TIERS_SUMMARY": "[{name}] {count} 个文本模型，{tiers} 档倍率：{ratios}",
-      "IMAGE_CHANNEL": "[{name}] {count} 个图像模型 → 渠道 \"{group}\"（类型={type}）"
+      "IMAGE_CHANNEL": "[{name}] {count} 个图像模型 → 渠道 \"{group}\"（类型={type}）",
+      "TEXT_VENDOR_CHANNELS": "[{name}] {count} 个文本模型，跨 {vendors} 个供应商渠道",
+      "IMAGE_VENDOR_CHANNELS": "[{name}] {count} 个图像模型，跨 {vendors} 个供应商渠道"
     },
     "SUB2API": {
       "NO_API_KEY": "[{name}] 分组 \"{group}\" 无 API 密钥，跳过",
@@ -445,11 +527,37 @@
       "ADDED_PAID_EXTRA": "[{name}] 已添加付费可选模型：{model}",
       "PROBING": "[{name}] 正在探测 {count} 个模型",
       "FAILED": "[{name}] 失败：{models}",
-      "WORKING": "[{name}] {working}/{total} 个模型可用（429 视为可用）"
+      "WORKING": "[{name}] {working}/{total} 个模型可用（429 视为可用）",
+      "SUMMARY": "[{name}] {total} 个模型（免费 {free} 个，付费 {paid} 个），跨 {vendors} 个供应商渠道"
     },
     "PRICING": {
       "BUILD_TIERS_HEADER": "[buildPriceTiers] {models} 个模型，{channels} 个基线渠道，{groups} 个分组，排除=\"{excluding}\"",
-      "BUILD_TIERS_LINE": "[buildPriceTiers]   {model}：最低={cheapest} ×（1+{adjustment}）= {ratio}"
+      "BUILD_TIERS_LINE": "[buildPriceTiers]   {model}：最低={cheapest} ×（1+{adjustment}）= {ratio}",
+      "PRE_TEST_DROP": "[pricing] 预测试丢弃 {model} {provider}/{group}/{vendor}，charge={charge} ceiling={ceiling}（基准来自 [{members}]，upstream={upstream}）",
+      "PRE_TEST_DROP_NOT_CHEAPEST": "[pricing] 预测试丢弃 {model} {provider}/{group}/{vendor}，charge={charge}（高于 1x，且非最低；保留最低档 {cheapest}）",
+      "ALL_BUCKETS_BROKEN": "[pricing] {model} 在 {provider} 上的所有档位均超过基准 {limit}x（最低={cheapest}，基准={canonical}，倍数={ratio}x）；全部丢弃——上游定价异常",
+      "ALL_BUCKETS_ABOVE_KEEP_CHEAPEST": "[pricing] {model} 在 {provider} 上的所有档位均高于 1x，仅保留最低档 {group}/{vendor}（charge={charge}，基准={canonical}）",
+      "LLM_PRICES_FETCH_FAILED": "[pricing] 获取 simonw/llm-prices 目录失败",
+      "LLM_PRICES_LOADED": "[pricing] llm-prices 已加载 {count} 条定价记录（更新于 {updated}）",
+      "BASELLM_NO_ENTRIES_SOURCE": "[pricing] basellm 未返回任何条目",
+      "BASELLM_LOADED": "[pricing] basellm 基准已加载 {loaded} 条定价记录（从 {total} 条总记录中筛选）",
+      "LITELLM_FETCH_FAILED": "[pricing] 获取 LiteLLM 目录失败",
+      "LITELLM_LOADED": "[pricing] LiteLLM 已加载 {pricing} 条定价记录、{metadata} 条元数据记录",
+      "OPENROUTER_FETCH_FAILED": "[pricing] 获取 OpenRouter 目录失败",
+      "OPENROUTER_FETCHING_ENDPOINTS": "[pricing] OpenRouter 正在为 {count} 个模型抓取 /endpoints（并发={concurrency}）",
+      "OPENROUTER_PREFETCH_DONE": "[pricing] OpenRouter /endpoints 预取：{with}/{total} 个模型获得定价，用时 {dt}ms",
+      "OPENROUTER_LOADED": "[pricing] OpenRouter 已加载 {pricing} 条定价记录、{metadata} 条元数据记录",
+      "DROP": "[pricing] 丢弃 {model} {channel}，原因={reason}{detail}"
+    },
+    "PROBE": {
+      "NO_TEXT_MODELS": "[{prefix}/probe] 供应商 {vendor} 无文本模型，跳过形态探测（按模型的任务覆盖将决定 channel-type）",
+      "TRANSIENT_FAILURE": "[{prefix}/probe] 供应商 {vendor} 形态={shape} 出现瞬时失败（status={status}），将退避后重试",
+      "NATIVE_OK": "[{prefix}/probe] 供应商 {vendor} 原生形态 {shape} 通过（model={model}）",
+      "NATIVE_FAILED": "[{prefix}/probe] 供应商 {vendor} 原生形态 {shape} 失败（status={status}，error={error}）",
+      "OPENAI_FAILED": "[{prefix}/probe] 供应商 {vendor} OpenAI 形态失败，跳过该桶{block}",
+      "FALLBACK_OPENAI": "[{prefix}/probe] 供应商 {vendor} 回退到 OpenAI 形态（原生 {shape} 被上游拒绝）",
+      "SKIPPED_BLOCK": "[{prefix}/probe] 供应商 {vendor} 跳过该桶——{reason}",
+      "BOTH_FAILED": "[{prefix}/probe] 供应商 {vendor} 原生形态（{native}）和 OpenAI 形态均失败，跳过该桶（native：status={ns} {ne}；openai：status={os} {oe}）"
     },
     "ERROR": {
       "NO_MODELS_DISCOVERED": "未发现任何模型。请在提供方配置中显式填写 'models' 数组。",

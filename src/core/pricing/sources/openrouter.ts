@@ -1,5 +1,6 @@
 import { buildFuzzyIndex } from "@core/catalog/metadata";
 import { tryFetchJson } from "@core/runtime";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 import pLimit from "p-limit";
 import { buildPricingMaps } from "./build";
@@ -53,19 +54,13 @@ interface OpenRouterSummaryModel {
 }
 
 interface OpenRouterEndpoint {
-  name: string;
   provider_name: string;
-  tag?: string;
   quantization?: string;
-  context_length?: number;
-  max_completion_tokens?: number | null;
-  status?: number;
   pricing?: {
     /** USD per token for input / prompt. */
     prompt?: string;
     /** USD per token for output / completion. */
     completion?: string;
-    input_cache_read?: string;
     /** Multiplier applied as effective_price = price * (1 - discount). 0 = no further discount. */
     discount?: number;
   };
@@ -107,13 +102,6 @@ export function getOpenRouterEndpointsTrace(
   id: string,
 ): OpenRouterEndpointsTrace | undefined {
   return endpointTraces.get(id);
-}
-
-export function getAllOpenRouterEndpointsTraces(): Map<
-  string,
-  OpenRouterEndpointsTrace
-> {
-  return endpointTraces;
 }
 
 function parseUsdPerToken(s: string | undefined): number | undefined {
@@ -277,7 +265,7 @@ export async function fetchOpenRouterPricingSource(): Promise<PricingSource | nu
     { timeoutMs: 15_000 },
   );
   if (!summary?.data || !Array.isArray(summary.data)) {
-    consola.warn("[pricing] failed to fetch OpenRouter catalog");
+    consola.warn(t("CORE.PRICING.OPENROUTER_FETCH_FAILED"));
     return null;
   }
 
@@ -288,7 +276,10 @@ export async function fetchOpenRouterPricingSource(): Promise<PricingSource | nu
 
   const ids = [...summaryById.keys()];
   consola.info(
-    `[pricing] OpenRouter fetching /endpoints for ${ids.length} models (concurrency=${ENDPOINTS_CONCURRENCY})`,
+    t("CORE.PRICING.OPENROUTER_FETCHING_ENDPOINTS", {
+      count: ids.length,
+      concurrency: ENDPOINTS_CONCURRENCY,
+    }),
   );
 
   const t0 = performance.now();
@@ -308,7 +299,11 @@ export async function fetchOpenRouterPricingSource(): Promise<PricingSource | nu
     }
   }
   consola.info(
-    `[pricing] OpenRouter /endpoints prefetch: ${withEndpoints}/${ids.length} models with pricing in ${dt}ms`,
+    t("CORE.PRICING.OPENROUTER_PREFETCH_DONE", {
+      with: withEndpoints,
+      total: ids.length,
+      dt,
+    }),
   );
 
   // Build entries from traces (skipping models without endpoints).
@@ -342,7 +337,10 @@ export async function fetchOpenRouterPricingSource(): Promise<PricingSource | nu
   });
 
   consola.info(
-    `[pricing] OpenRouter loaded ${pricingMap.size} pricing entries, ${metadataMap.size} metadata entries`,
+    t("CORE.PRICING.OPENROUTER_LOADED", {
+      pricing: pricingMap.size,
+      metadata: metadataMap.size,
+    }),
   );
 
   return {

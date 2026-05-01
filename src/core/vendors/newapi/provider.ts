@@ -37,6 +37,7 @@ import {
 import { getOpenRouterEndpointsTrace } from "@core/pricing/sources/openrouter";
 import type { GroupInfo, ProviderReport } from "@core/types";
 import type { ProviderConfig } from "@core/validations/config";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 import { colorize } from "consola/utils";
 import { partitionByVendor } from "../shared/partition";
@@ -340,10 +341,16 @@ function planPreTestDecisions(opts: {
         if (c.charge !== undefined && c.charge > canonical) {
           decisions.set(c.key, "drop");
           consola.info(
-            `[pricing] pre-test drop ${exposed} ${opts.providerConfig.name}/${c.group}/${c.vendor} ` +
-              `charge=${c.charge.toFixed(3)} ceiling=${canonical.toFixed(3)} ` +
-              `(canonical via [${c.vote.cluster?.members.join(",")}], ` +
-              `upstream=${c.upstreamRatio.toFixed(3)})`,
+            t("CORE.PRICING.PRE_TEST_DROP", {
+              model: exposed,
+              provider: opts.providerConfig.name,
+              group: c.group,
+              vendor: c.vendor,
+              charge: c.charge.toFixed(3),
+              ceiling: canonical.toFixed(3),
+              members: c.vote.cluster?.members.join(",") ?? "",
+              upstream: c.upstreamRatio.toFixed(3),
+            }),
           );
         } else {
           decisions.set(c.key, "keep");
@@ -367,18 +374,27 @@ function planPreTestDecisions(opts: {
     const maxCheapestRatio = cheapest.charge! / canonical;
     if (maxCheapestRatio > CHEAPEST_FALLBACK_MAX) {
       consola.warn(
-        `[pricing] all buckets for ${exposed} on ${opts.providerConfig.name} ` +
-          `exceed ${CHEAPEST_FALLBACK_MAX}x canonical (cheapest=${cheapest.charge!.toFixed(3)}, ` +
-          `canonical=${canonical.toFixed(3)}, ratio=${maxCheapestRatio.toFixed(1)}x); ` +
-          `dropping all — upstream pricing looks broken`,
+        t("CORE.PRICING.ALL_BUCKETS_BROKEN", {
+          model: exposed,
+          provider: opts.providerConfig.name,
+          limit: CHEAPEST_FALLBACK_MAX,
+          cheapest: cheapest.charge!.toFixed(3),
+          canonical: canonical.toFixed(3),
+          ratio: maxCheapestRatio.toFixed(1),
+        }),
       );
       for (const c of candidates) decisions.set(c.key, "drop");
       continue;
     }
     consola.info(
-      `[pricing] all buckets above 1x for ${exposed} on ${opts.providerConfig.name}; ` +
-        `keeping cheapest ${cheapest.group}/${cheapest.vendor} ` +
-        `(charge=${cheapest.charge!.toFixed(3)}, canonical=${canonical.toFixed(3)})`,
+      t("CORE.PRICING.ALL_BUCKETS_ABOVE_KEEP_CHEAPEST", {
+        model: exposed,
+        provider: opts.providerConfig.name,
+        group: cheapest.group,
+        vendor: cheapest.vendor,
+        charge: cheapest.charge!.toFixed(3),
+        canonical: canonical.toFixed(3),
+      }),
     );
     for (const c of candidates) {
       if (c.key === cheapest.key) {
@@ -386,8 +402,14 @@ function planPreTestDecisions(opts: {
       } else {
         decisions.set(c.key, "drop");
         consola.info(
-          `[pricing] pre-test drop ${exposed} ${opts.providerConfig.name}/${c.group}/${c.vendor} ` +
-            `charge=${c.charge!.toFixed(3)} (above 1x, not cheapest; cheapest kept at ${cheapest.charge!.toFixed(3)})`,
+          t("CORE.PRICING.PRE_TEST_DROP_NOT_CHEAPEST", {
+            model: exposed,
+            provider: opts.providerConfig.name,
+            group: c.group,
+            vendor: c.vendor,
+            charge: c.charge!.toFixed(3),
+            cheapest: cheapest.charge!.toFixed(3),
+          }),
         );
       }
     }
@@ -519,7 +541,10 @@ export async function processNewApiProvider(
     const startBalance = await upstream.fetchBalance();
     if (startBalance !== null) {
       consola.info(
-        `[${providerConfig.name}] Balance: $${startBalance.toFixed(4)}`,
+        t("CORE.PROVIDER.BALANCE", {
+          name: providerConfig.name,
+          amount: startBalance.toFixed(4),
+        }),
       );
     }
 
@@ -605,7 +630,11 @@ export async function processNewApiProvider(
             });
             if (!probe) {
               consola.warn(
-                `[${probeLabel}] vendor=${vendor} probe failed; skipping ${vendorModels.length} models`,
+                t("CORE.PROVIDER.PROBE_FAILED_SKIP", {
+                  label: probeLabel,
+                  vendor,
+                  count: vendorModels.length,
+                }),
               );
               return {
                 tested: 0,
@@ -741,7 +770,13 @@ export async function processNewApiProvider(
 
         if (groupTotalTested > 0) {
           consola.info(
-            `[${providerConfig.name}/${p.group.name}] ${groupTotalWorking}/${groupTotalTested} working across ${vendorBuckets.size} vendors`,
+            t("CORE.PROVIDER.WORKING_ACROSS_VENDORS", {
+              provider: providerConfig.name,
+              group: p.group.name,
+              working: groupTotalWorking,
+              total: groupTotalTested,
+              vendors: vendorBuckets.size,
+            }),
           );
         }
 
@@ -774,12 +809,17 @@ export async function processNewApiProvider(
       if (finalBalance !== null) {
         const cost = startBalance - finalBalance;
         recordProviderCost(providerConfig.name, cost);
-        const costStr =
-          cost > 0
-            ? ` | Test cost: ${colorize("yellow", `$${cost.toFixed(4)}`)}`
-            : "";
         consola.info(
-          `[${providerConfig.name}] Balance: $${finalBalance.toFixed(4)}${costStr}`,
+          cost > 0
+            ? t("CORE.PROVIDER.BALANCE_WITH_COST", {
+                name: providerConfig.name,
+                amount: finalBalance.toFixed(4),
+                cost: colorize("yellow", `$${cost.toFixed(4)}`),
+              })
+            : t("CORE.PROVIDER.BALANCE", {
+                name: providerConfig.name,
+                amount: finalBalance.toFixed(4),
+              }),
         );
       }
     }

@@ -2,6 +2,7 @@ import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
 import { MODEL_TYPES } from "@core/types";
 import { useTranslations } from "use-intl";
 import { MyFormCheckboxGroup } from "@web/components/elements/form/my-form-checkbox-group";
+import { MyFormInput } from "@web/components/elements/form/my-form-input";
 import { MyFormSwitch } from "@web/components/elements/form/my-form-switch";
 import { Button } from "@web/components/ui/button";
 import {
@@ -52,6 +53,43 @@ export function GlobalSection() {
           name="skipUnprofitableText"
           label={t("CONFIG.GLOBAL.SKIP_UNPROFITABLE_TEXT")}
         />
+
+        <div className="grid grid-cols-2 gap-4">
+          <MyFormInput
+            control={form.control}
+            name="globalConcurrency"
+            schema={globalSchema}
+            label={
+              <>
+                {t("CONFIG.GLOBAL.GLOBAL_CONCURRENCY")}
+                <span className="text-muted-foreground ml-1 text-xs font-normal">
+                  ({t("CONFIG.FIELD.OPTIONAL")})
+                </span>
+              </>
+            }
+            type="number"
+            min={1}
+            max={1000}
+            placeholder="50"
+          />
+          <MyFormInput
+            control={form.control}
+            name="perUpstreamConcurrency"
+            schema={globalSchema}
+            label={
+              <>
+                {t("CONFIG.GLOBAL.PER_UPSTREAM_CONCURRENCY")}
+                <span className="text-muted-foreground ml-1 text-xs font-normal">
+                  ({t("CONFIG.FIELD.OPTIONAL")})
+                </span>
+              </>
+            }
+            type="number"
+            min={1}
+            max={1000}
+            placeholder="5"
+          />
+        </div>
 
         <MyFormCheckboxGroup
           control={form.control}

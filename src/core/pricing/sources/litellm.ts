@@ -1,5 +1,6 @@
 import { buildFuzzyIndex } from "@core/catalog/metadata";
 import { tryFetchJson } from "@core/runtime";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 import { buildPricingMaps } from "./build";
 import {
@@ -13,7 +14,6 @@ const LITELLM_URL =
   "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
 
 interface LiteLLMEntry {
-  litellm_provider?: string;
   mode?: string;
   input_cost_per_token?: number;
   output_cost_per_token?: number;
@@ -110,7 +110,7 @@ export async function fetchLiteLLMSource(): Promise<PricingSource | null> {
     timeoutMs: 15_000,
   });
   if (!raw) {
-    consola.warn("[pricing] failed to fetch LiteLLM catalog");
+    consola.warn(t("CORE.PRICING.LITELLM_FETCH_FAILED"));
     return null;
   }
 
@@ -127,7 +127,10 @@ export async function fetchLiteLLMSource(): Promise<PricingSource | null> {
   });
 
   consola.info(
-    `[pricing] LiteLLM loaded ${pricingMap.size} pricing entries, ${metadataMap.size} metadata entries`,
+    t("CORE.PRICING.LITELLM_LOADED", {
+      pricing: pricingMap.size,
+      metadata: metadataMap.size,
+    }),
   );
 
   return {

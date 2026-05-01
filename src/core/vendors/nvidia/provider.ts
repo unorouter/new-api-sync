@@ -237,7 +237,11 @@ export async function processNvidiaProvider(
         totalVendors++;
       }
       consola.info(
-        `[${providerConfig.name}] ${textResolutions.length} text model(s) across ${byVendor.size} vendor channel(s)`,
+        t("CORE.NVIDIA.TEXT_VENDOR_CHANNELS", {
+          name: providerConfig.name,
+          count: textResolutions.length,
+          vendors: byVendor.size,
+        }),
       );
     }
 
@@ -277,7 +281,11 @@ export async function processNvidiaProvider(
         totalVendors++;
       }
       consola.info(
-        `[${providerConfig.name}] ${imageResolutions.length} image model(s) across ${byVendor.size} vendor channel(s)`,
+        t("CORE.NVIDIA.IMAGE_VENDOR_CHANNELS", {
+          name: providerConfig.name,
+          count: imageResolutions.length,
+          vendors: byVendor.size,
+        }),
       );
     }
 

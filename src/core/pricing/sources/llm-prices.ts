@@ -1,5 +1,6 @@
 import { buildFuzzyIndex } from "@core/catalog/metadata";
 import { tryFetchJson } from "@core/runtime";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 import { buildPricingMaps } from "./build";
 import {
@@ -66,7 +67,7 @@ export async function fetchLlmPricesSource(): Promise<PricingSource | null> {
     timeoutMs: 15_000,
   });
   if (!raw?.prices || !Array.isArray(raw.prices)) {
-    consola.warn("[pricing] failed to fetch simonw/llm-prices catalog");
+    consola.warn(t("CORE.PRICING.LLM_PRICES_FETCH_FAILED"));
     return null;
   }
 
@@ -86,7 +87,10 @@ export async function fetchLlmPricesSource(): Promise<PricingSource | null> {
   });
 
   consola.info(
-    `[pricing] llm-prices loaded ${pricingMap.size} pricing entries (updated ${raw.updated_at ?? "unknown"})`,
+    t("CORE.PRICING.LLM_PRICES_LOADED", {
+      count: pricingMap.size,
+      updated: raw.updated_at ?? "unknown",
+    }),
   );
 
   return {

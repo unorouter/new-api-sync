@@ -13,6 +13,7 @@ import { emitChannels } from "@core/pricing/emit";
 import { fetchAllPricingSources } from "@core/pricing/resolver";
 import { ConcurrencyGate, setConcurrencyGate } from "@core/runtime";
 import type { DesiredState, ProviderReport, TargetSnapshot } from "@core/types";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 import { buildBaseline } from "./baseline";
 import { resolveCanonicalRetail } from "./canonical";
@@ -92,8 +93,12 @@ export async function runProviderPipeline(
 
   for (const drop of plan.drops) {
     consola.info(
-      `[pricing] drop ${drop.model} ${drop.channel} reason=${drop.reason}` +
-        (drop.detail ? ` ${drop.detail}` : ""),
+      t("CORE.PRICING.DROP", {
+        model: drop.model,
+        channel: drop.channel,
+        reason: drop.reason,
+        detail: drop.detail ? ` ${drop.detail}` : "",
+      }),
     );
   }
 

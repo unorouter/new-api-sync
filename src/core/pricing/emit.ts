@@ -11,6 +11,7 @@
 // compute when it pushed the tier.
 
 import type { Channel, MergedGroup, MergedModel } from "@core/types";
+import { t } from "@server/i18n";
 import type { PricedPlan, PricedTier } from "./types";
 import type { BaselineInputs } from "./types";
 
@@ -39,11 +40,14 @@ export function emitChannels(args: EmitArgs): EmitResult {
     const existing = seen.get(tier.channelName);
     if (existing) {
       throw new Error(
-        `Channel name collision: "${tier.channelName}" produced twice ` +
-          `(${existing.source === "baseline" ? "baseline " + (existing.tag ?? "?") : "plan " + (existing.tag ?? "?")} ` +
-          `and plan ${tier.providerTag}). ` +
-          `Each (provider, group, vendor, ratio-tier, base-url-suffix) bucket ` +
-          `must produce a unique channel name.`,
+        t("ERROR.PRICING_CHANNEL_COLLISION", {
+          name: tier.channelName,
+          first:
+            existing.source === "baseline"
+              ? "baseline " + (existing.tag ?? "?")
+              : "plan " + (existing.tag ?? "?"),
+          second: tier.providerTag,
+        }),
       );
     }
     seen.set(tier.channelName, { source: "plan", tag: tier.providerTag });

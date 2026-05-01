@@ -14,7 +14,7 @@ export const authenticityProbeAccumulator = new Map<
   AuthenticityProbeLog[]
 >();
 
-export function addAuthenticityProbe(
+function addAuthenticityProbe(
   key: string,
   entry: AuthenticityProbeLog,
 ): void {
@@ -592,8 +592,11 @@ export async function testAnthropicAuthenticity(opts: {
     .map((r) => r.label);
   if (muxLabels.length >= 2) {
     consola.warn(
-      `[authenticity] ${opts.model}: ${muxLabels.length}/4 probes returned wrong-paired responses; ` +
-        `upstream proxy is muxing — blacklisting as unsafe-proxy (${muxLabels.join(", ")})`,
+      t("CORE.TESTER.AUTH_MUX_FAILURE", {
+        model: opts.model,
+        count: muxLabels.length,
+        labels: muxLabels.join(", "),
+      }),
     );
     addToAuthenticityBlacklist(
       opts.logKey,

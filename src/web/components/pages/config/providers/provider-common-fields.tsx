@@ -53,6 +53,24 @@ export function ProviderCommonFields(props: { index: number }) {
         }))}
       />
 
+      <MyFormInput
+        control={form.control}
+        name={providerPath(props.index, "perUpstreamConcurrency")}
+        schema={variantSchema}
+        label={
+          <>
+            {t("CONFIG.PROVIDER.PER_UPSTREAM_CONCURRENCY")}
+            <span className="text-muted-foreground ml-1 text-xs font-normal">
+              ({t("CONFIG.FIELD.OPTIONAL")})
+            </span>
+          </>
+        }
+        type="number"
+        min={1}
+        max={1000}
+        placeholder={t("CONFIG.PROVIDER.PER_UPSTREAM_CONCURRENCY_PLACEHOLDER")}
+      />
+
       <div className="grid gap-2">
         <Label>
           {t("CONFIG.PROVIDER.ENABLED_VENDORS")}

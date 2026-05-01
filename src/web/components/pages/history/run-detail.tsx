@@ -3,6 +3,12 @@ import { useTranslations } from "use-intl";
 import { Badge } from "@web/components/ui/badge";
 import { Button } from "@web/components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@web/components/ui/card";
+import {
   Collapsible,
   CollapsiblePanel,
   CollapsibleTrigger,
@@ -36,10 +42,6 @@ type Filter = "all" | "passed" | "failed";
 export function RunDetail(props: Props) {
   const t = useTranslations();
   const run = useHistoryRun(props.id);
-  const filter = useUiStore((s) => s.runResultFilter);
-  const setFilter = useUiStore((s) => s.setRunResultFilter);
-  const query = useUiStore((s) => s.runQuery);
-  const setQuery = useUiStore((s) => s.setRunQuery);
 
   return (
     <div className="space-y-3">
@@ -59,52 +61,316 @@ export function RunDetail(props: Props) {
         <p className="text-destructive text-sm">
           {t("HISTORY.RUN.LOAD_ERROR", { error: String(run.error) })}
         </p>
-      ) : !run.data || run.data.results.length === 0 ? (
+      ) : !run.data ? (
         <p className="text-muted-foreground text-sm">
           {t("HISTORY.RUN.EMPTY")}
         </p>
       ) : (
-        <>
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={filter}
-              onValueChange={(value) => {
-                if (value === null) return;
-                setFilter(value as Filter);
-              }}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  {t("HISTORY.RUN.FILTER_ALL")}
-                </SelectItem>
-                <SelectItem value="passed">
-                  {t("HISTORY.RUN.FILTER_PASSED")}
-                </SelectItem>
-                <SelectItem value="failed">
-                  {t("HISTORY.RUN.FILTER_FAILED")}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("HISTORY.RUN.FILTER_PLACEHOLDER")}
-              className="max-w-80"
-            />
-          </div>
-          <ResultsTable
-            results={run.data.results}
-            filter={filter}
-            query={query}
-          />
-        </>
+        <RunBody data={run.data} />
       )}
     </div>
   );
 }
+
+interface RunData {
+  id: string;
+  timestamp: string;
+  results: Result[];
+  summary?: RunOutcome;
+  providers?: Record<string, ProviderEntry>;
+  pricingGate?: PricingGate[];
+  openrouterEndpoints?: EndpointsLog[];
+}
+
+function RunBody(props: { data: RunData }) {
+  const t = useTranslations();
+  const data = props.data;
+  const hasResults = data.results.length > 0;
+  const hasSummary = !!data.summary || !!data.providers;
+  const hasPricing = !!data.pricingGate && data.pricingGate.length > 0;
+  const hasEndpoints =
+    !!data.openrouterEndpoints && data.openrouterEndpoints.length > 0;
+
+  // If the report has nothing at all, fall back to the original empty state.
+  if (!hasResults && !hasSummary && !hasPricing && !hasEndpoints) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        {t("HISTORY.RUN.EMPTY")}
+      </p>
+    );
+  }
+
+  return (
+    <Tabs defaultValue={hasSummary ? "summary" : "results"}>
+      <TabsList variant="line">
+        {hasSummary ? (
+          <TabsTrigger value="summary">
+            {t("HISTORY.RUN.TAB_SUMMARY")}
+          </TabsTrigger>
+        ) : null}
+        <TabsTrigger value="results">
+          {t("HISTORY.RUN.TAB_RESULTS")}
+        </TabsTrigger>
+        {hasPricing ? (
+          <TabsTrigger value="pricing">
+            {t("HISTORY.RUN.TAB_PRICING")}
+          </TabsTrigger>
+        ) : null}
+        {hasEndpoints ? (
+          <TabsTrigger value="endpoints">
+            {t("HISTORY.RUN.TAB_ENDPOINTS")}
+          </TabsTrigger>
+        ) : null}
+      </TabsList>
+
+      {hasSummary ? (
+        <TabsContent value="summary" className="mt-3">
+          <SummaryView
+            summary={data.summary}
+            providers={data.providers}
+          />
+        </TabsContent>
+      ) : null}
+
+      <TabsContent value="results" className="mt-3">
+        <ResultsView results={data.results} />
+      </TabsContent>
+
+      {hasPricing ? (
+        <TabsContent value="pricing" className="mt-3">
+          <PricingGateView entries={data.pricingGate!} />
+        </TabsContent>
+      ) : null}
+
+      {hasEndpoints ? (
+        <TabsContent value="endpoints" className="mt-3">
+          <EndpointsView entries={data.openrouterEndpoints!} />
+        </TabsContent>
+      ) : null}
+    </Tabs>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Summary tab — run-level outcome + per-provider counters
+// ---------------------------------------------------------------------------
+
+interface RunOutcome {
+  providers: { passed: number; total: number };
+  channels: { created: number; updated: number; deleted: number };
+  models: {
+    created: number;
+    updated: number;
+    deleted: number;
+    orphansDeleted: number;
+  };
+  optionsUpdated: number;
+  elapsedSeconds: number;
+  success: boolean;
+  errors?: { phase: string; key: string; message: string }[];
+}
+
+interface ProviderEntry {
+  testCost?: number;
+  success?: boolean;
+  error?: string;
+  channels?: { created: number; updated: number; deleted: number };
+  groups?: number;
+  models?: number;
+  tokens?: { created: number; existing: number; deleted: number };
+}
+
+function SummaryView(props: {
+  summary?: RunOutcome;
+  providers?: Record<string, ProviderEntry>;
+}) {
+  const t = useTranslations();
+  const summary = props.summary;
+  const providers = props.providers
+    ? Object.entries(props.providers)
+    : [];
+
+  return (
+    <div className="space-y-4">
+      {summary ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              {t("HISTORY.RUN.SUMMARY.TITLE")}
+              <Badge variant={summary.success ? "default" : "destructive"}>
+                {summary.success
+                  ? t("HISTORY.RUN.SUMMARY.SUCCESS")
+                  : t("HISTORY.RUN.SUMMARY.FAILURE")}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm md:grid-cols-4">
+              <Stat
+                label={t("HISTORY.RUN.SUMMARY.PROVIDERS")}
+                value={`${summary.providers.passed}/${summary.providers.total}`}
+              />
+              <Stat
+                label={t("HISTORY.RUN.SUMMARY.ELAPSED")}
+                value={`${summary.elapsedSeconds.toFixed(2)}s`}
+              />
+              <Stat
+                label={t("HISTORY.RUN.SUMMARY.OPTIONS")}
+                value={summary.optionsUpdated}
+              />
+              <Stat
+                label={t("HISTORY.RUN.SUMMARY.CHANNELS")}
+                value={t("HISTORY.RUN.SUMMARY.CRUD_TRIPLE", {
+                  created: summary.channels.created,
+                  updated: summary.channels.updated,
+                  deleted: summary.channels.deleted,
+                })}
+              />
+              <Stat
+                label={t("HISTORY.RUN.SUMMARY.MODELS")}
+                value={t("HISTORY.RUN.SUMMARY.CRUD_TRIPLE", {
+                  created: summary.models.created,
+                  updated: summary.models.updated,
+                  deleted: summary.models.deleted,
+                })}
+              />
+              <Stat
+                label={t("HISTORY.RUN.SUMMARY.ORPHANS")}
+                value={summary.models.orphansDeleted}
+              />
+            </div>
+
+            {summary.errors && summary.errors.length > 0 ? (
+              <div className="mt-4 space-y-1">
+                <p className="text-destructive text-xs font-medium">
+                  {t("HISTORY.RUN.SUMMARY.ERRORS")}
+                </p>
+                <ul className="text-destructive space-y-1 text-xs">
+                  {summary.errors.map((e, i) => (
+                    <li key={i} className="font-mono">
+                      [{e.phase}/{e.key}] {e.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {providers.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {t("HISTORY.RUN.SUMMARY.PROVIDERS_TABLE")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-muted-foreground text-xs">
+                <tr className="border-b">
+                  <th className="px-2 py-2 text-left font-medium">
+                    {t("HISTORY.RUN.SUMMARY.COL_NAME")}
+                  </th>
+                  <th className="px-2 py-2 text-left font-medium">
+                    {t("HISTORY.RUN.SUMMARY.COL_STATUS")}
+                  </th>
+                  <th className="px-2 py-2 text-right font-medium">
+                    {t("HISTORY.RUN.SUMMARY.COL_GROUPS")}
+                  </th>
+                  <th className="px-2 py-2 text-right font-medium">
+                    {t("HISTORY.RUN.SUMMARY.COL_MODELS")}
+                  </th>
+                  <th className="px-2 py-2 text-right font-medium">
+                    {t("HISTORY.RUN.SUMMARY.COL_TOKENS")}
+                  </th>
+                  <th className="px-2 py-2 text-right font-medium">
+                    {t("HISTORY.RUN.SUMMARY.COL_CHANNELS")}
+                  </th>
+                  <th className="px-2 py-2 text-right font-medium">
+                    {t("HISTORY.RUN.SUMMARY.COL_COST")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {providers.map(([name, entry]) => (
+                  <tr key={name} className="border-b last:border-b-0">
+                    <td className="px-2 py-2 font-mono">{name}</td>
+                    <td className="px-2 py-2">
+                      {entry.success === undefined ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : entry.success ? (
+                        <Badge variant="default" className="text-[10px]">
+                          {t("HISTORY.RUN.SUMMARY.OK")}
+                        </Badge>
+                      ) : (
+                        <span className="text-destructive flex items-center gap-1 text-xs">
+                          <Badge
+                            variant="destructive"
+                            className="text-[10px]"
+                          >
+                            {t("HISTORY.RUN.SUMMARY.FAIL")}
+                          </Badge>
+                          {entry.error ? (
+                            <span className="max-w-72 truncate font-mono">
+                              {entry.error}
+                            </span>
+                          ) : null}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-right font-mono">
+                      {entry.groups ?? "—"}
+                    </td>
+                    <td className="px-2 py-2 text-right font-mono">
+                      {entry.models ?? "—"}
+                    </td>
+                    <td className="px-2 py-2 text-right font-mono">
+                      {entry.tokens
+                        ? t("HISTORY.RUN.SUMMARY.TOKENS_TRIPLE", {
+                            created: entry.tokens.created,
+                            existing: entry.tokens.existing,
+                            deleted: entry.tokens.deleted,
+                          })
+                        : "—"}
+                    </td>
+                    <td className="px-2 py-2 text-right font-mono">
+                      {entry.channels
+                        ? t("HISTORY.RUN.SUMMARY.CRUD_TRIPLE", {
+                            created: entry.channels.created,
+                            updated: entry.channels.updated,
+                            deleted: entry.channels.deleted,
+                          })
+                        : "—"}
+                    </td>
+                    <td className="px-2 py-2 text-right font-mono">
+                      {entry.testCost !== undefined
+                        ? `$${entry.testCost.toFixed(4)}`
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
+
+function Stat(props: { label: string; value: string | number }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-muted-foreground text-xs">{props.label}</span>
+      <span className="font-mono">{props.value}</span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Results tab — model test rows (the legacy view)
+// ---------------------------------------------------------------------------
 
 interface Exchange {
   pass: boolean;
@@ -128,6 +394,62 @@ interface Result {
   stream: Exchange | null;
   toolCall: Exchange | null;
   authentic: boolean | null;
+}
+
+function ResultsView(props: { results: Result[] }) {
+  const t = useTranslations();
+  const filter = useUiStore((s) => s.runResultFilter);
+  const setFilter = useUiStore((s) => s.setRunResultFilter);
+  const query = useUiStore((s) => s.runQuery);
+  const setQuery = useUiStore((s) => s.setRunQuery);
+
+  if (props.results.length === 0) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        {t("HISTORY.RUN.EMPTY")}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Select
+          value={filter}
+          onValueChange={(value) => {
+            if (value === null) return;
+            setFilter(value as Filter);
+          }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              {t("HISTORY.RUN.FILTER_ALL")}
+            </SelectItem>
+            <SelectItem value="passed">
+              {t("HISTORY.RUN.FILTER_PASSED")}
+            </SelectItem>
+            <SelectItem value="failed">
+              {t("HISTORY.RUN.FILTER_FAILED")}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t("HISTORY.RUN.FILTER_PLACEHOLDER")}
+          className="max-w-80"
+        />
+      </div>
+      <ResultsTable
+        results={props.results}
+        filter={filter}
+        query={query}
+      />
+    </div>
+  );
 }
 
 function ResultsTable(props: {
@@ -385,5 +707,392 @@ function JsonBlock(props: { data: unknown }) {
     <pre className="bg-muted overflow-x-auto rounded-md p-3 text-xs max-h-96 whitespace-pre-wrap">
       {text}
     </pre>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pricing gate tab — voted canonical + per-source candidates
+// ---------------------------------------------------------------------------
+
+interface PricingGate {
+  exposed: string;
+  vote: {
+    candidates: {
+      source: string;
+      matchedKey?: string;
+      modelRatio?: number;
+      completionRatio?: number;
+      inputUsdPerM?: number;
+      outputUsdPerM?: number;
+    }[];
+    cluster: {
+      members: string[];
+      modelRatio: number;
+      completionRatio: number;
+      inputUsdPerM: number;
+      outputUsdPerM: number;
+    } | null;
+    decision: string;
+  };
+}
+
+function PricingGateView(props: { entries: PricingGate[] }) {
+  const t = useTranslations();
+  const [query, setQuery] = useState("");
+  const [decisionFilter, setDecisionFilter] = useState<string>("all");
+
+  const q = query.trim().toLowerCase();
+  const filtered = props.entries.filter((e) => {
+    if (decisionFilter !== "all" && e.vote.decision !== decisionFilter)
+      return false;
+    if (q && !e.exposed.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Select
+          value={decisionFilter}
+          onValueChange={(v) => v && setDecisionFilter(v)}
+        >
+          <SelectTrigger className="w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              {t("HISTORY.RUN.PRICING.FILTER_ALL")}
+            </SelectItem>
+            <SelectItem value="voted">
+              {t("HISTORY.RUN.PRICING.FILTER_VOTED")}
+            </SelectItem>
+            <SelectItem value="no-majority">
+              {t("HISTORY.RUN.PRICING.FILTER_NO_MAJORITY")}
+            </SelectItem>
+            <SelectItem value="no-matches">
+              {t("HISTORY.RUN.PRICING.FILTER_NO_MATCHES")}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t("HISTORY.RUN.PRICING.FILTER_PLACEHOLDER")}
+          className="max-w-80"
+        />
+        <span className="text-muted-foreground text-xs">
+          {t("HISTORY.RUN.PRICING.COUNT", {
+            shown: filtered.length,
+            total: props.entries.length,
+          })}
+        </span>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-muted-foreground text-sm">
+          {t("HISTORY.RUN.EMPTY")}
+        </p>
+      ) : (
+        <div className="space-y-1">
+          {filtered.map((entry, i) => (
+            <PricingGateRow key={i} entry={entry} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function decisionVariant(
+  decision: string,
+): "default" | "secondary" | "destructive" {
+  if (decision === "voted") return "default";
+  if (decision === "no-majority") return "secondary";
+  return "destructive";
+}
+
+function PricingGateRow(props: { entry: PricingGate }) {
+  const t = useTranslations();
+  const [open, setOpen] = useState(false);
+  const e = props.entry;
+  const cluster = e.vote.cluster;
+  const matchedCount = e.vote.candidates.filter(
+    (c) => c.modelRatio !== undefined,
+  ).length;
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <div className="rounded-md border">
+        <CollapsibleTrigger className="hover:bg-muted/50 flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left text-sm">
+          <ChevronRightIcon
+            className={`size-4 shrink-0 transition-transform duration-200 ${
+              open ? "rotate-90" : ""
+            }`}
+          />
+          <span className="font-mono text-xs flex-1">{e.exposed}</span>
+          <Badge
+            variant={decisionVariant(e.vote.decision)}
+            className="text-[10px]"
+          >
+            {e.vote.decision}
+          </Badge>
+          {cluster ? (
+            <span className="text-muted-foreground font-mono text-xs">
+              ${cluster.inputUsdPerM.toFixed(2)}
+              {" / "}${cluster.outputUsdPerM.toFixed(2)}
+              {" /M ("}
+              {cluster.members.length}
+              {")"}
+            </span>
+          ) : (
+            <span className="text-muted-foreground font-mono text-xs">
+              {t("HISTORY.RUN.PRICING.MATCHED_OF", {
+                matched: matchedCount,
+                total: e.vote.candidates.length,
+              })}
+            </span>
+          )}
+        </CollapsibleTrigger>
+
+        <CollapsiblePanel>
+          <div className="overflow-x-auto border-t">
+            <table className="w-full text-xs">
+              <thead className="text-muted-foreground">
+                <tr className="border-b">
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t("HISTORY.RUN.PRICING.COL_SOURCE")}
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t("HISTORY.RUN.PRICING.COL_KEY")}
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t("HISTORY.RUN.PRICING.COL_INPUT")}
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t("HISTORY.RUN.PRICING.COL_OUTPUT")}
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t("HISTORY.RUN.PRICING.COL_RATIO")}
+                  </th>
+                  <th className="px-3 py-2 text-center font-medium">
+                    {t("HISTORY.RUN.PRICING.COL_IN_CLUSTER")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {e.vote.candidates.map((c, i) => {
+                  const inCluster = cluster?.members.includes(c.source);
+                  return (
+                    <tr
+                      key={i}
+                      className={
+                        inCluster
+                          ? "bg-muted/30 border-b last:border-b-0"
+                          : "border-b last:border-b-0"
+                      }
+                    >
+                      <td className="px-3 py-2 font-mono">{c.source}</td>
+                      <td className="px-3 py-2 font-mono">
+                        {c.matchedKey ?? (
+                          <span className="text-muted-foreground italic">
+                            {t("HISTORY.RUN.PRICING.NO_MATCH")}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        {c.inputUsdPerM !== undefined
+                          ? `$${c.inputUsdPerM.toFixed(2)}`
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        {c.outputUsdPerM !== undefined
+                          ? `$${c.outputUsdPerM.toFixed(2)}`
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        {c.modelRatio !== undefined
+                          ? c.modelRatio.toFixed(4)
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {inCluster ? "✓" : ""}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CollapsiblePanel>
+      </div>
+    </Collapsible>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// OpenRouter endpoints tab — per-model endpoint snapshot
+// ---------------------------------------------------------------------------
+
+interface EndpointsLog {
+  id: string;
+  endpoints: {
+    provider: string;
+    quantization?: string;
+    prompt: number;
+    completion: number;
+    discount: number;
+    effectivePrompt: number;
+    effectiveCompletion: number;
+  }[];
+  picked?: {
+    provider: string;
+    promptUsd: number;
+    completionUsd: number;
+  };
+}
+
+function EndpointsView(props: { entries: EndpointsLog[] }) {
+  const t = useTranslations();
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const filtered = props.entries.filter(
+    (e) => !q || e.id.toLowerCase().includes(q),
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t("HISTORY.RUN.ENDPOINTS.FILTER_PLACEHOLDER")}
+          className="max-w-80"
+        />
+        <span className="text-muted-foreground text-xs">
+          {t("HISTORY.RUN.ENDPOINTS.COUNT", {
+            shown: filtered.length,
+            total: props.entries.length,
+          })}
+        </span>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-muted-foreground text-sm">
+          {t("HISTORY.RUN.EMPTY")}
+        </p>
+      ) : (
+        <div className="space-y-1">
+          {filtered.map((entry, i) => (
+            <EndpointsRow key={i} entry={entry} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EndpointsRow(props: { entry: EndpointsLog }) {
+  const t = useTranslations();
+  const [open, setOpen] = useState(false);
+  const e = props.entry;
+
+  // USD-per-token is hard to read; convert to per-million for display.
+  const toM = (perToken: number) => perToken * 1_000_000;
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <div className="rounded-md border">
+        <CollapsibleTrigger className="hover:bg-muted/50 flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left text-sm">
+          <ChevronRightIcon
+            className={`size-4 shrink-0 transition-transform duration-200 ${
+              open ? "rotate-90" : ""
+            }`}
+          />
+          <span className="font-mono text-xs flex-1">{e.id}</span>
+          <span className="text-muted-foreground font-mono text-xs">
+            {e.endpoints.length}
+          </span>
+          {e.picked ? (
+            <Badge variant="default" className="text-[10px]">
+              ${toM(e.picked.promptUsd).toFixed(2)}
+              {" / "}${toM(e.picked.completionUsd).toFixed(2)}
+              {" /M"}
+            </Badge>
+          ) : null}
+        </CollapsibleTrigger>
+
+        <CollapsiblePanel>
+          <div className="overflow-x-auto border-t">
+            <table className="w-full text-xs">
+              <thead className="text-muted-foreground">
+                <tr className="border-b">
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t("HISTORY.RUN.ENDPOINTS.COL_PROVIDER")}
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t("HISTORY.RUN.ENDPOINTS.COL_QUANT")}
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t("HISTORY.RUN.ENDPOINTS.COL_PROMPT")}
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t("HISTORY.RUN.ENDPOINTS.COL_COMPLETION")}
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t("HISTORY.RUN.ENDPOINTS.COL_DISCOUNT")}
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t("HISTORY.RUN.ENDPOINTS.COL_EFFECTIVE")}
+                  </th>
+                  <th className="px-3 py-2 text-center font-medium">
+                    {t("HISTORY.RUN.ENDPOINTS.COL_PICKED")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {e.endpoints.map((row, i) => {
+                  const picked =
+                    e.picked?.provider === row.provider &&
+                    Math.abs(toM(row.effectivePrompt) - toM(e.picked.promptUsd)) <
+                      1e-9;
+                  return (
+                    <tr
+                      key={i}
+                      className={
+                        picked
+                          ? "bg-muted/30 border-b last:border-b-0"
+                          : "border-b last:border-b-0"
+                      }
+                    >
+                      <td className="px-3 py-2 font-mono">{row.provider}</td>
+                      <td className="px-3 py-2 font-mono">
+                        {row.quantization ?? "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        ${toM(row.prompt).toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        ${toM(row.completion).toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        {row.discount > 0
+                          ? `-${(row.discount * 100).toFixed(0)}%`
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        ${toM(row.effectivePrompt).toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {picked ? "✓" : ""}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CollapsiblePanel>
+      </div>
+    </Collapsible>
   );
 }

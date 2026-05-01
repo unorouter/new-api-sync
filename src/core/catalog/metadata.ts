@@ -428,7 +428,11 @@ export function buildMetadataMap(opts: {
       if (orResult.score < 1.0) {
         orFuzzyHits++;
         consola.debug(
-          `Fuzzy OR: "${modelName}" -> "${orResult.key}" (${orResult.score.toFixed(2)})`,
+          t("CORE.METADATA.FUZZY_OR", {
+            model: modelName,
+            key: orResult.key,
+            score: orResult.score.toFixed(2),
+          }),
         );
       }
     } else {
@@ -442,7 +446,11 @@ export function buildMetadataMap(opts: {
         if (blmResult.score < 1.0) {
           blmFuzzyHits++;
           consola.debug(
-            `Fuzzy BLM desc: "${modelName}" -> "${blmResult.key}" (${blmResult.score.toFixed(2)})`,
+            t("CORE.METADATA.FUZZY_BLM_DESC", {
+              model: modelName,
+              key: blmResult.key,
+              score: blmResult.score.toFixed(2),
+            }),
           );
         }
       }
@@ -453,7 +461,11 @@ export function buildMetadataMap(opts: {
     if (blmResult?.value.tags) {
       if (blmResult.score < 1.0) {
         consola.debug(
-          `Fuzzy BLM tags: "${modelName}" -> "${blmResult.key}" (${blmResult.score.toFixed(2)})`,
+          t("CORE.METADATA.FUZZY_BLM_TAGS", {
+            model: modelName,
+            key: blmResult.key,
+            score: blmResult.score.toFixed(2),
+          }),
         );
       }
       let tags = blmResult.value.tags;

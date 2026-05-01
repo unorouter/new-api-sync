@@ -7,6 +7,7 @@ import {
   type BasellmEntry,
   buildFuzzyIndex,
 } from "@core/catalog/metadata";
+import { t } from "@server/i18n";
 import { consola } from "consola";
 import {
   type BaseModelPricing,
@@ -92,7 +93,7 @@ export function buildBasellmCanonicalSource(
   entries: BasellmEntry[],
 ): PricingSource | null {
   if (entries.length === 0) {
-    consola.warn("[pricing] basellm returned no entries");
+    consola.warn(t("CORE.PRICING.BASELLM_NO_ENTRIES_SOURCE"));
     return null;
   }
 
@@ -129,7 +130,10 @@ export function buildBasellmCanonicalSource(
   }
 
   consola.info(
-    `[pricing] basellm canonical loaded ${pricingMap.size} pricing entries (filtered from ${entries.length} total)`,
+    t("CORE.PRICING.BASELLM_LOADED", {
+      loaded: pricingMap.size,
+      total: entries.length,
+    }),
   );
 
   return {

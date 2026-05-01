@@ -47,7 +47,7 @@ function extractCapabilities(
  * Merge desired capabilities into an existing setting JSON string,
  * preserving any manually configured fields (proxy, system_prompt, etc.).
  */
-export function mergeSettingCapabilities(
+function mergeSettingCapabilities(
   existingSetting: string | undefined,
   desiredSetting: string | undefined,
 ): string | undefined {

@@ -20,8 +20,7 @@ const abortStorage = new AsyncLocalStorage<AbortSignal>();
 
 /**
  * Wrap an async task so code inside its call tree can observe `signal` via
- * `throwIfRunAborted()` / `isRunAborted()`. If `signal` is undefined the
- * helpers become no-ops.
+ * `throwIfRunAborted()`. If `signal` is undefined the helper becomes a no-op.
  */
 export function runWithSignal<T>(
   signal: AbortSignal | undefined,
@@ -33,10 +32,6 @@ export function runWithSignal<T>(
 
 export function throwIfRunAborted(): void {
   abortStorage.getStore()?.throwIfAborted();
-}
-
-export function isRunAborted(): boolean {
-  return abortStorage.getStore()?.aborted ?? false;
 }
 
 // ============ HTTP (ofetch wrapper) ============

@@ -2,6 +2,7 @@ import type { ConfigSchemaType } from "@core/validations/config";
 import { ProviderCommonFields } from "./provider-common-fields";
 import { ProviderNewApiPanel } from "./provider-newapi-panel";
 import { ProviderNvidiaPanel } from "./provider-nvidia-panel";
+import { ProviderOpenRouterPanel } from "./provider-openrouter-panel";
 import { ProviderSub2ApiPanel } from "./provider-sub2api-panel";
 import { providerPath } from "./provider-path";
 import { useTranslations } from "use-intl";
@@ -128,5 +129,6 @@ function renderTypePanel(type: string | undefined, index: number) {
   if (type === "newapi") return <ProviderNewApiPanel index={index} />;
   if (type === "sub2api") return <ProviderSub2ApiPanel index={index} />;
   if (type === "nvidia") return <ProviderNvidiaPanel index={index} />;
+  if (type === "openrouter") return <ProviderOpenRouterPanel index={index} />;
   return null;
 }

@@ -126,8 +126,6 @@ export interface MergedModel {
   cacheRatio?: number;
   /** Cache-write ratio (multiplier vs input ratio). */
   createCacheRatio?: number;
-  /** Source that supplied the pricing for diagnostics. */
-  pricingSource?: PricingSourceName;
 }
 
 // ============ Sync Core Types ============
