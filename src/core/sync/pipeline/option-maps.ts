@@ -4,6 +4,7 @@ import type {
   MergedGroup,
   MergedModel,
 } from "@core/types";
+import { t } from "@server/i18n";
 
 /**
  * Translate the priced plan's merged groups + models into the option maps
@@ -22,7 +23,7 @@ export function buildOptionMaps(
 ): Omit<ManagedOptionMaps, "responsesApiModels" | "defaultUseAutoGroup"> {
   const groupRatio: Record<string, number> = {};
   const userUsableGroups: Record<string, string> = {
-    auto: "Auto (Smart Routing with Failover)",
+    auto: t("CORE.GROUPS.AUTO_LABEL"),
   };
 
   for (const group of mergedGroups) {

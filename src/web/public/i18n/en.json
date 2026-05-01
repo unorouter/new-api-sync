@@ -557,7 +557,18 @@
       "OPENAI_FAILED": "[{prefix}/probe] vendor={vendor} OpenAI shape failed; bucket will be skipped{block}",
       "FALLBACK_OPENAI": "[{prefix}/probe] vendor={vendor} falling back to OpenAI shape (native {shape} rejected by upstream)",
       "SKIPPED_BLOCK": "[{prefix}/probe] vendor={vendor} bucket will be skipped — {reason}",
-      "BOTH_FAILED": "[{prefix}/probe] vendor={vendor} both native ({native}) and OpenAI shapes failed; bucket will be skipped (native: status={ns} {ne}; openai: status={os} {oe})"
+      "BOTH_FAILED": "[{prefix}/probe] vendor={vendor} both native ({native}) and OpenAI shapes failed; bucket will be skipped (native: status={ns} {ne}; openai: status={os} {oe})",
+      "BILLING_BLOCK_CLAUDE_CODE": "Claude Code third-party billing block — upstream account requires manual credit claim at claude.ai/settings/usage"
+    },
+    "APPLY": {
+      "FAIL_CREATE": "failed to create {entity}",
+      "FAIL_UPDATE": "failed to update {entity}",
+      "FAIL_DELETE": "failed to delete {entity}",
+      "FAIL_MISSING_ID": "missing {entity} id for delete",
+      "FAIL_OPTION_UPDATE": "failed to update option"
+    },
+    "GROUPS": {
+      "AUTO_LABEL": "Auto (Smart Routing with Failover)"
     },
     "ERROR": {
       "NO_MODELS_DISCOVERED": "No models discovered. Add an explicit 'models' array to the provider config.",

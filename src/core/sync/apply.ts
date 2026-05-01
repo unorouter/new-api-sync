@@ -5,6 +5,7 @@ import type {
   SyncDiff,
 } from "@core/types";
 import type { NewApiClient } from "@core/vendors/newapi/client";
+import { t } from "@server/i18n";
 
 async function applyEntityOps<T extends { id?: number }>(
   ops: DiffOperation<T>[],
@@ -17,6 +18,7 @@ async function applyEntityOps<T extends { id?: number }>(
   report: { created: number; updated: number; deleted: number },
   errors: ApplyError[],
 ): Promise<void> {
+  const entity = phase.slice(0, -1);
   for (const op of ops) {
     if (op.type === "create") {
       if (await handlers.create(op.value)) {
@@ -25,7 +27,7 @@ async function applyEntityOps<T extends { id?: number }>(
         errors.push({
           phase,
           key: op.key,
-          message: `failed to create ${phase.slice(0, -1)}`,
+          message: t("CORE.APPLY.FAIL_CREATE", { entity }),
         });
       }
       continue;
@@ -38,7 +40,7 @@ async function applyEntityOps<T extends { id?: number }>(
         errors.push({
           phase,
           key: op.key,
-          message: `failed to update ${phase.slice(0, -1)}`,
+          message: t("CORE.APPLY.FAIL_UPDATE", { entity }),
         });
       }
       continue;
@@ -48,7 +50,7 @@ async function applyEntityOps<T extends { id?: number }>(
       errors.push({
         phase,
         key: op.key,
-        message: `missing ${phase.slice(0, -1)} id for delete`,
+        message: t("CORE.APPLY.FAIL_MISSING_ID", { entity }),
       });
       continue;
     }
@@ -59,7 +61,7 @@ async function applyEntityOps<T extends { id?: number }>(
       errors.push({
         phase,
         key: op.key,
-        message: `failed to delete ${phase.slice(0, -1)}`,
+        message: t("CORE.APPLY.FAIL_DELETE", { entity }),
       });
     }
   }
@@ -84,7 +86,7 @@ export async function applySyncDiff(
       report.errors.push({
         phase: "options",
         key: op.key,
-        message: "failed to update option",
+        message: t("CORE.APPLY.FAIL_OPTION_UPDATE"),
       });
     }
   }

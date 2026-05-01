@@ -13,10 +13,9 @@ import type {
   TargetSnapshot,
   Vendor,
 } from "@core/types";
+import { t } from "@server/i18n";
 import { deepEqual } from "fast-equals";
 import stringify from "safe-stable-stringify";
-
-const DEFAULT_AUTO_LABEL = "Auto (Smart Routing with Failover)";
 
 function collectModelsFromChannels(channels: Channel[]): Set<string> {
   const models = new Set<string>();
@@ -205,7 +204,7 @@ function buildManagedOptionValues(
   const mergedUserGroups = mergeProtected(
     parse<Record<string, string>>("UserUsableGroups", {}),
     groupGuard,
-    { auto: DEFAULT_AUTO_LABEL, ...desired.options.userUsableGroups },
+    { auto: t("CORE.GROUPS.AUTO_LABEL"), ...desired.options.userUsableGroups },
   );
   const mergedAutoGroups = [
     ...new Set([

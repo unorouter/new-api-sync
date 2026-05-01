@@ -127,7 +127,7 @@ function detectClaudeCodeBillingBlock(
     text.includes("Third-party apps now draw from your extra usage") ||
     text.includes("draw from your extra usage, not your plan limits")
   ) {
-    return "Claude Code third-party billing block — upstream account requires manual credit claim at claude.ai/settings/usage";
+    return t("CORE.PROBE.BILLING_BLOCK_CLAUDE_CODE");
   }
   return null;
 }
