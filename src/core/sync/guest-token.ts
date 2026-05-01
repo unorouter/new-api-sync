@@ -67,13 +67,14 @@ function isGroupPriceZero(
   model: { name: string; ratio: number; modelPrice?: number; quotaType?: number },
   groupName: string,
 ): boolean {
+  // Per-call pricing: model.modelPrice is only set by parsePricingV1 when the
+  // upstream price is > 0, so any defined value here means the model charges
+  // a flat per-call fee regardless of group ratio. Group ratio still scales
+  // the cost, but a non-zero base * any group ratio > 0 is still non-free.
+  if (model.modelPrice !== undefined && model.modelPrice > 0) return false;
+
   const groupRatio = pricing.groupRatios[groupName] ?? 1;
   if (groupRatio === 0) return true;
-
-  // Per-call pricing (quotaType >= 2): only free when modelPrice is 0.
-  if (model.quotaType !== undefined && model.quotaType >= 2) {
-    return (model.modelPrice ?? 0) === 0;
-  }
 
   const modelRatio = pricing.modelRatios[model.name] ?? model.ratio ?? 0;
   return modelRatio === 0;
