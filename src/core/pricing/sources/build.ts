@@ -1,4 +1,3 @@
-import { bareSlash } from "@core/catalog/naming";
 import type { BaseModelPricing, SourceMetadata } from "./types";
 
 /**
@@ -8,7 +7,10 @@ import type { BaseModelPricing, SourceMetadata } from "./types";
  * (e.g. `anthropic/claude-opus-4.5`) and its slash-stripped bare suffix
  * (`claude-opus-4.5`), preferring the full key on collision (more specific).
  * This lets the resolver fuzzy-match user-supplied bare names while still
- * catching the rare collision where two providers share a bare name.
+ * catching the rare collision where two providers share a bare name. The
+ * slash-stripped form preserves any `:suffix` (e.g. `:free`) because that
+ * suffix carries pricing-relevant info — distinct from `toBareName` in
+ * bare-name.ts which strips it for catalog identity.
  *
  * basellm has its own loop because it filters by canonical vendor and merges
  * across rows; it does NOT use this helper.
@@ -27,7 +29,8 @@ export function buildPricingMaps<T>(opts: {
   for (const [key, entry] of opts.entries) {
     const pricing = opts.toPricing(key, entry);
     const metadata = opts.toMetadata(entry);
-    const bare = bareSlash(key);
+    const slash = key.lastIndexOf("/");
+    const bare = slash >= 0 ? key.slice(slash + 1) : key;
 
     if (pricing) {
       if (!pricingMap.has(key)) pricingMap.set(key, pricing);
