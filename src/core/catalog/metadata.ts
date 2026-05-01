@@ -105,6 +105,42 @@ const STRIPPABLE_SUFFIXES = [
   "-experimental",
 ];
 
+/**
+ * Suffixes that denote a *different priced tier* of the same model family
+ * (faster routing, larger context, paid version, etc.). These MUST NOT be
+ * collapsed when fuzzy-matching: the highspeed/fast/pro/air/flash variant
+ * has its own price separate from the bare model.
+ *
+ * Concrete bug this prevents: looking up `minimax-m2.5-highspeed` against
+ * an index that only has `minimax-m2.5` used to fuzzy-match at score 0.84
+ * (above the 0.75 threshold) via the token-shrink fallback, returning the
+ * bare model's half-price ratio for a tier that costs twice as much.
+ *
+ * If the query has one of these and the candidate doesn't (or vice versa),
+ * the match is rejected even if scores otherwise pass.
+ */
+const TIER_SUFFIXES = [
+  "-highspeed",
+  "-fast",
+  "-pro",
+  "-air",
+  "-flash",
+  "-mini",
+  "-nano",
+  "-turbo",
+  "-lite",
+  "-max",
+  "-ultra",
+  "-plus",
+  "-standard",
+  "-economy",
+  "-coder",
+  "-code",
+  "-vision",
+  "-image",
+  "-audio",
+];
+
 const DATE_SUFFIX_PATTERNS = [
   /-\d{8}$/, // -20250929
   /-\d{4}-\d{2}-\d{2}$/, // -2025-12-11
@@ -112,6 +148,30 @@ const DATE_SUFFIX_PATTERNS = [
   /-\d{2}-\d{2}$/, // -05-06
   /-\d{4}-\d{2}$/, // -2025-03
 ];
+
+/**
+ * Return the tier suffix on a normalized name, or null. Compares against
+ * the normalized form (lowercased, dotted versions dashed, etc.) so the
+ * matcher catches both `MiniMax-M2.5-highspeed` and `minimax-m-2-5-highspeed`.
+ */
+function getTierSuffix(normalized: string): string | null {
+  for (const s of TIER_SUFFIXES) {
+    if (normalized.endsWith(s)) return s;
+  }
+  return null;
+}
+
+/**
+ * True when one name has a tier suffix and the other doesn't, OR when both
+ * have tier suffixes but they differ. This is the "would the resolver land
+ * on a wrong-priced row" check.
+ */
+function tierSuffixMismatch(a: string, b: string): boolean {
+  const sa = getTierSuffix(a);
+  const sb = getTierSuffix(b);
+  if (sa === null && sb === null) return false;
+  return sa !== sb;
+}
 
 /**
  * Normalize a model name for matching:
@@ -203,7 +263,9 @@ export function buildFuzzyIndex<T>(candidates: Map<string, T>): FuzzyIndex<T> {
 /**
  * Find the best matching candidate for a model name.
  * Chain: normalized exact -> stripped query -> stripped candidates -> prefix containment.
- * All non-exact matches verified with similarity >= threshold.
+ * All non-exact matches verified with similarity >= threshold AND must have
+ * matching tier suffix (so `minimax-m2.5-highspeed` never matches the bare
+ * `minimax-m2.5` — different price, different identity).
  */
 function fuzzyLookup<T>(
   name: string,
@@ -220,19 +282,25 @@ function fuzzyLookup<T>(
     return { key: k, value: v };
   };
 
-  // Normalized exact match
+  // Normalized exact match — exact equality short-circuits the tier check
+  // (can't mismatch with itself).
   const exact = index.normalized.get(norm);
   if (exact) {
     const r = resolve(exact);
     if (r) return { ...r, score: 1.0 };
   }
 
+  // Reject any non-exact match where the tier suffix differs between query
+  // and candidate. Centralizes the check so each fallback branch can call it.
+  const tierOk = (candidateKey: string): boolean =>
+    !tierSuffixMismatch(norm, normalize(candidateKey));
+
   // Stripped variants of query
   for (const variant of strippedVariants(norm)) {
     const hit = index.normalized.get(variant);
     if (hit) {
       const r = resolve(hit);
-      if (r) {
+      if (r && tierOk(r.key)) {
         const score = similarity(name, r.key);
         if (score >= threshold) return { ...r, score };
       }
@@ -245,7 +313,7 @@ function fuzzyLookup<T>(
     for (const variant of strippedVariants(cNorm)) {
       if (variant === norm) {
         const r = resolve(originalKeys);
-        if (r) {
+        if (r && tierOk(r.key)) {
           const score = similarity(name, r.key);
           if (score >= threshold && (!best || score > best.score)) {
             best = { ...r, score };
@@ -261,7 +329,7 @@ function fuzzyLookup<T>(
   for (const [cNorm, originalKeys] of index.normalized) {
     if (cNorm.startsWith(norm + "-") || norm.startsWith(cNorm + "-")) {
       const r = resolve(originalKeys);
-      if (r) {
+      if (r && tierOk(r.key)) {
         const score = similarity(name, r.key);
         if (score >= threshold && (!best || score > best.score)) {
           best = { ...r, score };

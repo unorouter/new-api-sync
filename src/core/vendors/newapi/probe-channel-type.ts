@@ -4,7 +4,7 @@ import { inferModelType } from "@core/catalog/constants/inference";
 import { TIMEOUTS } from "@core/types";
 import { getRequestConfig } from "@core/testing/request-configs";
 import { testRequest } from "@core/testing/execution";
-import type { ModelRequestOpts } from "@core/testing/types";
+import type { ModelRequestOpts, TestExchange } from "@core/testing/types";
 
 /**
  * The probe's job is to pick between OpenAI / Anthropic / Gemini text-chat
@@ -92,6 +92,43 @@ export async function probeChannelType(
   return runShapeProbe(opts, textModels, native);
 }
 
+/**
+ * Detect Anthropic's Claude Code "third-party app" billing block — a 4xx
+ * response whose body carries the canonical onboarding/credit-claim message
+ * Anthropic surfaces when a Claude Code subscription is consumed via a
+ * third-party gateway (duck/openclaude-style resellers).
+ *
+ * The bucket is unusable until the subscription owner claims the credit at
+ * claude.ai/settings/usage, but the upstream is otherwise fine. We surface
+ * a clearer warning so the operator knows the action item, instead of just
+ * "HTTP 400 Bad Request" with no signal. Returns the redacted message text
+ * to embed in the warn log, or null when the response doesn't match.
+ */
+function detectClaudeCodeBillingBlock(
+  exchange: TestExchange,
+): string | null {
+  const body = exchange.response;
+  let text = "";
+  if (typeof body === "string") {
+    text = body;
+  } else if (body && typeof body === "object") {
+    try {
+      text = JSON.stringify(body);
+    } catch {
+      return null;
+    }
+  } else {
+    return null;
+  }
+  if (
+    text.includes("Third-party apps now draw from your extra usage") ||
+    text.includes("draw from your extra usage, not your plan limits")
+  ) {
+    return "Claude Code third-party billing block — upstream account requires manual credit claim at claude.ai/settings/usage";
+  }
+  return null;
+}
+
 async function runShapeProbe(
   opts: ProbeOpts,
   textModels: string[],
@@ -102,7 +139,12 @@ async function runShapeProbe(
 
   const probeOnce = async (
     channelType: number,
-  ): Promise<{ pass: boolean; status?: number; error?: string }> => {
+  ): Promise<{
+    pass: boolean;
+    status?: number;
+    error?: string;
+    billingBlockReason?: string;
+  }> => {
     const reqOpts: ModelRequestOpts = {
       baseUrl: opts.baseUrl,
       apiKey: opts.apiKey,
@@ -111,10 +153,14 @@ async function runShapeProbe(
       useResponsesAPI: false,
     };
     const exchange = await testRequest(getRequestConfig(reqOpts), timeoutMs);
+    const billingBlock = exchange.pass
+      ? null
+      : detectClaudeCodeBillingBlock(exchange);
     return {
       pass: exchange.pass,
       status: exchange.status,
       error: exchange.error,
+      billingBlockReason: billingBlock ?? undefined,
     };
   };
 
@@ -124,15 +170,26 @@ async function runShapeProbe(
   // want to fall through to the OpenAI fallback as fast as possible.
   const tryShape = async (
     channelType: number,
-  ): Promise<{ pass: boolean; status?: number; error?: string }> => {
+  ): Promise<{
+    pass: boolean;
+    status?: number;
+    error?: string;
+    billingBlockReason?: string;
+  }> => {
     const backoffsMs = [0, 1_000, 2_000];
-    let last: { pass: boolean; status?: number; error?: string } = {
-      pass: false,
-    };
+    let last: {
+      pass: boolean;
+      status?: number;
+      error?: string;
+      billingBlockReason?: string;
+    } = { pass: false };
     for (const delay of backoffsMs) {
       if (delay > 0) await new Promise((r) => setTimeout(r, delay));
       last = await probeOnce(channelType);
       if (last.pass) return last;
+      // Claude Code third-party billing blocks are not transient — the
+      // upstream account needs manual intervention. Skip retries.
+      if (last.billingBlockReason) return last;
       const transient =
         last.status === undefined ||
         last.status === 429 ||
@@ -161,9 +218,11 @@ async function runShapeProbe(
 
   // No fallback if native already was OpenAI.
   if (native === SHAPE_TYPES.OPENAI) {
+    const blockReason = nativeResult.billingBlockReason;
     consola.warn(
       `[${opts.logPrefix}/probe] vendor=${opts.vendor} OpenAI shape failed; ` +
-        `bucket will be skipped`,
+        `bucket will be skipped` +
+        (blockReason ? ` — ${blockReason}` : ""),
     );
     return null;
   }
@@ -177,12 +236,20 @@ async function runShapeProbe(
     return { channelType: SHAPE_TYPES.OPENAI, shape: "openai-fallback" };
   }
 
-  consola.warn(
-    `[${opts.logPrefix}/probe] vendor=${opts.vendor} both native (${shapeName(native)}) and OpenAI ` +
-      `shapes failed; bucket will be skipped ` +
-      `(native: status=${nativeResult.status ?? "?"} ${nativeResult.error ?? ""}; ` +
-      `openai: status=${fallbackResult.status ?? "?"} ${fallbackResult.error ?? ""})`,
-  );
+  const blockReason =
+    nativeResult.billingBlockReason ?? fallbackResult.billingBlockReason;
+  if (blockReason) {
+    consola.warn(
+      `[${opts.logPrefix}/probe] vendor=${opts.vendor} bucket will be skipped — ${blockReason}`,
+    );
+  } else {
+    consola.warn(
+      `[${opts.logPrefix}/probe] vendor=${opts.vendor} both native (${shapeName(native)}) and OpenAI ` +
+        `shapes failed; bucket will be skipped ` +
+        `(native: status=${nativeResult.status ?? "?"} ${nativeResult.error ?? ""}; ` +
+        `openai: status=${fallbackResult.status ?? "?"} ${fallbackResult.error ?? ""})`,
+    );
+  }
   return null;
 }
 
