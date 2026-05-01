@@ -77,16 +77,25 @@ export function resolveCanonicalByVote(
     return { candidates, cluster: null, decision: "no-matches" };
   }
 
-  // Group by exact modelRatio (bit-equal). Map<ratioKey, candidates>.
+  // Group by modelRatio rounded to 4 decimals (= $0.0001/quota precision).
+  // Sources compute the ratio as `usd_per_M / 2`, which can leave
+  // floating-point artifacts (e.g. 0.1 vs 0.09999999999999999, or
+  // 0.2 vs 0.19999999999999998). Bit-exact equality treats those as
+  // disagreement and turns "all sources agree" into no-majority. Rounding
+  // collapses the noise without absorbing real disagreements (canonical
+  // prices rarely differ by less than 0.0001 between sources).
+  const round = (r: number) => Math.round(r * 10000) / 10000;
   const groups = new Map<number, PricingVoteCandidate[]>();
   for (const c of matched) {
-    const r = c.modelRatio!;
+    const r = round(c.modelRatio!);
     const bucket = groups.get(r);
     if (bucket) bucket.push(c);
     else groups.set(r, [c]);
   }
 
-  // Pick the largest group; tie-break by sum of completionRatio agreement.
+  // Pick the largest group; ties are broken by insertion order (first
+  // ratio key wins via Map iteration order — typically the highest-priority
+  // source's value).
   let best:
     | { ratio: number; members: PricingVoteCandidate[] }
     | undefined;

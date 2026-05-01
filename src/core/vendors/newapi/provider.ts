@@ -113,6 +113,18 @@ function buildCapabilityMap(
 }
 
 /**
+ * Sanity ceiling for the "all buckets above 1x → keep cheapest" rule.
+ * If even the cheapest bucket charges more than this multiple of canonical,
+ * we drop the model entirely instead of shipping at the inflated price.
+ *
+ * Catches upstreams that inflate `model_ratio` for thinking variants
+ * (saw 30x for sonnet-thinking, 20x for opus-thinking in real data).
+ * Real markups in production data top out around 2x; 3x is a comfortable
+ * margin that catches the broken cases without false positives.
+ */
+const CHEAPEST_FALLBACK_MAX = 3;
+
+/**
  * Per-bucket pre-test decision keyed by `groupName|vendor|upstreamModelName`.
  * The planner builds this once for the whole provider before any HTTP tests
  * fire, then each (group, vendor) bucket consults it to filter its models.
@@ -315,9 +327,26 @@ function planPreTestDecisions(opts: {
     // All buckets charge above canonical → keep only the cheapest. We have
     // no source at-or-below 1x, so selling above is the only option; pick
     // the least bad and let new-api show the canonical strikethrough.
+    //
+    // Hard ceiling: even the cheapest must stay within CHEAPEST_FALLBACK_MAX
+    // of canonical, otherwise the upstream is almost certainly broken (e.g.
+    // thinking variants where upstream inflates model_ratio 20-30x to
+    // capture reasoning-output cost). We refuse to ship those — better no
+    // channel than a $90/M Sonnet channel.
     const cheapest = candidates.reduce((min, c) =>
       (c.charge ?? Infinity) < (min.charge ?? Infinity) ? c : min,
     );
+    const maxCheapestRatio = cheapest.charge! / canonical;
+    if (maxCheapestRatio > CHEAPEST_FALLBACK_MAX) {
+      consola.warn(
+        `[pricing] all buckets for ${exposed} on ${opts.providerConfig.name} ` +
+          `exceed ${CHEAPEST_FALLBACK_MAX}x canonical (cheapest=${cheapest.charge!.toFixed(3)}, ` +
+          `canonical=${canonical.toFixed(3)}, ratio=${maxCheapestRatio.toFixed(1)}x); ` +
+          `dropping all — upstream pricing looks broken`,
+      );
+      for (const c of candidates) decisions.set(c.key, "drop");
+      continue;
+    }
     consola.info(
       `[pricing] all buckets above 1x for ${exposed} on ${opts.providerConfig.name}; ` +
         `keeping cheapest ${cheapest.group}/${cheapest.vendor} ` +

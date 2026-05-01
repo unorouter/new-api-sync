@@ -164,35 +164,62 @@ function toMetadata(model: OpenRouterSummaryModel): SourceMetadata {
 /**
  * Pick the canonical pricing for a model from its endpoint list.
  *
- * Strategy: take `max(prompt * (1 - discount))` across all healthy endpoints.
- * The DeepSeek-direct endpoint may serve at a 75%-off promo price; competing
- * providers (SiliconFlow, Parasail, AtlasCloud) typically list the actual
- * upstream rate. The max defends against single-source promos while still
- * being a real, observable price someone is charging.
+ * Strategy: take the *median* prompt and completion across endpoints. The
+ * median is what most providers charge, which is the closest signal we have
+ * to "real list price."
+ *
+ * Why not max: the highest endpoint is often a single outlier (e.g. Venice
+ * at $1.75 while 11 of 15 providers charge $1.40 for glm-5.1, or Together
+ * at $2.10 while 5 of 7 charge $1.74 for deepseek-v4-pro). Max ends up
+ * sitting *above* the dominant cluster and prevents the voter from forming
+ * a majority with basellm.
+ *
+ * Why not min: the cheapest endpoint is often a promo (DeepSeek-direct at
+ * $0.435/M while everyone else charges $1.74 for the same V4-Pro model).
+ * Min directly imports the promo into our canonical.
+ *
+ * Median picks the dominant cluster without being skewed by single-endpoint
+ * outliers in either direction. Provider name returned is the endpoint
+ * whose prompt is closest to the median, for the trace.
  */
 function pickCanonicalEndpoint(
   endpoints: OpenRouterEndpoint[],
 ): { promptUsd: number; completionUsd: number; provider: string } | undefined {
-  let best:
-    | { promptUsd: number; completionUsd: number; provider: string }
-    | undefined;
+  // Collect (prompt, completion, provider) triples for endpoints with valid
+  // prices. Carry the per-endpoint pair so completion uses the same row's
+  // value when we land on a specific median entry.
+  interface Row {
+    prompt: number;
+    completion: number;
+    provider: string;
+  }
+  const rows: Row[] = [];
   for (const ep of endpoints) {
     const prompt = parseUsdPerToken(ep.pricing?.prompt);
     if (prompt == null || prompt <= 0) continue;
     const discount = ep.pricing?.discount ?? 0;
     const effectivePrompt = prompt * (1 - discount);
-    if (!best || effectivePrompt > best.promptUsd) {
-      const completion = parseUsdPerToken(ep.pricing?.completion);
-      const effectiveCompletion =
-        completion != null ? completion * (1 - discount) : prompt * (1 - discount);
-      best = {
-        promptUsd: effectivePrompt,
-        completionUsd: effectiveCompletion,
-        provider: ep.provider_name,
-      };
-    }
+    const completion = parseUsdPerToken(ep.pricing?.completion);
+    const effectiveCompletion =
+      completion != null ? completion * (1 - discount) : effectivePrompt;
+    rows.push({
+      prompt: effectivePrompt,
+      completion: effectiveCompletion,
+      provider: ep.provider_name,
+    });
   }
-  return best;
+  if (rows.length === 0) return undefined;
+
+  // Median by prompt. With even counts we pick the upper-middle entry rather
+  // than averaging — the model's actual price is whichever discrete value
+  // dominates, not a synthetic mean that no provider charges.
+  rows.sort((a, b) => a.prompt - b.prompt);
+  const medianRow = rows[Math.floor(rows.length / 2)]!;
+  return {
+    promptUsd: medianRow.prompt,
+    completionUsd: medianRow.completion,
+    provider: medianRow.provider,
+  };
 }
 
 async function fetchEndpointsForModel(

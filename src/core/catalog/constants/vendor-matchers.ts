@@ -103,7 +103,11 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   },
   zhipu: {
     modelPatterns: ["glm-", "glm4", "glm5", "glm6", "chatglm"],
-    nameAliases: ["智谱", "zhipu ai", "chatglm"],
+    // basellm splits this vendor across two rows ("Zhipu AI" and "Z.AI")
+    // for the same company. We accept both so the canonical filter keeps
+    // the cheaper / more accurate row (e.g. glm-5.1 lists Z.AI at $1.40/M
+    // while Zhipu AI shows a stale $6/M).
+    nameAliases: ["智谱", "zhipu ai", "chatglm", "z.ai", "z-ai", "zai"],
     displayName: "Zhipu",
     icon: "Zhipu.Color",
   },

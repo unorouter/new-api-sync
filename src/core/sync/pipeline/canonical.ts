@@ -1,17 +1,19 @@
 import type { UpstreamOffer } from "@core/pricing/offers";
-import { resolveBasePricing, type PricingSource } from "@core/pricing/resolver";
+import type { PricingSource } from "@core/pricing/resolver";
 import type { BaselineInputs } from "@core/pricing/types";
+import { resolveCanonicalByVote } from "@core/pricing/vote";
 
 /**
  * Build the canonical retail map up front (one lookup per unique exposed
- * model across all offers + baseline). Compute uses this for canonical
- * override and the 1x ceiling.
+ * model across all offers + baseline). Compute uses this for the strikethrough
+ * "original price" surfaced in the new-api UI and for written-ratio rescaling.
  *
- * Voting (resolveCanonicalByVote) is the source of truth used by the
- * pre-test gate. resolveBasePricing here returns the priority-chain first
- * hit, which is good enough for the post-test compute pass — if compute's
- * canonical disagrees with the voted one, the cap-exceeded drop list catches
- * the gap and the operator can audit via the testing log.
+ * Uses the voter (not priority-chain first-hit) so models where sources
+ * disagree by more than rounding noise get NO canonical entry rather than a
+ * wrong one. Concretely: glm-5.1 has basellm=3 ($6/M, Zhipu's published list)
+ * vs OpenRouter=0.875 ($1.75/M, what every reseller actually charges) — no
+ * cluster forms, so we don't write a value, and the UI shows the live price
+ * with no strikethrough instead of an inflated $6 origin.
  */
 export function resolveCanonicalRetail(opts: {
   allOffers: UpstreamOffer[];
@@ -28,8 +30,12 @@ export function resolveCanonicalRetail(opts: {
   for (const m of opts.baseline.modelRatios.keys()) seenModels.add(m);
 
   for (const m of seenModels) {
-    const hit = resolveBasePricing(m, opts.pricingSources, opts.reverseMapping);
-    if (hit) canonical.set(m, hit.modelRatio);
+    const vote = resolveCanonicalByVote(
+      m,
+      opts.pricingSources,
+      opts.reverseMapping,
+    );
+    if (vote.cluster) canonical.set(m, vote.cluster.modelRatio);
   }
 
   return canonical;
