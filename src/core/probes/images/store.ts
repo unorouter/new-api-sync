@@ -149,6 +149,10 @@ const DRY_RUN_PATH = () => join(process.cwd(), "logs", "images-dry-run.json");
 
 export interface DryRunCandidate {
   model: string;
+  /** Canonical key shared with all `aliases` (after slug-variant collapse). */
+  canonicalKey: string;
+  /** Other slugs on this provider that collapsed into this representative. */
+  aliases?: string[];
   kind: ProbeKind;
   endpointTypes: string[];
   tags?: string[];

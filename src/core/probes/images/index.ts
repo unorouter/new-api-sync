@@ -509,6 +509,8 @@ function buildDryRunProvider(opts: {
       .sort(compareChannelsForProbe);
     return {
       model: c.modelName,
+      canonicalKey: c.canonicalKey,
+      aliases: c.aliases,
       kind: c.kind,
       endpointTypes: c.endpointTypes,
       tags: c.tags,

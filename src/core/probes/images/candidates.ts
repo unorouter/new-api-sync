@@ -1,4 +1,5 @@
 import type { UpstreamPricing } from "@core/vendors/newapi/types";
+import { canonicalize, pickRepresentative } from "./canonicalize";
 
 /**
  * Three-flavor probe routing. Determined by the model's exposed endpoint
@@ -10,6 +11,12 @@ export type ProbeKind = "sync" | "openai-vendor" | "task";
 export interface Candidate {
   providerName: string;
   modelName: string;
+  /**
+   * Canonicalized form of `modelName` used for cross-slug dedup within a
+   * provider. Different gateway aliases of the same upstream (e.g.
+   * `recraft-v3`, `recraftv3`, `recraft-ai/recraft-v3`) share a key.
+   */
+  canonicalKey: string;
   kind: ProbeKind;
   endpointTypes: string[];
   vendorId?: number;
@@ -17,6 +24,12 @@ export interface Candidate {
   tags?: string[];
   /** Human-readable reasons the model qualified, for the dry-run report. */
   reasons: string[];
+  /**
+   * Other modelName slugs that mapped to the same canonical key on this
+   * provider. We probe one representative; the rest are listed for the
+   * dry-run report. Empty when no aliases exist.
+   */
+  aliases?: string[];
 }
 
 export interface ExclusionEntry {
@@ -40,6 +53,7 @@ export interface DiscoveryReport {
  * `modelName.toLowerCase()`.
  */
 const NAME_ALLOWLIST_PATTERNS = [
+  // Existing 15 vendor families
   "gpt-image",
   "qwen-image-edit",
   "qwen/qwen-image-edit",
@@ -61,6 +75,26 @@ const NAME_ALLOWLIST_PATTERNS = [
   "vidu",
   "chatgpt-image",
   "doubao-seedream",
+  // Added: vendors discovered via getcheapai cross-check
+  "recraft",
+  "ideogram",
+  "stable-diffusion",
+  "sd-3",
+  "sd3",
+  "hunyuan-image",
+  "hunyuanimage",
+  "mai-image",
+  "runway",
+  "runwayml",
+  "luma",
+  "ray-2",
+  "photon",
+  "image-01",
+  "minimax-image",
+  "krea",
+  "firefly",
+  "bagel",
+  "fal-ai/",
 ] as const;
 
 /**
@@ -172,6 +206,7 @@ export function discoverCandidates(opts: DiscoverOpts): DiscoveryReport {
     candidates.push({
       providerName: opts.providerName,
       modelName: m.name,
+      canonicalKey: canonicalize(m.name),
       kind,
       endpointTypes: eps,
       vendorId: m.vendorId,
@@ -180,7 +215,30 @@ export function discoverCandidates(opts: DiscoverOpts): DiscoveryReport {
     });
   }
 
-  return { candidates, excluded };
+  // Per-provider dedup: collapse slug variants of the same upstream into
+  // one Candidate per canonical key. The "winning" entry is the shortest
+  // modelName (heuristic that filters out date-stamped / -all / -vip
+  // variants when the bare name is also present); the rest become aliases
+  // listed in the dry-run report.
+  const grouped = new Map<string, Candidate[]>();
+  for (const c of candidates) {
+    const arr = grouped.get(c.canonicalKey);
+    if (arr) arr.push(c);
+    else grouped.set(c.canonicalKey, [c]);
+  }
+  const deduped: Candidate[] = [];
+  for (const [, group] of grouped) {
+    const winner = pickRepresentative(group);
+    const aliases = group
+      .filter((c) => c.modelName !== winner.modelName)
+      .map((c) => c.modelName);
+    deduped.push({
+      ...winner,
+      aliases: aliases.length > 0 ? aliases : undefined,
+    });
+  }
+
+  return { candidates: deduped, excluded };
 }
 
 /**
@@ -221,15 +279,39 @@ function pickKind(endpointTypes: string[], lowerName: string): ProbeKind | undef
   if (endpointTypes.includes("openai-image")) return "sync";
 
   if (endpointTypes.length === 0 || endpointTypes.every((e) => e === "openai")) {
-    // No endpoint metadata — infer from name. gpt-image / chatgpt-image /
-    // imagen go through OpenAI's image-edit endpoint. Everything else with
-    // a name hit defaults to "openai-vendor" (chat-completions multimodal).
+    // No endpoint metadata — infer from name.
+    // Sync path (true /v1/images/edits surface): vendors that ship the
+    // OpenAI-image-edit shape directly via new-api translation.
     if (
       lowerName.includes("gpt-image") ||
       lowerName.includes("chatgpt-image") ||
-      lowerName.includes("imagen")
+      lowerName.includes("imagen") ||
+      lowerName.includes("recraft") ||
+      lowerName.includes("ideogram") ||
+      lowerName.includes("stable-diffusion") ||
+      lowerName.includes("sd-3") ||
+      lowerName.includes("sd3") ||
+      lowerName.includes("mai-image") ||
+      lowerName.includes("firefly") ||
+      lowerName.includes("krea") ||
+      lowerName.includes("flux-1.1") ||
+      lowerName.includes("flux-2") ||
+      lowerName.includes("flux-pro") ||
+      lowerName.includes("flux-schnell") ||
+      lowerName.includes("flux-dev")
     ) {
       return "sync";
+    }
+    // Task path (submit + poll): video models that go through /v1/videos.
+    if (
+      lowerName.includes("runway") ||
+      lowerName.includes("runwayml") ||
+      lowerName.includes("ray-2") ||
+      lowerName.includes("luma_video") ||
+      lowerName.includes("luma-video") ||
+      lowerName.includes("photon")
+    ) {
+      return "task";
     }
     return "openai-vendor";
   }
