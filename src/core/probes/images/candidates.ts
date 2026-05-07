@@ -68,11 +68,10 @@ const NAME_ALLOWLIST_PATTERNS = [
   "mj_edits",
   "mj_blend",
   "mj_variation",
-  "kling-v",
-  "kling-image",
+  "kling-image",   // kling-image-* are image models; kling-v* / kling-video* are video (excluded)
+  "kling-omni",    // kling-v3-omni is multimodal image-edit (matches via canonicalize too)
   "wan2",
   "wan-",
-  "vidu",
   "chatgpt-image",
   "doubao-seedream",
   // Added: vendors discovered via getcheapai cross-check
@@ -150,25 +149,69 @@ const NAME_EXCLUSION_PATTERNS = [
   "video-to-audio", // kling-video-to-audio (video -> audio)
   "voice-design",
   "voice-clone",
+  // Video models: any model that produces video output. The probe targets
+  // image-edit (still output) only - video gen accepts 1-2 refs at most
+  // for image-to-video, can't compose 6 character refs into a scene, and
+  // burns disproportionate budget per call. Match aggressively to catch
+  // every video naming convention seen in the catalogs.
+  "-t2v",          // text-to-video: wan2.5-t2v-preview
+  "t2v-",          // wan2.2-t2v-plus, t2v-models
+  "-i2v",          // image-to-video: wan2.6-i2v, wan2.2-i2v-flash
+  "i2v-",
+  "-r2v",          // reference-to-video: wan2.6-r2v, vidu r2v
+  "r2v-",
+  "-s2v",          // scene-to-video / speech-to-video
+  "s2v-",
+  "-kf2v",         // keyframe-to-video: wan2.2-kf2v-flash
+  "kf2v-",
+  "text-to-video",
+  "image-to-video",
+  "reference-to-video",
+  "video-extend",  // kling-video-extend (already in legacy list, kept)
+  "-animate",      // wan2.2-animate-mix, wan2.2-animate-move
+  "animate-",
+  "video2video",   // runway-video2video, runway_duomi-video2video
+  "veo",           // veo2/veo3/veo3.1 - all text/image-to-video
+  "luma-ray",      // luma-ray-2, luma-ray-2-flash - video models
+  "ray-2",
+  "luma-video",
+  "luma-dream-machine",
+  "runway-",       // runway-aleph, runway-act-one, runway-act-two, runway-gen3/4
+  "runway_",       // runway_duomi, runway_video2video (underscore form)
+  "runwayml-",     // runwayml-gen3a, runwayml-gen4
+  "runwayml_",
+  "kling-video",   // kling-video-pro, kling-video-std, kling-video-o1
+  "doubao-seedance", // ByteDance Seedance is video
+  "seedance",
+  "hailuo",        // MiniMax Hailuo video
+  "mingmou",       // Mingmou-1.0 (666 video)
+  "happyhorse",    // happyhorse-1.0-t2v/i2v/r2v
+  "-video-",       // any -video- in the middle is a video model variant
+  "openai-video",  // generic
+  "kling-avatar",  // kling-avatar-image2video
+  "vidu",          // all Vidu models are video (vidu1.5, viduq1, viduq2-turbo, etc.)
+  "luma",          // all Luma models are video (luma_video, luma-vip-video, ray-2*)
   // Single-input image-to-image utilities (upscale / inpaint / outpaint /
-  // extend / nomark). These accept exactly 1 image + (optional mask), so a
-  // 6-ref probe will fail with "expected 1, got 6" 100% of the time.
-  // Leaving them in just burns budget on guaranteed failures.
+  // vectorize). These accept exactly 1 image + (optional mask) so the
+  // probe-sync 6-ref multipart will fail. We still want them in the
+  // probe-openai-vendor flow potentially, but most are upstream-managed
+  // utility ops not generation. Excluding for now.
   "upscale",
   "inpaint",
   "outpaint",
-  "_extend",       // luma_extend (yun-style underscore form)
-  "-extend",
-  "_nomark",       // luma_nomark
-  "-nomark",
-  "vectorize",     // recraft-vectorize: PNG -> SVG, single input only
-  "create-style",  // recraft-create-style: builds a style ref, not gen
+  "vectorize",
+  "create-style",
 ] as const;
 
 /**
  * Endpoint type values that signal an image-edit or image-output capability.
  * Sourced from the live `supported_endpoint_types` arrays of aigc and yun
  * pricing responses.
+ *
+ * NOTE: `openai-video` is intentionally NOT here. We probe still-image
+ * surfaces only - video models accept 1-2 refs at most, can't compose 6
+ * character images into a scene, and burn disproportionate budget per
+ * call. Models routed via `openai-video` are excluded entirely below.
  */
 const ENDPOINT_HINTS = new Set([
   "image-generation",
@@ -176,7 +219,15 @@ const ENDPOINT_HINTS = new Set([
   "aigc-image",
   "aigc-image-edit",
   "openai-image",
-  "openai-video",
+]);
+
+/**
+ * Endpoint values that ALWAYS exclude a model regardless of name match.
+ * Anything self-tagging as a video endpoint is a video model.
+ */
+const ENDPOINT_EXCLUSIONS = new Set([
+  "openai-video",  // standard new-api video task surface
+  "omni-video",    // yun-style alternate video endpoint
 ]);
 
 // ---------------------------------------------------------------------------
@@ -223,9 +274,22 @@ export function discoverCandidates(opts: DiscoverOpts): DiscoveryReport {
       continue;
     }
 
+    // 2b. Endpoint-based exclusion. A model self-tagging with `openai-video`
+    //     IS a video model regardless of name. Catches video SKUs whose
+    //     names don't follow the -i2v / -t2v / kling-video- conventions
+    //     (e.g. bare `Kling-O1`, `GV-3.1`, `SV-1.5-pro`).
+    const eps = m.supportedEndpoints ?? [];
+    const epExclusion = eps.find((e) => ENDPOINT_EXCLUSIONS.has(e));
+    if (epExclusion) {
+      excluded.push({
+        modelName: m.name,
+        reason: `endpoint-exclusion:${epExclusion}`,
+      });
+      continue;
+    }
+
     // 3. Collect signals.
     const reasons: string[] = [];
-    const eps = m.supportedEndpoints ?? [];
     const epHits = eps.filter((e) => ENDPOINT_HINTS.has(e));
     if (epHits.length > 0) reasons.push(`endpoint:${epHits.join(",")}`);
 
