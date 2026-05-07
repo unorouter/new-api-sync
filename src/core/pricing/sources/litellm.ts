@@ -27,6 +27,7 @@ interface LiteLLMEntry {
   supports_vision?: boolean;
   supports_image_input?: boolean;
   supports_audio_input?: boolean;
+  supports_audio_output?: boolean;
   supports_video_input?: boolean;
   supports_pdf_input?: boolean;
   supports_reasoning?: boolean;
@@ -34,6 +35,19 @@ interface LiteLLMEntry {
   supports_response_schema?: boolean;
   supports_web_search?: boolean;
   supports_computer_use?: boolean;
+  supports_assistant_prefill?: boolean;
+  supports_code_execution?: boolean;
+  supports_file_search?: boolean;
+  supports_service_tier?: boolean;
+  supports_url_context?: boolean;
+  supports_native_streaming?: boolean;
+  supports_native_structured_output?: boolean;
+  supports_system_messages?: boolean;
+  supports_none_reasoning_effort?: boolean;
+  supports_minimal_reasoning_effort?: boolean;
+  supports_low_reasoning_effort?: boolean;
+  supports_max_reasoning_effort?: boolean;
+  supports_xhigh_reasoning_effort?: boolean;
   deprecation_date?: string;
 }
 
@@ -95,8 +109,45 @@ function toMetadata(entry: LiteLLMEntry): SourceMetadata {
     md.supportsWebSearch = entry.supports_web_search;
   if (entry.supports_computer_use != null)
     md.supportsComputerUse = entry.supports_computer_use;
+  if (entry.supports_assistant_prefill != null)
+    md.supportsAssistantPrefill = entry.supports_assistant_prefill;
+  if (entry.supports_code_execution != null)
+    md.supportsCodeExecution = entry.supports_code_execution;
+  if (entry.supports_file_search != null)
+    md.supportsFileSearch = entry.supports_file_search;
+  if (entry.supports_service_tier != null)
+    md.supportsServiceTier = entry.supports_service_tier;
+  if (entry.supports_url_context != null)
+    md.supportsUrlContext = entry.supports_url_context;
+  if (entry.supports_audio_output != null)
+    md.supportsAudioOutput = entry.supports_audio_output;
+  if (entry.supports_native_streaming != null)
+    md.supportsNativeStreaming = entry.supports_native_streaming;
+  if (entry.supports_native_structured_output != null)
+    md.supportsNativeStructuredOutput = entry.supports_native_structured_output;
+  if (entry.supports_system_messages != null)
+    md.supportsSystemMessages = entry.supports_system_messages;
   if (entry.mode) md.mode = entry.mode;
   if (entry.deprecation_date) md.deprecationDate = entry.deprecation_date;
+
+  // Reasoning effort granularity. LiteLLM publishes flags for the off-baseline
+  // levels (none, minimal, max, xhigh, low). When `low` is supported we infer
+  // the OpenAI baseline of {low, medium, high} since they're a single tier in
+  // OAI's API. Only emit the array when at least one effort level is known.
+  const efforts: NonNullable<SourceMetadata["reasoningEfforts"]> = [];
+  if (entry.supports_none_reasoning_effort) efforts.push("none");
+  if (entry.supports_minimal_reasoning_effort) efforts.push("minimal");
+  if (entry.supports_low_reasoning_effort) {
+    efforts.push("low", "medium", "high");
+  }
+  if (entry.supports_max_reasoning_effort) efforts.push("max");
+  if (entry.supports_xhigh_reasoning_effort && !efforts.includes("max")) {
+    // xhigh is anthropic-flavored "extreme"; keep as max for the unified UI.
+    efforts.push("max");
+  }
+  if (efforts.length > 0) {
+    md.reasoningEfforts = [...new Set(efforts)] as typeof efforts;
+  }
   return md;
 }
 

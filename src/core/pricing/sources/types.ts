@@ -70,6 +70,62 @@ export interface SourceMetadata {
   mode?: string;
   /** Free-form description (OpenRouter / basellm). */
   description?: string;
+
+  // -- Sampler / parameter awareness (OpenRouter-derived) -------------------
+
+  /**
+   * Conservative list of OpenAI-compatible parameters supported by ALL
+   * upstream endpoints serving this model on OpenRouter (intersection).
+   * Drives the unorouter UI's gray-out logic for sampler sliders.
+   */
+  supportedParameters?: string[];
+  /**
+   * Permissive list: union of supported_parameters across all OpenRouter
+   * endpoints. For an "expert mode" toggle. supportedParameters is a subset.
+   */
+  supportedParametersAll?: string[];
+  /**
+   * OpenRouter's default_parameters payload. `null` values flag samplers OR
+   * explicitly recommends NOT sending (the model rejects them).
+   */
+  defaultParameters?: Record<string, number | null>;
+
+  // -- Reasoning effort granularity (LiteLLM-derived) -----------------------
+
+  /** Effort levels the model accepts on `reasoning_effort`. */
+  reasoningEfforts?: ("none" | "minimal" | "low" | "medium" | "high" | "max")[];
+
+  // -- Lifecycle / quality --------------------------------------------------
+
+  /** Model EOL date (OpenRouter). */
+  expirationDate?: string;
+  /** OR's `top_provider.is_moderated` flag. */
+  isModerated?: boolean;
+  /** Hugging Face model id, when known (OpenRouter). */
+  huggingFaceId?: string;
+  /** Quantization of the picked OR endpoint (e.g. "fp16", "fp8", "Q4_K_M"). */
+  quantization?: string;
+
+  // -- Additional capability flags (LiteLLM) --------------------------------
+
+  /** Supports prefilling the assistant turn (Anthropic-style). */
+  supportsAssistantPrefill?: boolean;
+  /** Supports server-side code execution tool. */
+  supportsCodeExecution?: boolean;
+  /** Supports server-side file search tool. */
+  supportsFileSearch?: boolean;
+  /** Supports OpenAI service-tier routing parameter. */
+  supportsServiceTier?: boolean;
+  /** Supports OpenAI url_context tool. */
+  supportsUrlContext?: boolean;
+  /** Supports audio output (e.g. gpt-4o-audio-preview). */
+  supportsAudioOutput?: boolean;
+  /** Supports native streaming. */
+  supportsNativeStreaming?: boolean;
+  /** Supports native structured output (JSON schema). */
+  supportsNativeStructuredOutput?: boolean;
+  /** Supports OpenAI-style system messages role. */
+  supportsSystemMessages?: boolean;
 }
 
 /**

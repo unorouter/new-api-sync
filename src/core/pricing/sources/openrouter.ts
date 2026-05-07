@@ -34,6 +34,8 @@ interface OpenRouterSummaryModel {
   description?: string;
   context_length?: number;
   knowledge_cutoff?: string | null;
+  expiration_date?: string | null;
+  hugging_face_id?: string | null;
   pricing?: {
     prompt?: string;
     completion?: string;
@@ -43,8 +45,15 @@ interface OpenRouterSummaryModel {
   top_provider?: {
     context_length?: number;
     max_completion_tokens?: number;
+    is_moderated?: boolean;
   };
   supported_parameters?: string[];
+  /**
+   * OR's recommended defaults. `null` here means OR explicitly says "don't
+   * send this knob, the model rejects it" — useful even when the same key
+   * appears in `supported_parameters` (the union across endpoints).
+   */
+  default_parameters?: Record<string, number | null>;
   architecture?: {
     modality?: string;
     input_modalities?: string[];
@@ -56,6 +65,13 @@ interface OpenRouterSummaryModel {
 interface OpenRouterEndpoint {
   provider_name: string;
   quantization?: string;
+  /**
+   * Per-endpoint supported parameter list. Differs from the model-level
+   * union: e.g. Bedrock-Claude excludes min_p / penalties even though
+   * Anthropic-direct exposes some. Intersecting these gives us the safe
+   * set across all endpoints serving this model.
+   */
+  supported_parameters?: string[];
   pricing?: {
     /** USD per token for input / prompt. */
     prompt?: string;
@@ -79,6 +95,8 @@ export interface OpenRouterEndpointsTrace {
   endpoints: Array<{
     provider: string;
     quantization?: string;
+    /** Per-endpoint supported_parameters from OR. Used for sampler intersection. */
+    supportedParameters?: string[];
     prompt: number;
     completion: number;
     discount: number;
@@ -92,6 +110,8 @@ export interface OpenRouterEndpointsTrace {
     provider: string;
     promptUsd: number;
     completionUsd: number;
+    /** Picked endpoint's quantization, surfaced for metadata. */
+    quantization?: string;
   };
 }
 
@@ -110,6 +130,14 @@ function parseUsdPerToken(s: string | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/**
+ * Build the SourceMetadata for one OR model.
+ *
+ * `supportedParameters` (intersection across all endpoints with valid pricing)
+ * and `supportedParametersAll` (union) come from the per-endpoint trace, NOT
+ * the model-level union OR exposes — that would lie in the common case where
+ * one endpoint accepts a sampler nobody else does.
+ */
 function toMetadata(model: OpenRouterSummaryModel): SourceMetadata {
   const md: SourceMetadata = {};
   const ctx = model.top_provider?.context_length ?? model.context_length;
@@ -146,6 +174,40 @@ function toMetadata(model: OpenRouterSummaryModel): SourceMetadata {
   if (model.pricing?.input_cache_read) md.supportsCache = true;
   if (model.knowledge_cutoff) md.knowledgeCutoff = model.knowledge_cutoff;
   if (model.description) md.description = model.description;
+  if (model.expiration_date) md.expirationDate = model.expiration_date;
+  if (model.top_provider?.is_moderated != null)
+    md.isModerated = model.top_provider.is_moderated;
+  if (model.hugging_face_id) md.huggingFaceId = model.hugging_face_id;
+  if (model.default_parameters && Object.keys(model.default_parameters).length)
+    md.defaultParameters = model.default_parameters;
+
+  // Intersection / union of per-endpoint supported_parameters. Falls back to
+  // the model-level union (params) when no per-endpoint data is present.
+  const trace = endpointTraces.get(model.id);
+  if (trace?.endpoints && trace.endpoints.length > 0) {
+    const lists = trace.endpoints
+      .map((e) => e.supportedParameters)
+      .filter((l): l is string[] => Array.isArray(l) && l.length > 0);
+    if (lists.length > 0) {
+      const union = new Set<string>();
+      for (const l of lists) for (const p of l) union.add(p);
+      const intersection = lists.reduce<Set<string>>(
+        (acc, l) => new Set(l.filter((p) => acc.has(p))),
+        new Set(lists[0]),
+      );
+      md.supportedParametersAll = [...union].sort();
+      md.supportedParameters = [...intersection].sort();
+    }
+    if (trace.picked?.quantization)
+      md.quantization = trace.picked.quantization;
+  }
+  // If no per-endpoint data but the model-level union is available, still
+  // surface it as both fields (intersection == union for a single-endpoint
+  // view of the world).
+  if (!md.supportedParameters && params.length > 0) {
+    md.supportedParameters = [...params].sort();
+    md.supportedParametersAll = md.supportedParameters;
+  }
   return md;
 }
 
@@ -170,9 +232,14 @@ function toMetadata(model: OpenRouterSummaryModel): SourceMetadata {
  * outliers in either direction. Provider name returned is the endpoint
  * whose prompt is closest to the median, for the trace.
  */
-function pickCanonicalEndpoint(
-  endpoints: OpenRouterEndpoint[],
-): { promptUsd: number; completionUsd: number; provider: string } | undefined {
+function pickCanonicalEndpoint(endpoints: OpenRouterEndpoint[]):
+  | {
+      promptUsd: number;
+      completionUsd: number;
+      provider: string;
+      quantization?: string;
+    }
+  | undefined {
   // Collect (prompt, completion, provider) triples for endpoints with valid
   // prices. Carry the per-endpoint pair so completion uses the same row's
   // value when we land on a specific median entry.
@@ -180,6 +247,7 @@ function pickCanonicalEndpoint(
     prompt: number;
     completion: number;
     provider: string;
+    quantization?: string;
   }
   const rows: Row[] = [];
   for (const ep of endpoints) {
@@ -194,6 +262,7 @@ function pickCanonicalEndpoint(
       prompt: effectivePrompt,
       completion: effectiveCompletion,
       provider: ep.provider_name,
+      quantization: ep.quantization,
     });
   }
   if (rows.length === 0) return undefined;
@@ -207,6 +276,7 @@ function pickCanonicalEndpoint(
     promptUsd: medianRow.prompt,
     completionUsd: medianRow.completion,
     provider: medianRow.provider,
+    quantization: medianRow.quantization,
   };
 }
 
@@ -231,6 +301,7 @@ async function fetchEndpointsForModel(
     trace.endpoints.push({
       provider: ep.provider_name,
       quantization: ep.quantization,
+      supportedParameters: ep.supported_parameters,
       prompt,
       completion: completion ?? prompt,
       discount,
