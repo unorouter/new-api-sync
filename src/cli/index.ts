@@ -1,4 +1,5 @@
 import { applyModelFilter, applyOnlyProviders, loadConfig } from "@core/config";
+import { runImageProbe } from "@core/probes/images";
 import { runReset } from "@core/sync/reset";
 import { printResetSummary, printRunSummary, runSync } from "@core/sync/run";
 import { readLocaleFromGlobal, setLocale, t } from "@server/i18n";
@@ -73,6 +74,55 @@ program
         onlyProviders: options.only.length > 0,
       });
       printResetSummary(result);
+    },
+  );
+
+program
+  .command("images")
+  .description(t("CLI.COMMAND.IMAGES_DESC"))
+  .option("-c, --config <path>", t("CLI.OPTION.CONFIG_PATH"))
+  .option(
+    "--only <providers>",
+    t("CLI.OPTION.ONLY_PROVIDERS"),
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[],
+  )
+  .option(
+    "--models <globs>",
+    t("CLI.OPTION.ONLY_MODELS"),
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[],
+  )
+  .option("--dry-run", t("CLI.OPTION.IMAGES_DRY_RUN"))
+  .option("--yes", t("CLI.OPTION.IMAGES_YES"))
+  .option(
+    "--concurrency <n>",
+    t("CLI.OPTION.IMAGES_CONCURRENCY"),
+    "2",
+  )
+  .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
+  .action(
+    async (options: {
+      config?: string;
+      only: string[];
+      models: string[];
+      dryRun?: boolean;
+      yes?: boolean;
+      concurrency: string;
+      verbose?: boolean;
+    }) => {
+      if (options.verbose) consola.level = 4;
+      const config = applyModelFilter(
+        applyOnlyProviders(await loadConfig(options.config), options.only),
+        options.models,
+      );
+      const concurrency = Math.max(1, parseInt(options.concurrency, 10) || 2);
+      await runImageProbe({
+        config,
+        dryRun: options.dryRun,
+        yes: options.yes,
+        concurrency,
+      });
     },
   );
 

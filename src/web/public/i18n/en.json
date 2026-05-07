@@ -255,14 +255,18 @@
     "COMMAND": {
       "RUN_DESC": "run sync pipeline",
       "RESET_DESC": "delete sync managed resources",
-      "UI_DESC": "launch the web UI (Elysia and React dashboard)"
+      "UI_DESC": "launch the web UI (Elysia and React dashboard)",
+      "IMAGES_DESC": "probe image-edit channels per provider/model (writes logs/images-results.json)"
     },
     "OPTION": {
       "CONFIG_PATH": "config file path",
       "ONLY_PROVIDERS": "comma separated provider names",
       "ONLY_MODELS": "comma separated model globs (wildcards supported)",
       "VERBOSE": "enable debug logging",
-      "PORT": "port to listen on"
+      "PORT": "port to listen on",
+      "IMAGES_DRY_RUN": "discover candidates without sending requests (writes logs/images-dry-run.json)",
+      "IMAGES_YES": "skip the cost confirmation prompt",
+      "IMAGES_CONCURRENCY": "max parallel probes per upstream baseUrl"
     },
     "STATUS": {
       "UI_RUNNING": "new-api-sync UI running at http://localhost:{port}"
@@ -556,6 +560,23 @@
       "OPENROUTER_PREFETCH_DONE": "[pricing] OpenRouter /endpoints prefetch: {with}/{total} models with pricing in {dt}ms",
       "OPENROUTER_LOADED": "[pricing] OpenRouter loaded {pricing} pricing entries, {metadata} metadata entries",
       "DROP": "[pricing] drop {model} {channel} reason={reason}{detail}"
+    },
+    "IMAGES": {
+      "PROVIDER_SCANNING": "[{name}] Scanning models and channels",
+      "PRICING_FAILED": "[{name}] Pricing fetch failed: {err}",
+      "CHANNEL_LIST_FAILED": "[{name}] Channel list fetch failed: {err}",
+      "CHANNEL_LIST_FALLBACK": "[{name}] Falling back to single auto-routed probe per model (no channel pin)",
+      "NO_INFERENCE_TOKEN": "[{name}] Could not create probe token via /api/token/, skipping provider",
+      "PROBE_TOKEN_DELETE_FAILED": "[{name}] Failed to delete probe token: {err}",
+      "SKIPPING_NON_NEWAPI_PROVIDER": "Skipping non-newapi provider \"{name}\" (type={type})",
+      "CANDIDATES_FOUND": "Image-edit candidates: {total} across {providers} providers ({toProbe} to probe, {cached} cached)",
+      "DRY_RUN_WRITTEN": "Dry-run candidates written to {path}",
+      "ESTIMATED_COST": "Estimated max cost: ${cost} for {count} probes (failures don't bill)",
+      "CONFIRM_CONTINUE": "Continue?",
+      "ABORTED_BY_USER": "Aborted by user.",
+      "RESULT_PASS": "[{provider}] {model}: PASS via channel {channel}",
+      "RESULT_FAIL": "[{provider}] {model}: FAIL across {channels} channels",
+      "SUMMARY": "Image probe complete in {durationSec}s: {passed} passed, {failed} failed, {noChannel} with no channel (of {total} probed)"
     },
     "PROBE": {
       "NO_TEXT_MODELS": "[{prefix}/probe] vendor={vendor} has no text models; skipping shape probe (per-model task overrides will decide channel-type)",

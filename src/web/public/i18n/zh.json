@@ -255,14 +255,18 @@
     "COMMAND": {
       "RUN_DESC": "运行同步流水线",
       "RESET_DESC": "删除同步管理的资源",
-      "UI_DESC": "启动 Web 界面（Elysia 和 React 仪表盘）"
+      "UI_DESC": "启动 Web 界面（Elysia 和 React 仪表盘）",
+      "IMAGES_DESC": "按提供商和模型探测图像编辑通道（写入 logs/images-results.json）"
     },
     "OPTION": {
       "CONFIG_PATH": "配置文件路径",
       "ONLY_PROVIDERS": "逗号分隔的提供商名称",
       "ONLY_MODELS": "逗号分隔的模型通配符（支持通配符）",
       "VERBOSE": "启用调试日志",
-      "PORT": "监听端口"
+      "PORT": "监听端口",
+      "IMAGES_DRY_RUN": "仅发现候选模型而不发送请求（写入 logs/images-dry-run.json）",
+      "IMAGES_YES": "跳过费用确认提示",
+      "IMAGES_CONCURRENCY": "每个上游 baseUrl 的最大并行探测数"
     },
     "STATUS": {
       "UI_RUNNING": "new-api-sync 界面运行于 http://localhost:{port}"
@@ -556,6 +560,23 @@
       "OPENROUTER_PREFETCH_DONE": "[pricing] OpenRouter /endpoints 预取：{with}/{total} 个模型获得定价，用时 {dt}ms",
       "OPENROUTER_LOADED": "[pricing] OpenRouter 已加载 {pricing} 条定价记录、{metadata} 条元数据记录",
       "DROP": "[pricing] 丢弃 {model} {channel}，原因={reason}{detail}"
+    },
+    "IMAGES": {
+      "PROVIDER_SCANNING": "[{name}] 正在扫描模型与通道",
+      "PRICING_FAILED": "[{name}] 获取定价失败：{err}",
+      "CHANNEL_LIST_FAILED": "[{name}] 获取通道列表失败：{err}",
+      "CHANNEL_LIST_FALLBACK": "[{name}] 回退为按模型单次自动路由探测（不指定通道）",
+      "NO_INFERENCE_TOKEN": "[{name}] 无法通过 /api/token/ 创建探测令牌，跳过该提供商",
+      "PROBE_TOKEN_DELETE_FAILED": "[{name}] 探测令牌删除失败：{err}",
+      "SKIPPING_NON_NEWAPI_PROVIDER": "跳过非 newapi 类型提供商「{name}」（type={type}）",
+      "CANDIDATES_FOUND": "图像编辑候选：{providers} 个提供商共 {total} 个（待探测 {toProbe}，已缓存 {cached}）",
+      "DRY_RUN_WRITTEN": "试运行候选已写入 {path}",
+      "ESTIMATED_COST": "预计最高费用：${cost}（{count} 次探测；失败不计费）",
+      "CONFIRM_CONTINUE": "继续？",
+      "ABORTED_BY_USER": "已被用户中止。",
+      "RESULT_PASS": "[{provider}] {model}：通过通道 {channel}",
+      "RESULT_FAIL": "[{provider}] {model}：在 {channels} 个通道上均失败",
+      "SUMMARY": "图像探测耗时 {durationSec}s 完成：通过 {passed}，失败 {failed}，无可用通道 {noChannel}（共探测 {total}）"
     },
     "PROBE": {
       "NO_TEXT_MODELS": "[{prefix}/probe] 供应商 {vendor} 无文本模型，跳过形态探测（按模型的任务覆盖将决定 channel-type）",
