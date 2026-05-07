@@ -95,19 +95,74 @@ const NAME_ALLOWLIST_PATTERNS = [
   "firefly",
   "bagel",
   "fal-ai/",
+  // Added: missed-image audit (reference/analysis/missing-image-models.txt)
+  "qwen-image",        // qwen-image-2.0, qwen-image-plus, qwen-image-max (no -edit suffix)
+  "flux-pro",          // covers flux-pro, flux-pro-1.1, flux-pro-max (vendor-prefix forms via canonicalize)
+  "flux-1.1",
+  "flux-2",
+  "flux-dev",
+  "flux-schnell",
+  "imagen",            // imagen-3.0-generate-002, imagen-4.0-ultra-generate-001 (Google text-to-image)
 ] as const;
 
 /**
- * Names that look image-y but cannot accept refs (text-to-image only) or
- * cannot accept 6 refs in any submit shape. Skipped at discovery time so
- * we don't bill a billable failure.
+ * Compound patterns: a model is a candidate if its name contains BOTH tokens
+ * (in any order). Used for cases where a single substring is too aggressive
+ * (e.g. matching "gemini" alone would catch every Gemini chat model, but
+ * "gemini" + "image" only catches the image-generation Geminis).
+ */
+const NAME_COMPOUND_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["gemini", "image"],          // gemini-2.5-flash-image, gemini-3-pro-image-preview
+  ["chatgpt", "image"],          // already covered by single pattern, kept for symmetry
+  ["openai/", "image"],          // openai/gpt-5-image, openai/gpt-5.4-image-2 (openrouter-style)
+  ["google/", "image"],          // google/gemini-3-pro-image-preview
+];
+
+/**
+ * Names that look image-y but cannot accept refs (text-to-image only),
+ * are not generation endpoints at all (file/feed/proxy bookkeeping),
+ * are vision/OCR (image-in -> text-out, opposite direction), or are
+ * speech/audio. Skipped at discovery time so we don't bill failures or
+ * waste probes on non-models.
  */
 const NAME_EXCLUSION_PATTERNS = [
+  // Text-to-image only / can't accept 6 refs
   "dall-e",
   "imagen-fast",
   "kling-effects",
   "kling-video-extend",
   "sora",
+  // Bookkeeping / non-model endpoints exposed in pricing
+  "-feed",          // runway-v1-feed, kling-image-expend-feed (queue endpoints)
+  "-uploads",       // runway-v1-uploads, runway-uploads (file upload helpers)
+  "-upload",
+  "-proxy",         // runway-v1-proxy, luma-proxy (channel proxy meta)
+  "voices-list",    // kling-voices-list
+  // Vision (image-in -> text-out), opposite of what the probe tests
+  "describe",       // ideogram-describe, ideogram_describe
+  "recognize",      // kling-image-recognize, ideogram_recognize
+  "moderation",
+  // Audio / speech (different modality entirely)
+  "tts",            // vidu-tts, *-tts
+  "-stt",
+  "whisper",
+  "-voice-",
+  "video-to-audio", // kling-video-to-audio (video -> audio)
+  "voice-design",
+  "voice-clone",
+  // Single-input image-to-image utilities (upscale / inpaint / outpaint /
+  // extend / nomark). These accept exactly 1 image + (optional mask), so a
+  // 6-ref probe will fail with "expected 1, got 6" 100% of the time.
+  // Leaving them in just burns budget on guaranteed failures.
+  "upscale",
+  "inpaint",
+  "outpaint",
+  "_extend",       // luma_extend (yun-style underscore form)
+  "-extend",
+  "_nomark",       // luma_nomark
+  "-nomark",
+  "vectorize",     // recraft-vectorize: PNG -> SVG, single input only
+  "create-style",  // recraft-create-style: builds a style ref, not gen
 ] as const;
 
 /**
@@ -177,6 +232,14 @@ export function discoverCandidates(opts: DiscoverOpts): DiscoveryReport {
     const nameHit = NAME_ALLOWLIST_PATTERNS.find((p) => lower.includes(p));
     if (nameHit) reasons.push(`name:${nameHit}`);
 
+    // Compound name patterns. A model qualifies when both substrings appear
+    // anywhere in the name (e.g. `gemini` + `image` catches the image-output
+    // Geminis without false-positive-ing every Gemini chat variant).
+    const compoundHit = NAME_COMPOUND_PATTERNS.find(
+      ([a, b]) => lower.includes(a) && lower.includes(b),
+    );
+    if (compoundHit) reasons.push(`name:${compoundHit[0]}+${compoundHit[1]}`);
+
     const legacy = opts.legacyModelInfo?.[m.name];
     const tags = legacy?.tags;
     if (tags) {
@@ -190,12 +253,19 @@ export function discoverCandidates(opts: DiscoverOpts): DiscoveryReport {
     if (reasons.length === 0) continue;
 
     // 4. Pick a kind based on endpoint type, falling back to name when the
-    //    pricing shape doesn't expose endpoints (V2 / yun).
-    const kind = pickKind(eps, lower);
+    //    pricing shape doesn't expose endpoints (V2 / yun) OR exposes
+    //    non-standard endpoint values (some gateways use "chat" / "images"
+    //    / "Generate image" instead of new-api's standard
+    //    "image-generation" / "openai-video"). When the name signal fired
+    //    but endpoint kind is undetermined, infer from the name pattern
+    //    rather than dropping a likely-image candidate on the floor.
+    let kind = pickKind(eps, lower);
+    if (!kind && (nameHit || compoundHit)) {
+      kind = pickKind([], lower);
+    }
     if (!kind) {
-      // Endpoints exist but only contain non-image types, and name doesn't
-      // disambiguate. Skip silently — likely a chat model that happens to
-      // have a vision tag.
+      // No name hit AND endpoints don't disambiguate. Skip silently —
+      // likely a chat model that happens to have a vision tag.
       excluded.push({
         modelName: m.name,
         reason: `kind-undetermined (endpoints=${eps.join(",") || "none"})`,

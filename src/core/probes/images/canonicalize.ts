@@ -79,21 +79,38 @@ export function canonicalize(rawName: string): string {
   s = s.replace(/-\d{8}\b/g, "");
   s = s.replace(/-\d{6}\b/g, "");
 
-  // 8. Strip tier / quota suffixes that the same upstream slaps onto
-  //    multiple SKUs at the gateway level (e.g. -all, -vip, -free, -test,
-  //    -token). These are billing tiers, not different models.
-  s = s.replace(/-(all|vip|free|test|token|business|c|codex|coding|web|ssvip|preview)$/g, "");
-  s = s.replace(/-(all|vip|free|test|token|business|c|codex|coding|web|ssvip|preview)-/g, "-");
-
-  // 9. Strip resolution / dimension / boolean preset suffixes that probe
-  //    distinct sizes of the same model.
-  s = s.replace(/-(\d+)p-?(true|false)?$/g, "");        // -1080p, -1080p-true
-  s = s.replace(/-(\d+)x(\d+)$/g, "");                  // -1024x1024
-  s = s.replace(/-?_(\d+)\*(\d+)(_(true|false))?$/g, ""); // _1920*1080_true
-  s = s.replace(/-?_(\d+)P(_(true|false))?$/g, "");     // _720P_true
-  s = s.replace(/-(\d+)(p|k)-(\d+)s$/g, "");            // -1080p-4s
-  s = s.replace(/-(\d+)(p|k)$/g, "");                   // -2k, -4k, -1080p
-  s = s.replace(/-(true|false)$/g, "");
+  // 8 + 9. Iteratively strip tier / quota / dimension suffixes. We loop
+  //        because layered suffixes like `gemini-3-pro-image-preview-2k`
+  //        need step 9 (strip `-2k`) BEFORE step 8 (strip `-preview$`) can
+  //        fire — and `gemini-3-pro-image-preview-business` needs step 8
+  //        to fire twice (once for `-business`, once for the now-trailing
+  //        `-preview`). A fixed-point loop covers both orderings without
+  //        duplicating regex passes.
+  const TIER_RE_SUFFIX = /-(all|vip|free|test|token|business|c|codex|coding|web|ssvip|preview)$/g;
+  const TIER_RE_MID = /-(all|vip|free|test|token|business|c|codex|coding|web|ssvip|preview)-/g;
+  const DIM_RES = [
+    /-(\d+)p-?(true|false)?$/g,          // -1080p, -1080p-true
+    /-(\d+)x(\d+)$/g,                    // -1024x1024
+    /-?_(\d+)\*(\d+)(_(true|false))?$/g, // _1920*1080_true
+    /-?_(\d+)P(_(true|false))?$/g,       // _720P_true
+    /-(\d+)(p|k)-(\d+)s$/g,              // -1080p-4s
+    /-(\d+)(p|k)$/g,                     // -2k, -4k, -1080p
+    /-(\d+)px$/g,                        // -512px, -1024px
+    /-0\.\d+k$/g,                        // -0.5k (nano-banana-pro tier)
+    /-(true|false)$/g,
+    // Video-output flags (kling/sv variants on 666). Same upstream model
+    // emitted with/without sound and with/without a reference image input.
+    // Collapse to one canonical key so we only probe once per model family.
+    /-(audio|mute)$/g,                   // -audio, -mute (audio track flag)
+    /-(ref|noref)$/g,                    // -ref, -noref (reference image flag)
+  ];
+  let prev = "";
+  while (prev !== s) {
+    prev = s;
+    s = s.replace(TIER_RE_SUFFIX, "");
+    s = s.replace(TIER_RE_MID, "-");
+    for (const re of DIM_RES) s = s.replace(re, "");
+  }
 
   // 10. Normalize version separators: `3-5` <-> `3.5` and `flux.1` <-> `flux-1`.
   //     Pricing entries use both interchangeably; collapse to dotted form.
