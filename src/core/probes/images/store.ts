@@ -26,6 +26,10 @@ export interface ChannelResult {
   exchange: TestExchange;
   errorClass?: ProbeErrorClass;
   artifactPath: string;
+  /** Absolute paths of any generated images saved to disk. Empty when the
+   *  probe response carried no extractable url/b64_json (or download
+   *  failed). */
+  imagePaths?: string[];
   attemptedAt: string;
   taskId?: string;
 }
@@ -112,6 +116,13 @@ export function appendResult(store: ProbeStore, r: ModelResult): void {
  */
 function slug(s: string): string {
   return s.replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "_";
+}
+
+/** Resolve the per-(provider, model) artifact directory used for both the
+ *  exchange JSON and the saved generated images. Exported so the
+ *  download helper can reuse the same path scheme. */
+export function artifactDirFor(provider: string, model: string): string {
+  return join(ARTIFACT_DIR(), slug(provider), slug(model));
 }
 
 /**

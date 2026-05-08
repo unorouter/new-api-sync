@@ -10,12 +10,12 @@ import { join } from "path";
  * License + provenance details are in `images/README.md`.
  */
 export const FIXTURE_FILENAMES = [
-  "00-bg-room.jpg",
-  "01-user-girl.jpg",
-  "02-npc-warrior.jpg",
-  "03-npc-mage.jpg",
-  "04-npc-rogue.jpg",
-  "05-npc-merchant.jpg",
+  "00-bg-tavern.jpg",
+  "01-user-sara.jpg",
+  "02-npc-trevor.jpg",
+  "03-npc-puck.jpg",
+  "04-npc-knight.jpg",
+  "05-npc-rogue.jpg",
 ] as const;
 
 /**
@@ -27,9 +27,12 @@ export const FIXTURE_FILENAMES = [
  * channels and prompt A/B testing later is trivial.
  */
 export const FIXTURE_PROMPT =
-  "Compose a single illustration combining the six reference images: place " +
-  "the user character (image 01) in the room (image 00) interacting with the " +
-  "four NPC characters (images 02-05). Single output image.";
+  "Compose a single anime-style illustration combining the six reference " +
+  "images: place Sara, the blonde girl with the side braid (image 01), inside " +
+  "the tavern (image 00), interacting with four NPCs - the blonde male hero " +
+  "Trevor (image 02), the bearded ranger Puck (image 03), the bald knight in " +
+  "gold armor (image 04), and the brunette adventurer woman (image 05). " +
+  "Preserve each character's distinctive appearance. Single output image.";
 
 export interface Fixtures {
   /** Files in fixed order [bg, user, npc1, npc2, npc3, npc4]. */

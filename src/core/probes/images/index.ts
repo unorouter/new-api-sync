@@ -1,4 +1,5 @@
 import { redactExchange } from "@core/testing/redact";
+import { saveResponseImages } from "./download";
 import type { Channel, GroupInfo } from "@core/types";
 import type { ProviderConfig } from "@core/validations/config";
 import { NewApiClient } from "@core/vendors/newapi/client";
@@ -28,6 +29,7 @@ import { probeSyncChannel } from "./probe-sync";
 import { probeTaskChannel } from "./probe-task";
 import {
   appendResult,
+  artifactDirFor,
   isAlreadyTested,
   loadStore,
   saveDryRun,
@@ -378,12 +380,28 @@ async function probeOneModel(opts: {
       channelId,
       redacted,
     );
+
+    // Save the actual generated image bytes (URL download or base64 decode)
+    // to disk before the upstream CDN URL expires. Run for both pass and
+    // fail attempts: a failed-classification probe (e.g. our heuristic
+    // didn't see an image, but the body still has one) is exactly the case
+    // we want bytes for, to inspect what the model actually produced.
+    // We pass the ORIGINAL response, not the redacted one - the redactor
+    // could in theory mangle data: URIs.
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    const imagePaths = await saveResponseImages({
+      response: attempt.exchange.response,
+      dir: artifactDirFor(provider.name, candidate.modelName),
+      basenamePrefix: `${ts}-ch${channelId}`,
+    });
+
     const cr: ChannelResult = {
       channelId,
       channelName,
       exchange: redacted,
       errorClass: attempt.errorClass,
       artifactPath,
+      imagePaths: imagePaths.length > 0 ? imagePaths : undefined,
       attemptedAt: new Date().toISOString(),
       taskId: attempt.taskId,
     };
