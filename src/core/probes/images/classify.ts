@@ -68,6 +68,13 @@ export function classifyResponse(
     if (/do_response_failed|API request failed with status/i.test(snippet)) {
       return { errorClass: "no_channel", errorSnippet: snippet };
     }
+    // Body-shape impedance mismatch (e.g. Imagen on aigc declares the
+    // gemini endpoint but the model itself wants :predict shape).
+    // Wrapped as 429 by aigc; treat as ref_count_rejected so the loop
+    // skips (no point retrying with the same wrong body).
+    if (/contents is required|Unknown name "(?:contents|instances|parts|generationConfig)"/i.test(snippet)) {
+      return { errorClass: "ref_count_rejected", errorSnippet: snippet };
+    }
     return { errorClass: "ratelimit", errorSnippet: snippet };
   }
   if (status === 404) {
@@ -83,6 +90,16 @@ export function classifyResponse(
       /无可用渠道|no available channel|distributor|无可用通道/i.test(snippet)
     ) {
       return { errorClass: "no_channel", errorSnippet: snippet };
+    }
+    // Gateway misconfiguration: Imagen-style models advertised under
+    // `gemini` endpoint type but the gateway translation expects Gemini
+    // multimodal body shape. Imagen rejects with "contents is required"
+    // (when hit on /v1/images/generations) or "Unknown name 'contents'"
+    // / "Unknown name 'instances'" (when hit on :generateContent vs
+    // :predict mismatch). Either way it's a body-shape impedance
+    // mismatch we can't resolve without per-model wire knowledge.
+    if (/contents is required|Unknown name "(?:contents|instances|parts|generationConfig)"/i.test(snippet)) {
+      return { errorClass: "ref_count_rejected", errorSnippet: snippet };
     }
     return { errorClass: "timeout", errorSnippet: snippet };
   }

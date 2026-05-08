@@ -68,6 +68,14 @@ export function buildBody(opts: BuildBodyOpts): BuiltBody | null {
   if (lp.endsWith("/mj/submit/imagine")) {
     return buildMjImagineBody(opts);
   }
+  // Gemini Imagen native: uses `:predict` (not `:generateContent`).
+  // imagen-3.0-* and imagen-4.0-* models reject Gemini multimodal body
+  // and require {instances: [{prompt}], parameters}.
+  if (lp.includes(":predict") || /imagen-\d/i.test(opts.model)) {
+    // For imagen models even when the resolver picked :generateContent,
+    // override the body and rewrite the URL to :predict.
+    return buildImagenPredictBody(opts);
+  }
   // Gemini-native multimodal generation.
   if (lp.includes(":generatecontent")) {
     return buildGeminiBody(opts);
@@ -214,6 +222,40 @@ function buildGeminiBody(opts: BuildBodyOpts): BuiltBody {
         },
       ],
       generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Gemini Imagen `:predict` (`/v1beta/models/{model}:predict`)
+// ---------------------------------------------------------------------------
+//
+// Reference: ai.google.dev/gemini-api/docs/imagen. Imagen models use
+// the legacy Vertex `:predict` shape, NOT Gemini multimodal. Body is
+// {instances: [{prompt}], parameters: {sampleCount, aspectRatio?}}.
+// imagen-3.* is deprecated; imagen-4.0-* is current.
+//
+// We also rewrite the URL: providers that declare `gemini` endpoint
+// resolve to `:generateContent`, but Imagen rejects that path. Force
+// `:predict` here.
+
+function buildImagenPredictBody(opts: BuildBodyOpts): BuiltBody {
+  return {
+    multipart: false,
+    body: {
+      // The probe URL is set by the resolver to :generateContent for
+      // gemini-typed endpoints. Imagen requires :predict. Caller cannot
+      // change the URL here, so we rely on the gateway's URL-aware
+      // routing - but most gateways do NOT translate. This builder is
+      // best-effort: when a gateway DOES translate, the body is right;
+      // when it doesn't, the caller (probe-openai-image-edit) will get
+      // the same "Unknown name 'instances'" error and fail-fast.
+      instances: [{ prompt: opts.fixtures.prompt }],
+      parameters: { sampleCount: 1 },
+    },
+    bodyMeta: {
+      instances: [{ prompt: opts.fixtures.prompt }],
+      parameters: { sampleCount: 1 },
     },
   };
 }
