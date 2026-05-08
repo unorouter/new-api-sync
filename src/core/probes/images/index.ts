@@ -302,45 +302,28 @@ export async function runImageProbe(
           }
         }
 
-        // Bracket every probe with two balance reads, mirroring regular
-        // sync's withCostTracking pattern - users want to see balance
-        // movement on every step, including no-cost failures (so they can
-        // confirm the upstream actually didn't bill). fetchBalance returns
-        // null when the upstream lacks a quota field; in that case we
-        // silently skip the cost line for that provider.
-        const balanceBefore = await client.fetchBalance();
+        // Per-step balance bracketing happens INSIDE probeOneModel, around
+        // each individual probe attempt (group x wire-shape). The
+        // orchestrator just relays the per-step deltas the loop emits via
+        // onStepCost so the live log shows movement on every attempt.
         const result = await probeOneModel({
           provider,
           candidate: c,
           groupMap,
           fixtures,
           onProgress: saveProgress,
+          fetchBalance: () => client.fetchBalance(),
+          onStepCost: ({ channelName, probeShape, delta, balanceAfter }) => {
+            totalSpent += Math.max(0, delta);
+            const costStr =
+              delta < -0.0001
+                ? "+$" + Math.abs(delta).toFixed(4) + " (refund?)"
+                : "$" + delta.toFixed(4);
+            consola.info(
+              `[${providerName}] ${c.modelName} (${channelName}/${probeShape}): cost ${costStr} | running total: $${totalSpent.toFixed(4)} | balance: $${balanceAfter.toFixed(4)}`,
+            );
+          },
         });
-        const balanceAfter = await client.fetchBalance();
-        if (balanceBefore !== null && balanceAfter !== null) {
-          const delta = balanceBefore - balanceAfter;
-          totalSpent += Math.max(0, delta);
-          // Stamp the measured cost onto the channel result so it lands in
-          // images-results.json. The probe loop only knows the per-MODEL
-          // delta, not per-channel - so we attribute the full delta to the
-          // winning channel (single billable attempt) or to the last
-          // failed-channel entry if no channel passed.
-          if (result.workingChannel) result.workingChannel.costUsd = delta;
-          else if (result.failedChannels.length > 0) {
-            result.failedChannels[result.failedChannels.length - 1]!.costUsd = delta;
-          }
-          // Always log balance after each step so the user can audit
-          // movement in real time. Free probes (delta=0) still produce a
-          // line - "$0.0000 | balance: $X.XXXX" confirms the upstream
-          // didn't charge.
-          const costStr =
-            delta < -0.0001
-              ? "+$" + Math.abs(delta).toFixed(4) + " (refund?)"
-              : "$" + delta.toFixed(4);
-          consola.info(
-            `[${providerName}] ${c.modelName}: cost ${costStr} | running total: $${totalSpent.toFixed(4)} | balance: $${balanceAfter.toFixed(4)}`,
-          );
-        }
         appendResult(store, result);
         saveStore(store);
         if (result.workingChannelId !== undefined) passed++;
@@ -386,8 +369,21 @@ async function probeOneModel(opts: {
    *  store survives Ctrl-C / network errors mid-loop and resume picks up
    *  with no lost work. */
   onProgress?: (partial: ModelResult) => void;
+  /** Per-step balance reader. Bracketed around EACH probe attempt
+   *  (group × shape) so the user sees movement after every wire-shape
+   *  test, not only at end-of-model. Returns null when the upstream
+   *  doesn't expose a quota balance. */
+  fetchBalance?: () => Promise<number | null>;
+  /** Called after each step with the measured delta + cumulative running
+   *  total so the orchestrator can log balance movement consistently. */
+  onStepCost?: (info: {
+    channelName: string;
+    probeShape: ProbeShape;
+    delta: number;
+    balanceAfter: number;
+  }) => void;
 }): Promise<ModelResult> {
-  const { provider, candidate, groupMap, fixtures, onProgress } = opts;
+  const { provider, candidate, groupMap, fixtures, onProgress, fetchBalance, onStepCost } = opts;
   const groups = (groupMap.get(candidate.modelName) ?? [])
     .slice()
     .sort(compareGroupChannels);
@@ -419,6 +415,10 @@ async function probeOneModel(opts: {
     // /v1/images/edits worked we don't need to also try /v1/images/generations.
     let channelPassed: ChannelResult | undefined;
     for (const probeShape of shapesToTry) {
+      // Balance bracket per STEP (group x shape): so users see balance
+      // movement on every probe attempt, not just per model. fetchBalance
+      // is undefined / returns null when the upstream lacks a quota field.
+      const balanceBefore = fetchBalance ? await fetchBalance() : null;
       const attempt = await runProbeShape(probeShape, {
         baseUrl: provider.baseUrl,
         apiKey: g.apiKey,
@@ -427,6 +427,11 @@ async function probeOneModel(opts: {
         model: candidate.modelName,
         fixtures,
       });
+      const balanceAfter = fetchBalance ? await fetchBalance() : null;
+      const stepDelta =
+        balanceBefore !== null && balanceAfter !== null
+          ? balanceBefore - balanceAfter
+          : undefined;
 
       const redacted = redactExchange(attempt.exchange);
       const artifactPath = writeArtifact(
@@ -460,9 +465,23 @@ async function probeOneModel(opts: {
         imagePaths: imagePaths.length > 0 ? imagePaths : undefined,
         probeKind: shapeToKind(probeShape),
         probeShape,
+        costUsd: stepDelta,
         attemptedAt: new Date().toISOString(),
         taskId: attempt.taskId,
       };
+
+      // Surface this step's balance movement to the orchestrator so the
+      // user sees per-attempt cost in the live log, not only the per-model
+      // aggregate. Pass through balanceAfter so callers can update their
+      // running totals + balance display.
+      if (stepDelta !== undefined && balanceAfter !== null) {
+        onStepCost?.({
+          channelName,
+          probeShape,
+          delta: stepDelta,
+          balanceAfter,
+        });
+      }
 
       if (attempt.status === "ok") {
         channelPassed = cr;
