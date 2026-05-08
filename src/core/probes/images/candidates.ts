@@ -1,5 +1,7 @@
 import type { UpstreamPricing } from "@core/vendors/newapi/types";
+import { buildBody } from "./body-builder";
 import { canonicalize, pickRepresentative } from "./canonicalize";
+import { resolveEndpoint } from "./endpoint-resolver";
 
 /**
  * Three-flavor probe routing. Determined by the model's exposed endpoint
@@ -410,19 +412,88 @@ export function discoverCandidates(opts: DiscoverOpts): DiscoveryReport {
     if (arr) arr.push(c);
     else grouped.set(c.canonicalKey, [c]);
   }
-  const deduped: Candidate[] = [];
+  const dedupedRaw: Candidate[] = [];
   for (const [, group] of grouped) {
     const winner = pickRepresentative(group);
     const aliases = group
       .filter((c) => c.modelName !== winner.modelName)
       .map((c) => c.modelName);
-    deduped.push({
+    dedupedRaw.push({
       ...winner,
       aliases: aliases.length > 0 ? aliases : undefined,
     });
   }
 
+  // Filter out candidates whose ALL endpoint types resolve to URLs we
+  // can't construct a valid body for. Probing those would burn budget on
+  // guaranteed body-shape failures (e.g. yun's `kling-image` only
+  // exposes `/kling/v1/images/...` paths with vendor-native schemas we
+  // don't speak). Models that have AT LEAST ONE handled endpoint stay -
+  // the working endpoint succeeds, the unhandled ones fail-fast and
+  // don't matter.
+  const deduped: Candidate[] = [];
+  for (const c of dedupedRaw) {
+    if (!hasAtLeastOneHandledEndpoint(c, opts.pricing)) {
+      excluded.push({
+        modelName: c.modelName,
+        reason: `unhandled-body (endpoints=${c.endpointTypes.join(",") || "none"})`,
+      });
+      continue;
+    }
+    deduped.push(c);
+  }
+
   return { candidates: deduped, excluded };
+}
+
+/**
+ * Cheap stub fixtures, used only to ask buildBody() whether the URL has
+ * a registered builder. Real bytes are never sent through this path.
+ */
+const STUB_FIXTURES = {
+  prompt: "test",
+  files: [] as never[],
+  dataUris: ["data:image/jpeg;base64,AAAA"],
+};
+
+/**
+ * Default OAI paths the probe modules carry built-in bodies for. A
+ * candidate routed through any of these is "handled" even when the
+ * vendor body builder returns null - the probe falls back to its
+ * canonical body.
+ */
+const DEFAULT_OAI_PATHS = new Set([
+  "/v1/images/edits",
+  "/v1/images/generations",
+  "/v1/chat/completions",
+  "/v1/videos",
+]);
+
+/**
+ * True when at least one of the candidate's endpoint types resolves to a
+ * URL we can construct a valid body for. Used to drop models that ONLY
+ * advertise vendor-native paths whose schema we don't implement (e.g.
+ * /kling/v1/images/multi-image2image, /ideogram/v1/...). Probing those
+ * burns time and quota on guaranteed body-shape failures.
+ */
+function hasAtLeastOneHandledEndpoint(
+  c: Candidate,
+  pricing: UpstreamPricing,
+): boolean {
+  for (const ep of c.endpointTypes) {
+    const r = resolveEndpoint({
+      endpointType: ep,
+      modelName: c.modelName,
+      pricing,
+    });
+    if (!r) continue;
+    if (DEFAULT_OAI_PATHS.has(r.path)) return true;
+    if (buildBody({ path: r.path, model: c.modelName, fixtures: STUB_FIXTURES as never }) !== null) {
+      return true;
+    }
+  }
+  // No declared endpoints -> we'll fall back to a default-OAI shape.
+  return c.endpointTypes.length === 0;
 }
 
 /**

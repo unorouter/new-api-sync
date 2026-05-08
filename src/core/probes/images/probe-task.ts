@@ -1,4 +1,5 @@
 import type { TestExchange } from "@core/testing/types";
+import { buildBody } from "./body-builder";
 import { classifyResponse } from "./classify";
 import type { Fixtures } from "./fixtures";
 import type { ProbeAttempt } from "./probe-sync";
@@ -49,11 +50,23 @@ export async function probeTaskChannel(
     headers["Specify-Channel"] = String(opts.channelId);
   }
 
-  const submitBody = {
-    model: opts.model,
-    prompt: opts.fixtures.prompt,
-    images: opts.fixtures.dataUris,
-  };
+  // Pick the body shape from the URL path. The vendor-native paths
+  // (Replicate `/predictions`, MJ `/mj/submit/*`, Gemini `:generateContent`,
+  // Anthropic `/v1/messages`, Kling `/kling/v1/images/*`, Volc
+  // `/ent/v2/reference2image`) each have their own JSON schema; the
+  // builder dispatches on the path. The default OAI-Videos shape
+  // (`/v1/videos`) falls through when no vendor match.
+  const built = opts.path ? buildBody({ path: opts.path, model: opts.model, fixtures: opts.fixtures }) : null;
+  const submitBody: Record<string, unknown> = built
+    ? (built.body as Record<string, unknown>)
+    : {
+        model: opts.model,
+        prompt: opts.fixtures.prompt,
+        images: opts.fixtures.dataUris,
+      };
+  if (built?.extraHeaders) {
+    for (const [k, v] of Object.entries(built.extraHeaders)) headers[k] = v;
+  }
 
   // ---- submit ----
   const start = performance.now();
@@ -86,11 +99,15 @@ export async function probeTaskChannel(
     for (const [k, v] of submitResp.headers.entries()) submitHeaders[k] = v;
   }
 
-  // Sanitize the submit body for the artifact (data URIs are huge).
-  const sanitizedSubmit = {
-    ...submitBody,
-    images: submitBody.images.map(() => "[DATA_URI_REDACTED]"),
-  };
+  // Sanitize the submit body for the artifact (data URIs / base64 are
+  // huge). Vendor-native bodies provide their own redacted metadata via
+  // `bodyMeta`; for the default OAI-Videos body we strip data URIs inline.
+  const sanitizedSubmit: Record<string, unknown> = built
+    ? (built.bodyMeta as Record<string, unknown>)
+    : {
+        ...submitBody,
+        images: (submitBody.images as string[]).map(() => "[DATA_URI_REDACTED]"),
+      };
 
   // Submit failed before we got a task id.
   if (submitStatus === undefined || submitStatus >= 400) {

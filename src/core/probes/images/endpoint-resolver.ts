@@ -48,7 +48,6 @@ const FALLBACK_PATHS: Record<string, string> = {
   "aigc-image-edit": "/v1/images/edits",
   "dall-e-3": "/v1/images/generations",
   "openai": "/v1/chat/completions",
-  "anthropic": "/v1/messages",
   // Short names (v3-style)
   images: "/v1/images/generations",
   edits: "/v1/images/edits",
@@ -147,7 +146,7 @@ function classifyShape(path: string, endpointType: string): ProbeShape {
     return "sync-generations";
   }
   // Chat completions -> multimodal openai-vendor.
-  if (lp.includes("/chat/completions") || lp.includes("/messages") || lp.includes(":generatecontent") || lt === "openai" || lt === "anthropic" || lt === "gemini" || lt === "chat") {
+  if (lp.includes("/chat/completions") || lp.includes(":generatecontent") || lt === "openai" || lt === "gemini" || lt === "chat") {
     return "openai-vendor";
   }
   // Default fallback.

@@ -273,10 +273,20 @@ export async function runImageProbe(
 
         // --step: confirm each probe individually so the user can stop
         // mid-run after observing results. Default behavior (no --step) is
-        // straight-through.
+        // straight-through. The label shows the actual wire shapes that
+        // will run (resolved per-endpoint), not the stale discovery
+        // `kind` - so models with mixed endpoints (e.g. yun mj_blend
+        // routed via /mj/submit/* as task) are correctly labeled.
         if (opts.step) {
+          const planned = probeStepsFor({
+            endpointTypes: c.endpointTypes,
+            primary: c.kind,
+            modelName: c.modelName,
+            pricing,
+          });
+          const shapes = [...new Set(planned.map((s) => s.shape))].join(",");
           const ok = await consola.prompt(
-            `Probe [${providerName}] ${c.modelName} (${c.kind})?`,
+            `Probe [${providerName}] ${c.modelName} (${shapes})?`,
             { type: "confirm" },
           );
           if (!ok) {

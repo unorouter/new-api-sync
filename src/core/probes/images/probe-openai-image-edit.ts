@@ -1,4 +1,5 @@
 import type { TestExchange } from "@core/testing/types";
+import { buildBody } from "./body-builder";
 import { classifyResponse, looksLikeImageResponse } from "./classify";
 import type { Fixtures } from "./fixtures";
 import type { ProbeAttempt } from "./probe-sync";
@@ -11,8 +12,9 @@ export interface OpenAiVendorProbeOpts {
   model: string;
   fixtures: Fixtures;
   /** Override the URL path. When omitted, defaults to
-   *  /v1/chat/completions. Used for native gemini/anthropic paths when
-   *  the provider's endpointPaths declares them. */
+   *  /v1/chat/completions. Used for native gemini paths
+   *  (`/v1beta/models/{model}:generateContent`) when the provider's
+   *  endpointPaths declares them. */
   path?: string;
   timeoutMs?: number;
 }
@@ -41,18 +43,45 @@ export async function probeOpenAiVendorChannel(
     headers["Specify-Channel"] = String(opts.channelId);
   }
 
-  const content = [
-    ...opts.fixtures.dataUris.map((uri) => ({
-      type: "image_url" as const,
-      image_url: { url: uri },
-    })),
-    { type: "text" as const, text: opts.fixtures.prompt },
-  ];
-
-  const body = {
-    model: opts.model,
-    messages: [{ role: "user", content }],
-  };
+  // Pick body shape from the URL path. Vendor-native chat-shaped paths
+  // (Gemini `:generateContent`, Anthropic `/v1/messages`) need their own
+  // multimodal schema; the OAI chat-completions default falls through
+  // when no vendor match (the new-api translation layer handles
+  // openai-shaped bodies on most channels).
+  const built = opts.path ? buildBody({ path: opts.path, model: opts.model, fixtures: opts.fixtures }) : null;
+  let body: Record<string, unknown>;
+  let sanitizedBody: Record<string, unknown>;
+  if (built) {
+    body = built.body as Record<string, unknown>;
+    sanitizedBody = built.bodyMeta;
+    if (built.extraHeaders) {
+      for (const [k, v] of Object.entries(built.extraHeaders)) headers[k] = v;
+    }
+  } else {
+    const content = [
+      ...opts.fixtures.dataUris.map((uri) => ({
+        type: "image_url" as const,
+        image_url: { url: uri },
+      })),
+      { type: "text" as const, text: opts.fixtures.prompt },
+    ];
+    body = {
+      model: opts.model,
+      messages: [{ role: "user", content }],
+    };
+    sanitizedBody = {
+      model: opts.model,
+      messages: [
+        {
+          role: "user",
+          content: [
+            `[${opts.fixtures.dataUris.length} DATA_URI_REDACTED parts]`,
+            { type: "text", text: opts.fixtures.prompt },
+          ],
+        },
+      ],
+    };
+  }
 
   const start = performance.now();
   const ctrl = new AbortController();
@@ -84,22 +113,6 @@ export async function probeOpenAiVendorChannel(
   if (resp) {
     for (const [k, v] of resp.headers.entries()) responseHeaders[k] = v;
   }
-
-  // Strip the data URIs from the saved request body to keep artifacts small.
-  const sanitizedBody = {
-    ...body,
-    messages: body.messages.map((m) => ({
-      ...m,
-      content: m.content.map((c) =>
-        c.type === "image_url"
-          ? {
-              type: "image_url",
-              image_url: { url: "[DATA_URI_REDACTED]" },
-            }
-          : c,
-      ),
-    })),
-  };
 
   let response: unknown = bodyText;
   try {
