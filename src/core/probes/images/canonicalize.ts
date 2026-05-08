@@ -79,15 +79,18 @@ export function canonicalize(rawName: string): string {
   s = s.replace(/-\d{8}\b/g, "");
   s = s.replace(/-\d{6}\b/g, "");
 
-  // 8 + 9. Iteratively strip tier / quota / dimension suffixes. We loop
-  //        because layered suffixes like `gemini-3-pro-image-preview-2k`
-  //        need step 9 (strip `-2k`) BEFORE step 8 (strip `-preview$`) can
-  //        fire — and `gemini-3-pro-image-preview-business` needs step 8
-  //        to fire twice (once for `-business`, once for the now-trailing
-  //        `-preview`). A fixed-point loop covers both orderings without
-  //        duplicating regex passes.
-  const TIER_RE_SUFFIX = /-(all|vip|free|test|token|business|c|codex|coding|web|ssvip|preview)$/g;
-  const TIER_RE_MID = /-(all|vip|free|test|token|business|c|codex|coding|web|ssvip|preview)-/g;
+  // 8. Iteratively strip ONLY suffixes that are truly cosmetic - i.e. the
+  //    same upstream backend is being addressed and the suffix is just
+  //    renderer config or gateway-internal labeling. We do NOT collapse
+  //    `-all`, `-vip`, `-c`, `-codex`, `-pro`, `-mini`, etc. - those
+  //    frequently address different code paths (reverse-engineered
+  //    scrapers, billing tiers, group-restricted access) and deserve
+  //    independent probe results.
+  //
+  //    Errors don't bill so we can afford to test each variant separately.
+  //    The dedup goal is only to avoid testing the SAME wire path twice
+  //    under two cosmetic names.
+  const COSMETIC_SUFFIX = /-preview$/g;  // -preview is just a gateway label
   const DIM_RES = [
     /-(\d+)p-?(true|false)?$/g,          // -1080p, -1080p-true
     /-(\d+)x(\d+)$/g,                    // -1024x1024
@@ -100,15 +103,14 @@ export function canonicalize(rawName: string): string {
     /-(true|false)$/g,
     // Video-output flags (kling/sv variants on 666). Same upstream model
     // emitted with/without sound and with/without a reference image input.
-    // Collapse to one canonical key so we only probe once per model family.
+    // Collapse so we only probe once per model family.
     /-(audio|mute)$/g,                   // -audio, -mute (audio track flag)
     /-(ref|noref)$/g,                    // -ref, -noref (reference image flag)
   ];
   let prev = "";
   while (prev !== s) {
     prev = s;
-    s = s.replace(TIER_RE_SUFFIX, "");
-    s = s.replace(TIER_RE_MID, "-");
+    s = s.replace(COSMETIC_SUFFIX, "");
     for (const re of DIM_RES) s = s.replace(re, "");
   }
 

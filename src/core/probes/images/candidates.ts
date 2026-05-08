@@ -236,6 +236,13 @@ const ENDPOINT_HINTS = new Set([
 /**
  * Endpoint values that ALWAYS exclude a model regardless of name match.
  * Anything self-tagging as a video endpoint is a video model.
+ *
+ * NOT excluded: `dall-e-3`. Even though that wire format is text-to-image
+ * only (with optional 1 mask image), we still probe it with all 6 refs
+ * and let the upstream reject. The negative ground truth ("this gateway's
+ * gpt-image-2-all reverse-eng variant rejects 6-ref multipart") is more
+ * valuable than skipping silently - some reverse-eng SKUs are the cheapest
+ * access path to a vendor and you may want to know exactly how they fail.
  */
 const ENDPOINT_EXCLUSIONS = new Set([
   "openai-video",  // standard new-api video task surface
@@ -286,13 +293,16 @@ export function discoverCandidates(opts: DiscoverOpts): DiscoveryReport {
       continue;
     }
 
-    // 2b. Endpoint-based exclusion. A model self-tagging with `openai-video`
-    //     IS a video model regardless of name. Catches video SKUs whose
-    //     names don't follow the -i2v / -t2v / kling-video- conventions
-    //     (e.g. bare `Kling-O1`, `GV-3.1`, `SV-1.5-pro`).
+    // 2b. Endpoint-based exclusion. A model self-tagging with a video or
+    //     dall-e-3-only endpoint shape is excluded - video models accept
+    //     1-2 refs at most (not 6), and dall-e-3 wire format is text-to-
+    //     image-only. EXCEPTION: if the model ALSO advertises a real
+    //     image-edit endpoint (image-generation, image-edit, openai-image),
+    //     keep it - those endpoints take precedence and we'll route there.
     const eps = m.supportedEndpoints ?? [];
     const epExclusion = eps.find((e) => ENDPOINT_EXCLUSIONS.has(e));
-    if (epExclusion) {
+    const hasUsableEdit = eps.some((e) => ENDPOINT_HINTS.has(e));
+    if (epExclusion && !hasUsableEdit) {
       excluded.push({
         modelName: m.name,
         reason: `endpoint-exclusion:${epExclusion}`,

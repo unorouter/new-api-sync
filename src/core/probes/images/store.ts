@@ -30,6 +30,17 @@ export interface ChannelResult {
    *  probe response carried no extractable url/b64_json (or download
    *  failed). */
   imagePaths?: string[];
+  /** USD delta on the upstream account between submit and completion of
+   *  THIS attempt (per-probe billing measured via two `/api/user/self`
+   *  balance reads bracketing the probe). Absent if the upstream doesn't
+   *  expose a quota balance. Note: passing probes ALWAYS bill; failing
+   *  probes USUALLY don't but some upstreams charge for compute even on
+   *  failure - this field surfaces the actual ground truth. */
+  costUsd?: number;
+  /** Which wire shape this attempt tested. A model with multiple
+   *  endpoint_types (e.g. `["image-generation","dall-e-3"]`) gets one
+   *  ChannelResult per kind so we capture how each shape behaves. */
+  probeKind?: ProbeKind;
   attemptedAt: string;
   taskId?: string;
 }

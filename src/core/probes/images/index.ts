@@ -97,6 +97,7 @@ export async function runImageProbe(
     {
       provider: ProviderConfig;
       ctx: ClientContext;
+      client: NewApiClient;
       channelMap: Map<string, Channel[]>;
       discovery: DiscoveryReport;
       inferenceApiKey: string;
@@ -171,6 +172,7 @@ export async function runImageProbe(
     candidatesByProvider.set(provider.name, {
       provider,
       ctx: getCtx(client),
+      client,
       channelMap,
       discovery,
       inferenceApiKey: acquired?.key ?? "",
@@ -270,11 +272,12 @@ export async function runImageProbe(
     saveStore(store);
   };
 
+  let totalSpent = 0;
   try {
     let aborted = false;
     outer: for (const [
       providerName,
-      { provider, channelMap, discovery, inferenceApiKey },
+      { provider, client, channelMap, discovery, inferenceApiKey },
     ] of candidatesByProvider) {
       for (const c of discovery.candidates) {
         if (isAlreadyTested(store, providerName, c.modelName)) continue;
@@ -294,6 +297,11 @@ export async function runImageProbe(
           }
         }
 
+        // Bracket the probe with two balance reads so we can show the user
+        // the actual USD-equivalent spend per attempt. fetchBalance returns
+        // null when the upstream lacks an /api/user/self quota field; in
+        // that case we silently skip the cost line for that provider.
+        const balanceBefore = await client.fetchBalance();
         const result = await probeOneModel({
           provider,
           apiKey: inferenceApiKey,
@@ -302,6 +310,25 @@ export async function runImageProbe(
           fixtures,
           onProgress: saveProgress,
         });
+        const balanceAfter = await client.fetchBalance();
+        if (balanceBefore !== null && balanceAfter !== null) {
+          const delta = balanceBefore - balanceAfter;
+          totalSpent += Math.max(0, delta);
+          // Stamp the measured cost onto the channel result so it lands in
+          // images-results.json. The probe loop only knows the per-MODEL
+          // delta, not per-channel - so we attribute the full delta to the
+          // winning channel (single billable attempt) or to the last
+          // failed-channel entry if no channel passed.
+          if (result.workingChannel) result.workingChannel.costUsd = delta;
+          else if (result.failedChannels.length > 0) {
+            result.failedChannels[result.failedChannels.length - 1]!.costUsd = delta;
+          }
+          if (delta > 0.0001 || result.workingChannelId !== undefined) {
+            consola.info(
+              `[${providerName}] ${c.modelName}: cost ${delta < 0 ? "+$" + Math.abs(delta).toFixed(4) + " (refund?)" : "$" + delta.toFixed(4)} | running total: $${totalSpent.toFixed(4)} | balance: $${balanceAfter.toFixed(4)}`,
+            );
+          }
+        }
         appendResult(store, result);
         saveStore(store);
         if (result.workingChannelId !== undefined) passed++;
@@ -314,6 +341,9 @@ export async function runImageProbe(
     }
   } finally {
     await cleanupProbeTokens(candidatesByProvider);
+    if (totalSpent > 0) {
+      consola.info(`Total actual spend across this run: $${totalSpent.toFixed(4)}`);
+    }
   }
 
   const durationMs = Math.round(performance.now() - startedAt);
@@ -360,53 +390,81 @@ async function probeOneModel(opts: {
     };
   }
 
+  // Derive every probe kind the model's endpoint_types support. Models
+  // with both `image-generation` AND `dall-e-3` (or both `openai` AND
+  // `image-generation`) get one attempt per kind so we capture how each
+  // wire shape behaves. Errors don't bill so probing extra kinds is free.
+  const kindsToTry = probeKindsFor(candidate.endpointTypes, candidate.kind);
+
   const failed: ChannelResult[] = [];
   for (const ch of channels) {
     const channelId = ch.id ?? 0;
     const channelName = ch.name ?? `channel-${channelId}`;
-    const attempt = await runProbe(candidate.kind, {
-      baseUrl: provider.baseUrl,
-      apiKey,
-      userId: provider.userId,
-      channelId,
-      model: candidate.modelName,
-      fixtures,
-    });
 
-    const redacted = redactExchange(attempt.exchange);
-    const artifactPath = writeArtifact(
-      provider.name,
-      candidate.modelName,
-      channelId,
-      redacted,
-    );
+    // Within a channel, try each wire shape. Stop on first PASS - if
+    // /v1/images/edits worked we don't need to also try chat-completions.
+    let channelPassed: ChannelResult | undefined;
+    for (const probeKind of kindsToTry) {
+      const attempt = await runProbe(probeKind, {
+        baseUrl: provider.baseUrl,
+        apiKey,
+        userId: provider.userId,
+        channelId,
+        model: candidate.modelName,
+        fixtures,
+      });
 
-    // Save the actual generated image bytes (URL download or base64 decode)
-    // to disk before the upstream CDN URL expires. Run for both pass and
-    // fail attempts: a failed-classification probe (e.g. our heuristic
-    // didn't see an image, but the body still has one) is exactly the case
-    // we want bytes for, to inspect what the model actually produced.
-    // We pass the ORIGINAL response, not the redacted one - the redactor
-    // could in theory mangle data: URIs.
-    const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    const imagePaths = await saveResponseImages({
-      response: attempt.exchange.response,
-      dir: artifactDirFor(provider.name, candidate.modelName),
-      basenamePrefix: `${ts}-ch${channelId}`,
-    });
+      const redacted = redactExchange(attempt.exchange);
+      const artifactPath = writeArtifact(
+        provider.name,
+        candidate.modelName,
+        channelId,
+        redacted,
+      );
 
-    const cr: ChannelResult = {
-      channelId,
-      channelName,
-      exchange: redacted,
-      errorClass: attempt.errorClass,
-      artifactPath,
-      imagePaths: imagePaths.length > 0 ? imagePaths : undefined,
-      attemptedAt: new Date().toISOString(),
-      taskId: attempt.taskId,
-    };
+      // Save the actual generated image bytes (URL download or base64 decode)
+      // to disk before the upstream CDN URL expires. Run for both pass and
+      // fail attempts: a failed-classification probe (e.g. our heuristic
+      // didn't see an image, but the body still has one) is exactly the
+      // case we want bytes for, to inspect what the model actually
+      // produced. We pass the ORIGINAL response, not the redacted one -
+      // the redactor could in theory mangle data: URIs.
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      const imagePaths = await saveResponseImages({
+        response: attempt.exchange.response,
+        dir: artifactDirFor(provider.name, candidate.modelName),
+        basenamePrefix: `${ts}-ch${channelId}-${probeKind}`,
+      });
 
-    if (attempt.status === "ok") {
+      const cr: ChannelResult = {
+        channelId,
+        channelName,
+        exchange: redacted,
+        errorClass: attempt.errorClass,
+        artifactPath,
+        imagePaths: imagePaths.length > 0 ? imagePaths : undefined,
+        probeKind,
+        attemptedAt: new Date().toISOString(),
+        taskId: attempt.taskId,
+      };
+
+      if (attempt.status === "ok") {
+        channelPassed = cr;
+        break;
+      }
+      failed.push(cr);
+      // Persist mid-loop so a crash on the next kind doesn't lose the
+      // already-tried wire shape.
+      onProgress?.({
+        provider: provider.name,
+        model: candidate.modelName,
+        kind: candidate.kind,
+        failedChannels: failed,
+        decidedAt: new Date().toISOString(),
+      });
+    }
+
+    if (channelPassed) {
       consola.success(
         t("CORE.IMAGES.RESULT_PASS", {
           provider: provider.name,
@@ -424,25 +482,13 @@ async function probeOneModel(opts: {
         // carries request/response/headers/status/latency without having
         // to open the per-attempt artifact json. Mirrors what we already
         // store in failedChannels[] for failed attempts.
-        workingChannel: cr,
+        workingChannel: channelPassed,
         failedChannels: failed,
         decidedAt: new Date().toISOString(),
       };
       onProgress?.(decided);
       return decided;
     }
-    failed.push(cr);
-    // Persist after every channel attempt so a crash on channel N+1
-    // doesn't lose channels 1..N. The model's overall verdict isn't
-    // decided yet (workingChannelId is undefined) but the partial
-    // failedChannels[] is preserved on disk for resume.
-    onProgress?.({
-      provider: provider.name,
-      model: candidate.modelName,
-      kind: candidate.kind,
-      failedChannels: failed,
-      decidedAt: new Date().toISOString(),
-    });
   }
 
   consola.warn(
@@ -475,6 +521,48 @@ function runProbe(
   if (kind === "sync") return probeSyncChannel(opts);
   if (kind === "openai-vendor") return probeOpenAiVendorChannel(opts);
   return probeTaskChannel(opts);
+}
+
+/**
+ * Derive the full list of probe kinds to test for a candidate. When a model
+ * advertises multiple wire shapes (e.g. yun's gpt-image-2 has both
+ * `["openai编辑图片", "image-generation"]`, or another has both
+ * `["image-generation", "dall-e-3"]`), test each one and record per-kind
+ * results. The user gets ground truth on which wire shapes actually work.
+ *
+ * Always at least one kind: the candidate's primary `kind` from discovery.
+ */
+function probeKindsFor(endpointTypes: string[], primary: ProbeKind): ProbeKind[] {
+  const kinds = new Set<ProbeKind>([primary]);
+  // Multipart edit endpoints map to "sync"
+  for (const e of endpointTypes) {
+    const lower = e.toLowerCase();
+    if (
+      lower === "image-generation" ||
+      lower === "openai-image" ||
+      lower === "image-edit" ||
+      lower === "aigc-image" ||
+      lower === "aigc-image-edit" ||
+      lower.includes("编辑图片")
+    ) {
+      kinds.add("sync");
+    } else if (lower === "openai" || lower === "anthropic") {
+      kinds.add("openai-vendor");
+    } else if (lower === "openai-video" || lower === "omni-video") {
+      // We currently exclude pure-video at discovery. If a model has both
+      // image AND video endpoints we keep only the image side - don't probe
+      // the video shape because it requires submit+poll and our 6-ref
+      // probe semantics don't translate.
+    } else if (lower === "dall-e-3") {
+      // dall-e-3 wire is text-to-image. Map to "sync" since
+      // probeSyncChannel hits /v1/images/edits which is the closest
+      // wire-compatible shape; the 6 multipart `image[]` parts will be
+      // rejected by upstream and we'll record the rejection. (We don't
+      // have a separate dall-e-3 generations probe path.)
+      kinds.add("sync");
+    }
+  }
+  return [...kinds];
 }
 
 // ---------------------------------------------------------------------------
