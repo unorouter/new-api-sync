@@ -265,7 +265,7 @@
       "VERBOSE": "enable debug logging",
       "PORT": "port to listen on",
       "IMAGES_DRY_RUN": "discover candidates without sending requests (writes logs/images-dry-run.json)",
-      "IMAGES_YES": "skip the cost confirmation prompt"
+      "IMAGES_STEP": "prompt before each individual probe (interactive run)"
     },
     "STATUS": {
       "UI_RUNNING": "new-api-sync UI running at http://localhost:{port}"

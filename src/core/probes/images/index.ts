@@ -46,7 +46,9 @@ const ESTIMATED_COST_PER_PROBE_USD = 0.1;
 export interface RunImagesOpts {
   config: RuntimeConfig;
   dryRun?: boolean;
-  yes?: boolean;
+  /** When set, prompt before EACH individual probe. Default = interactive
+   *  per-probe; pass false to run straight through. */
+  step?: boolean;
 }
 
 export interface RunImagesReport {
@@ -238,28 +240,15 @@ export async function runImageProbe(
     };
   }
 
-  // ---- cost guard ----
+  // ---- cost estimate (informational only) ----
+  // The whole-run cost guard is gone: in --step mode the user confirms each
+  // probe individually, so an upfront prompt is redundant. In streaming
+  // (non-step) mode the user already opted into running by not passing
+  // --step, so don't double-prompt.
   const estimate = +(toProbe * ESTIMATED_COST_PER_PROBE_USD).toFixed(2);
   consola.info(
     t("CORE.IMAGES.ESTIMATED_COST", { cost: estimate, count: toProbe }),
   );
-  if (estimate > 1 && !opts.yes) {
-    const ok = await consola.prompt(t("CORE.IMAGES.CONFIRM_CONTINUE"), {
-      type: "confirm",
-    });
-    if (!ok) {
-      consola.info(t("CORE.IMAGES.ABORTED_BY_USER"));
-      return {
-        totalCandidates,
-        toProbe,
-        cached,
-        passed: 0,
-        failed: 0,
-        noChannel: 0,
-        durationMs: Math.round(performance.now() - startedAt),
-      };
-    }
-  }
 
   // ---- probe loop ----
   // Sequential execution: one probe at a time. Image-edit probes are slow
@@ -280,12 +269,29 @@ export async function runImageProbe(
   };
 
   try {
-    for (const [
+    let aborted = false;
+    outer: for (const [
       providerName,
       { provider, channelMap, discovery, inferenceApiKey },
     ] of candidatesByProvider) {
       for (const c of discovery.candidates) {
         if (isAlreadyTested(store, providerName, c.modelName)) continue;
+
+        // --step: confirm each probe individually so the user can stop
+        // mid-run after observing results. Default behavior (no --step) is
+        // straight-through.
+        if (opts.step) {
+          const ok = await consola.prompt(
+            `Probe [${providerName}] ${c.modelName} (${c.kind})?`,
+            { type: "confirm" },
+          );
+          if (!ok) {
+            consola.info(t("CORE.IMAGES.ABORTED_BY_USER"));
+            aborted = true;
+            break outer;
+          }
+        }
+
         const result = await probeOneModel({
           provider,
           apiKey: inferenceApiKey,
@@ -300,6 +306,9 @@ export async function runImageProbe(
         else if (result.failedChannels.length === 0) noChannel++;
         else failed++;
       }
+    }
+    if (aborted) {
+      // Fall through to cleanup + summary so the user sees what they got.
     }
   } finally {
     await cleanupProbeTokens(candidatesByProvider);

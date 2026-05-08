@@ -94,7 +94,7 @@ program
     [] as string[],
   )
   .option("--dry-run", t("CLI.OPTION.IMAGES_DRY_RUN"))
-  .option("--yes", t("CLI.OPTION.IMAGES_YES"))
+  .option("--step", t("CLI.OPTION.IMAGES_STEP"))
   .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
   .action(
     async (options: {
@@ -102,7 +102,7 @@ program
       only: string[];
       models: string[];
       dryRun?: boolean;
-      yes?: boolean;
+      step?: boolean;
       verbose?: boolean;
     }) => {
       if (options.verbose) consola.level = 4;
@@ -113,7 +113,7 @@ program
       await runImageProbe({
         config,
         dryRun: options.dryRun,
-        yes: options.yes,
+        step: options.step,
       });
     },
   );

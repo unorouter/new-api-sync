@@ -1,24 +1,30 @@
 # Image-edit probe reference fixtures
 
-Six SFW reference images used by `bun sync images` (image-edit capability probe). They mimic the multi-character RP scene Matic described: 1 background + 1 user character sprite + 4 NPC sprites = 6 reference images submitted to a model's `/v1/images/edits` endpoint.
+Six anime/JRPG-style reference images used by `bun sync images` (image-edit capability probe). They mimic the multi-character RP scene Matic described: 1 tavern background + 1 user character + 4 NPC characters = 6 reference images submitted to a model's image-edit endpoint.
 
-All are 640px-wide JPEG thumbnails sourced from Wikimedia Commons. Each underlying work is **public domain** (artist died > 100 years ago) and Wikimedia distributes the digital reproductions as PD-Art / PD-old. No attribution is legally required, but the source is documented here for transparency.
+These match Matic's actual workload (anime-style RP scene composition) far better than the previous PD oil-painting set. Each character is visually distinct so you can verify whether the model actually placed all 6 references in the output: blonde anime girl, blonde male hero, bearded ranger, bald knight in gold armor, brunette adventurer woman.
 
-| File                  | Source title                        | Author                          | URL                                                                                                                                |
-| --------------------- | ----------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `00-bg-room.jpg`      | Peasant family at home (1647)       | Adriaen van Ostade              | [Commons file page](https://commons.wikimedia.org/wiki/File:Adriaen_van_Ostade_001.jpg)                                            |
-| `01-user-girl.jpg`    | La belle ferronnière (c. 1490–1497) | School of Leonardo da Vinci     | [Commons file page](https://commons.wikimedia.org/wiki/File:La_belle_ferronnière,Leonardo_da_Vinci_-_Louvre.jpg)                   |
-| `02-npc-warrior.jpg`  | Charles I (1600–49) (1635–36)       | Anthony van Dyck                | [Commons file page](<https://commons.wikimedia.org/wiki/File:Sir_Anthony_Van_Dyck_-_Charles_I_(1600-49)_-_Google_Art_Project.jpg>) |
-| `03-npc-mage.jpg`     | Aristotle (Altemps Inv. 8575)       | Roman copy after Greek original | [Commons file page](https://commons.wikimedia.org/wiki/File:Aristotle_Altemps_Inv8575.jpg)                                         |
-| `04-npc-rogue.jpg`    | Self-Portrait                       | Rembrandt van Rijn              | [Commons file page](https://commons.wikimedia.org/wiki/File:Rembrandt_van_Rijn_-_Self-Portrait_-_Google_Art_Project.jpg)           |
-| `05-npc-merchant.jpg` | Banquet Scene in a Renaissance Hall | Dirck Hals                      | [Commons file page](https://commons.wikimedia.org/wiki/File:Dirck_Hals_-_Banquet_Scene_in_a_Renaissance_Hall_-_WGA11035.jpg)       |
+For local testing only. Source-license details aren't tracked here because we never redistribute the fixtures - they're inputs to a probe, not part of the released package.
+
+| File                | Subject                                                          | Source                                                  |
+| ------------------- | ---------------------------------------------------------------- | ------------------------------------------------------- |
+| `00-bg-tavern.jpg`  | Tavern interior - bar, stools, lanterns, shelves with bottles    | OpenGameArt: `Tavern1024x768` by Nila122                |
+| `01-user-sara.jpg`  | Anime girl, blonde with side braid, blue dress, magenta eyes     | OpenGameArt: `portrait21` (Sara) by RPG Action          |
+| `02-npc-trevor.jpg` | Anime male hero, blonde, red royal cape                          | OpenGameArt: `portrait24` (Trevor) by RPG Action        |
+| `03-npc-puck.jpg`   | Bearded ranger, brown hair, green hood                           | OpenGameArt: `portrait25` (Puck) by RPG Action          |
+| `04-npc-knight.jpg` | Bald armored knight, gold armor, mustache                        | OpenGameArt: `portrait26` (knight) by RPG Action        |
+| `05-npc-rogue.jpg`  | Brunette adventurer woman, leather vest, forest background      | OpenGameArt: `portraits.jpg` cell by Hyptosis           |
 
 ## Refresh
 
-If a Commons URL ever 404s, re-download with the same filename. The Commons search API resolves any title to a stable upload URL:
+If any source 404s in future, the OpenGameArt entries are at:
+
+- Sara/Trevor/Puck/knight: <https://opengameart.org/content/sara-trevor-puck-anime-portrait-and-expressions> (CC-BY 3.0)
+- Tavern: <https://opengameart.org/content/tavern-background> (CC-BY-SA 3.0)
+- Hyptosis grid: <https://opengameart.org/content/200-free-lorestrome-portraits> (CC0)
+
+Crop pattern (each portrait sheet is 900x760, top-left expression is 330x340):
 
 ```bash
-curl -sL "https://commons.wikimedia.org/w/api.php?action=query&titles=File:<URL-encoded>&prop=imageinfo&iiprop=url&format=json"
+magick portrait21.png -crop 330x340+0+0 +repage -background white -alpha remove images/01-user-sara.jpg
 ```
-
-Always pass a meaningful `User-Agent` (Wikimedia rejects empty UAs). Use the 640px-wide thumbnail variant when the original is large; pattern is `/commons/thumb/<hash>/<file>/640px-<file>`.
