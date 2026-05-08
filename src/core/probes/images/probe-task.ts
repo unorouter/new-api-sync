@@ -140,7 +140,10 @@ export async function probeTaskChannel(
   }
 
   // ---- poll ----
-  const pollUrl = `${submitUrl}/${encodeURIComponent(taskId)}`;
+  // Build the poll URL based on the submit URL family. MJ uses a
+  // separate `/mj/task/{id}/fetch` route, Replicate uses
+  // `/replicate/v1/predictions/{id}`, OAI Videos appends the id directly.
+  const pollUrl = buildPollUrl(submitUrl, taskId);
   const pollDeadline = Date.now() + (opts.pollTimeoutMs ?? 600_000);
   const pollIntervalMs = opts.pollIntervalMs ?? 5_000;
   let lastPollStatus: number | undefined;
@@ -165,7 +168,7 @@ export async function probeTaskChannel(
       lastPollBody = tryJson(text);
 
       const status = extractTaskStatus(lastPollBody);
-      if (status === "succeeded" || status === "completed" || status === "success") {
+      if (status === "succeeded") {
         const exchange: TestExchange = {
           pass: true,
           request: { url: submitUrl, headers, body: sanitizedSubmit },
@@ -176,7 +179,7 @@ export async function probeTaskChannel(
         };
         return { status: "ok", exchange, taskId };
       }
-      if (status === "failed" || status === "cancelled" || status === "error") {
+      if (status === "failed") {
         const exchange: TestExchange = {
           pass: false,
           request: { url: submitUrl, headers, body: sanitizedSubmit },
@@ -220,8 +223,18 @@ function tryJson(s: string): unknown {
 function extractTaskId(submitJson: unknown): string | undefined {
   if (submitJson && typeof submitJson === "object") {
     const o = submitJson as Record<string, unknown>;
+    // OAI-Videos / Suno-style: { id } or { task_id }.
     if (typeof o.id === "string") return o.id;
     if (typeof o.task_id === "string") return o.task_id;
+    // Midjourney: { code: 1, description: "提交成功", result: "<task_id>" }.
+    // The `result` field carries the task id when code === 1 (ok). Other
+    // codes mean rejection (e.g. code 4 = retry-failed); don't extract a
+    // task id from those - the body is an error envelope, not a task ack.
+    if (typeof o.result === "string" && o.result.length > 0) {
+      const code = typeof o.code === "number" ? o.code : undefined;
+      if (code === undefined || code === 1) return o.result;
+    }
+    // Wrapped: { data: { id | task_id } }.
     const data = o.data as Record<string, unknown> | undefined;
     if (data) {
       if (typeof data.id === "string") return data.id;
@@ -231,14 +244,67 @@ function extractTaskId(submitJson: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * Build the poll URL for a given submit URL + task id. Different gateway
+ * task surfaces use different polling conventions:
+ *   - OAI Videos (`/v1/videos`): `GET /v1/videos/{task_id}` (just append).
+ *   - Midjourney (`/mj/submit/<op>`): `GET /mj/task/{task_id}/fetch`.
+ *   - Replicate (`/replicate/v1/.../predictions`): `GET /replicate/v1/predictions/{task_id}`
+ *     - per Replicate's API the prediction URL is /v1/predictions/{id}.
+ *     - new-api forwards under /replicate/v1/...
+ *
+ * Falls back to `${submitUrl}/{task_id}` when no special case applies.
+ */
+function buildPollUrl(submitUrl: string, taskId: string): string {
+  const encoded = encodeURIComponent(taskId);
+  // Midjourney: /mj/submit/<anything> -> /mj/task/<id>/fetch
+  if (/\/mj\/submit\/[^/]+$/.test(submitUrl)) {
+    return submitUrl.replace(/\/mj\/submit\/[^/]+$/, `/mj/task/${encoded}/fetch`);
+  }
+  // Replicate: /replicate/v1/(models/.../)?predictions(/<id>) -> /replicate/v1/predictions/<id>
+  if (submitUrl.includes("/replicate/v1/") && submitUrl.endsWith("/predictions")) {
+    return submitUrl.replace(
+      /\/replicate\/v1\/.*\/predictions$/,
+      `/replicate/v1/predictions/${encoded}`,
+    );
+  }
+  // Default (OAI Videos and most others): append the id.
+  return `${submitUrl}/${encoded}`;
+}
+
 function extractTaskStatus(pollJson: unknown): string | undefined {
   if (pollJson && typeof pollJson === "object") {
     const o = pollJson as Record<string, unknown>;
-    if (typeof o.status === "string") return o.status.toLowerCase();
+    if (typeof o.status === "string") return normalizeTaskStatus(o.status);
     const data = o.data as Record<string, unknown> | undefined;
-    if (data && typeof data.status === "string") return data.status.toLowerCase();
+    if (data && typeof data.status === "string") return normalizeTaskStatus(data.status);
   }
   return undefined;
+}
+
+/**
+ * Normalize the wide variety of upstream status strings into the small
+ * set our terminal checks recognize:
+ *   succeeded | failed | <pending>
+ *
+ * Vendors observed:
+ *   - OAI Videos / generic: "succeeded", "failed", "queued", "running"
+ *   - Replicate: "succeeded", "failed", "starting", "processing", "canceled"
+ *   - Midjourney: "SUCCESS", "FAILURE", "SUBMITTED", "IN_PROGRESS", "MODAL"
+ *   - Suno: "complete", "failed", "submitted"
+ *
+ * Anything not terminal stays as the raw lowercased string and the poll
+ * loop keeps going.
+ */
+function normalizeTaskStatus(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (lower === "success" || lower === "succeeded" || lower === "completed" || lower === "complete") {
+    return "succeeded";
+  }
+  if (lower === "failure" || lower === "failed" || lower === "cancelled" || lower === "canceled" || lower === "error") {
+    return "failed";
+  }
+  return lower;
 }
 
 function sleep(ms: number): Promise<void> {

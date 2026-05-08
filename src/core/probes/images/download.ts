@@ -58,21 +58,35 @@ interface ImageRef {
 }
 
 /**
- * Try the canonical OpenAI shape first (`data: [{ url, b64_json }]`),
- * then sweep the entire response tree for stragglers. Vendors like Kling,
- * MJ, and Wan often nest the URL under different keys (`output[]`,
- * `images[]`, `result.urls[]`, etc.); the recursive sweep catches those
- * without an exhaustive vendor-shape table.
+ * Vendor-aware extraction: pull image URLs ONLY from canonical output
+ * fields. The earlier version walked the entire response tree and
+ * extracted any URL it found in any string - which silently grabbed
+ * INPUT fixture URLs from MJ's `promptEn` / `properties.finalPrompt`
+ * echo fields, polluting the saved files.
+ *
+ * Per-vendor canonical output fields:
+ *   - OpenAI image shape:    response.data[].url, response.data[].b64_json
+ *   - OpenAI Videos task:    response.poll.output / .data.url / .urls
+ *   - Replicate prediction:  response.poll.output (string or string[])
+ *   - Midjourney task fetch: response.poll.imageUrl (camelCase)
+ *
+ * For task probes, the orchestrator passes the COMPOSITE response
+ * `{submit, poll, taskId}` so we look inside `poll` first.
  */
 function extractRefs(response: unknown): ImageRef[] {
   const refs: ImageRef[] = [];
-  // Canonical OpenAI shape: data[].url / data[].b64_json
-  if (
-    response != null &&
-    typeof response === "object" &&
-    Array.isArray((response as { data?: unknown }).data)
-  ) {
-    for (const item of (response as { data: unknown[] }).data) {
+  if (response == null || typeof response !== "object") return refs;
+  const root = response as Record<string, unknown>;
+
+  // Task-probe wrapper: {submit, poll, taskId}. Only inspect poll - the
+  // submit body is the request shape we sent and never holds the output.
+  const target = (root.poll && typeof root.poll === "object")
+    ? (root.poll as Record<string, unknown>)
+    : root;
+
+  // OpenAI image shape: data[].url / data[].b64_json
+  if (Array.isArray(target.data)) {
+    for (const item of target.data as unknown[]) {
       if (item == null || typeof item !== "object") continue;
       const o = item as Record<string, unknown>;
       if (typeof o.url === "string" && o.url.length > 0) {
@@ -82,61 +96,31 @@ function extractRefs(response: unknown): ImageRef[] {
       }
     }
   }
-  if (refs.length > 0) return refs;
-  // Fallback: walk everything looking for image-shaped values.
-  walk(response, refs);
+
+  // Midjourney task fetch: imageUrl (camelCase, top-level on the poll body).
+  if (typeof target.imageUrl === "string" && target.imageUrl.length > 0) {
+    refs.push({ kind: "url", value: target.imageUrl });
+  }
+  // snake_case alt some forks return.
+  if (typeof target.image_url === "string" && target.image_url.length > 0) {
+    refs.push({ kind: "url", value: target.image_url });
+  }
+
+  // Replicate prediction: output is string | string[].
+  const out = target.output;
+  if (typeof out === "string" && out.startsWith("http")) {
+    refs.push({ kind: "url", value: out });
+  } else if (Array.isArray(out)) {
+    for (const u of out) {
+      if (typeof u === "string" && u.startsWith("http")) {
+        refs.push({ kind: "url", value: u });
+      }
+    }
+  }
+
   return dedupe(refs);
 }
 
-function walk(node: unknown, out: ImageRef[]): void {
-  if (node == null) return;
-  if (typeof node === "string") {
-    // data:image/...;base64,... embedded in text
-    for (const m of node.matchAll(
-      /data:image\/(png|jpeg|jpg|webp|gif);base64,([A-Za-z0-9+/=]+)/g,
-    )) {
-      out.push({ kind: "b64", value: m[2]!, mediaType: `image/${m[1]}` });
-    }
-    // bare/markdown image URLs - require a known image extension or
-    // CDN/render path component to avoid grabbing random links from
-    // refusal text or doc URLs.
-    for (const m of node.matchAll(/https?:\/\/[^\s)<>"']+/g)) {
-      if (looksLikeImageUrl(m[0])) out.push({ kind: "url", value: m[0] });
-    }
-    return;
-  }
-  if (Array.isArray(node)) {
-    for (const item of node) walk(item, out);
-    return;
-  }
-  if (typeof node === "object") {
-    const o = node as Record<string, unknown>;
-    if (typeof o.url === "string" && looksLikeImageUrl(o.url)) {
-      out.push({ kind: "url", value: o.url });
-    }
-    if (typeof o.image_url === "string" && looksLikeImageUrl(o.image_url)) {
-      out.push({ kind: "url", value: o.image_url });
-    }
-    if (typeof o.b64_json === "string" && o.b64_json.length > 100) {
-      out.push({ kind: "b64", value: o.b64_json });
-    }
-    if (
-      typeof o.image === "string" &&
-      o.image.length > 100 &&
-      /^[A-Za-z0-9+/=]+$/.test(o.image.slice(0, 100))
-    ) {
-      out.push({ kind: "b64", value: o.image });
-    }
-    for (const v of Object.values(o)) walk(v, out);
-  }
-}
-
-function looksLikeImageUrl(url: string): boolean {
-  return (
-    /\.(png|jpe?g|webp|gif|bmp)(\?|$)/i.test(url) ||
-    /\/(image|cdn|render|output|results?)\b/i.test(url)
-  );
-}
 
 function dedupe(refs: ImageRef[]): ImageRef[] {
   const seen = new Set<string>();
