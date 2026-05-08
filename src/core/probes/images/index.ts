@@ -390,7 +390,11 @@ async function probeOneModel(opts: {
   // both `image-generation` AND `openai编辑图片` (or both `openai` AND
   // `image-generation`) get one attempt per shape so we capture how each
   // endpoint behaves. Errors don't bill so probing extra shapes is free.
-  const shapesToTry = probeShapesFor(candidate.endpointTypes, candidate.kind);
+  const shapesToTry = probeShapesFor(
+    candidate.endpointTypes,
+    candidate.kind,
+    candidate.modelName,
+  );
 
   // Tell the user the planned probe order before we start hitting the
   // upstream. Cheapest tier first means a quick PASS on the cheap group
@@ -653,11 +657,36 @@ function shapeHasImageInputs(shape: ProbeShape): boolean {
 }
 
 /**
+ * Names that signal the model REQUIRES reference images regardless of what
+ * endpoint type the gateway declares. Many edit-only models on resellers
+ * are mis-listed under `image-generation` (the t2i endpoint), so when we
+ * probe with text-only we get `"Missing required key: image"` 400s. By
+ * also adding edit-style shapes for these names we exercise the multipart
+ * + chat-multimodal paths that actually carry the refs.
+ */
+const NAME_REQUIRES_REFS = [
+  "edit",       // qwen-image-edit-*, seededit, flux-kontext-edit
+  "kontext",    // flux-kontext-* are reference-conditioned
+  "i2i",        // image-to-image
+  "i2v",        // image-to-video (refs required)
+  "img2img",
+  "image-to-image",
+  "image-to-video",
+  "redux",      // flux redux is image-conditioned
+  "remix",      // ideogram remix is reference-conditioned
+];
+
+/**
  * Derive the full list of wire shapes to test for a candidate. When a model
  * advertises multiple endpoint types (e.g. yun's gpt-image-2 has both
  * `openai编辑图片` AND `image-generation`), each shape gets its own attempt:
  * `/v1/images/edits` (sync-edits, multipart) AND `/v1/images/generations`
  * (sync-generations, JSON). User-visible ground truth per endpoint.
+ *
+ * Also factors in the MODEL NAME: edit/i2i/kontext/remix-style models
+ * always test the multipart + chat-multimodal paths even when the gateway
+ * only declares `image-generation` for them, because text-only would
+ * trigger "Missing required key: image" rejections.
  *
  * Always at least one shape: derived from the candidate's primary `kind`
  * when endpointTypes are missing/non-standard.
@@ -665,6 +694,7 @@ function shapeHasImageInputs(shape: ProbeShape): boolean {
 function probeShapesFor(
   endpointTypes: string[],
   primary: ProbeKind,
+  modelName?: string,
 ): ProbeShape[] {
   const shapes = new Set<ProbeShape>();
   for (const e of endpointTypes) {
@@ -692,6 +722,19 @@ function probeShapesFor(
     }
     // Video task surface excluded at discovery; nothing to add here.
   }
+
+  // Name-based override: edit/i2i/kontext models need refs even when the
+  // gateway only advertises image-generation. Add the ref-carrying shapes
+  // so we don't get stuck submitting text-only requests that get rejected
+  // for "Missing required key: image".
+  if (modelName) {
+    const lowerName = modelName.toLowerCase();
+    if (NAME_REQUIRES_REFS.some((k) => lowerName.includes(k))) {
+      shapes.add("sync-edits");
+      shapes.add("openai-vendor");
+    }
+  }
+
   if (shapes.size === 0) {
     // Fall back to primary kind (used for legacy V2 yun shape where
     // endpointTypes may be empty and we derived kind from the model name).

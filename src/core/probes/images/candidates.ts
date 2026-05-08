@@ -329,11 +329,38 @@ export function discoverCandidates(opts: DiscoverOpts): DiscoveryReport {
     const legacy = opts.legacyModelInfo?.[m.name];
     const tags = legacy?.tags;
     if (tags) {
-      // Painting / draw / image edit Chinese tags.
-      const tagHit = tags.find((t) =>
-        /(?:绘画|图像|图片|生图|扩图|修图|edit|paint|image)/i.test(t),
-      );
-      if (tagHit) reasons.push(`tag:${tagHit}`);
+      // Image-OUTPUT signals: paint, draw, generate-image, edit-image,
+      // expand-image, retouch-image, dall-e-format. Note we explicitly
+      // do NOT match `图像` or `图片` alone - those leak vision-only
+      // chat models (gpt-4-all has tags `图像分析` = "image analysis"
+      // = vision input, NOT image output) into the probe set, where
+      // they produce 200-with-text-only "I can describe how to..."
+      // refusals that still bill upstream tokens.
+      const IMAGE_OUTPUT_TAG_RE =
+        /(?:绘画|生图|扩图|修图|画图|出图|文生图|图生图|dall-?e|paint(?:ing)?|draw(?:ing)?|image[- ]?gen|image[- ]?edit|text[- ]?to[- ]?image)/i;
+      // Vision-INPUT tags. A model whose ONLY image-related tags are
+      // vision-input is a chat model with eyes, not an image generator.
+      const VISION_INPUT_TAG_RE =
+        /(?:图像分析|图片分析|图像识别|图片识别|图像理解|图片理解|视觉|多模态|vision|multimodal)/i;
+      const outputTagHit = tags.find((t) => IMAGE_OUTPUT_TAG_RE.test(t));
+      const visionOnlyHit = tags.find((t) => VISION_INPUT_TAG_RE.test(t));
+      if (outputTagHit) {
+        reasons.push(`tag:${outputTagHit}`);
+      } else if (
+        visionOnlyHit &&
+        reasons.length === 0 &&
+        // The visible image-output endpoints. If the model has one of
+        // these we keep it - the endpoint signal trumps the tag noise.
+        !eps.some((e) => ENDPOINT_HINTS.has(e))
+      ) {
+        // Vision-tagged chat model with no image-output endpoint. Skip
+        // explicitly so the user can audit why it didn't probe.
+        excluded.push({
+          modelName: m.name,
+          reason: `vision-input-only (tag:${visionOnlyHit})`,
+        });
+        continue;
+      }
     }
 
     if (reasons.length === 0) continue;

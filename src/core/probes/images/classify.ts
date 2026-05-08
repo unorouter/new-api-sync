@@ -32,15 +32,26 @@ export function classifyResponse(
     return { errorClass: "auth", errorSnippet: snippet };
   }
   if (status === 429) {
-    // new-api gateways sometimes return HTTP 429 as a generic "deny"
-    // code, not a real rate-limit. Body strings like "Model disabled",
-    // "model not found", "no available channel" mean the upstream
-    // permanently refuses this model + group combo - retrying is not
-    // only useless but actively harmful (some upstreams bill per
-    // attempt regardless of outcome). Surface those as no_channel /
-    // refusal so the retry loop skips them.
-    if (/model disabled|model not found|no available channel|无可用渠道|模型已禁用/i.test(snippet)) {
+    // new-api gateways frequently return HTTP 429 as a generic "deny"
+    // code instead of a real rate-limit. The body distinguishes:
+    //
+    //   - "Model disabled" / "无可用渠道" / "model not found"
+    //       -> deterministic: model + group combo unavailable.
+    //   - "Missing required key: image" / "missing field"
+    //       -> request shape is wrong (e.g. probed sync-generations on
+    //          an edit-only model). Retrying with same body is pointless.
+    //   - "上游负载已饱和" (upstream saturated)
+    //       -> upstream-side capacity, not OUR rate limit. Some gateways
+    //          bill per attempt regardless of this outcome, so retrying
+    //          can drain quota for nothing.
+    //
+    // Surface all of these as `no_channel` / `refusal` so the retry
+    // loop skips them and we don't hammer the upstream.
+    if (/model disabled|model not found|no available channel|无可用渠道|模型已禁用|上游负载已饱和|upstream.*saturat/i.test(snippet)) {
       return { errorClass: "no_channel", errorSnippet: snippet };
+    }
+    if (/missing required (?:key|field|parameter)|required.*image|image.*required/i.test(snippet)) {
+      return { errorClass: "ref_count_rejected", errorSnippet: snippet };
     }
     return { errorClass: "ratelimit", errorSnippet: snippet };
   }
