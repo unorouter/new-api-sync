@@ -118,6 +118,31 @@ function extractRefs(response: unknown): ImageRef[] {
     }
   }
 
+  // Gemini-native shape: candidates[].content.parts[].inlineData.
+  // Each inlineData is `{mimeType: "image/png", data: "<raw-base64>"}`
+  // (camelCase) or `{mime_type, data}` (snake_case, some forks).
+  if (Array.isArray(target.candidates)) {
+    for (const cand of target.candidates as unknown[]) {
+      if (cand == null || typeof cand !== "object") continue;
+      const content = (cand as Record<string, unknown>).content;
+      if (content == null || typeof content !== "object") continue;
+      const parts = (content as Record<string, unknown>).parts;
+      if (!Array.isArray(parts)) continue;
+      for (const part of parts as unknown[]) {
+        if (part == null || typeof part !== "object") continue;
+        const inline =
+          (part as Record<string, unknown>).inlineData ??
+          (part as Record<string, unknown>).inline_data;
+        if (inline == null || typeof inline !== "object") continue;
+        const o = inline as Record<string, unknown>;
+        const data = o.data;
+        if (typeof data !== "string" || data.length < 100) continue;
+        const mt = (o.mimeType ?? o.mime_type) as string | undefined;
+        refs.push({ kind: "b64", value: data, mediaType: mt });
+      }
+    }
+  }
+
   // Chat-completions shape: choices[].message.content. Used by gateways that
   // wrap vendor-native image models (Gemini image-preview, Doubao Seedream,
   // Qwen-Image-Edit, etc.) behind /v1/chat/completions. Content can be:

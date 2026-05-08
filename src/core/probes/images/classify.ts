@@ -129,10 +129,15 @@ export function looksLikeImageResponse(bodyText: string): boolean {
   //   2. Chat-completions assistant message containing image_url part
   //   3. Markdown with ![](https://...png) or data: URI
   //   4. Bare URL in plain text
+  //   5. Gemini-native: candidates[].content.parts[].inlineData.{mimeType,data}.
+  //      The base64 sits in a bare `data` field with a sibling `mimeType`
+  //      (or `mime_type`) - no `data:` prefix. We match the inlineData
+  //      wrapper since the field names are stable and unique to Gemini.
   return (
     /\bb64_json\b/.test(bodyText) ||
     /\bimage_url\b/.test(bodyText) ||
     /\bdata:image\/(?:png|jpe?g|webp|gif)/i.test(bodyText) ||
-    /https?:\/\/[^\s"']+\.(?:png|jpe?g|webp|gif)/i.test(bodyText)
+    /https?:\/\/[^\s"']+\.(?:png|jpe?g|webp|gif)/i.test(bodyText) ||
+    /"inline_?[Dd]ata"\s*:\s*\{[^}]*"(?:mime_?[Tt]ype)"\s*:\s*"image\//.test(bodyText)
   );
 }
