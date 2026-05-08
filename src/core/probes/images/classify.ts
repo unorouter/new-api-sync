@@ -53,6 +53,21 @@ export function classifyResponse(
     if (/missing required (?:key|field|parameter)|required.*image|image.*required/i.test(snippet)) {
       return { errorClass: "ref_count_rejected", errorSnippet: snippet };
     }
+    // Replicate-style "model or version is required": we hit a bare
+    // /predictions path without supplying the model version UUID.
+    // Deterministic body-shape error, not a rate limit.
+    if (/model or version is required|invalid_request/i.test(snippet)) {
+      return { errorClass: "ref_count_rejected", errorSnippet: snippet };
+    }
+    // Upstream relay failure: yun wraps Replicate 5xx as 429 with body
+    // `{code: "do_response_failed", message: "API request failed with
+    // status: 503"}`. Real upstream-side outage, not our rate limit -
+    // retrying just hammers a downed Replicate. Treat as transient
+    // upstream failure (no_channel) so the retry loop skips and we move
+    // to the next group/model.
+    if (/do_response_failed|API request failed with status/i.test(snippet)) {
+      return { errorClass: "no_channel", errorSnippet: snippet };
+    }
     return { errorClass: "ratelimit", errorSnippet: snippet };
   }
   if (status === 404) {

@@ -48,8 +48,15 @@ export interface BuildBodyOpts {
 export function buildBody(opts: BuildBodyOpts): BuiltBody | null {
   const lp = opts.path.toLowerCase();
 
-  // Replicate: /replicate/v1/(models/.../)?predictions
-  if (lp.includes("/predictions")) {
+  // Replicate: /replicate/v1/models/{vendor}/{model}/predictions
+  //
+  // Bare /replicate/v1/predictions (without /models/.../) requires a
+  // model version UUID in the body (`version` field). yun lists ~11
+  // models on the bare path that we have no UUIDs for - return null so
+  // discovery excludes them via hasAtLeastOneHandledEndpoint, rather
+  // than burning a probe on a guaranteed "model or version is required"
+  // 4xx.
+  if (lp.includes("/models/") && lp.includes("/predictions")) {
     return buildReplicateBody(opts);
   }
   // Midjourney blend: 6 base64 images + dimensions + botType.
