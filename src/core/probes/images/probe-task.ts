@@ -151,6 +151,18 @@ export async function probeTaskChannel(
   let lastPollBody: unknown = null;
   let pollErr: string | undefined;
 
+  // Keep a trail of every poll attempt so the artifact records what we
+  // saw at each step (status transitions, progress %, partial bodies).
+  // Each entry: { at, httpStatus, taskStatus, body }. Useful for
+  // debugging when a task gets stuck or returns intermediate progress.
+  interface PollSample {
+    at: string;
+    httpStatus: number | undefined;
+    taskStatus: string | undefined;
+    body: unknown;
+  }
+  const pollHistory: PollSample[] = [];
+
   while (Date.now() < pollDeadline) {
     await sleep(pollIntervalMs);
     const pollCtrl = new AbortController();
@@ -168,11 +180,26 @@ export async function probeTaskChannel(
       lastPollBody = tryJson(text);
 
       const status = extractTaskStatus(lastPollBody);
+      pollHistory.push({
+        at: new Date().toISOString(),
+        httpStatus: lastPollStatus,
+        taskStatus: status,
+        body: lastPollBody,
+      });
       if (status === "succeeded") {
         const exchange: TestExchange = {
           pass: true,
-          request: { url: submitUrl, headers, body: sanitizedSubmit },
-          response: { submit: submitJson, poll: lastPollBody, taskId },
+          request: {
+            url: submitUrl,
+            headers,
+            body: { submit: sanitizedSubmit, pollUrl, pollIntervalMs },
+          },
+          response: {
+            submit: submitJson,
+            poll: lastPollBody,
+            pollHistory,
+            taskId,
+          },
           responseHeaders: { submit: submitHeaders, poll: lastPollHeaders } as unknown as Record<string, string>,
           status: lastPollStatus,
           latencyMs: Math.round(performance.now() - start),
@@ -182,8 +209,17 @@ export async function probeTaskChannel(
       if (status === "failed") {
         const exchange: TestExchange = {
           pass: false,
-          request: { url: submitUrl, headers, body: sanitizedSubmit },
-          response: { submit: submitJson, poll: lastPollBody, taskId },
+          request: {
+            url: submitUrl,
+            headers,
+            body: { submit: sanitizedSubmit, pollUrl, pollIntervalMs },
+          },
+          response: {
+            submit: submitJson,
+            poll: lastPollBody,
+            pollHistory,
+            taskId,
+          },
           responseHeaders: { submit: submitHeaders, poll: lastPollHeaders } as unknown as Record<string, string>,
           status: lastPollStatus,
           latencyMs: Math.round(performance.now() - start),
@@ -194,6 +230,12 @@ export async function probeTaskChannel(
       // else still pending / running — loop.
     } catch (err) {
       pollErr = err instanceof Error ? err.message : String(err);
+      pollHistory.push({
+        at: new Date().toISOString(),
+        httpStatus: undefined,
+        taskStatus: undefined,
+        body: { error: pollErr },
+      });
     } finally {
       clearTimeout(pollTimer);
     }
@@ -202,8 +244,17 @@ export async function probeTaskChannel(
   // Poll budget exhausted.
   const exchange: TestExchange = {
     pass: false,
-    request: { url: submitUrl, headers, body: sanitizedSubmit },
-    response: { submit: submitJson, lastPoll: lastPollBody, taskId },
+    request: {
+      url: submitUrl,
+      headers,
+      body: { submit: sanitizedSubmit, pollUrl, pollIntervalMs },
+    },
+    response: {
+      submit: submitJson,
+      poll: lastPollBody,
+      pollHistory,
+      taskId,
+    },
     responseHeaders: { submit: submitHeaders, poll: lastPollHeaders } as unknown as Record<string, string>,
     status: lastPollStatus,
     latencyMs: Math.round(performance.now() - start),
