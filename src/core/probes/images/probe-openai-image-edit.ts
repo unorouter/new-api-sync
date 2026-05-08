@@ -52,7 +52,10 @@ export async function probeOpenAiVendorChannel(
 
   const start = performance.now();
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 90_000);
+  // Default 10 minutes. Image generation upstreams routinely take 2-5
+   // minutes (e.g. gpt-image-2 measured at 229s on yun, billable). 90s
+   // aborts healthy requests mid-flight before the upstream returns.
+  const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 600_000);
 
   let resp: Response | undefined;
   let bodyText = "";

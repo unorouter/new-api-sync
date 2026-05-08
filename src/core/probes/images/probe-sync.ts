@@ -22,7 +22,9 @@ export interface SyncProbeOpts {
   channelId: number;
   model: string;
   fixtures: Fixtures;
-  /** Default 90s. */
+  /** Default 10 minutes. Image gen routinely takes 2-5 minutes upstream
+   *  (gpt-image-2 measured at 229s on yun, billable). 90s aborts healthy
+   *  requests mid-flight - matches the task probe's poll budget. */
   timeoutMs?: number;
 }
 
@@ -57,7 +59,7 @@ export async function probeSyncChannel(
 
   const start = performance.now();
   const ctrl = new AbortController();
-  const timeoutMs = opts.timeoutMs ?? 90_000;
+  const timeoutMs = opts.timeoutMs ?? 600_000;
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
 
   let resp: Response | undefined;
