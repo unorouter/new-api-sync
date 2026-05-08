@@ -40,6 +40,11 @@ export interface ModelResult {
   kind: ProbeKind;
   workingChannelId?: number;
   workingChannelName?: string;
+  /** Full exchange (request/response/headers/status/latency) of the channel
+   *  that decided this model: present when the model PASSED. Mirrors the
+   *  shape recorded in `failedChannels[]` so the master file stands alone
+   *  without having to open per-attempt artifacts on disk. */
+  workingChannel?: ChannelResult;
   failedChannels: ChannelResult[];
   decidedAt: string;
 }

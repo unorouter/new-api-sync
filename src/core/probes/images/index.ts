@@ -420,6 +420,11 @@ async function probeOneModel(opts: {
         kind: candidate.kind,
         workingChannelId: channelId,
         workingChannelName: channelName,
+        // Inline the winning channel's full exchange so the master file
+        // carries request/response/headers/status/latency without having
+        // to open the per-attempt artifact json. Mirrors what we already
+        // store in failedChannels[] for failed attempts.
+        workingChannel: cr,
         failedChannels: failed,
         decidedAt: new Date().toISOString(),
       };
