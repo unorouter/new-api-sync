@@ -327,6 +327,7 @@ export function discoverCandidates(opts: DiscoverOpts): DiscoveryReport {
     if (compoundHit) reasons.push(`name:${compoundHit[0]}+${compoundHit[1]}`);
 
     const legacy = opts.legacyModelInfo?.[m.name];
+
     const tags = legacy?.tags;
     if (tags) {
       // Image-OUTPUT signals: paint, draw, generate-image, edit-image,

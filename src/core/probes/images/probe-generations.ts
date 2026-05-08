@@ -10,6 +10,10 @@ export interface GenerationsProbeOpts {
   channelId: number;
   model: string;
   fixtures: Fixtures;
+  /** Override the URL path. When omitted, defaults to
+   *  /v1/images/generations. Set this when the provider's endpointPaths
+   *  declares a custom path. */
+  path?: string;
   timeoutMs?: number;
 }
 
@@ -28,7 +32,7 @@ export interface GenerationsProbeOpts {
 export async function probeGenerationsChannel(
   opts: GenerationsProbeOpts,
 ): Promise<ProbeAttempt> {
-  const url = opts.baseUrl.replace(/\/$/, "") + "/v1/images/generations";
+  const url = opts.baseUrl.replace(/\/$/, "") + (opts.path ?? "/v1/images/generations");
   const headers: Record<string, string> = {
     Authorization: `Bearer ${opts.apiKey}`,
     "Content-Type": "application/json",

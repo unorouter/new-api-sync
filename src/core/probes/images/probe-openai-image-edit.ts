@@ -10,6 +10,10 @@ export interface OpenAiVendorProbeOpts {
   channelId: number;
   model: string;
   fixtures: Fixtures;
+  /** Override the URL path. When omitted, defaults to
+   *  /v1/chat/completions. Used for native gemini/anthropic paths when
+   *  the provider's endpointPaths declares them. */
+  path?: string;
   timeoutMs?: number;
 }
 
@@ -27,7 +31,7 @@ export interface OpenAiVendorProbeOpts {
 export async function probeOpenAiVendorChannel(
   opts: OpenAiVendorProbeOpts,
 ): Promise<ProbeAttempt> {
-  const url = opts.baseUrl.replace(/\/$/, "") + "/v1/chat/completions";
+  const url = opts.baseUrl.replace(/\/$/, "") + (opts.path ?? "/v1/chat/completions");
   const headers: Record<string, string> = {
     Authorization: `Bearer ${opts.apiKey}`,
     "Content-Type": "application/json",

@@ -22,6 +22,11 @@ export interface SyncProbeOpts {
   channelId: number;
   model: string;
   fixtures: Fixtures;
+  /** Override the URL path. When omitted, defaults to /v1/images/edits.
+   *  Set this when the provider's endpointPaths declares a custom path
+   *  for the edit endpoint (e.g. yun's `/replicate/v1/.../predictions`
+   *  for Replicate-routed channels). */
+  path?: string;
   /** Default 10 minutes. Image gen routinely takes 2-5 minutes upstream
    *  (gpt-image-2 measured at 229s on yun, billable). 90s aborts healthy
    *  requests mid-flight - matches the task probe's poll budget. */
@@ -38,7 +43,7 @@ export interface SyncProbeOpts {
 export async function probeSyncChannel(
   opts: SyncProbeOpts,
 ): Promise<ProbeAttempt> {
-  const url = opts.baseUrl.replace(/\/$/, "") + "/v1/images/edits";
+  const url = opts.baseUrl.replace(/\/$/, "") + (opts.path ?? "/v1/images/edits");
   const headers: Record<string, string> = {
     Authorization: `Bearer ${opts.apiKey}`,
     "New-Api-User": String(opts.userId),

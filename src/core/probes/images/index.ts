@@ -3,6 +3,7 @@ import { saveResponseImages } from "./download";
 import type { ProviderConfig } from "@core/validations/config";
 import { NewApiClient } from "@core/vendors/newapi/client";
 import type { ClientContext } from "@core/vendors/newapi/context";
+import type { UpstreamPricing } from "@core/vendors/newapi/types";
 import { ProbeTokenManager } from "./token-manager";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -12,6 +13,7 @@ import {
   type Candidate,
   type DiscoveryReport,
 } from "./candidates";
+import { resolveEndpoint } from "./endpoint-resolver";
 import {
   buildGroupMap,
   compareGroupChannels,
@@ -99,6 +101,11 @@ export async function runImageProbe(
       /** Lazy token resolver. Inference keys are unmasked / created only
        *  when the probe actually walks into a group, never up front. */
       tokens: ProbeTokenManager;
+      /** Provider's parsed pricing - kept around so the probe loop can
+       *  resolve actual endpoint URLs from `pricing.endpointPaths` per
+       *  endpoint type (e.g. yun's flux-kontext-pro -> Replicate path
+       *  `/replicate/v1/.../predictions` instead of `/v1/images/edits`). */
+      pricing: UpstreamPricing;
     }
   >();
 
@@ -158,6 +165,7 @@ export async function runImageProbe(
       groupMap,
       discovery,
       tokens,
+      pricing,
     });
 
     if (opts.dryRun) {
@@ -258,7 +266,7 @@ export async function runImageProbe(
     let aborted = false;
     outer: for (const [
       providerName,
-      { provider, client, groupMap, discovery, tokens },
+      { provider, client, groupMap, discovery, tokens, pricing },
     ] of candidatesByProvider) {
       for (const c of discovery.candidates) {
         if (isAlreadyTested(store, providerName, c.modelName)) continue;
@@ -287,6 +295,7 @@ export async function runImageProbe(
           candidate: c,
           groupMap,
           tokens,
+          pricing,
           fixtures,
           onProgress: saveProgress,
           fetchBalance: () => client.fetchBalance(),
@@ -352,6 +361,9 @@ async function probeOneModel(opts: {
   /** Lazy token manager. `getApiKey(group)` is called per group on first
    *  visit; result is cached for the rest of the run. */
   tokens: ProbeTokenManager;
+  /** Provider's parsed pricing - used to resolve actual endpoint URLs
+   *  per endpoint type (per-model overrides for Replicate/Tencent/etc). */
+  pricing: UpstreamPricing;
   fixtures: Fixtures;
   /** Persist a partial ModelResult after every channel attempt so the
    *  store survives Ctrl-C / network errors mid-loop and resume picks up
@@ -371,7 +383,7 @@ async function probeOneModel(opts: {
     balanceAfter: number;
   }) => void;
 }): Promise<ModelResult> {
-  const { provider, candidate, groupMap, tokens, fixtures, onProgress, fetchBalance, onStepCost } = opts;
+  const { provider, candidate, groupMap, tokens, pricing, fixtures, onProgress, fetchBalance, onStepCost } = opts;
   const groups = (groupMap.get(candidate.modelName) ?? [])
     .slice()
     .sort(compareGroupChannels);
@@ -386,15 +398,23 @@ async function probeOneModel(opts: {
     };
   }
 
-  // Derive every wire shape the model's endpoint_types support. Models with
-  // both `image-generation` AND `openai编辑图片` (or both `openai` AND
-  // `image-generation`) get one attempt per shape so we capture how each
-  // endpoint behaves. Errors don't bill so probing extra shapes is free.
-  const shapesToTry = probeShapesFor(
-    candidate.endpointTypes,
-    candidate.kind,
-    candidate.modelName,
-  );
+  // Derive every (wire shape, URL path) the model's endpoint_types
+  // declare. We resolve each endpoint type to its actual upstream URL
+  // via `pricing.endpointPaths` (provider-declared) and fall back to a
+  // built-in dictionary for short names. This generalizes across yun
+  // (which declares per-model Replicate paths like
+  // `/replicate/v1/.../predictions`), link (`Edit image -> /v1/images/edits`),
+  // v3 (no paths exposed; falls back to standard dictionary), etc.
+  //
+  // Returns one (shape, path) pair per declared endpoint type; multi-
+  // endpoint models get one attempt per pair. Failures don't bill so
+  // probing extra shapes is free.
+  const stepsToTry = probeStepsFor({
+    endpointTypes: candidate.endpointTypes,
+    primary: candidate.kind,
+    modelName: candidate.modelName,
+    pricing,
+  });
 
   // Tell the user the planned probe order before we start hitting the
   // upstream. Cheapest tier first means a quick PASS on the cheap group
@@ -425,10 +445,12 @@ async function probeOneModel(opts: {
       continue;
     }
 
-    // Within a group, try each wire shape. Stop on first PASS - if
-    // /v1/images/edits worked we don't need to also try /v1/images/generations.
+    // Within a group, try each (wire shape, path) step. Stop on first
+    // PASS - if /v1/images/edits worked we don't need to also try
+    // /v1/images/generations.
     let channelPassed: ChannelResult | undefined;
-    for (const probeShape of shapesToTry) {
+    for (const step of stepsToTry) {
+      const probeShape = step.shape;
       // Balance bracket per STEP (group x shape): so users see balance
       // movement on every probe attempt, not just per model. fetchBalance
       // is undefined / returns null when the upstream lacks a quota field.
@@ -446,6 +468,7 @@ async function probeOneModel(opts: {
         channelId,
         model: candidate.modelName,
         fixtures,
+        path: step.path,
       });
       let retriedRateLimit = 0;
       while (
@@ -464,6 +487,7 @@ async function probeOneModel(opts: {
           channelId,
           model: candidate.modelName,
           fixtures,
+          path: step.path,
         });
         retriedRateLimit++;
       }
@@ -629,6 +653,11 @@ function runProbeShape(
     channelId: number;
     model: string;
     fixtures: Fixtures;
+    /** Provider-declared URL override. Resolves Replicate, Tencent VOD,
+     *  and other non-standard task wires to the path the provider
+     *  declared in `endpointPaths`. When undefined each probe falls back
+     *  to its standard hardcoded path. */
+    path?: string;
   },
 ): Promise<ProbeAttempt> {
   if (shape === "sync-edits") return probeSyncChannel(opts);
@@ -677,72 +706,75 @@ const NAME_REQUIRES_REFS = [
 ];
 
 /**
- * Derive the full list of wire shapes to test for a candidate. When a model
- * advertises multiple endpoint types (e.g. yun's gpt-image-2 has both
- * `openai编辑图片` AND `image-generation`), each shape gets its own attempt:
- * `/v1/images/edits` (sync-edits, multipart) AND `/v1/images/generations`
- * (sync-generations, JSON). User-visible ground truth per endpoint.
- *
- * Also factors in the MODEL NAME: edit/i2i/kontext/remix-style models
- * always test the multipart + chat-multimodal paths even when the gateway
- * only declares `image-generation` for them, because text-only would
- * trigger "Missing required key: image" rejections.
- *
- * Always at least one shape: derived from the candidate's primary `kind`
- * when endpointTypes are missing/non-standard.
+ * One probe step: a (wire shape, URL path) pair the orchestrator should
+ * attempt. The path is the actual upstream URL resolved from the
+ * provider's `endpointPaths` declaration, or undefined when the probe
+ * should use its built-in default path.
  */
-function probeShapesFor(
-  endpointTypes: string[],
-  primary: ProbeKind,
-  modelName?: string,
-): ProbeShape[] {
-  const shapes = new Set<ProbeShape>();
-  for (const e of endpointTypes) {
-    const lower = e.toLowerCase();
-    // Edit endpoints (multipart upload to /v1/images/edits).
-    if (
-      lower === "image-edit" ||
-      lower === "aigc-image-edit" ||
-      lower.includes("编辑图片")
-    ) {
-      shapes.add("sync-edits");
-    }
-    // Generation endpoints (JSON to /v1/images/generations).
-    if (
-      lower === "image-generation" ||
-      lower === "openai-image" ||
-      lower === "aigc-image" ||
-      lower === "dall-e-3"
-    ) {
-      shapes.add("sync-generations");
-    }
-    // Chat-completions translation surface.
-    if (lower === "openai" || lower === "anthropic") {
-      shapes.add("openai-vendor");
-    }
-    // Video task surface excluded at discovery; nothing to add here.
+interface ProbeStep {
+  shape: ProbeShape;
+  /** Provider-declared URL path. Undefined => use probe module's default. */
+  path?: string;
+}
+
+/**
+ * Derive the full list of (wire shape, path) steps to test for a
+ * candidate. The general rule: every endpoint type the model advertises
+ * resolves to one step via the provider's `endpointPaths` map. This
+ * generalizes across yun (declares 156 per-model paths including
+ * `/replicate/v1/.../predictions` for Replicate-routed models), link
+ * (declares `Edit image -> /v1/images/edits`), v3 (no map; falls back to
+ * standard /v1/images/* dictionary), and any other new-api fork.
+ *
+ * Multi-endpoint models get one step per endpoint type so we capture
+ * how each wire behaves. Errors don't bill so probing extra is free.
+ *
+ * Name-based override: models matching NAME_REQUIRES_REFS (edit, kontext,
+ * i2i, remix, ...) ALWAYS get sync-edits + openai-vendor steps even when
+ * the gateway only advertises text-to-image, because text-only would
+ * trigger "Missing required key: image" rejections.
+ */
+function probeStepsFor(opts: {
+  endpointTypes: string[];
+  primary: ProbeKind;
+  modelName: string;
+  pricing: UpstreamPricing;
+}): ProbeStep[] {
+  const seen = new Set<string>(); // shape|path key for dedup
+  const steps: ProbeStep[] = [];
+  const add = (shape: ProbeShape, path?: string) => {
+    const key = `${shape}|${path ?? ""}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    steps.push({ shape, path });
+  };
+
+  for (const e of opts.endpointTypes) {
+    const resolved = resolveEndpoint({
+      endpointType: e,
+      modelName: opts.modelName,
+      pricing: opts.pricing,
+    });
+    if (resolved) add(resolved.shape, resolved.path);
   }
 
   // Name-based override: edit/i2i/kontext models need refs even when the
   // gateway only advertises image-generation. Add the ref-carrying shapes
-  // so we don't get stuck submitting text-only requests that get rejected
-  // for "Missing required key: image".
-  if (modelName) {
-    const lowerName = modelName.toLowerCase();
-    if (NAME_REQUIRES_REFS.some((k) => lowerName.includes(k))) {
-      shapes.add("sync-edits");
-      shapes.add("openai-vendor");
-    }
+  // (with default paths since these are the universal fallbacks).
+  const lowerName = opts.modelName.toLowerCase();
+  if (NAME_REQUIRES_REFS.some((k) => lowerName.includes(k))) {
+    add("sync-edits");
+    add("openai-vendor");
   }
 
-  if (shapes.size === 0) {
-    // Fall back to primary kind (used for legacy V2 yun shape where
+  if (steps.length === 0) {
+    // Fall back to primary kind (used for legacy V2 shapes where
     // endpointTypes may be empty and we derived kind from the model name).
-    if (primary === "sync") shapes.add("sync-edits");
-    else if (primary === "openai-vendor") shapes.add("openai-vendor");
-    else shapes.add("task");
+    if (opts.primary === "sync") add("sync-edits");
+    else if (opts.primary === "openai-vendor") add("openai-vendor");
+    else add("task");
   }
-  return [...shapes];
+  return steps;
 }
 
 /**

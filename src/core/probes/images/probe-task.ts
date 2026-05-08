@@ -10,6 +10,11 @@ export interface TaskProbeOpts {
   channelId: number;
   model: string;
   fixtures: Fixtures;
+  /** Override the submit URL path. When omitted, defaults to /v1/videos.
+   *  Used for Replicate-routed image tasks
+   *  (`/replicate/v1/models/{model}/predictions`) and other
+   *  provider-declared task paths. */
+  path?: string;
   /** Submit timeout, default 60s. */
   submitTimeoutMs?: number;
   /** Total poll budget, default 10 minutes. */
@@ -34,7 +39,7 @@ export interface TaskProbeOpts {
 export async function probeTaskChannel(
   opts: TaskProbeOpts,
 ): Promise<ProbeAttempt> {
-  const submitUrl = opts.baseUrl.replace(/\/$/, "") + "/v1/videos";
+  const submitUrl = opts.baseUrl.replace(/\/$/, "") + (opts.path ?? "/v1/videos");
   const headers: Record<string, string> = {
     Authorization: `Bearer ${opts.apiKey}`,
     "Content-Type": "application/json",
