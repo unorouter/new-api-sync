@@ -68,15 +68,19 @@ export function buildBody(opts: BuildBodyOpts): BuiltBody | null {
   if (lp.endsWith("/mj/submit/imagine")) {
     return buildMjImagineBody(opts);
   }
-  // Gemini Imagen native: uses `:predict` (not `:generateContent`).
-  // imagen-3.0-* and imagen-4.0-* models reject Gemini multimodal body
-  // and require {instances: [{prompt}], parameters}.
-  if (lp.includes(":predict") || /imagen-\d/i.test(opts.model)) {
-    // For imagen models even when the resolver picked :generateContent,
-    // override the body and rewrite the URL to :predict.
+  // Gemini Imagen native: only use the :predict shape when the URL
+  // actually ends in :predict. Some gateways (aigc) declare imagen-*
+  // under endpoint type `gemini` which resolves to :generateContent -
+  // sending {instances, parameters} there yields HTTP 500 "contents is
+  // required" because the gateway routes our body to its Gemini
+  // translator. For those cases, fall through to the Gemini
+  // multimodal builder so the gateway sees what its translator expects.
+  if (lp.includes(":predict")) {
     return buildImagenPredictBody(opts);
   }
-  // Gemini-native multimodal generation.
+  // Gemini-native multimodal generation. Imagen-* on :generateContent
+  // also lands here: the gateway is responsible for translating our
+  // {contents} body to Imagen's :predict shape on the upstream side.
   if (lp.includes(":generatecontent")) {
     return buildGeminiBody(opts);
   }

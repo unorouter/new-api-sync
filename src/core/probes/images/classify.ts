@@ -119,6 +119,41 @@ export function classifyResponse(
 }
 
 /**
+ * Pull the upstream-declared max image-count from a "too many images"
+ * rejection body. Returns null when the body doesn't carry a clear ceiling,
+ * so the orchestrator skips the downshift retry and records the original
+ * failure. Examples we handle:
+ *   - "must contain 1~3 image content items. Got 6 image items." → 3
+ *   - "supports 0~3 image content items. Got 6" → 3
+ *   - "images list length must be between 1 and 3" → 3
+ *   - "Maximum 4 reference images supported" → 4
+ *   - "only up to 2 images are supported" → 2
+ * Numbers <1 are returned as 1 (the probe still attaches a fixture per
+ * model so we can verify the wire shape; 0 would mean a t2i probe).
+ */
+export function extractMaxImagesFromRejection(
+  bodyText: string | undefined,
+): number | null {
+  if (!bodyText) return null;
+  const ranges = [
+    /(\d+)\s*[~\-]\s*(\d+)\s*image[\s-]?(?:content)?\s*items?/i,
+    /between\s+\d+\s+and\s+(\d+)/i,
+    /maximum\s+(?:of\s+)?(\d+)\s*(?:reference\s*)?images?/i,
+    /only\s+(?:up\s+to\s+)?(\d+)\s*images?/i,
+    /at\s+most\s+(\d+)\s*images?/i,
+  ];
+  for (const re of ranges) {
+    const m = bodyText.match(re);
+    if (m) {
+      const last = m[m.length - 1];
+      const n = parseInt(last!, 10);
+      if (!Number.isNaN(n) && n > 0 && n < 100) return n;
+    }
+  }
+  return null;
+}
+
+/**
  * For 200 responses on the openai-vendor path: text-only assistant content
  * is a refusal (model refused to generate or just talked at the user). An
  * image URL or base64 in the response means it actually produced an image.

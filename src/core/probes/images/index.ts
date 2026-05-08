@@ -13,13 +13,14 @@ import {
   type Candidate,
   type DiscoveryReport,
 } from "./candidates";
+import { extractMaxImagesFromRejection } from "./classify";
 import { resolveEndpoint } from "./endpoint-resolver";
 import {
   buildGroupMap,
   compareGroupChannels,
   type GroupChannel,
 } from "./group-map";
-import { loadFixtures, type Fixtures } from "./fixtures";
+import { loadFixtures, withFixtureCount, type Fixtures } from "./fixtures";
 import { probeGenerationsChannel } from "./probe-generations";
 import { probeOpenAiVendorChannel } from "./probe-openai-image-edit";
 import type { ProbeAttempt } from "./probe-sync";
@@ -526,6 +527,40 @@ async function probeOneModel(opts: {
         });
         retriedRateLimit++;
       }
+      // Image-count downshift: some models cap reference images at 1-3
+      // (qwen-image-edit-plus, image-01, qwen-image-2.0-2in1). They reject
+      // 6-ref payloads with explicit cap messages like "supports 0~3 image
+      // content items. Got 6". Read the cap from the body, trim the
+      // fixtures to fit, and re-run the same step once. We only do this
+      // once per step (no spiral) - if the smaller payload also fails,
+      // record the second failure as the canonical result.
+      if (attempt.status === "fail") {
+        const bodyText = attempt.exchange.response == null
+          ? ""
+          : typeof attempt.exchange.response === "string"
+            ? attempt.exchange.response
+            : JSON.stringify(attempt.exchange.response);
+        const maxImgs = extractMaxImagesFromRejection(bodyText);
+        if (
+          maxImgs !== null &&
+          maxImgs < fixtures.dataUris.length &&
+          maxImgs >= 1
+        ) {
+          consola.warn(
+            `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape}): upstream caps refs at ${maxImgs}, retrying with ${maxImgs} images`,
+          );
+          const trimmed = withFixtureCount(fixtures, maxImgs);
+          attempt = await runProbeShape(probeShape, {
+            baseUrl: provider.baseUrl,
+            apiKey,
+            userId: provider.userId,
+            channelId,
+            model: candidate.modelName,
+            fixtures: trimmed,
+            path: step.path,
+          });
+        }
+      }
       // Async billing settle: yun (and likely other resellers) post the
       // quota debit a few seconds AFTER the HTTP response returns.
       // Reading balance immediately yields the pre-debit value, which
@@ -815,10 +850,18 @@ function probeStepsFor(opts: {
   // Name-based override: edit/i2i/kontext models need refs even when the
   // gateway only advertises image-generation. Add the ref-carrying shapes
   // (with default paths since these are the universal fallbacks).
+  //
+  // Important: skip when a step of the same shape was ALREADY added via
+  // endpointTypes resolution. Otherwise we double-probe `openai-vendor`
+  // for any model named "*edit*" whose pricing already declares the
+  // `openai` endpoint type (the resolver gave us
+  // `openai-vendor + /v1/chat/completions`, and the override would tack
+  // on another `openai-vendor` with no path - same wire, billed twice).
   const lowerName = opts.modelName.toLowerCase();
   if (NAME_REQUIRES_REFS.some((k) => lowerName.includes(k))) {
-    add("sync-edits");
-    add("openai-vendor");
+    const haveShape = (s: ProbeShape) => steps.some((st) => st.shape === s);
+    if (!haveShape("sync-edits")) add("sync-edits");
+    if (!haveShape("openai-vendor")) add("openai-vendor");
   }
 
   if (steps.length === 0) {

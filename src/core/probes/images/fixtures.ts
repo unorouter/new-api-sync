@@ -45,6 +45,28 @@ export interface Fixtures {
   prompt: string;
 }
 
+/**
+ * Return a derived `Fixtures` carrying only the first N image refs. Prompt
+ * and bytes total are preserved (text isn't affected by ref-count). Used by
+ * the orchestrator's image-count downshift: when an upstream rejects 6 refs
+ * with `"supports 0~3 image content items. Got 6"`, we re-run the same
+ * (shape, path) with N=max so the model can actually run instead of the
+ * probe burning a guaranteed 4xx.
+ *
+ * N is clamped to [0, current.dataUris.length] so callers can't accidentally
+ * grow the fixture.
+ */
+export function withFixtureCount(base: Fixtures, n: number): Fixtures {
+  const clamped = Math.max(0, Math.min(n, base.files.length));
+  if (clamped === base.files.length) return base;
+  return {
+    files: base.files.slice(0, clamped),
+    dataUris: base.dataUris.slice(0, clamped),
+    totalBytes: base.totalBytes, // metadata-only; no need to recompute
+    prompt: base.prompt,
+  };
+}
+
 let cached: Fixtures | undefined;
 
 /**
