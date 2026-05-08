@@ -32,12 +32,32 @@ export function classifyResponse(
     return { errorClass: "auth", errorSnippet: snippet };
   }
   if (status === 429) {
+    // new-api gateways sometimes return HTTP 429 as a generic "deny"
+    // code, not a real rate-limit. Body strings like "Model disabled",
+    // "model not found", "no available channel" mean the upstream
+    // permanently refuses this model + group combo - retrying is not
+    // only useless but actively harmful (some upstreams bill per
+    // attempt regardless of outcome). Surface those as no_channel /
+    // refusal so the retry loop skips them.
+    if (/model disabled|model not found|no available channel|无可用渠道|模型已禁用/i.test(snippet)) {
+      return { errorClass: "no_channel", errorSnippet: snippet };
+    }
     return { errorClass: "ratelimit", errorSnippet: snippet };
   }
   if (status === 404) {
     return { errorClass: "endpoint_404", errorSnippet: snippet };
   }
   if (status !== undefined && status >= 500) {
+    // new-api gateways short-circuit with 503 + a "no available channel"
+    // message when the model is listed in pricing but has no backend
+    // wired up. Surface this distinctly so the user can prune their
+    // enabledModels list - the model isn't broken, the upstream just
+    // doesn't actually serve it.
+    if (
+      /无可用渠道|no available channel|distributor|无可用通道/i.test(snippet)
+    ) {
+      return { errorClass: "no_channel", errorSnippet: snippet };
+    }
     return { errorClass: "timeout", errorSnippet: snippet };
   }
   if (status === 400 || status === 422) {

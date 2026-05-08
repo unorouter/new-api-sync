@@ -41,6 +41,11 @@ export type ProbeErrorClass =
   | "timeout"
   | "refusal"
   | "task_failed"
+  /** 5xx with body indicating no upstream channel is configured for this
+   *  model (e.g. yun's "分组 X 下模型 Y 无可用渠道"). The gateway lists the
+   *  model in pricing but has no backend wired up - common on resellers
+   *  that copy upstream catalogs without provisioning every entry. */
+  | "no_channel"
   | "unknown";
 
 export interface ChannelResult {
@@ -70,6 +75,19 @@ export interface ChannelResult {
    *  upstream endpoints; this field disambiguates so the user can see at
    *  a glance which wire was tested. */
   probeShape?: ProbeShape;
+  /** Group's pricing multiplier at probe time. Probes are ordered
+   *  cheapest-first, so a `workingChannel.groupRatio` of 0.5 tells the
+   *  user the model worked on the discounted tier. */
+  groupRatio?: number;
+  /** Did the request body actually carry the 6 reference fixtures?
+   *  - `sync-edits` and `openai-vendor` always send refs (true).
+   *  - `sync-generations` is text-to-image, no refs (false).
+   *  - `task` always sends refs (true).
+   *  Useful for filtering: a "passing" sync-generations probe with
+   *  hasImageInputs=false produced an image but didn't actually test
+   *  reference handling, so it's not a valid candidate for the
+   *  6-character-compose workload even though it returned a URL. */
+  hasImageInputs?: boolean;
   attemptedAt: string;
   taskId?: string;
 }

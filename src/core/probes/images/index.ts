@@ -3,7 +3,7 @@ import { saveResponseImages } from "./download";
 import type { ProviderConfig } from "@core/validations/config";
 import { NewApiClient } from "@core/vendors/newapi/client";
 import type { ClientContext } from "@core/vendors/newapi/context";
-import { ensureTokens } from "@core/vendors/newapi/tokens";
+import { ProbeTokenManager } from "./token-manager";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import type { RuntimeConfig } from "@core/config";
@@ -96,8 +96,9 @@ export async function runImageProbe(
       client: NewApiClient;
       groupMap: Map<string, GroupChannel[]>;
       discovery: DiscoveryReport;
-      /** Token keys keyed by group name, populated by ensureTokens. */
-      tokensByGroup: Record<string, string>;
+      /** Lazy token resolver. Inference keys are unmasked / created only
+       *  when the probe actually walks into a group, never up front. */
+      tokens: ProbeTokenManager;
     }
   >();
 
@@ -126,26 +127,18 @@ export async function runImageProbe(
       modelNameFilter: opts.config.modelFilter ?? [],
     });
 
-    // Per-group inference tokens. New-api forbids `/api/channel/` to
-    // non-admin keys on most resellers (success:false), so we route via
-    // groups instead - each group becomes a distinct routing bucket. The
-    // pricing endpoint exposes `enable_groups` per model + a global group
-    // list, both publicly readable. ensureTokens creates one token per
-    // group with the `image` prefix; matches what `bun sync run` does for
-    // its own group tokens, so reuses the same plumbing and so re-running
-    // the probe doesn't churn unrelated tokens.
-    let tokensByGroup: Record<string, string> = {};
+    // Lazy per-group token manager. Lists existing tokens ONCE per
+    // provider (paginated, 429-retried) and caches the masked metadata.
+    // Full keys / creates / deletes happen on demand inside probeOneModel
+    // when each group is actually visited, so providers that throttle
+    // /api/token/{id}/key (pol returns 429 on every call) only fail the
+    // groups whose key actually resolves - not the whole provider. The
+    // group-map carries (groupName, "" placeholder); the real apiKey is
+    // resolved per probe via `tokens.getApiKey(groupName)`.
+    const tokens = new ProbeTokenManager(getCtx(client), provider.name);
     if (!opts.dryRun) {
       try {
-        const ensured = await ensureTokens(
-          getCtx(client),
-          pricing.groups,
-          "image",
-        );
-        tokensByGroup = ensured.tokens;
-        consola.info(
-          `[${provider.name}] tokens ready: ${Object.keys(tokensByGroup).length} (created=${ensured.created}, existing=${ensured.existing})`,
-        );
+        await tokens.preloadList();
       } catch (err) {
         consola.warn(
           t("CORE.IMAGES.NO_INFERENCE_TOKEN", {
@@ -155,43 +148,26 @@ export async function runImageProbe(
         );
         continue;
       }
-      if (Object.keys(tokensByGroup).length === 0) {
-        consola.warn(
-          t("CORE.IMAGES.NO_INFERENCE_TOKEN", { name: provider.name }),
-        );
-        continue;
-      }
     }
 
-    const groupMap = buildGroupMap(pricing, tokensByGroup);
+    const groupMap = buildGroupMap(pricing);
 
     candidatesByProvider.set(provider.name, {
       provider,
       client,
       groupMap,
       discovery,
-      tokensByGroup,
+      tokens,
     });
 
     if (opts.dryRun) {
-      // In dry-run we have no tokens yet, so groupMap is empty. Build a
-      // synthetic map from pricing's `enable_groups` so the user still sees
-      // every group that would be probed when the run goes live.
-      const dryGroupMap = new Map<string, GroupChannel[]>();
-      for (const m of pricing.models) {
-        const channels: GroupChannel[] = (m.groups ?? []).map((groupName) => ({
-          groupName,
-          apiKey: "",
-        }));
-        if (channels.length > 0) dryGroupMap.set(m.name, channels);
-      }
       dryRunProviders.push(
         buildDryRunProvider({
           provider,
           totalModels: pricing.models.length,
           totalChannels: pricing.groups.length,
           discovery,
-          groupMap: dryGroupMap,
+          groupMap,
         }),
       );
     }
@@ -282,7 +258,7 @@ export async function runImageProbe(
     let aborted = false;
     outer: for (const [
       providerName,
-      { provider, client, groupMap, discovery },
+      { provider, client, groupMap, discovery, tokens },
     ] of candidatesByProvider) {
       for (const c of discovery.candidates) {
         if (isAlreadyTested(store, providerName, c.modelName)) continue;
@@ -310,6 +286,7 @@ export async function runImageProbe(
           provider,
           candidate: c,
           groupMap,
+          tokens,
           fixtures,
           onProgress: saveProgress,
           fetchBalance: () => client.fetchBalance(),
@@ -335,8 +312,16 @@ export async function runImageProbe(
       // Fall through to summary so the user sees what they got.
     }
   } finally {
-    // Tokens persist across runs (managed by ensureTokens like regular sync).
-    // No per-run cleanup needed - re-running picks up the same tokens.
+    // Delete only tokens this run created (existing ones owned by regular
+    // sync are left alone). Failures log a warning but don't throw - we
+    // never want cleanup errors to mask the run's own outcome.
+    for (const { tokens } of candidatesByProvider.values()) {
+      try {
+        await tokens.cleanup();
+      } catch {
+        /* warned inside cleanup */
+      }
+    }
     if (totalSpent > 0) {
       consola.info(`Total actual spend across this run: $${totalSpent.toFixed(4)}`);
     }
@@ -364,6 +349,9 @@ async function probeOneModel(opts: {
   provider: ProviderConfig;
   candidate: Candidate;
   groupMap: Map<string, GroupChannel[]>;
+  /** Lazy token manager. `getApiKey(group)` is called per group on first
+   *  visit; result is cached for the rest of the run. */
+  tokens: ProbeTokenManager;
   fixtures: Fixtures;
   /** Persist a partial ModelResult after every channel attempt so the
    *  store survives Ctrl-C / network errors mid-loop and resume picks up
@@ -383,7 +371,7 @@ async function probeOneModel(opts: {
     balanceAfter: number;
   }) => void;
 }): Promise<ModelResult> {
-  const { provider, candidate, groupMap, fixtures, onProgress, fetchBalance, onStepCost } = opts;
+  const { provider, candidate, groupMap, tokens, fixtures, onProgress, fetchBalance, onStepCost } = opts;
   const groups = (groupMap.get(candidate.modelName) ?? [])
     .slice()
     .sort(compareGroupChannels);
@@ -404,12 +392,34 @@ async function probeOneModel(opts: {
   // endpoint behaves. Errors don't bill so probing extra shapes is free.
   const shapesToTry = probeShapesFor(candidate.endpointTypes, candidate.kind);
 
+  // Tell the user the planned probe order before we start hitting the
+  // upstream. Cheapest tier first means a quick PASS on the cheap group
+  // skips the rest entirely - useful for sanity-checking which groups are
+  // actually being burned through.
+  consola.info(
+    `[${provider.name}] ${candidate.modelName}: ${groups.length} group(s), cheapest-first: ${groups.map((g) => `${g.groupName}(x${g.groupRatio})`).join(", ")}`,
+  );
+
   const failed: ChannelResult[] = [];
   for (const g of groups) {
     // Group name is the "channel name" surfaced in results: each group is a
     // distinct routing bucket on new-api with its own bound token.
     const channelName = g.groupName;
     const channelId = 0; // Pricing surface doesn't expose channel ids.
+
+    // Resolve the inference api key on first probe of this group. The
+    // manager creates the token if missing, fetches the unmasked key
+    // (with 429 retry), and caches both for later groups + reruns. A
+    // null return means the upstream wouldn't let us acquire a usable
+    // key for this group (e.g. /key endpoint permanently throttled), so
+    // skip this group and keep going - other groups may still work.
+    const apiKey = await tokens.getApiKey(channelName);
+    if (!apiKey) {
+      consola.warn(
+        `[${provider.name}] ${candidate.modelName} (${channelName}): could not resolve api key, skipping group`,
+      );
+      continue;
+    }
 
     // Within a group, try each wire shape. Stop on first PASS - if
     // /v1/images/edits worked we don't need to also try /v1/images/generations.
@@ -419,19 +429,81 @@ async function probeOneModel(opts: {
       // movement on every probe attempt, not just per model. fetchBalance
       // is undefined / returns null when the upstream lacks a quota field.
       const balanceBefore = fetchBalance ? await fetchBalance() : null;
-      const attempt = await runProbeShape(probeShape, {
+      // Retry on 429: rate-limited probes get up to 3 attempts with
+      // exponential backoff before we record the failure. A genuine
+      // 429-on-everything provider will still surface in the artifact
+      // (final attempt's response carries the 429 body). Other status
+      // codes pass through immediately - we don't want to retry a real
+      // refusal / 4xx and double-bill.
+      let attempt = await runProbeShape(probeShape, {
         baseUrl: provider.baseUrl,
-        apiKey: g.apiKey,
+        apiKey,
         userId: provider.userId,
         channelId,
         model: candidate.modelName,
         fixtures,
       });
-      const balanceAfter = fetchBalance ? await fetchBalance() : null;
-      const stepDelta =
+      let retriedRateLimit = 0;
+      while (
+        attempt.errorClass === "ratelimit" &&
+        retriedRateLimit < 3
+      ) {
+        const wait = 5000 * 2 ** retriedRateLimit; // 5s / 10s / 20s
+        consola.warn(
+          `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape}): rate-limited, retry in ${wait / 1000}s (${retriedRateLimit + 1}/3)`,
+        );
+        await new Promise((r) => setTimeout(r, wait));
+        attempt = await runProbeShape(probeShape, {
+          baseUrl: provider.baseUrl,
+          apiKey,
+          userId: provider.userId,
+          channelId,
+          model: candidate.modelName,
+          fixtures,
+        });
+        retriedRateLimit++;
+      }
+      // Async billing settle: yun (and likely other resellers) post the
+      // quota debit a few seconds AFTER the HTTP response returns.
+      // Reading balance immediately yields the pre-debit value, which
+      // surfaces as a bogus $0.0000 cost on probes that actually billed.
+      //
+      // Strategy:
+      // - Failures: read once. Failures usually don't bill; if upstream
+      //   does charge for compute on errors that delta will surface
+      //   immediately or stay at 0 - either way we don't wait.
+      // - Passes: passes ALWAYS bill on yun et al. Poll every 2s until
+      //   we see ANY balance change, capped at 60s as a safety net so a
+      //   genuinely-free upstream (or one with broken /api/user/self)
+      //   doesn't hang the run forever.
+      let balanceAfter = fetchBalance ? await fetchBalance() : null;
+      let stepDelta =
         balanceBefore !== null && balanceAfter !== null
           ? balanceBefore - balanceAfter
           : undefined;
+      if (
+        attempt.status === "ok" &&
+        balanceBefore !== null &&
+        stepDelta !== undefined &&
+        Math.abs(stepDelta) < 0.0001 &&
+        fetchBalance
+      ) {
+        const settleDeadline = Date.now() + 60_000;
+        let pollCount = 0;
+        while (Date.now() < settleDeadline) {
+          await new Promise((r) => setTimeout(r, 2000));
+          pollCount++;
+          const b = await fetchBalance();
+          if (b !== null && Math.abs(balanceBefore - b) >= 0.0001) {
+            balanceAfter = b;
+            stepDelta = balanceBefore - b;
+            consola.debug(
+              `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape}): debit landed after ${pollCount * 2}s`,
+            );
+            break;
+          }
+        }
+      }
 
       const redacted = redactExchange(attempt.exchange);
       const artifactPath = writeArtifact(
@@ -465,6 +537,8 @@ async function probeOneModel(opts: {
         imagePaths: imagePaths.length > 0 ? imagePaths : undefined,
         probeKind: shapeToKind(probeShape),
         probeShape,
+        hasImageInputs: shapeHasImageInputs(probeShape),
+        groupRatio: g.groupRatio,
         costUsd: stepDelta,
         attemptedAt: new Date().toISOString(),
         taskId: attempt.taskId,
@@ -563,6 +637,19 @@ function shapeToKind(shape: ProbeShape): ProbeKind {
   if (shape === "sync-edits" || shape === "sync-generations") return "sync";
   if (shape === "task") return "task";
   return "openai-vendor";
+}
+
+/**
+ * Whether a probe shape attaches the 6 reference fixtures to its request.
+ * `sync-generations` is the only shape that doesn't (text-to-image only) -
+ * the rest send the refs as multipart parts, multimodal `image_url` parts,
+ * or task-submission `images[]`. A passing `sync-generations` probe means
+ * the gateway returned an image but the model never actually saw the
+ * reference fixtures, so the result has limited value for the 6-character
+ * compose workload.
+ */
+function shapeHasImageInputs(shape: ProbeShape): boolean {
+  return shape !== "sync-generations";
 }
 
 /**
