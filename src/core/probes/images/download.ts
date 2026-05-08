@@ -118,7 +118,87 @@ function extractRefs(response: unknown): ImageRef[] {
     }
   }
 
+  // Chat-completions shape: choices[].message.content. Used by gateways that
+  // wrap vendor-native image models (Gemini image-preview, Doubao Seedream,
+  // Qwen-Image-Edit, etc.) behind /v1/chat/completions. Content can be:
+  //   - a string with embedded `![alt](data:image/...;base64,XXX)` markdown,
+  //   - a string with a bare `data:image/...;base64,XXX` URI,
+  //   - a string with a bare https URL ending in an image extension,
+  //   - an array of parts `[{type:"image_url", image_url:{url}}, ...]`.
+  if (Array.isArray(target.choices)) {
+    for (const ch of target.choices as unknown[]) {
+      if (ch == null || typeof ch !== "object") continue;
+      const msg = (ch as Record<string, unknown>).message;
+      if (msg == null || typeof msg !== "object") continue;
+      const content = (msg as Record<string, unknown>).content;
+      if (typeof content === "string") {
+        refs.push(...extractFromMarkdownOrText(content));
+      } else if (Array.isArray(content)) {
+        for (const part of content as unknown[]) {
+          if (part == null || typeof part !== "object") continue;
+          const p = part as Record<string, unknown>;
+          const iu = p.image_url;
+          if (typeof iu === "string") {
+            refs.push(...extractFromMarkdownOrText(iu));
+          } else if (iu && typeof iu === "object") {
+            const url = (iu as Record<string, unknown>).url;
+            if (typeof url === "string") {
+              refs.push(...extractFromMarkdownOrText(url));
+            }
+          }
+          if (typeof p.text === "string") {
+            refs.push(...extractFromMarkdownOrText(p.text));
+          }
+        }
+      }
+    }
+  }
+
   return dedupe(refs);
+}
+
+/**
+ * Pull image refs out of a chat-completions text payload. Handles markdown
+ * `![alt](data:...|https://...)`, bare data: URIs, and bare https URLs that
+ * look like an image. We use scoped regexes (not a recursive walk) so we
+ * never pick up upstream echoes of our own input fixtures - the response
+ * text is the model's OUTPUT message and any URI/URL there is its product.
+ */
+function extractFromMarkdownOrText(text: string): ImageRef[] {
+  const out: ImageRef[] = [];
+  // Markdown image: ![alt](url-or-data-uri). Capture the URL inside ().
+  const mdRe = /!\[[^\]]*\]\(([^)\s]+)\)/g;
+  for (const m of text.matchAll(mdRe)) {
+    const inner = m[1]!;
+    const ref = parseRef(inner);
+    if (ref) out.push(ref);
+  }
+  // Bare data: URI not already inside markdown parens. Match conservatively
+  // up to whitespace or quote so we don't grab trailing JSON characters.
+  const dataRe = /data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+/g;
+  for (const m of text.matchAll(dataRe)) {
+    const ref = parseRef(m[0]);
+    if (ref) out.push(ref);
+  }
+  // Bare https://...png|jpg|webp|gif (with optional query). Match up to
+  // whitespace or quote to avoid greedy capture.
+  const urlRe = /https?:\/\/[^\s"'<>)]+\.(?:png|jpe?g|webp|gif)(?:\?[^\s"'<>)]*)?/gi;
+  for (const m of text.matchAll(urlRe)) {
+    out.push({ kind: "url", value: m[0] });
+  }
+  return out;
+}
+
+function parseRef(value: string): ImageRef | null {
+  if (value.startsWith("data:image/")) {
+    const m = value.match(/^data:(image\/[^;]+);base64,(.+)$/);
+    if (!m) return null;
+    return { kind: "b64", value: m[2]!, mediaType: m[1] };
+  }
+  if (/^https?:\/\//.test(value)) {
+    return { kind: "url", value };
+  }
+  return null;
 }
 
 

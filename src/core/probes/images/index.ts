@@ -262,12 +262,20 @@ export async function runImageProbe(
   };
 
   let totalSpent = 0;
+  // Per-provider dead-group cache. Some resellers (aigc) let users create
+  // tokens for groups their account isn't a member of - inference then
+  // rejects with 403 "无权访问 X 分组". Once we've seen that on a group, all
+  // subsequent models on the same provider would burn the same probe for the
+  // same response, so cache the dead group and skip it the second time.
+  const deadGroupsByProvider = new Map<string, Set<string>>();
   try {
     let aborted = false;
     outer: for (const [
       providerName,
       { provider, client, groupMap, discovery, tokens, pricing },
     ] of candidatesByProvider) {
+      const deadGroups = new Set<string>();
+      deadGroupsByProvider.set(providerName, deadGroups);
       for (const c of discovery.candidates) {
         if (isAlreadyTested(store, providerName, c.modelName)) continue;
 
@@ -307,6 +315,7 @@ export async function runImageProbe(
           tokens,
           pricing,
           fixtures,
+          deadGroups,
           onProgress: saveProgress,
           fetchBalance: () => client.fetchBalance(),
           onStepCost: ({ channelName, probeShape, delta, balanceAfter }) => {
@@ -375,6 +384,11 @@ async function probeOneModel(opts: {
    *  per endpoint type (per-model overrides for Replicate/Tencent/etc). */
   pricing: UpstreamPricing;
   fixtures: Fixtures;
+  /** Cross-model dead-group cache shared by the orchestrator. Populated when
+   *  a group returns auth 403 ("无权访问 X 分组"). Subsequent models on the
+   *  same provider skip probing this group so we don't burn one attempt per
+   *  model on a guaranteed permission failure. */
+  deadGroups: Set<string>;
   /** Persist a partial ModelResult after every channel attempt so the
    *  store survives Ctrl-C / network errors mid-loop and resume picks up
    *  with no lost work. */
@@ -393,7 +407,7 @@ async function probeOneModel(opts: {
     balanceAfter: number;
   }) => void;
 }): Promise<ModelResult> {
-  const { provider, candidate, groupMap, tokens, pricing, fixtures, onProgress, fetchBalance, onStepCost } = opts;
+  const { provider, candidate, groupMap, tokens, pricing, fixtures, deadGroups, onProgress, fetchBalance, onStepCost } = opts;
   const groups = (groupMap.get(candidate.modelName) ?? [])
     .slice()
     .sort(compareGroupChannels);
@@ -440,6 +454,17 @@ async function probeOneModel(opts: {
     // distinct routing bucket on new-api with its own bound token.
     const channelName = g.groupName;
     const channelId = 0; // Pricing surface doesn't expose channel ids.
+
+    // Skip groups already known to reject our user with 403. aigc lets us
+    // mint tokens for paid-tier groups (企业 / 白金会员 / etc.) but inference
+    // refuses them - one model already paid the probe to learn this, so
+    // every subsequent model on the same provider skips ahead.
+    if (deadGroups.has(channelName)) {
+      consola.info(
+        `[${provider.name}] ${candidate.modelName} (${channelName}): skipping (auth-dead group)`,
+      );
+      continue;
+    }
 
     // Resolve the inference api key on first probe of this group. The
     // manager creates the token if missing, fetches the unmasked key
@@ -600,6 +625,25 @@ async function probeOneModel(opts: {
         break;
       }
       failed.push(cr);
+      // Auth 403 on this group => the user isn't a member. Same response
+      // would come back for every remaining model and every wire shape, so
+      // mark the group dead, abandon this group's remaining steps, and let
+      // the orchestrator skip it on subsequent models.
+      if (attempt.errorClass === "auth") {
+        deadGroups.add(channelName);
+        consola.warn(
+          `[${provider.name}] ${candidate.modelName} (${channelName}): auth 403, marking group dead for rest of run`,
+        );
+        // Persist before breaking out of the inner shape loop.
+        onProgress?.({
+          provider: provider.name,
+          model: candidate.modelName,
+          kind: candidate.kind,
+          failedChannels: failed,
+          decidedAt: new Date().toISOString(),
+        });
+        break;
+      }
       // Persist mid-loop so a crash on the next shape doesn't lose the
       // already-tried wire shape.
       onProgress?.({
