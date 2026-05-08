@@ -95,11 +95,6 @@ program
   )
   .option("--dry-run", t("CLI.OPTION.IMAGES_DRY_RUN"))
   .option("--yes", t("CLI.OPTION.IMAGES_YES"))
-  .option(
-    "--concurrency <n>",
-    t("CLI.OPTION.IMAGES_CONCURRENCY"),
-    "2",
-  )
   .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
   .action(
     async (options: {
@@ -108,7 +103,6 @@ program
       models: string[];
       dryRun?: boolean;
       yes?: boolean;
-      concurrency: string;
       verbose?: boolean;
     }) => {
       if (options.verbose) consola.level = 4;
@@ -116,12 +110,10 @@ program
         applyOnlyProviders(await loadConfig(options.config), options.only),
         options.models,
       );
-      const concurrency = Math.max(1, parseInt(options.concurrency, 10) || 2);
       await runImageProbe({
         config,
         dryRun: options.dryRun,
         yes: options.yes,
-        concurrency,
       });
     },
   );

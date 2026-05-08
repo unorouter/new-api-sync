@@ -102,6 +102,15 @@ const NAME_ALLOWLIST_PATTERNS = [
   "flux-dev",
   "flux-schnell",
   "imagen",            // imagen-3.0-generate-002, imagen-4.0-ultra-generate-001 (Google text-to-image)
+  // Added: final triple-check audit (silent rejects with image-y signals)
+  // Grok image variants caught via the "grok" + "image" compound below.
+  "gpt-4o-image",      // OpenAI GPT-4o image variant (separate SKU from gpt-image-*)
+  "z-image-turbo",     // Alibaba Z-Image Turbo
+  "z-image",           // future Z-Image variants
+  "jimeng-image",      // ByteDance Jimeng image (separate from jimeng-4.x video)
+  "ernie-irag",        // Baidu Ernie image: ernie-irag-edit, ernie-irag
+  "ernie-image",       // Baidu Ernie image variants
+  "wanx",              // Alibaba Wan-X family: wanx2.0-t2i-turbo
 ] as const;
 
 /**
@@ -115,6 +124,8 @@ const NAME_COMPOUND_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["chatgpt", "image"],          // already covered by single pattern, kept for symmetry
   ["openai/", "image"],          // openai/gpt-5-image, openai/gpt-5.4-image-2 (openrouter-style)
   ["google/", "image"],          // google/gemini-3-pro-image-preview
+  ["grok-", "image"],            // grok-2-image, grok-3-image, grok-4.1-image, grok-imagine-image*
+  ["gpt-4o", "image"],           // gpt-4o-image, gpt-4o-image-vip (NOT same as gpt-image-*)
 ];
 
 /**
@@ -191,6 +202,7 @@ const NAME_EXCLUSION_PATTERNS = [
   "kling-avatar",  // kling-avatar-image2video
   "vidu",          // all Vidu models are video (vidu1.5, viduq1, viduq2-turbo, etc.)
   "luma",          // all Luma models are video (luma_video, luma-vip-video, ray-2*)
+  "vace",          // Alibaba VACE: video all-in-one creation engine (wanx2.1-vace-plus)
   // Single-input image-to-image utilities (upscale / inpaint / outpaint /
   // vectorize). These accept exactly 1 image + (optional mask) so the
   // probe-sync 6-ref multipart will fail. We still want them in the

@@ -265,8 +265,7 @@
       "VERBOSE": "启用调试日志",
       "PORT": "监听端口",
       "IMAGES_DRY_RUN": "仅发现候选模型而不发送请求（写入 logs/images-dry-run.json）",
-      "IMAGES_YES": "跳过费用确认提示",
-      "IMAGES_CONCURRENCY": "每个上游 baseUrl 的最大并行探测数"
+      "IMAGES_YES": "跳过费用确认提示"
     },
     "STATUS": {
       "UI_RUNNING": "new-api-sync 界面运行于 http://localhost:{port}"

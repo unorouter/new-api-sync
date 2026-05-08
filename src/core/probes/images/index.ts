@@ -1,4 +1,3 @@
-import { ConcurrencyGate } from "@core/runtime";
 import { redactExchange } from "@core/testing/redact";
 import type { Channel, GroupInfo } from "@core/types";
 import type { ProviderConfig } from "@core/validations/config";
@@ -48,7 +47,6 @@ export interface RunImagesOpts {
   config: RuntimeConfig;
   dryRun?: boolean;
   yes?: boolean;
-  concurrency?: number;
 }
 
 export interface RunImagesReport {
@@ -264,42 +262,45 @@ export async function runImageProbe(
   }
 
   // ---- probe loop ----
-  const gate = new ConcurrencyGate({
-    globalLimit: 8,
-    perUpstreamLimit: opts.concurrency ?? 2,
-  });
-
+  // Sequential execution: one probe at a time. Image-edit probes are slow
+  // (multipart upload + 90s timeout, video tasks poll for up to 10min) and
+  // running them in parallel saturates upstream rate limits. We also want
+  // deterministic, restartable runs - so the store is saved after every
+  // single channel attempt, not just at end-of-model. Crash mid-run? Next
+  // run picks up exactly where this one stopped.
   let passed = 0;
   let failed = 0;
   let noChannel = 0;
 
+  // Save callback handed to probeOneModel so it can persist after each
+  // channel attempt, not just at end-of-model.
+  const saveProgress = (partial: ModelResult) => {
+    appendResult(store, partial);
+    saveStore(store);
+  };
+
   try {
-    const runs: Promise<void>[] = [];
     for (const [
       providerName,
       { provider, channelMap, discovery, inferenceApiKey },
     ] of candidatesByProvider) {
       for (const c of discovery.candidates) {
         if (isAlreadyTested(store, providerName, c.modelName)) continue;
-        runs.push(
-          gate.run(provider.baseUrl, async () => {
-            const result = await probeOneModel({
-              provider,
-              apiKey: inferenceApiKey,
-              candidate: c,
-              channelMap,
-              fixtures,
-            });
-            appendResult(store, result);
-            saveStore(store);
-            if (result.workingChannelId !== undefined) passed++;
-            else if (result.failedChannels.length === 0) noChannel++;
-            else failed++;
-          }),
-        );
+        const result = await probeOneModel({
+          provider,
+          apiKey: inferenceApiKey,
+          candidate: c,
+          channelMap,
+          fixtures,
+          onProgress: saveProgress,
+        });
+        appendResult(store, result);
+        saveStore(store);
+        if (result.workingChannelId !== undefined) passed++;
+        else if (result.failedChannels.length === 0) noChannel++;
+        else failed++;
       }
     }
-    await Promise.all(runs);
   } finally {
     await cleanupProbeTokens(candidatesByProvider);
   }
@@ -328,8 +329,12 @@ async function probeOneModel(opts: {
   candidate: Candidate;
   channelMap: Map<string, Channel[]>;
   fixtures: Fixtures;
+  /** Persist a partial ModelResult after every channel attempt so the
+   *  store survives Ctrl-C / network errors mid-loop and resume picks up
+   *  with no lost work. */
+  onProgress?: (partial: ModelResult) => void;
 }): Promise<ModelResult> {
-  const { provider, apiKey, candidate, channelMap, fixtures } = opts;
+  const { provider, apiKey, candidate, channelMap, fixtures, onProgress } = opts;
   const channels = (channelMap.get(candidate.modelName) ?? [])
     .slice()
     .sort(compareChannelsForProbe);
@@ -382,7 +387,7 @@ async function probeOneModel(opts: {
           channel: channelName,
         }),
       );
-      return {
+      const decided: ModelResult = {
         provider: provider.name,
         model: candidate.modelName,
         kind: candidate.kind,
@@ -391,8 +396,21 @@ async function probeOneModel(opts: {
         failedChannels: failed,
         decidedAt: new Date().toISOString(),
       };
+      onProgress?.(decided);
+      return decided;
     }
     failed.push(cr);
+    // Persist after every channel attempt so a crash on channel N+1
+    // doesn't lose channels 1..N. The model's overall verdict isn't
+    // decided yet (workingChannelId is undefined) but the partial
+    // failedChannels[] is preserved on disk for resume.
+    onProgress?.({
+      provider: provider.name,
+      model: candidate.modelName,
+      kind: candidate.kind,
+      failedChannels: failed,
+      decidedAt: new Date().toISOString(),
+    });
   }
 
   consola.warn(
