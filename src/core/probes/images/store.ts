@@ -7,6 +7,30 @@ import { join } from "path";
  * raw artifacts. Atomic writes survive Ctrl-C mid-run.
  */
 
+/**
+ * Distinct wire shapes the probe can submit. Routed by the candidate's
+ * `endpointTypes` rather than by model "kind" so a model that advertises
+ * BOTH `image-generation` (text-to-image, JSON) AND `openai编辑图片`
+ * (image-edit, multipart) gets a separate attempt per shape - the user
+ * sees ground truth for each endpoint independently. Errors don't bill,
+ * so the extra attempts are free.
+ *
+ * - sync-edits        -> POST /v1/images/edits        (multipart, 6 image refs)
+ * - sync-generations  -> POST /v1/images/generations  (JSON, text-to-image)
+ * - openai-vendor     -> POST /v1/chat/completions    (multimodal, 6 refs)
+ * - task              -> POST /v1/videos              (submit + poll)
+ */
+export type ProbeShape =
+  | "sync-edits"
+  | "sync-generations"
+  | "openai-vendor"
+  | "task";
+
+/**
+ * High-level routing kind. Used in the master file as a quick filter
+ * (sync vs openai-vendor vs task). Distinct attempts within a model are
+ * differentiated by `ProbeShape` (per-endpoint).
+ */
 export type ProbeKind = "sync" | "openai-vendor" | "task";
 
 export type ProbeErrorClass =
@@ -41,6 +65,11 @@ export interface ChannelResult {
    *  endpoint_types (e.g. `["image-generation","dall-e-3"]`) gets one
    *  ChannelResult per kind so we capture how each shape behaves. */
   probeKind?: ProbeKind;
+  /** Specific endpoint URL family that was hit. `sync-edits` and
+   *  `sync-generations` both have probeKind=sync but address different
+   *  upstream endpoints; this field disambiguates so the user can see at
+   *  a glance which wire was tested. */
+  probeShape?: ProbeShape;
   attemptedAt: string;
   taskId?: string;
 }
@@ -150,17 +179,18 @@ export function artifactDirFor(provider: string, model: string): string {
 export function writeArtifact(
   provider: string,
   model: string,
-  channelId: number,
+  channelLabel: string,
+  probeShape: string,
   exchange: TestExchange,
 ): string {
   const dir = join(ARTIFACT_DIR(), slug(provider), slug(model));
   mkdirSync(dir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  const path = join(dir, `${ts}-ch${channelId}.json`);
+  const path = join(dir, `${ts}-${slug(channelLabel)}-${probeShape}.json`);
   writeFileSync(
     path,
     JSON.stringify(
-      { provider, model, channelId, recordedAt: ts, exchange },
+      { provider, model, channel: channelLabel, probeShape, recordedAt: ts, exchange },
       null,
       2,
     ),

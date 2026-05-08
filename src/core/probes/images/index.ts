@@ -1,15 +1,9 @@
-import { redactExchange } from "@core/testing/redact";
+import { redactExchange, redactUrl } from "@core/testing/redact";
 import { saveResponseImages } from "./download";
-import type { Channel, GroupInfo } from "@core/types";
 import type { ProviderConfig } from "@core/validations/config";
 import { NewApiClient } from "@core/vendors/newapi/client";
 import type { ClientContext } from "@core/vendors/newapi/context";
-import {
-  createToken,
-  deleteToken,
-  getTokenFullKey,
-  listTokens,
-} from "@core/vendors/newapi/tokens";
+import { ensureTokens } from "@core/vendors/newapi/tokens";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import type { RuntimeConfig } from "@core/config";
@@ -19,10 +13,12 @@ import {
   type DiscoveryReport,
 } from "./candidates";
 import {
-  buildChannelMap,
-  compareChannelsForProbe,
-} from "./channel-map";
+  buildGroupMap,
+  compareGroupChannels,
+  type GroupChannel,
+} from "./group-map";
 import { loadFixtures, type Fixtures } from "./fixtures";
+import { probeGenerationsChannel } from "./probe-generations";
 import { probeOpenAiVendorChannel } from "./probe-openai-image-edit";
 import type { ProbeAttempt } from "./probe-sync";
 import { probeSyncChannel } from "./probe-sync";
@@ -41,6 +37,7 @@ import {
   type DryRunReport,
   type ModelResult,
   type ProbeKind,
+  type ProbeShape,
 } from "./store";
 
 const ESTIMATED_COST_PER_PROBE_USD = 0.1;
@@ -96,13 +93,11 @@ export async function runImageProbe(
     string,
     {
       provider: ProviderConfig;
-      ctx: ClientContext;
       client: NewApiClient;
-      channelMap: Map<string, Channel[]>;
+      groupMap: Map<string, GroupChannel[]>;
       discovery: DiscoveryReport;
-      inferenceApiKey: string;
-      /** Probe-scoped token id; deleted in the finally block. */
-      probeTokenId: number;
+      /** Token keys keyed by group name, populated by ensureTokens. */
+      tokensByGroup: Record<string, string>;
     }
   >();
 
@@ -131,62 +126,72 @@ export async function runImageProbe(
       modelNameFilter: opts.config.modelFilter ?? [],
     });
 
-    let channelMap: Map<string, Channel[]>;
-    try {
-      channelMap = await buildChannelMap(getCtx(client));
-    } catch (err) {
-      // Most resellers refuse /api/channel/ to non-admins ("insufficient
-      // privileges"). Fall back to a synthetic single-channel map so we
-      // can still probe each candidate once via normal routing (no
-      // Specify-Channel pin). The "channel" recorded in results will be
-      // a placeholder labelled `auto` with id 0.
-      consola.warn(
-        t("CORE.IMAGES.CHANNEL_LIST_FAILED", {
-          name: provider.name,
-          err: err instanceof Error ? err.message : String(err),
-        }),
-      );
-      consola.info(
-        t("CORE.IMAGES.CHANNEL_LIST_FALLBACK", { name: provider.name }),
-      );
-      channelMap = buildSyntheticChannelMap(pricing.models.map((m) => m.name));
+    // Per-group inference tokens. New-api forbids `/api/channel/` to
+    // non-admin keys on most resellers (success:false), so we route via
+    // groups instead - each group becomes a distinct routing bucket. The
+    // pricing endpoint exposes `enable_groups` per model + a global group
+    // list, both publicly readable. ensureTokens creates one token per
+    // group with the `image` prefix; matches what `bun sync run` does for
+    // its own group tokens, so reuses the same plumbing and so re-running
+    // the probe doesn't churn unrelated tokens.
+    let tokensByGroup: Record<string, string> = {};
+    if (!opts.dryRun) {
+      try {
+        const ensured = await ensureTokens(
+          getCtx(client),
+          pricing.groups,
+          "image",
+        );
+        tokensByGroup = ensured.tokens;
+        consola.info(
+          `[${provider.name}] tokens ready: ${Object.keys(tokensByGroup).length} (created=${ensured.created}, existing=${ensured.existing})`,
+        );
+      } catch (err) {
+        consola.warn(
+          t("CORE.IMAGES.NO_INFERENCE_TOKEN", {
+            name: provider.name,
+            err: err instanceof Error ? err.message : String(err),
+          }),
+        );
+        continue;
+      }
+      if (Object.keys(tokensByGroup).length === 0) {
+        consola.warn(
+          t("CORE.IMAGES.NO_INFERENCE_TOKEN", { name: provider.name }),
+        );
+        continue;
+      }
     }
 
-    // Acquire a per-user inference API key. The systemAccessToken is admin
-    // bearer for /api/channel/, /api/token/, etc. - but new-api rejects it
-    // for /v1/chat/completions and /v1/images/edits. We create a fresh,
-    // probe-scoped token (name `image-probe-<providerName>`) bound to the
-    // broadest available group, use it for the run, and delete it in the
-    // finally block below. This keeps probe runs idempotent and never
-    // touches the user's hand-managed or sync-managed tokens.
-    const acquired = opts.dryRun
-      ? null
-      : await acquireProbeToken(getCtx(client), provider.name, pricing.groups);
-    if (!acquired && !opts.dryRun) {
-      consola.warn(
-        t("CORE.IMAGES.NO_INFERENCE_TOKEN", { name: provider.name }),
-      );
-      continue;
-    }
+    const groupMap = buildGroupMap(pricing, tokensByGroup);
 
     candidatesByProvider.set(provider.name, {
       provider,
-      ctx: getCtx(client),
       client,
-      channelMap,
+      groupMap,
       discovery,
-      inferenceApiKey: acquired?.key ?? "",
-      probeTokenId: acquired?.tokenId ?? 0,
+      tokensByGroup,
     });
 
     if (opts.dryRun) {
+      // In dry-run we have no tokens yet, so groupMap is empty. Build a
+      // synthetic map from pricing's `enable_groups` so the user still sees
+      // every group that would be probed when the run goes live.
+      const dryGroupMap = new Map<string, GroupChannel[]>();
+      for (const m of pricing.models) {
+        const channels: GroupChannel[] = (m.groups ?? []).map((groupName) => ({
+          groupName,
+          apiKey: "",
+        }));
+        if (channels.length > 0) dryGroupMap.set(m.name, channels);
+      }
       dryRunProviders.push(
         buildDryRunProvider({
           provider,
           totalModels: pricing.models.length,
-          totalChannels: countActiveChannels(channelMap),
+          totalChannels: pricing.groups.length,
           discovery,
-          channelMap,
+          groupMap: dryGroupMap,
         }),
       );
     }
@@ -277,7 +282,7 @@ export async function runImageProbe(
     let aborted = false;
     outer: for (const [
       providerName,
-      { provider, client, channelMap, discovery, inferenceApiKey },
+      { provider, client, groupMap, discovery },
     ] of candidatesByProvider) {
       for (const c of discovery.candidates) {
         if (isAlreadyTested(store, providerName, c.modelName)) continue;
@@ -297,16 +302,17 @@ export async function runImageProbe(
           }
         }
 
-        // Bracket the probe with two balance reads so we can show the user
-        // the actual USD-equivalent spend per attempt. fetchBalance returns
-        // null when the upstream lacks an /api/user/self quota field; in
-        // that case we silently skip the cost line for that provider.
+        // Bracket every probe with two balance reads, mirroring regular
+        // sync's withCostTracking pattern - users want to see balance
+        // movement on every step, including no-cost failures (so they can
+        // confirm the upstream actually didn't bill). fetchBalance returns
+        // null when the upstream lacks a quota field; in that case we
+        // silently skip the cost line for that provider.
         const balanceBefore = await client.fetchBalance();
         const result = await probeOneModel({
           provider,
-          apiKey: inferenceApiKey,
           candidate: c,
-          channelMap,
+          groupMap,
           fixtures,
           onProgress: saveProgress,
         });
@@ -323,11 +329,17 @@ export async function runImageProbe(
           else if (result.failedChannels.length > 0) {
             result.failedChannels[result.failedChannels.length - 1]!.costUsd = delta;
           }
-          if (delta > 0.0001 || result.workingChannelId !== undefined) {
-            consola.info(
-              `[${providerName}] ${c.modelName}: cost ${delta < 0 ? "+$" + Math.abs(delta).toFixed(4) + " (refund?)" : "$" + delta.toFixed(4)} | running total: $${totalSpent.toFixed(4)} | balance: $${balanceAfter.toFixed(4)}`,
-            );
-          }
+          // Always log balance after each step so the user can audit
+          // movement in real time. Free probes (delta=0) still produce a
+          // line - "$0.0000 | balance: $X.XXXX" confirms the upstream
+          // didn't charge.
+          const costStr =
+            delta < -0.0001
+              ? "+$" + Math.abs(delta).toFixed(4) + " (refund?)"
+              : "$" + delta.toFixed(4);
+          consola.info(
+            `[${providerName}] ${c.modelName}: cost ${costStr} | running total: $${totalSpent.toFixed(4)} | balance: $${balanceAfter.toFixed(4)}`,
+          );
         }
         appendResult(store, result);
         saveStore(store);
@@ -337,10 +349,11 @@ export async function runImageProbe(
       }
     }
     if (aborted) {
-      // Fall through to cleanup + summary so the user sees what they got.
+      // Fall through to summary so the user sees what they got.
     }
   } finally {
-    await cleanupProbeTokens(candidatesByProvider);
+    // Tokens persist across runs (managed by ensureTokens like regular sync).
+    // No per-run cleanup needed - re-running picks up the same tokens.
     if (totalSpent > 0) {
       consola.info(`Total actual spend across this run: $${totalSpent.toFixed(4)}`);
     }
@@ -366,21 +379,20 @@ export async function runImageProbe(
 
 async function probeOneModel(opts: {
   provider: ProviderConfig;
-  apiKey: string;
   candidate: Candidate;
-  channelMap: Map<string, Channel[]>;
+  groupMap: Map<string, GroupChannel[]>;
   fixtures: Fixtures;
   /** Persist a partial ModelResult after every channel attempt so the
    *  store survives Ctrl-C / network errors mid-loop and resume picks up
    *  with no lost work. */
   onProgress?: (partial: ModelResult) => void;
 }): Promise<ModelResult> {
-  const { provider, apiKey, candidate, channelMap, fixtures, onProgress } = opts;
-  const channels = (channelMap.get(candidate.modelName) ?? [])
+  const { provider, candidate, groupMap, fixtures, onProgress } = opts;
+  const groups = (groupMap.get(candidate.modelName) ?? [])
     .slice()
-    .sort(compareChannelsForProbe);
+    .sort(compareGroupChannels);
 
-  if (channels.length === 0) {
+  if (groups.length === 0) {
     return {
       provider: provider.name,
       model: candidate.modelName,
@@ -390,24 +402,26 @@ async function probeOneModel(opts: {
     };
   }
 
-  // Derive every probe kind the model's endpoint_types support. Models
-  // with both `image-generation` AND `dall-e-3` (or both `openai` AND
-  // `image-generation`) get one attempt per kind so we capture how each
-  // wire shape behaves. Errors don't bill so probing extra kinds is free.
-  const kindsToTry = probeKindsFor(candidate.endpointTypes, candidate.kind);
+  // Derive every wire shape the model's endpoint_types support. Models with
+  // both `image-generation` AND `openai编辑图片` (or both `openai` AND
+  // `image-generation`) get one attempt per shape so we capture how each
+  // endpoint behaves. Errors don't bill so probing extra shapes is free.
+  const shapesToTry = probeShapesFor(candidate.endpointTypes, candidate.kind);
 
   const failed: ChannelResult[] = [];
-  for (const ch of channels) {
-    const channelId = ch.id ?? 0;
-    const channelName = ch.name ?? `channel-${channelId}`;
+  for (const g of groups) {
+    // Group name is the "channel name" surfaced in results: each group is a
+    // distinct routing bucket on new-api with its own bound token.
+    const channelName = g.groupName;
+    const channelId = 0; // Pricing surface doesn't expose channel ids.
 
-    // Within a channel, try each wire shape. Stop on first PASS - if
-    // /v1/images/edits worked we don't need to also try chat-completions.
+    // Within a group, try each wire shape. Stop on first PASS - if
+    // /v1/images/edits worked we don't need to also try /v1/images/generations.
     let channelPassed: ChannelResult | undefined;
-    for (const probeKind of kindsToTry) {
-      const attempt = await runProbe(probeKind, {
+    for (const probeShape of shapesToTry) {
+      const attempt = await runProbeShape(probeShape, {
         baseUrl: provider.baseUrl,
-        apiKey,
+        apiKey: g.apiKey,
         userId: provider.userId,
         channelId,
         model: candidate.modelName,
@@ -418,22 +432,23 @@ async function probeOneModel(opts: {
       const artifactPath = writeArtifact(
         provider.name,
         candidate.modelName,
-        channelId,
+        channelName,
+        probeShape,
         redacted,
       );
 
-      // Save the actual generated image bytes (URL download or base64 decode)
-      // to disk before the upstream CDN URL expires. Run for both pass and
-      // fail attempts: a failed-classification probe (e.g. our heuristic
-      // didn't see an image, but the body still has one) is exactly the
-      // case we want bytes for, to inspect what the model actually
-      // produced. We pass the ORIGINAL response, not the redacted one -
-      // the redactor could in theory mangle data: URIs.
+      // Save the actual generated image bytes (URL download or base64
+      // decode) to disk before the upstream CDN URL expires. Run for both
+      // pass and fail attempts: a failed-classification probe (e.g. our
+      // heuristic didn't see an image, but the body still has one) is
+      // exactly the case we want bytes for, to inspect what the model
+      // actually produced. We pass the ORIGINAL response, not the
+      // redacted one - the redactor could in theory mangle data: URIs.
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
       const imagePaths = await saveResponseImages({
         response: attempt.exchange.response,
         dir: artifactDirFor(provider.name, candidate.modelName),
-        basenamePrefix: `${ts}-ch${channelId}-${probeKind}`,
+        basenamePrefix: `${ts}-${slugForFile(channelName)}-${probeShape}`,
       });
 
       const cr: ChannelResult = {
@@ -443,7 +458,8 @@ async function probeOneModel(opts: {
         errorClass: attempt.errorClass,
         artifactPath,
         imagePaths: imagePaths.length > 0 ? imagePaths : undefined,
-        probeKind,
+        probeKind: shapeToKind(probeShape),
+        probeShape,
         attemptedAt: new Date().toISOString(),
         taskId: attempt.taskId,
       };
@@ -453,7 +469,7 @@ async function probeOneModel(opts: {
         break;
       }
       failed.push(cr);
-      // Persist mid-loop so a crash on the next kind doesn't lose the
+      // Persist mid-loop so a crash on the next shape doesn't lose the
       // already-tried wire shape.
       onProgress?.({
         provider: provider.name,
@@ -507,8 +523,8 @@ async function probeOneModel(opts: {
   };
 }
 
-function runProbe(
-  kind: ProbeKind,
+function runProbeShape(
+  shape: ProbeShape,
   opts: {
     baseUrl: string;
     apiKey: string;
@@ -518,51 +534,74 @@ function runProbe(
     fixtures: Fixtures;
   },
 ): Promise<ProbeAttempt> {
-  if (kind === "sync") return probeSyncChannel(opts);
-  if (kind === "openai-vendor") return probeOpenAiVendorChannel(opts);
+  if (shape === "sync-edits") return probeSyncChannel(opts);
+  if (shape === "sync-generations") return probeGenerationsChannel(opts);
+  if (shape === "openai-vendor") return probeOpenAiVendorChannel(opts);
   return probeTaskChannel(opts);
 }
 
+function shapeToKind(shape: ProbeShape): ProbeKind {
+  if (shape === "sync-edits" || shape === "sync-generations") return "sync";
+  if (shape === "task") return "task";
+  return "openai-vendor";
+}
+
 /**
- * Derive the full list of probe kinds to test for a candidate. When a model
- * advertises multiple wire shapes (e.g. yun's gpt-image-2 has both
- * `["openai编辑图片", "image-generation"]`, or another has both
- * `["image-generation", "dall-e-3"]`), test each one and record per-kind
- * results. The user gets ground truth on which wire shapes actually work.
+ * Derive the full list of wire shapes to test for a candidate. When a model
+ * advertises multiple endpoint types (e.g. yun's gpt-image-2 has both
+ * `openai编辑图片` AND `image-generation`), each shape gets its own attempt:
+ * `/v1/images/edits` (sync-edits, multipart) AND `/v1/images/generations`
+ * (sync-generations, JSON). User-visible ground truth per endpoint.
  *
- * Always at least one kind: the candidate's primary `kind` from discovery.
+ * Always at least one shape: derived from the candidate's primary `kind`
+ * when endpointTypes are missing/non-standard.
  */
-function probeKindsFor(endpointTypes: string[], primary: ProbeKind): ProbeKind[] {
-  const kinds = new Set<ProbeKind>([primary]);
-  // Multipart edit endpoints map to "sync"
+function probeShapesFor(
+  endpointTypes: string[],
+  primary: ProbeKind,
+): ProbeShape[] {
+  const shapes = new Set<ProbeShape>();
   for (const e of endpointTypes) {
     const lower = e.toLowerCase();
+    // Edit endpoints (multipart upload to /v1/images/edits).
     if (
-      lower === "image-generation" ||
-      lower === "openai-image" ||
       lower === "image-edit" ||
-      lower === "aigc-image" ||
       lower === "aigc-image-edit" ||
       lower.includes("编辑图片")
     ) {
-      kinds.add("sync");
-    } else if (lower === "openai" || lower === "anthropic") {
-      kinds.add("openai-vendor");
-    } else if (lower === "openai-video" || lower === "omni-video") {
-      // We currently exclude pure-video at discovery. If a model has both
-      // image AND video endpoints we keep only the image side - don't probe
-      // the video shape because it requires submit+poll and our 6-ref
-      // probe semantics don't translate.
-    } else if (lower === "dall-e-3") {
-      // dall-e-3 wire is text-to-image. Map to "sync" since
-      // probeSyncChannel hits /v1/images/edits which is the closest
-      // wire-compatible shape; the 6 multipart `image[]` parts will be
-      // rejected by upstream and we'll record the rejection. (We don't
-      // have a separate dall-e-3 generations probe path.)
-      kinds.add("sync");
+      shapes.add("sync-edits");
     }
+    // Generation endpoints (JSON to /v1/images/generations).
+    if (
+      lower === "image-generation" ||
+      lower === "openai-image" ||
+      lower === "aigc-image" ||
+      lower === "dall-e-3"
+    ) {
+      shapes.add("sync-generations");
+    }
+    // Chat-completions translation surface.
+    if (lower === "openai" || lower === "anthropic") {
+      shapes.add("openai-vendor");
+    }
+    // Video task surface excluded at discovery; nothing to add here.
   }
-  return [...kinds];
+  if (shapes.size === 0) {
+    // Fall back to primary kind (used for legacy V2 yun shape where
+    // endpointTypes may be empty and we derived kind from the model name).
+    if (primary === "sync") shapes.add("sync-edits");
+    else if (primary === "openai-vendor") shapes.add("openai-vendor");
+    else shapes.add("task");
+  }
+  return [...shapes];
+}
+
+/**
+ * Sanitize a group name for use inside a filename. Mirrors `slug()` in
+ * store.ts so attribution stays consistent across artifact paths.
+ */
+function slugForFile(s: string): string {
+  return s.replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "_";
 }
 
 // ---------------------------------------------------------------------------
@@ -599,52 +638,18 @@ function getCtx(client: NewApiClient): ClientContext {
   };
 }
 
-/**
- * Synthesize a one-channel map when `/api/channel/` is forbidden (most
- * reseller new-api instances). The probe loop hits each model exactly once
- * via the upstream's normal routing — channel id 0 is the sentinel for
- * "auto-routed, no Specify-Channel pin".
- */
-function buildSyntheticChannelMap(modelNames: string[]): Map<string, Channel[]> {
-  const map = new Map<string, Channel[]>();
-  const synthetic: Channel = {
-    id: 0,
-    name: "auto",
-    type: 0,
-    key: "",
-    base_url: "",
-    models: "",
-    group: "",
-    priority: 0,
-    weight: 0,
-    status: 1,
-  };
-  for (const m of modelNames) map.set(m, [synthetic]);
-  return map;
-}
-
-function countActiveChannels(channelMap: Map<string, Channel[]>): number {
-  const seen = new Set<number>();
-  for (const arr of channelMap.values()) {
-    for (const ch of arr) {
-      if (ch.status === 1 && ch.id !== undefined) seen.add(ch.id);
-    }
-  }
-  return seen.size;
-}
-
 function buildDryRunProvider(opts: {
   provider: ProviderConfig;
   totalModels: number;
   totalChannels: number;
   discovery: DiscoveryReport;
-  channelMap: Map<string, Channel[]>;
+  groupMap: Map<string, GroupChannel[]>;
 }): DryRunProvider {
-  const { provider, totalModels, totalChannels, discovery, channelMap } = opts;
+  const { provider, totalModels, totalChannels, discovery, groupMap } = opts;
   const candidates: DryRunCandidate[] = discovery.candidates.map((c) => {
-    const chs = (channelMap.get(c.modelName) ?? [])
+    const chs = (groupMap.get(c.modelName) ?? [])
       .slice()
-      .sort(compareChannelsForProbe);
+      .sort(compareGroupChannels);
     return {
       model: c.modelName,
       canonicalKey: c.canonicalKey,
@@ -653,18 +658,18 @@ function buildDryRunProvider(opts: {
       endpointTypes: c.endpointTypes,
       tags: c.tags,
       vendorId: c.vendorId,
-      channels: chs.map((ch) => ({
-        id: ch.id ?? 0,
-        name: ch.name ?? "",
-        priority: ch.priority ?? 0,
-        weight: ch.weight ?? 0,
+      channels: chs.map((g) => ({
+        id: 0,
+        name: g.groupName,
+        priority: 0,
+        weight: 0,
       })),
       reasons: c.reasons,
     };
   });
   return {
     name: provider.name,
-    baseUrl: provider.baseUrl,
+    baseUrl: redactUrl(provider.baseUrl),
     totalModels,
     totalChannels,
     candidates,
@@ -673,138 +678,6 @@ function buildDryRunProvider(opts: {
       reason: e.reason,
     })),
   };
-}
-
-const PROBE_TOKEN_PREFIX = "image";
-
-/** Token name used for the probe. Stable per-provider so reruns reuse it. */
-function probeTokenName(providerName: string): string {
-  // Mirrors ensureTokens' `{groupName}-{prefix}` pattern but with a fixed
-  // probe prefix. Keeps the 30-byte name limit intact for any sane provider
-  // name; truncation isn't needed because providerName is user-controlled
-  // and short (config.yml provider keys are typically <16 chars).
-  return `${providerName}-${PROBE_TOKEN_PREFIX}`;
-}
-
-/**
- * Pick the broadest group from the provider's `/api/pricing` response. The
- * probe submits a wide variety of image-edit models, so we want the group
- * with the largest model list. Falls back to ranked names when no group
- * data is available (legacy yun shape sometimes returns empty groups[]).
- */
-function pickBroadestGroup(groups: GroupInfo[]): string {
-  if (groups.length === 0) return "default";
-  const ranked = [...groups].sort((a, b) => {
-    const ma = a.models?.length ?? 0;
-    const mb = b.models?.length ?? 0;
-    if (ma !== mb) return mb - ma;
-    // Tiebreaker: prefer well-known broad-group names.
-    const score = (n: string): number => {
-      const lower = (n ?? "").toLowerCase();
-      if (lower.includes("全模型") || lower.includes("all-model")) return 100;
-      if (lower === "default" || lower === "通用大模型") return 50;
-      if (lower.includes("vip") || lower.includes("会员")) return 30;
-      return 0;
-    };
-    return score(b.name) - score(a.name);
-  });
-  return ranked[0]?.name ?? "default";
-}
-
-/**
- * Ensure a probe-scoped token exists on the upstream and return its full
- * key + id. The token name is `{providerName}-image` and lives in the
- * broadest available group. If a stale token from a prior aborted run is
- * found, it is deleted and recreated so quota / group settings stay fresh.
- *
- * The token id is plumbed back to the orchestrator so `cleanupProbeTokens`
- * can delete it when the run finishes (or aborts).
- */
-async function acquireProbeToken(
-  ctx: ClientContext,
-  providerName: string,
-  groups: GroupInfo[],
-): Promise<{ key: string; tokenId: number } | null> {
-  const name = probeTokenName(providerName);
-  const group = pickBroadestGroup(groups);
-
-  // If a stale probe token from a prior aborted run is still around, delete
-  // it so quota / group settings don't drift (e.g. user changed groups
-  // in upstream since last run).
-  let existing;
-  try {
-    existing = await listTokens(ctx);
-  } catch {
-    return null;
-  }
-  const stale = existing.find((t) => t.name === name);
-  if (stale) {
-    await deleteToken(ctx, stale.id);
-  }
-
-  const created = await createToken(ctx, name, group);
-  if (!created) return null;
-
-  // POST /api/token/ doesn't return the new id — re-list to find it.
-  let refreshed;
-  try {
-    refreshed = await listTokens(ctx);
-  } catch {
-    return null;
-  }
-  const tok = refreshed.find((t) => t.name === name);
-  if (!tok) return null;
-
-  let key = tok.key;
-  if (key.includes("**")) {
-    const fetched = await getTokenFullKey(ctx, tok.id);
-    if (!fetched) {
-      // Created but key unrecoverable; clean up.
-      await deleteToken(ctx, tok.id).catch(() => {});
-      return null;
-    }
-    key = fetched;
-  }
-  if (!key) {
-    await deleteToken(ctx, tok.id).catch(() => {});
-    return null;
-  }
-  return {
-    key: key.startsWith("sk-") ? key : `sk-${key}`,
-    tokenId: tok.id,
-  };
-}
-
-/**
- * Delete every probe-scoped token created during the run. Called from the
- * orchestrator's `finally` block so tokens get cleaned up even on errors
- * or Ctrl-C. Failures are logged but don't throw — leftover probe tokens
- * are picked up and recreated on the next run anyway.
- */
-async function cleanupProbeTokens(
-  byProvider: Map<
-    string,
-    { ctx: ClientContext; probeTokenId: number }
-  >,
-): Promise<void> {
-  for (const [providerName, entry] of byProvider) {
-    if (!entry.probeTokenId) continue;
-    try {
-      const ok = await deleteToken(entry.ctx, entry.probeTokenId);
-      if (!ok) {
-        consola.warn(
-          t("CORE.IMAGES.PROBE_TOKEN_DELETE_FAILED", { name: providerName }),
-        );
-      }
-    } catch (err) {
-      consola.warn(
-        t("CORE.IMAGES.PROBE_TOKEN_DELETE_FAILED", {
-          name: providerName,
-          err: err instanceof Error ? err.message : String(err),
-        }),
-      );
-    }
-  }
 }
 
 /**
