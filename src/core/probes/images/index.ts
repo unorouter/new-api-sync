@@ -929,7 +929,7 @@ function isGatewayBrokenSignature(attempt: ChannelResult): boolean {
         : JSON.stringify(attempt.exchange.response);
   return (
     /contents is required/i.test(body) ||
-    /Unknown name "(?:contents|instances|generationConfig|safetySettings|parts)"/.test(body)
+    /Unknown name "(?:contents|instances|parts|generationConfig|safetySettings)"/.test(body)
   );
 }
 

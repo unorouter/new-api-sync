@@ -72,7 +72,7 @@ export function classifyResponse(
     // gemini endpoint but the model itself wants :predict shape).
     // Wrapped as 429 by aigc; treat as ref_count_rejected so the loop
     // skips (no point retrying with the same wrong body).
-    if (/contents is required|Unknown name "(?:contents|instances|parts|generationConfig)"/i.test(snippet)) {
+    if (/contents is required|Unknown name "(?:contents|instances|parts|generationConfig|safetySettings)"/i.test(snippet)) {
       return { errorClass: "ref_count_rejected", errorSnippet: snippet };
     }
     return { errorClass: "ratelimit", errorSnippet: snippet };
@@ -98,7 +98,7 @@ export function classifyResponse(
     // / "Unknown name 'instances'" (when hit on :generateContent vs
     // :predict mismatch). Either way it's a body-shape impedance
     // mismatch we can't resolve without per-model wire knowledge.
-    if (/contents is required|Unknown name "(?:contents|instances|parts|generationConfig)"/i.test(snippet)) {
+    if (/contents is required|Unknown name "(?:contents|instances|parts|generationConfig|safetySettings)"/i.test(snippet)) {
       return { errorClass: "ref_count_rejected", errorSnippet: snippet };
     }
     return { errorClass: "timeout", errorSnippet: snippet };
