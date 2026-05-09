@@ -715,6 +715,25 @@ async function probeOneModel(opts: {
       onProgress?.(decided);
       return decided;
     }
+
+    // Gateway-broken model abort: at least one shape on this group hit the
+    // gateway body-translator signature (e.g. aigc's Imagen routing returns
+    // "contents is required" / "Unknown name 'contents'" because the
+    // gateway can't translate any of our wire shapes to Imagen's actual
+    // `:predict` API). Every other group will hit the SAME error - gateway
+    // routing is global, not per-group. Skip the rest of the groups for
+    // this model to save ~5-12 attempts of guaranteed failures.
+    //
+    // We DON'T require every shape to fail this way; mixing in some 503s
+    // ("system memory overloaded") is normal and doesn't change the verdict.
+    // One body-translator hit is enough evidence the model is unsupported.
+    const channelAttempts = failed.slice(-stepsToTry.length);
+    if (channelAttempts.some((a) => isGatewayBrokenSignature(a))) {
+      consola.warn(
+        `[${provider.name}] ${candidate.modelName}: gateway-broken body signature on ${channelName} (translator can't route this model), skipping remaining groups`,
+      );
+      break;
+    }
   }
 
   consola.warn(
@@ -880,6 +899,38 @@ function probeStepsFor(opts: {
  */
 function slugForFile(s: string): string {
   return s.replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "_";
+}
+
+/**
+ * Detect "gateway translator broken for this model" responses. The aigc
+ * Imagen example: catalog declares the model under `image-generation` and
+ * `gemini` and `openai` endpoints, but the actual upstream Imagen API only
+ * accepts `:predict` shape. So:
+ *   - /v1/images/generations -> aigc translates OAI->Gemini -> upstream
+ *     rejects with `"contents is required"` (HTTP 500).
+ *   - :generateContent + /v1/chat/completions -> we send Gemini multimodal,
+ *     upstream rejects with `Unknown name "contents"` /
+ *     `Unknown name "generationConfig"` / `Unknown name "safetySettings"`.
+ *
+ * Either body shows the gateway can't reach Imagen with any known wire
+ * format. The same will happen on every group (gateway routing is global),
+ * so once all shapes on the first group hit this signature, abort.
+ *
+ * Detected as `errorClass: "ref_count_rejected"` (already classified by
+ * classify.ts) PLUS one of the body fingerprints below.
+ */
+function isGatewayBrokenSignature(attempt: ChannelResult): boolean {
+  if (attempt.errorClass !== "ref_count_rejected") return false;
+  const body =
+    attempt.exchange.response == null
+      ? ""
+      : typeof attempt.exchange.response === "string"
+        ? attempt.exchange.response
+        : JSON.stringify(attempt.exchange.response);
+  return (
+    /contents is required/i.test(body) ||
+    /Unknown name "(?:contents|instances|generationConfig|safetySettings|parts)"/.test(body)
+  );
 }
 
 // ---------------------------------------------------------------------------
