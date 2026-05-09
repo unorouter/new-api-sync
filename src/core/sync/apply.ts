@@ -6,7 +6,25 @@ import type {
   SyncDiff,
 } from "@core/types";
 import type { NewApiClient } from "@core/vendors/newapi/client";
+import { peekUpstreamError } from "@core/vendors/newapi/resources";
 import { t } from "@server/i18n";
+
+/**
+ * If the upstream-error buffer has an entry matching this op's key, append
+ * the upstream message to the generic ApplyError fallback so the run report
+ * shows the real reason ("channel cannot be empty", "name already exists",
+ * etc.) instead of just "failed to create channel".
+ */
+function applyErrorWithUpstream(
+  phase: ApplyError["phase"],
+  key: string,
+  fallback: string,
+): ApplyError {
+  const upstream = peekUpstreamError(key);
+  return upstream
+    ? { phase, key, message: `${fallback}: ${upstream.message}` }
+    : { phase, key, message: fallback };
+}
 
 async function applyEntityOps<T extends { id?: number }>(
   ops: DiffOperation<T>[],
@@ -25,11 +43,13 @@ async function applyEntityOps<T extends { id?: number }>(
       if (await handlers.create(op.value)) {
         changes.created.push(op.key);
       } else {
-        errors.push({
-          phase,
-          key: op.key,
-          message: t("CORE.APPLY.FAIL_CREATE", { entity }),
-        });
+        errors.push(
+          applyErrorWithUpstream(
+            phase,
+            op.key,
+            t("CORE.APPLY.FAIL_CREATE", { entity }),
+          ),
+        );
       }
       continue;
     }
@@ -38,11 +58,13 @@ async function applyEntityOps<T extends { id?: number }>(
       if (await handlers.update(op.value)) {
         changes.updated.push(op.key);
       } else {
-        errors.push({
-          phase,
-          key: op.key,
-          message: t("CORE.APPLY.FAIL_UPDATE", { entity }),
-        });
+        errors.push(
+          applyErrorWithUpstream(
+            phase,
+            op.key,
+            t("CORE.APPLY.FAIL_UPDATE", { entity }),
+          ),
+        );
       }
       continue;
     }
@@ -59,11 +81,13 @@ async function applyEntityOps<T extends { id?: number }>(
     if (await handlers.delete(op.existing.id)) {
       changes.deleted.push(op.key);
     } else {
-      errors.push({
-        phase,
-        key: op.key,
-        message: t("CORE.APPLY.FAIL_DELETE", { entity }),
-      });
+      errors.push(
+        applyErrorWithUpstream(
+          phase,
+          op.key,
+          t("CORE.APPLY.FAIL_DELETE", { entity }),
+        ),
+      );
     }
   }
 }

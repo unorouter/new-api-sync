@@ -15,6 +15,42 @@ const PAGINATED_FETCH_OPTS = {
   retryDelayMs: 2000,
 } as const;
 
+/**
+ * Module-scoped buffer of the most recent upstream error per (operation, key).
+ * Resource functions write into it on failure; apply.ts drains it when
+ * recording an `ApplyError` so the upstream's actual reason ("channel cannot
+ * be empty", "name already exists", "key invalid") survives instead of being
+ * collapsed into the generic "FAIL_CREATE" i18n string. Dump separately so
+ * `writeApplyErrors()` can serialize the trail to logs/{ts}-apply-errors.json.
+ */
+export interface UpstreamErrorEntry {
+  op: "createChannel" | "updateChannel" | "deleteChannel" | "createModel" | "updateModel" | "deleteModel" | "createVendor" | "updateVendor";
+  key: string;
+  status?: number;
+  message: string;
+  payloadSnippet?: unknown;
+  at: string;
+}
+const upstreamErrors: UpstreamErrorEntry[] = [];
+export function recordUpstreamError(e: Omit<UpstreamErrorEntry, "at">): void {
+  upstreamErrors.push({ ...e, at: new Date().toISOString() });
+}
+export function drainUpstreamErrors(): UpstreamErrorEntry[] {
+  const out = upstreamErrors.slice();
+  upstreamErrors.length = 0;
+  return out;
+}
+/** Read-only lookup by key. apply.ts uses this to enrich generic ApplyErrors
+ *  with the upstream's real message without removing the entry from the
+ *  buffer (the buffer is later drained by writeApplyErrorsLog).
+ *  Returns the LAST entry for the key, since a retry could record twice. */
+export function peekUpstreamError(key: string): UpstreamErrorEntry | undefined {
+  for (let i = upstreamErrors.length - 1; i >= 0; i--) {
+    if (upstreamErrors[i]!.key === key) return upstreamErrors[i];
+  }
+  return undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Channel CRUD
 // ---------------------------------------------------------------------------
@@ -61,7 +97,25 @@ export async function createChannel(
       { method: "POST", headers: ctx.headers, body: channel },
     );
   }
-  if (!data?.success) return null;
+  if (!data?.success) {
+    const message = data?.message ?? "no response";
+    const key = channel.name ?? channel.tag ?? "<unnamed>";
+    consola.warn(`[createChannel] ${ctx.name} failed for "${key}": ${message}`);
+    recordUpstreamError({
+      op: "createChannel",
+      key,
+      message,
+      payloadSnippet: {
+        name: channel.name,
+        tag: channel.tag,
+        type: channel.type,
+        models: channel.models,
+        group: channel.group,
+        hasKey: !!channel.key,
+      },
+    });
+    return null;
+  }
   return data.data?.id ?? 0;
 }
 
@@ -75,7 +129,15 @@ export async function updateChannel(
     headers: ctx.headers,
     body: channel,
   });
-  return data?.success ?? false;
+  if (!data?.success) {
+    recordUpstreamError({
+      op: "updateChannel",
+      key: channel.name ?? `id=${channel.id}`,
+      message: data?.message ?? "no response",
+    });
+    return false;
+  }
+  return true;
 }
 
 export async function deleteChannel(
@@ -86,7 +148,15 @@ export async function deleteChannel(
     `${ctx.baseUrl}/api/channel/${id}`,
     { method: "DELETE", headers: ctx.headers },
   );
-  return data?.success ?? false;
+  if (!data?.success) {
+    recordUpstreamError({
+      op: "deleteChannel",
+      key: `id=${id}`,
+      message: data?.message ?? "no response",
+    });
+    return false;
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +210,20 @@ export async function createModel(
     headers: ctx.headers,
     body: model,
   });
-  return data?.success ?? false;
+  if (!data?.success) {
+    recordUpstreamError({
+      op: "createModel",
+      key: model.model_name ?? "<unnamed>",
+      message: data?.message ?? "no response",
+      payloadSnippet: {
+        model_name: model.model_name,
+        vendor_id: model.vendor_id,
+        endpoints: model.endpoints,
+      },
+    });
+    return false;
+  }
+  return true;
 }
 
 export async function updateModel(
@@ -152,7 +235,15 @@ export async function updateModel(
     headers: ctx.headers,
     body: model,
   });
-  return data?.success ?? false;
+  if (!data?.success) {
+    recordUpstreamError({
+      op: "updateModel",
+      key: model.model_name ?? `id=${model.id}`,
+      message: data?.message ?? "no response",
+    });
+    return false;
+  }
+  return true;
 }
 
 export async function deleteModel(
@@ -163,7 +254,15 @@ export async function deleteModel(
     `${ctx.baseUrl}/api/models/${id}`,
     { method: "DELETE", headers: ctx.headers },
   );
-  return data?.success ?? false;
+  if (!data?.success) {
+    recordUpstreamError({
+      op: "deleteModel",
+      key: `id=${id}`,
+      message: data?.message ?? "no response",
+    });
+    return false;
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -198,7 +297,15 @@ export async function createVendor(
       body: vendor,
     },
   );
-  return data?.data ?? null;
+  if (!data?.success) {
+    recordUpstreamError({
+      op: "createVendor",
+      key: vendor.name,
+      message: data?.message ?? "no response",
+    });
+    return null;
+  }
+  return data.data ?? null;
 }
 
 export async function updateVendor(
@@ -210,7 +317,15 @@ export async function updateVendor(
     headers: ctx.headers,
     body: vendor,
   });
-  return data?.success ?? false;
+  if (!data?.success) {
+    recordUpstreamError({
+      op: "updateVendor",
+      key: vendor.name,
+      message: data?.message ?? "no response",
+    });
+    return false;
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------

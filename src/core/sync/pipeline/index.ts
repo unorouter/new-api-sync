@@ -146,6 +146,20 @@ export async function runProviderPipeline(
     allPricingGrids,
   );
 
+  // Push per-template ComfyUI prices into the ModelPrice option map. ComfyUI
+  // bypasses the pricing pipeline (no upstream catalog), so the operator
+  // declares per-call USD prices in config.yml under each template's `price`
+  // field. quotaType=1 marks them as per-request billing.
+  for (const provider of config.providers) {
+    if (provider.type !== "comfyui") continue;
+    const cfg = provider as ComfyUiProviderConfig;
+    for (const [modelName, tpl] of Object.entries(cfg.templates)) {
+      const mapped = config.modelMapping?.[modelName] ?? modelName;
+      optionMaps.modelPrice[mapped] = Math.round(tpl.price * 10000) / 10000;
+      optionMaps.modelQuotaType[mapped] = 1;
+    }
+  }
+
   const models = buildDesiredModels({
     channels,
     originalEndpointsByName,

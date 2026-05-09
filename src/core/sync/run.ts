@@ -15,8 +15,11 @@ import { recordRunSummary, writeTestReport } from "@core/testing/runner";
 import type { DesiredState, SyncRunResult, TargetSnapshot } from "@core/types";
 import { MANAGED_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
+import { drainUpstreamErrors } from "@core/vendors/newapi/resources";
 import { t } from "@server/i18n";
 import { consola } from "consola";
+import { mkdirSync, writeFileSync } from "fs";
+import { join } from "path";
 
 async function ensureVendors(
   client: NewApiClient,
@@ -140,6 +143,7 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
 
   recordRunSummary({ providerReports, apply, diff, elapsedMs, success });
   writeTestReport();
+  writeApplyErrorsLog(apply.errors);
 
   return {
     success,
@@ -149,6 +153,38 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
     apply,
     elapsedMs,
   };
+}
+
+/**
+ * Drain the upstream-error buffer and dump everything that failed during the
+ * apply phase to `logs/{ts}-apply-errors.json`. Pairs each ApplyError with
+ * the upstream's actual reason so post-mortem doesn't require re-running with
+ * verbose flags. Mirrors the writeTestReport pattern (tests already log their
+ * own JSON; this is the apply-side equivalent).
+ *
+ * No-ops when the run had no apply errors AND the buffer is empty.
+ */
+function writeApplyErrorsLog(applyErrors: SyncRunResult["apply"]["errors"]): void {
+  const upstream = drainUpstreamErrors();
+  if (applyErrors.length === 0 && upstream.length === 0) return;
+  const logsDir = join(process.cwd(), "logs");
+  mkdirSync(logsDir, { recursive: true });
+  const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  const path = join(logsDir, `${ts}-apply-errors.json`);
+  writeFileSync(
+    path,
+    JSON.stringify(
+      {
+        version: 1,
+        generatedAt: new Date().toISOString(),
+        applyErrors,
+        upstream,
+      },
+      null,
+      2,
+    ),
+  );
+  consola.info(`Apply errors written to ${path}`);
 }
 
 function buildChannelProviderMap(result: SyncRunResult): Map<string, string> {

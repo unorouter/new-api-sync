@@ -41,20 +41,26 @@ const GridPricingRowSchema = T.Record(
   T.Union([T.String(), T.Number()]),
 );
 
-const ModelPricingDetailSchema = T.Object({
-  type: str,
-  model: str,
-  modelPricingGrid: T.Array(GridPricingRowSchema, { minItems: 1 }),
-});
-
 // Opaque per-model client hints, serialized to the models.metadata JSON column
 // in new-api. Consumed by client UIs (e.g. unorouter) to pick model-specific
 // behaviors like bumping max_tokens for thinking models.
 const ModelMetadataSchema = T.Object({
   maxOutputTokens: T.Optional(T.Integer({ minimum: 1 })),
   isReasoning: T.Optional(T.Boolean()),
+  /** Maximum number of reference images the model accepts in a single
+   *  request. 6 means the model can compose a 5-character + 1-background
+   *  scene (Matic's RP workload). Surfaced in unorouter so the UI can show
+   *  a "6 refs" badge and gate uploads. */
+  maxImageInputs: T.Optional(T.Integer({ minimum: 1 })),
 });
 export type ModelMetadata = Static<typeof ModelMetadataSchema>;
+
+const ModelPricingDetailSchema = T.Object({
+  type: str,
+  model: str,
+  modelPricingGrid: T.Array(GridPricingRowSchema, { minItems: 1 }),
+  metadata: T.Optional(ModelMetadataSchema),
+});
 
 const ModelSettingsDetailSchema = T.Object({
   model: str,
@@ -141,6 +147,10 @@ const ComfyUiTemplateSchema = T.Object(
     workflow: T.Any(),
     params: T.Optional(T.Record(str, T.Any())),
     lora_chain: T.Optional(T.Any()),
+    /** Per-call price in USD, set via the new-api ModelPrice option on each
+     *  sync. Required so we never accidentally serve a comfyui model for free
+     *  if the operator forgot to configure it in the admin UI. */
+    price: T.Number({ minimum: 0 }),
   },
   { additionalProperties: true },
 );

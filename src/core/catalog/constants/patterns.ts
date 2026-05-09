@@ -62,10 +62,31 @@ export function buildReverseMapping(
 }
 
 export function sanitizeGroupName(name: string): string {
-  return name
+  // 1. Drop CJK ideographs entirely (channel names need to round-trip through
+  //    new-api's slug rules; we keep the latin/arabic part as the meaningful
+  //    handle).
+  // 2. Replace runs of anything that isn't [a-z0-9._-] with a single dash so
+  //    pipe/space/slash group names like "\u4e2d\u6587 | English" sanitize to
+  //    "English" instead of leaking " | " into the channel name and producing
+  //    invalid payloads like " | -pol-openai".
+  // 3. Collapse and trim dashes.
+  // 4. Empty result -> deterministic short hash of the original input, so
+  //    multiple groups whose names sanitize to "" don't all collide on the
+  //    same channel name (the emit.ts collision check would throw).
+  const sanitized = name
     .replace(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+  if (sanitized) return sanitized;
+  // FNV-1a 32-bit. 6 hex chars is enough to disambiguate the handful of
+  // CJK-only / punctuation-only groups any single upstream is likely to ship.
+  let h = 0x811c9dc5;
+  for (let i = 0; i < name.length; i++) {
+    h ^= name.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return `g-${(h >>> 0).toString(16).padStart(8, "0").slice(0, 6)}`;
 }
 
 export const SUB2API_PLATFORM_CHANNEL_TYPES: Record<string, number> = {

@@ -29,6 +29,13 @@ export interface EmitResult {
 export function emitChannels(args: EmitArgs): EmitResult {
   const { plan, baseline } = args;
 
+  // Skip tiers with zero surviving models. Happens when pricing drops every
+  // bucket (charge > ceiling) AND/OR probes 401 every bucket - we'd otherwise
+  // emit a channel with `models: ""` and new-api rejects with
+  // "channel cannot be empty". The tier is effectively dead either way; let
+  // the next sync re-create it once a real model survives the gate.
+  const liveTiers = plan.tiers.filter((tier) => tier.models.length > 0);
+
   // Collision detection across baseline channels (unmanaged) + new tiers.
   // Same error format as the previous in-pipeline check so on-call greps
   // still work.
@@ -36,7 +43,7 @@ export function emitChannels(args: EmitArgs): EmitResult {
   for (const ch of baseline.channels) {
     seen.set(ch.name, { source: "baseline", tag: ch.tag });
   }
-  for (const tier of plan.tiers) {
+  for (const tier of liveTiers) {
     const existing = seen.get(tier.channelName);
     if (existing) {
       throw new Error(
@@ -56,7 +63,7 @@ export function emitChannels(args: EmitArgs): EmitResult {
   const channels: Channel[] = [];
   const mergedGroups: MergedGroup[] = [];
 
-  for (const tier of plan.tiers) {
+  for (const tier of liveTiers) {
     mergedGroups.push({
       name: tier.channelName,
       ratio: tier.groupRatio,
