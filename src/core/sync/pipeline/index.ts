@@ -112,6 +112,10 @@ export async function runProviderPipeline(
   // Append ComfyUI channels: hand-defined, no upstream discovery, no pricing
   // pipeline. Each comfyui provider yields exactly one channel that carries
   // the workflow_templates JSON the new-api adapter parses at request time.
+  // We also register the channel's group in mergedGroups so option-maps adds
+  // it to UserUsableGroups/AutoGroups/GroupRatio — without this, the comfyui
+  // models exist in the DB but the pricing UI filters them out (every model
+  // is gated by enable_groups intersecting the user's usable groups).
   for (const provider of config.providers) {
     if (provider.type !== "comfyui") continue;
     const result = buildComfyUiChannels(provider as ComfyUiProviderConfig);
@@ -123,6 +127,14 @@ export async function runProviderPipeline(
       continue;
     }
     channels.push(...result.channels);
+    for (const channel of result.channels) {
+      mergedGroups.push({
+        name: channel.group,
+        ratio: 1,
+        description: `ComfyUI via ${provider.name}`,
+        provider: channel.tag ?? provider.name,
+      });
+    }
   }
 
   // Collect pricing grid data from all providers' enabledModels

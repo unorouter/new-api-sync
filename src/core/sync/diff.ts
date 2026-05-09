@@ -199,18 +199,34 @@ function buildManagedOptionValues(
         ),
       ])
     : unmanagedGroups;
+  // Mirror managedGroups: collect models exposed by channels owned by
+  // providers in this partial sync. Those models must NOT be guarded —
+  // otherwise re-running --only on a provider can never update its own
+  // pricing, because a previous sync already wrote the keys to ModelPrice/etc.
+  const managedModels = new Set<string>();
+  for (const channel of snapshot.channels) {
+    if (channel.tag && desired.managedProviders.has(channel.tag)) {
+      for (const m of parseModelList(channel.models)) managedModels.add(m);
+    }
+  }
+  for (const channel of desired.channels) {
+    for (const m of parseModelList(channel.models)) managedModels.add(m);
+  }
+
   const modelGuard = isPartialSync
-    ? new Set([
-        ...modelRatioGuard,
-        ...Object.keys(parse<Record<string, unknown>>("ModelRatio", {})),
-        ...Object.keys(parse<Record<string, unknown>>("ModelPrice", {})),
-        ...Object.keys(parse<Record<string, unknown>>("CompletionRatio", {})),
-        ...Object.keys(parse<Record<string, unknown>>("ImageRatio", {})),
-        ...Object.keys(parse<Record<string, unknown>>("CacheRatio", {})),
-        ...Object.keys(parse<Record<string, unknown>>("CreateCacheRatio", {})),
-        ...Object.keys(parse<Record<string, unknown>>("ModelQuotaType", {})),
-        ...Object.keys(parse<Record<string, unknown>>("ModelGridPricing", {})),
-      ])
+    ? new Set(
+        [
+          ...modelRatioGuard,
+          ...Object.keys(parse<Record<string, unknown>>("ModelRatio", {})),
+          ...Object.keys(parse<Record<string, unknown>>("ModelPrice", {})),
+          ...Object.keys(parse<Record<string, unknown>>("CompletionRatio", {})),
+          ...Object.keys(parse<Record<string, unknown>>("ImageRatio", {})),
+          ...Object.keys(parse<Record<string, unknown>>("CacheRatio", {})),
+          ...Object.keys(parse<Record<string, unknown>>("CreateCacheRatio", {})),
+          ...Object.keys(parse<Record<string, unknown>>("ModelQuotaType", {})),
+          ...Object.keys(parse<Record<string, unknown>>("ModelGridPricing", {})),
+        ].filter((m) => !managedModels.has(m)),
+      )
     : modelRatioGuard;
 
   const mergedGroupRatio = mergeOption(
