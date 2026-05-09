@@ -2,37 +2,44 @@ import { configDir } from "@core/config";
 import { join } from "path";
 
 /**
- * Reference fixtures bundled in `<repo>/images/`. Six SFW JPEGs that mimic
- * Matic's RP scene structure: 1 background + 1 user character + 4 NPC sprites.
- * They are loaded once at probe start and reused for every (provider, model,
- * channel) attempt so results stay comparable.
+ * Reference fixtures bundled in `<repo>/images/`. Six photographs that
+ * mimic Matic's RP scene structure: 1 real-photo location (CC0 PxHere
+ * empty diner) + 5 photorealistic character portraits at 1024x1024.
+ *
+ * They are loaded once at probe start and reused for every (provider,
+ * model, channel) attempt so results stay comparable. All ≥384px on each
+ * side so models with strict-dimension validators (wan2.5-i2i-preview)
+ * accept them.
  *
  * License + provenance details are in `images/README.md`.
  */
 export const FIXTURE_FILENAMES = [
-  "00-bg-tavern.jpg",
-  "01-user-sara.jpg",
-  "02-npc-trevor.jpg",
-  "03-npc-puck.jpg",
-  "04-npc-knight.jpg",
-  "05-npc-rogue.jpg",
+  "0.jpg",
+  "1.webp",
+  "2.webp",
+  "3.webp",
+  "4.webp",
+  "5.webp",
 ] as const;
 
 /**
  * Single instruction submitted alongside every probe, regardless of probe
- * kind. Matches Matic's actual workload: place the user character in the
- * room with the four NPCs and emit one composed scene. Centralising this
- * here means sync, openai-vendor, and task probes all submit the identical
- * 6 images + identical text — results stay directly comparable across
- * channels and prompt A/B testing later is trivial.
+ * kind. Matches Matic's actual workload: place 5 characters in a real
+ * setting and emit one composed scene. Centralising this here means
+ * sync, openai-vendor, and task probes all submit the identical 6 images
+ * + identical text — results stay directly comparable across channels
+ * and prompt A/B testing later is trivial.
  */
 export const FIXTURE_PROMPT =
-  "Compose a single anime-style illustration combining the six reference " +
-  "images: place Sara, the blonde girl with the side braid (image 01), inside " +
-  "the tavern (image 00), interacting with four NPCs - the blonde male hero " +
-  "Trevor (image 02), the bearded ranger Puck (image 03), the bald knight in " +
-  "gold armor (image 04), and the brunette adventurer woman (image 05). " +
-  "Preserve each character's distinctive appearance. Single output image.";
+  "Compose a single photorealistic group photograph placing the five " +
+  "people from images 1-5 inside the diner shown in image 0. Image 1 " +
+  "is the smiling man with brown hair and a dark shirt, image 2 is the " +
+  "blonde woman in the floral dress, image 3 is the woman with " +
+  "burgundy-streaked dark hair and tattoos, image 4 is the red-haired " +
+  "young woman with glasses and a green sweater, image 5 is the " +
+  "smiling brunette woman in a green crop top. Seat or stand them " +
+  "together at the diner booth. Preserve each person's distinctive " +
+  "appearance. Single output image.";
 
 export interface Fixtures {
   /** Files in fixed order [bg, user, npc1, npc2, npc3, npc4]. */
@@ -70,9 +77,11 @@ export function withFixtureCount(base: Fixtures, n: number): Fixtures {
 let cached: Fixtures | undefined;
 
 /**
- * Read the 6 fixture JPEGs from `<configDir>/images/` once and return
- * synchronously-reusable buffers. Throws if any file is missing — failing
- * loud is the right call because every probe depends on having all six.
+ * Read the fixtures from `<configDir>/images/` once and return
+ * synchronously-reusable buffers. MIME type is inferred from the file
+ * extension (.jpg/.jpeg → image/jpeg, .webp → image/webp, .png → image/png).
+ * Throws if any file is missing — failing loud is the right call because
+ * every probe depends on having all of them.
  */
 export async function loadFixtures(): Promise<Fixtures> {
   if (cached) return cached;
@@ -90,10 +99,19 @@ export async function loadFixtures(): Promise<Fixtures> {
     }
     const buf = await bun.arrayBuffer();
     totalBytes += buf.byteLength;
-    files.push(new File([buf], name, { type: "image/jpeg" }));
+    const mime = mimeFromName(name);
+    files.push(new File([buf], name, { type: mime }));
     const b64 = Buffer.from(buf).toString("base64");
-    dataUris.push(`data:image/jpeg;base64,${b64}`);
+    dataUris.push(`data:${mime};base64,${b64}`);
   }
   cached = { files, dataUris, totalBytes, prompt: FIXTURE_PROMPT };
   return cached;
+}
+
+function mimeFromName(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".gif")) return "image/gif";
+  return "image/jpeg";
 }

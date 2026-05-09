@@ -251,20 +251,34 @@ async function saveOne(
     writeFileSync(path, Buffer.from(ref.value, "base64"));
     return path;
   }
-  // URL: fetch and write whatever bytes the upstream gave us.
-  const ext = guessExtFromUrl(ref.value) ?? "png";
-  const path = join(dir, `${basename}.${ext}`);
+  // URL: fetch and write whatever bytes the upstream gave us. When the URL
+  // has no extension (some grok-* gateways serve `/file_download/<uuid>`),
+  // we fall back to the response Content-Type header so the saved file is
+  // labelled correctly.
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const r = await fetch(ref.value, { signal: ctrl.signal });
     if (!r.ok) return null;
+    const ext =
+      guessExtFromUrl(ref.value) ??
+      extFromContentType(r.headers.get("content-type")) ??
+      "png";
+    const path = join(dir, `${basename}.${ext}`);
     const bytes = await r.arrayBuffer();
     writeFileSync(path, Buffer.from(bytes));
     return path;
   } finally {
     clearTimeout(timer);
   }
+}
+
+function extFromContentType(ct: string | null): string | undefined {
+  if (!ct) return undefined;
+  const m = ct.toLowerCase().match(/image\/(png|jpeg|jpg|webp|gif|bmp)/);
+  if (!m) return undefined;
+  const ext = m[1]!;
+  return ext === "jpeg" ? "jpg" : ext;
 }
 
 function guessExtFromUrl(url: string): string | undefined {

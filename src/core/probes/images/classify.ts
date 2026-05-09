@@ -168,11 +168,17 @@ export function looksLikeImageResponse(bodyText: string): boolean {
   //      The base64 sits in a bare `data` field with a sibling `mimeType`
   //      (or `mime_type`) - no `data:` prefix. We match the inlineData
   //      wrapper since the field names are stable and unique to Gemini.
+  //   6. Markdown ![alt](https://.../file_download/<uuid>) - extension-less
+  //      URL inside markdown image syntax. The markdown wrapper itself is
+  //      the signal; some grok-* gateways emit signed download URLs without
+  //      an extension. We accept these only when wrapped in `![...](...)` so
+  //      we don't false-positive on bare text URLs.
   return (
     /\bb64_json\b/.test(bodyText) ||
     /\bimage_url\b/.test(bodyText) ||
     /\bdata:image\/(?:png|jpe?g|webp|gif)/i.test(bodyText) ||
     /https?:\/\/[^\s"']+\.(?:png|jpe?g|webp|gif)/i.test(bodyText) ||
-    /"inline_?[Dd]ata"\s*:\s*\{[^}]*"(?:mime_?[Tt]ype)"\s*:\s*"image\//.test(bodyText)
+    /"inline_?[Dd]ata"\s*:\s*\{[^}]*"(?:mime_?[Tt]ype)"\s*:\s*"image\//.test(bodyText) ||
+    /!\[[^\]]*\]\(https?:\/\/[^\s)]+\)/.test(bodyText)
   );
 }
