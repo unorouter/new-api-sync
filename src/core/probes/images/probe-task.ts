@@ -8,7 +8,6 @@ export interface TaskProbeOpts {
   baseUrl: string;
   apiKey: string;
   userId: number;
-  channelId: number;
   model: string;
   fixtures: Fixtures;
   /** Override the submit URL path. When omitted, defaults to /v1/videos.
@@ -46,9 +45,6 @@ export async function probeTaskChannel(
     "Content-Type": "application/json",
     "New-Api-User": String(opts.userId),
   };
-  if (opts.channelId > 0) {
-    headers["Specify-Channel"] = String(opts.channelId);
-  }
 
   // Pick the body shape from the URL path. The vendor-native paths
   // (Replicate `/predictions`, MJ `/mj/submit/*`, Gemini `:generateContent`,

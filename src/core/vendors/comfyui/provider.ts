@@ -1,0 +1,76 @@
+// ComfyUI provider — emits one channel per `comfyui` block in config.
+//
+// Unlike the upstream-discovery providers (newapi, openrouter, nvidia,
+// sub2api), ComfyUI has no remote catalog: the model list comes from
+// hand-authored workflow templates in config.yml. We bypass the pricing /
+// emit pipeline entirely and synthesize the Channel object directly.
+
+import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
+import { sanitizeGroupName } from "@core/catalog/constants/patterns";
+import type { Channel, ProviderReport } from "@core/types";
+import type { ComfyUiProviderConfig } from "@core/validations/config";
+
+const DEFAULT_BASE_URL: Record<string, string> = {
+  fal: "https://queue.fal.run",
+  replicate: "https://api.replicate.com",
+  runcomfy: "",
+  runpod: "",
+  native: "",
+};
+
+export function buildComfyUiChannels(
+  providerConfig: ComfyUiProviderConfig,
+): { channels: Channel[]; report: ProviderReport } {
+  const report: ProviderReport = {
+    name: providerConfig.name,
+    success: false,
+    groups: 0,
+    models: 0,
+    tokens: { created: 0, existing: 0, deleted: 0 },
+  };
+
+  const provider = providerConfig.provider ?? "fal";
+  const baseUrl =
+    providerConfig.baseUrl?.replace(/\/$/, "") || DEFAULT_BASE_URL[provider];
+  if (!baseUrl) {
+    report.error = `comfyui: baseUrl required for provider "${provider}"`;
+    return { channels: [], report };
+  }
+
+  const modelNames = Object.keys(providerConfig.templates);
+  if (modelNames.length === 0) {
+    report.error = "comfyui: no templates defined";
+    return { channels: [], report };
+  }
+
+  const channelName =
+    providerConfig.channelName ?? sanitizeGroupName(providerConfig.name);
+  const tag = providerConfig.channelTag ?? providerConfig.name;
+
+  // The new-api adapter expects `provider` and `templates` siblings on the
+  // workflow_templates JSON object.
+  const workflowTemplates = JSON.stringify({
+    provider,
+    templates: providerConfig.templates,
+  });
+
+  const channel: Channel = {
+    name: channelName,
+    type: CHANNEL_TYPES.COMFYUI,
+    key: providerConfig.apiKey,
+    base_url: baseUrl,
+    models: modelNames.join(","),
+    group: channelName,
+    priority: 0,
+    weight: 1,
+    status: 1,
+    tag,
+    remark: `ComfyUI (${provider}) via ${providerConfig.name}`,
+    workflow_templates: workflowTemplates,
+  };
+
+  report.success = true;
+  report.groups = 1;
+  report.models = modelNames.length;
+  return { channels: [channel], report };
+}

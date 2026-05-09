@@ -2,7 +2,6 @@ import { redactExchange, redactUrl } from "@core/testing/redact";
 import { saveResponseImages } from "./download";
 import type { ProviderConfig } from "@core/validations/config";
 import { NewApiClient } from "@core/vendors/newapi/client";
-import type { ClientContext } from "@core/vendors/newapi/context";
 import type { UpstreamPricing } from "@core/vendors/newapi/types";
 import { ProbeTokenManager } from "./token-manager";
 import { t } from "@server/i18n";
@@ -33,6 +32,7 @@ import {
   loadStore,
   saveDryRun,
   saveStore,
+  slug,
   writeArtifact,
   type ChannelResult,
   type DryRunCandidate,
@@ -143,7 +143,7 @@ export async function runImageProbe(
     // groups whose key actually resolves - not the whole provider. The
     // group-map carries (groupName, "" placeholder); the real apiKey is
     // resolved per probe via `tokens.getApiKey(groupName)`.
-    const tokens = new ProbeTokenManager(getCtx(client), provider.name);
+    const tokens = new ProbeTokenManager(client.ctx, provider.name);
     if (!opts.dryRun) {
       try {
         await tokens.preloadList();
@@ -269,6 +269,11 @@ export async function runImageProbe(
   // subsequent models on the same provider would burn the same probe for the
   // same response, so cache the dead group and skip it the second time.
   const deadGroupsByProvider = new Map<string, Set<string>>();
+  // Per-provider async-billing autodetect. "unknown" until the first
+  // passing probe reveals whether this provider posts debits async (yun-
+  // style) or synchronously. Once classified, subsequent probes either
+  // skip the 60s settle wait (sync providers) or run it (yun et al.).
+  const asyncBillingByProvider = new Map<string, "unknown" | boolean>();
   try {
     let aborted = false;
     outer: for (const [
@@ -277,6 +282,7 @@ export async function runImageProbe(
     ] of candidatesByProvider) {
       const deadGroups = new Set<string>();
       deadGroupsByProvider.set(providerName, deadGroups);
+      asyncBillingByProvider.set(providerName, "unknown");
       for (const c of discovery.candidates) {
         if (isAlreadyTested(store, providerName, c.modelName)) continue;
 
@@ -317,6 +323,10 @@ export async function runImageProbe(
           pricing,
           fixtures,
           deadGroups,
+          asyncBillingState: {
+            get: () => asyncBillingByProvider.get(providerName) ?? "unknown",
+            set: (v) => asyncBillingByProvider.set(providerName, v),
+          },
           onProgress: saveProgress,
           fetchBalance: () => client.fetchBalance(),
           onStepCost: ({ channelName, probeShape, delta, balanceAfter }) => {
@@ -332,7 +342,7 @@ export async function runImageProbe(
         });
         appendResult(store, result);
         saveStore(store);
-        if (result.workingChannelId !== undefined) passed++;
+        if (result.workingChannelName !== undefined) passed++;
         else if (result.failedChannels.length === 0) noChannel++;
         else failed++;
       }
@@ -390,6 +400,13 @@ async function probeOneModel(opts: {
    *  same provider skip probing this group so we don't burn one attempt per
    *  model on a guaranteed permission failure. */
   deadGroups: Set<string>;
+  /** Per-provider async-billing state (unknown until the first passing
+   *  probe samples it). Read on every step to decide whether the settle
+   *  loop runs; written once when a passing probe resolves the question. */
+  asyncBillingState: {
+    get: () => "unknown" | boolean;
+    set: (v: boolean) => void;
+  };
   /** Persist a partial ModelResult after every channel attempt so the
    *  store survives Ctrl-C / network errors mid-loop and resume picks up
    *  with no lost work. */
@@ -408,7 +425,7 @@ async function probeOneModel(opts: {
     balanceAfter: number;
   }) => void;
 }): Promise<ModelResult> {
-  const { provider, candidate, groupMap, tokens, pricing, fixtures, deadGroups, onProgress, fetchBalance, onStepCost } = opts;
+  const { provider, candidate, groupMap, tokens, pricing, fixtures, deadGroups, asyncBillingState, onProgress, fetchBalance, onStepCost } = opts;
   const groups = (groupMap.get(candidate.modelName) ?? [])
     .slice()
     .sort(compareGroupChannels);
@@ -454,7 +471,6 @@ async function probeOneModel(opts: {
     // Group name is the "channel name" surfaced in results: each group is a
     // distinct routing bucket on new-api with its own bound token.
     const channelName = g.groupName;
-    const channelId = 0; // Pricing surface doesn't expose channel ids.
 
     // Skip groups already known to reject our user with 403. aigc lets us
     // mint tokens for paid-tier groups (企业 / 白金会员 / etc.) but inference
@@ -481,50 +497,51 @@ async function probeOneModel(opts: {
       continue;
     }
 
+    // 10s timeout wrapper on /api/user/self reads. A hung balance endpoint
+    // shouldn't drain the 60s settle budget down to 2-3 polls.
+    const fetchBalanceTimed = fetchBalance
+      ? async () =>
+          Promise.race([
+            fetchBalance(),
+            new Promise<null>((r) => setTimeout(() => r(null), 10_000)),
+          ])
+      : undefined;
+
     // Within a group, try each (wire shape, path) step. Stop on first
     // PASS - if /v1/images/edits worked we don't need to also try
     // /v1/images/generations.
     let channelPassed: ChannelResult | undefined;
     for (const step of stepsToTry) {
       const probeShape = step.shape;
+      // Closure that builds the call args. Same baseUrl/apiKey/userId/
+      // model/path; only `fixtures` differs across the rate-limit retry
+      // and the image-count downshift retry.
+      const mkArgs = (fx: Fixtures) => ({
+        baseUrl: provider.baseUrl,
+        apiKey,
+        userId: provider.userId,
+        model: candidate.modelName,
+        fixtures: fx,
+        path: step.path,
+      });
       // Balance bracket per STEP (group x shape): so users see balance
-      // movement on every probe attempt, not just per model. fetchBalance
-      // is undefined / returns null when the upstream lacks a quota field.
-      const balanceBefore = fetchBalance ? await fetchBalance() : null;
+      // movement on every probe attempt, not just per model.
+      const balanceBefore = fetchBalanceTimed ? await fetchBalanceTimed() : null;
       // Retry on 429: rate-limited probes get up to 3 attempts with
       // exponential backoff before we record the failure. A genuine
       // 429-on-everything provider will still surface in the artifact
       // (final attempt's response carries the 429 body). Other status
       // codes pass through immediately - we don't want to retry a real
       // refusal / 4xx and double-bill.
-      let attempt = await runProbeShape(probeShape, {
-        baseUrl: provider.baseUrl,
-        apiKey,
-        userId: provider.userId,
-        channelId,
-        model: candidate.modelName,
-        fixtures,
-        path: step.path,
-      });
+      let attempt = await runProbeShape(probeShape, mkArgs(fixtures));
       let retriedRateLimit = 0;
-      while (
-        attempt.errorClass === "ratelimit" &&
-        retriedRateLimit < 3
-      ) {
+      while (attempt.errorClass === "ratelimit" && retriedRateLimit < 3) {
         const wait = 5000 * 2 ** retriedRateLimit; // 5s / 10s / 20s
         consola.warn(
           `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape}): rate-limited, retry in ${wait / 1000}s (${retriedRateLimit + 1}/3)`,
         );
         await new Promise((r) => setTimeout(r, wait));
-        attempt = await runProbeShape(probeShape, {
-          baseUrl: provider.baseUrl,
-          apiKey,
-          userId: provider.userId,
-          channelId,
-          model: candidate.modelName,
-          fixtures,
-          path: step.path,
-        });
+        attempt = await runProbeShape(probeShape, mkArgs(fixtures));
         retriedRateLimit++;
       }
       // Image-count downshift: some models cap reference images at 1-3
@@ -549,57 +566,67 @@ async function probeOneModel(opts: {
           consola.warn(
             `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape}): upstream caps refs at ${maxImgs}, retrying with ${maxImgs} images`,
           );
-          const trimmed = withFixtureCount(fixtures, maxImgs);
-          attempt = await runProbeShape(probeShape, {
-            baseUrl: provider.baseUrl,
-            apiKey,
-            userId: provider.userId,
-            channelId,
-            model: candidate.modelName,
-            fixtures: trimmed,
-            path: step.path,
-          });
+          attempt = await runProbeShape(
+            probeShape,
+            mkArgs(withFixtureCount(fixtures, maxImgs)),
+          );
         }
       }
-      // Async billing settle: yun (and likely other resellers) post the
-      // quota debit a few seconds AFTER the HTTP response returns.
-      // Reading balance immediately yields the pre-debit value, which
-      // surfaces as a bogus $0.0000 cost on probes that actually billed.
+      // Async billing settle: providers post the quota debit some seconds
+      // AFTER the HTTP response returns (yun, etc.). Reading balance
+      // immediately yields the pre-debit value, which surfaces as a bogus
+      // $0.0000 on probes that actually billed.
       //
-      // Strategy:
-      // - Failures: read once. Failures usually don't bill; if upstream
-      //   does charge for compute on errors that delta will surface
-      //   immediately or stay at 0 - either way we don't wait.
-      // - Passes: passes ALWAYS bill on yun et al. Poll every 2s until
-      //   we see ANY balance change, capped at 60s as a safety net so a
-      //   genuinely-free upstream (or one with broken /api/user/self)
-      //   doesn't hang the run forever.
-      let balanceAfter = fetchBalance ? await fetchBalance() : null;
+      // Provider classification (asyncBillingState):
+      //   - "unknown" + first PASS with $0 immediate delta: probe 20s once
+      //     to see if a debit lands. Set the state for the rest of the
+      //     provider so subsequent probes don't repeat the test.
+      //   - true: known async (yun) - run the 60s settle loop.
+      //   - false: known sync - take the immediate read; no waiting.
+      // Failures always read once (failures rarely bill; not worth the wait).
+      let balanceAfter = fetchBalanceTimed ? await fetchBalanceTimed() : null;
       let stepDelta =
         balanceBefore !== null && balanceAfter !== null
           ? balanceBefore - balanceAfter
           : undefined;
-      if (
+      const noImmediateDebit =
         attempt.status === "ok" &&
         balanceBefore !== null &&
         stepDelta !== undefined &&
         Math.abs(stepDelta) < 0.0001 &&
-        fetchBalance
-      ) {
-        const settleDeadline = Date.now() + 60_000;
-        let pollCount = 0;
-        while (Date.now() < settleDeadline) {
-          await new Promise((r) => setTimeout(r, 2000));
-          pollCount++;
-          const b = await fetchBalance();
-          if (b !== null && Math.abs(balanceBefore - b) >= 0.0001) {
-            balanceAfter = b;
-            stepDelta = balanceBefore - b;
-            consola.debug(
-              `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape}): debit landed after ${pollCount * 2}s`,
-            );
-            break;
-          }
+        fetchBalanceTimed !== undefined;
+      if (noImmediateDebit) {
+        const billing = asyncBillingState.get();
+        if (billing === false) {
+          // Sync provider: skip. The $0 read is the truth.
+        } else if (billing === true) {
+          // Known async: full 60s settle.
+          ({ balanceAfter, stepDelta } = await pollSettle({
+            balanceBefore: balanceBefore!,
+            fetchBalance: fetchBalanceTimed!,
+            label: `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape})`,
+            budgetMs: 60_000,
+            initialAfter: balanceAfter,
+            initialDelta: stepDelta,
+          }));
+        } else {
+          // Unknown: probe once at 20s to classify the provider.
+          const probed = await pollSettle({
+            balanceBefore: balanceBefore!,
+            fetchBalance: fetchBalanceTimed!,
+            label: `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape})`,
+            budgetMs: 20_000,
+            initialAfter: balanceAfter,
+            initialDelta: stepDelta,
+          });
+          balanceAfter = probed.balanceAfter;
+          stepDelta = probed.stepDelta;
+          const settled =
+            stepDelta !== undefined && Math.abs(stepDelta) >= 0.0001;
+          asyncBillingState.set(settled);
+          consola.debug(
+            `[${provider.name}] async-billing autodetect: ${settled ? "yes (will settle subsequent passes)" : "no (skip future settles)"}`,
+          );
         }
       }
 
@@ -620,19 +647,20 @@ async function probeOneModel(opts: {
       // actually produced. We pass the ORIGINAL response, not the
       // redacted one - the redactor could in theory mangle data: URIs.
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
-      const imagePaths = await saveResponseImages({
+      const savedImages = await saveResponseImages({
         response: attempt.exchange.response,
         dir: artifactDirFor(provider.name, candidate.modelName),
-        basenamePrefix: `${ts}-${slugForFile(channelName)}-${probeShape}`,
+        basenamePrefix: `${ts}-${slug(channelName)}-${probeShape}`,
       });
 
       const cr: ChannelResult = {
-        channelId,
         channelName,
         exchange: redacted,
         errorClass: attempt.errorClass,
         artifactPath,
-        imagePaths: imagePaths.length > 0 ? imagePaths : undefined,
+        imagePaths: savedImages.length > 0 ? savedImages.map((s) => s.path) : undefined,
+        imageResolutions:
+          savedImages.length > 0 ? savedImages.map((s) => ({ w: s.w, h: s.h })) : undefined,
         probeKind: shapeToKind(probeShape),
         probeShape,
         hasImageInputs: shapeHasImageInputs(probeShape),
@@ -702,7 +730,6 @@ async function probeOneModel(opts: {
         provider: provider.name,
         model: candidate.modelName,
         kind: candidate.kind,
-        workingChannelId: channelId,
         workingChannelName: channelName,
         // Inline the winning channel's full exchange so the master file
         // carries request/response/headers/status/latency without having
@@ -752,13 +779,43 @@ async function probeOneModel(opts: {
   };
 }
 
+/**
+ * Poll the upstream balance endpoint every 2s until the debit lands or
+ * the budget runs out. Returns the latest reading + delta. Used both for
+ * the autodetect probe (20s budget) and the known-async settle (60s).
+ */
+async function pollSettle(opts: {
+  balanceBefore: number;
+  fetchBalance: () => Promise<number | null>;
+  label: string;
+  budgetMs: number;
+  initialAfter: number | null;
+  initialDelta: number | undefined;
+}): Promise<{ balanceAfter: number | null; stepDelta: number | undefined }> {
+  let balanceAfter = opts.initialAfter;
+  let stepDelta = opts.initialDelta;
+  const deadline = Date.now() + opts.budgetMs;
+  let pollCount = 0;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 2000));
+    pollCount++;
+    const b = await opts.fetchBalance();
+    if (b !== null && Math.abs(opts.balanceBefore - b) >= 0.0001) {
+      balanceAfter = b;
+      stepDelta = opts.balanceBefore - b;
+      consola.debug(`${opts.label}: debit landed after ${pollCount * 2}s`);
+      break;
+    }
+  }
+  return { balanceAfter, stepDelta };
+}
+
 function runProbeShape(
   shape: ProbeShape,
   opts: {
     baseUrl: string;
     apiKey: string;
     userId: number;
-    channelId: number;
     model: string;
     fixtures: Fixtures;
     /** Provider-declared URL override. Resolves Replicate, Tencent VOD,
@@ -894,14 +951,6 @@ function probeStepsFor(opts: {
 }
 
 /**
- * Sanitize a group name for use inside a filename. Mirrors `slug()` in
- * store.ts so attribution stays consistent across artifact paths.
- */
-function slugForFile(s: string): string {
-  return s.replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "_";
-}
-
-/**
  * Detect "gateway translator broken for this model" responses. The aigc
  * Imagen example: catalog declares the model under `image-generation` and
  * `gemini` and `openai` endpoints, but the actual upstream Imagen API only
@@ -936,36 +985,6 @@ function isGatewayBrokenSignature(attempt: ChannelResult): boolean {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Return the internal `ClientContext` of a `NewApiClient`. The class keeps
- * `ctx` as a private getter; we avoid the boilerplate of plumbing every
- * helper through the class by reading it via a small adapter.
- */
-function getCtx(client: NewApiClient): ClientContext {
-  // The class exposes `listChannels()`, `fetchPricing()`, etc. but not the
-  // raw ctx. Re-derive it from the same constructor inputs via type access.
-  // (We can't reach private fields, so use the public `name` and rebuild the
-  // context — same shape as the class's internal getter.)
-  // This relies on knowing the client's config; we instead read the client's
-  // private-ish constructor inputs via casting. Acceptable here because the
-  // probe module is colocated in the same repo and we control both sides.
-  type AnyClient = {
-    config: { baseUrl: string; systemAccessToken: string; userId: number };
-    _name?: string;
-  };
-  const c = client as unknown as AnyClient;
-  return {
-    baseUrl: c.config.baseUrl,
-    headers: {
-      Authorization: `Bearer ${c.config.systemAccessToken}`,
-      "New-Api-User": String(c.config.userId),
-      "X-Api-User": String(c.config.userId),
-      "Content-Type": "application/json",
-    },
-    name: c._name ?? "target",
-  };
-}
 
 function buildDryRunProvider(opts: {
   provider: ProviderConfig;

@@ -54,6 +54,7 @@ export const CHANNEL_TYPES = {
   REPLICATE: 56,
   CODEX: 57,
   NVIDIA_NIM: 58,
+  COMFYUI: 59,
 } as const;
 
 interface TaskModelOverride {

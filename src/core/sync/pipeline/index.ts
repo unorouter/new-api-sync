@@ -13,6 +13,8 @@ import { emitChannels } from "@core/pricing/emit";
 import { fetchAllPricingSources } from "@core/pricing/resolver";
 import { ConcurrencyGate, setConcurrencyGate } from "@core/runtime";
 import type { DesiredState, ProviderReport, TargetSnapshot } from "@core/types";
+import type { ComfyUiProviderConfig } from "@core/validations/config";
+import { buildComfyUiChannels } from "@core/vendors/comfyui/provider";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { buildBaseline } from "./baseline";
@@ -106,6 +108,22 @@ export async function runProviderPipeline(
   const mergedGroups = emitted.mergedGroups;
   const mergedModels = emitted.mergedModels;
   const channels = emitted.channels;
+
+  // Append ComfyUI channels: hand-defined, no upstream discovery, no pricing
+  // pipeline. Each comfyui provider yields exactly one channel that carries
+  // the workflow_templates JSON the new-api adapter parses at request time.
+  for (const provider of config.providers) {
+    if (provider.type !== "comfyui") continue;
+    const result = buildComfyUiChannels(provider as ComfyUiProviderConfig);
+    providerReports.push(result.report);
+    if (!result.report.success) {
+      consola.warn(
+        `comfyui provider ${provider.name} failed: ${result.report.error ?? ""}`,
+      );
+      continue;
+    }
+    channels.push(...result.channels);
+  }
 
   // Collect pricing grid data from all providers' enabledModels
   const allPricingGrids: Record<string, Record<string, string | number>[]> = {};

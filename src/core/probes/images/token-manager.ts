@@ -138,19 +138,19 @@ export class ProbeTokenManager {
     const TOKEN_NAME_MAX_BYTES = 30;
     const suffix = `-${this.prefix}`;
     const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
     const suffixBytes = encoder.encode(suffix).length;
     const maxBytes = TOKEN_NAME_MAX_BYTES - suffixBytes;
-    if (encoder.encode(groupName).length <= maxBytes) {
+    const encoded = encoder.encode(groupName);
+    if (encoded.length <= maxBytes) {
       return `${groupName}${suffix}`;
     }
-    let truncated = "";
-    let usedBytes = 0;
-    for (const char of groupName) {
-      const charBytes = encoder.encode(char).length;
-      if (usedBytes + charBytes > maxBytes) break;
-      truncated += char;
-      usedBytes += charBytes;
-    }
+    // Walk back from maxBytes to the previous UTF-8 char boundary. In
+    // UTF-8 a continuation byte has its top two bits == 10 (mask 0xC0 ==
+    // 0x80); the start byte of any code point is anything else.
+    let cut = maxBytes;
+    while (cut > 0 && (encoded[cut]! & 0xc0) === 0x80) cut--;
+    const truncated = decoder.decode(encoded.subarray(0, cut));
     return `${truncated}${suffix}`;
   }
 }

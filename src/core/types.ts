@@ -83,6 +83,7 @@ export interface Channel {
   remark?: string;
   model_mapping?: string;
   setting?: string;
+  workflow_templates?: string;
 }
 
 export interface ModelMeta {

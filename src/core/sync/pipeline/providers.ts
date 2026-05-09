@@ -50,7 +50,15 @@ export async function runAllProviders(
   normalizedEndpointsByName: Map<string, string[]>;
   aggregatedEndpointPaths: Map<string, { path: string; method: string }>;
 }> {
-  const sorted = [...config.providers].sort(
+  // ComfyUI providers don't go through pricing/emit — they synthesize a
+  // single channel directly in pipeline/index.ts. Filter them out here so
+  // the rest of the pricing pipeline stays focused on upstream-discovery
+  // providers.
+  const pricingProviders = config.providers.filter(
+    (p) => p.type !== "comfyui",
+  );
+
+  const sorted = [...pricingProviders].sort(
     (a, b) => (TYPE_ORDER[a.type] ?? 2) - (TYPE_ORDER[b.type] ?? 2),
   );
 

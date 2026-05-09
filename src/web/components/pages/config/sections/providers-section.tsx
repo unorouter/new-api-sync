@@ -46,6 +46,12 @@ const TEMPLATES: Record<ProviderType, () => Provider> = {
     name: "",
     apiKey: "",
   }),
+  comfyui: () => ({
+    type: "comfyui",
+    name: "",
+    apiKey: "",
+    templates: {},
+  }),
 };
 
 const TYPE_ORDER: ProviderType[] = [
@@ -53,6 +59,7 @@ const TYPE_ORDER: ProviderType[] = [
   "sub2api",
   "nvidia",
   "openrouter",
+  "comfyui",
 ];
 
 export function ProvidersSection() {

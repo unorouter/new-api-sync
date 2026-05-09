@@ -2,6 +2,13 @@ import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { consola } from "consola";
 
+/** A saved image plus its decoded dimensions. */
+export interface SavedImage {
+  path: string;
+  w: number;
+  h: number;
+}
+
 /**
  * Save the actual generated image bytes from a probe response so the user
  * can eyeball the output later. Without this, only the JSON response (which
@@ -24,30 +31,36 @@ export async function saveResponseImages(opts: {
   response: unknown;
   /** `logs/images/<provider>/<model>/` */
   dir: string;
-  /** Per-attempt timestamp + channel-id used to disambiguate filenames. */
+  /** Per-attempt timestamp + channel slug used to disambiguate filenames.
+   *  Final filenames embed the decoded dimensions:
+   *    `${basenamePrefix}[-i]-{w}x{h}.{ext}`. */
   basenamePrefix: string;
   /** Network timeout for URL downloads. Default 30s. */
   fetchTimeoutMs?: number;
-}): Promise<string[]> {
+}): Promise<SavedImage[]> {
   const refs = extractRefs(opts.response);
   if (refs.length === 0) return [];
 
   mkdirSync(opts.dir, { recursive: true });
-  const written: string[] = [];
+  const timeoutMs = opts.fetchTimeoutMs ?? 30_000;
 
-  for (let i = 0; i < refs.length; i++) {
-    const ref = refs[i]!;
-    const seq = refs.length === 1 ? "" : `-${i}`;
-    try {
-      const path = await saveOne(ref, opts.dir, opts.basenamePrefix + seq, opts.fetchTimeoutMs ?? 30_000);
-      if (path) written.push(path);
-    } catch (err) {
-      consola.debug(
-        `[image-save] ${opts.basenamePrefix}${seq} failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
-  return written;
+  // Parallel saves - MJ task fetches return up to 4 quad-grid URLs and
+  // sequential downloads serialize them needlessly. Each saveOne handles
+  // its own errors; failures land as null in the settled array.
+  const results = await Promise.all(
+    refs.map(async (ref, i) => {
+      const seq = refs.length === 1 ? "" : `-${i}`;
+      try {
+        return await saveOne(ref, opts.dir, opts.basenamePrefix + seq, timeoutMs);
+      } catch (err) {
+        consola.debug(
+          `[image-save] ${opts.basenamePrefix}${seq} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return null;
+      }
+    }),
+  );
+  return results.filter((p): p is SavedImage => p !== null);
 }
 
 interface ImageRef {
@@ -244,33 +257,42 @@ async function saveOne(
   dir: string,
   basename: string,
   timeoutMs: number,
-): Promise<string | null> {
+): Promise<SavedImage | null> {
+  let bytes: Buffer;
+  let ext: string;
+
   if (ref.kind === "b64") {
-    const ext = ref.mediaType?.includes("jpeg") ? "jpg" : "png";
-    const path = join(dir, `${basename}.${ext}`);
-    writeFileSync(path, Buffer.from(ref.value, "base64"));
-    return path;
+    ext = ref.mediaType?.includes("jpeg") ? "jpg" : "png";
+    bytes = Buffer.from(ref.value, "base64");
+  } else {
+    // URL: fetch and write whatever bytes the upstream gave us. When the
+    // URL has no extension (some grok-* gateways serve
+    // `/file_download/<uuid>`), fall back to the response Content-Type
+    // header so the saved file is labelled correctly.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const r = await fetch(ref.value, { signal: ctrl.signal });
+      if (!r.ok) return null;
+      ext =
+        guessExtFromUrl(ref.value) ??
+        extFromContentType(r.headers.get("content-type")) ??
+        "png";
+      bytes = Buffer.from(await r.arrayBuffer());
+    } finally {
+      clearTimeout(timer);
+    }
   }
-  // URL: fetch and write whatever bytes the upstream gave us. When the URL
-  // has no extension (some grok-* gateways serve `/file_download/<uuid>`),
-  // we fall back to the response Content-Type header so the saved file is
-  // labelled correctly.
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const r = await fetch(ref.value, { signal: ctrl.signal });
-    if (!r.ok) return null;
-    const ext =
-      guessExtFromUrl(ref.value) ??
-      extFromContentType(r.headers.get("content-type")) ??
-      "png";
-    const path = join(dir, `${basename}.${ext}`);
-    const bytes = await r.arrayBuffer();
-    writeFileSync(path, Buffer.from(bytes));
-    return path;
-  } finally {
-    clearTimeout(timer);
-  }
+
+  // Decode dimensions from the file header (no shell-out needed; the
+  // header parser handles PNG / JPEG / WebP / GIF). Fall back to 0x0 if
+  // the format is unrecognized so the save still succeeds and the user
+  // can inspect manually - but the WxH stamp on the filename will read
+  // `0x0` which is its own informative signal.
+  const dims = readImageDimensions(bytes) ?? { w: 0, h: 0 };
+  const path = join(dir, `${basename}-${dims.w}x${dims.h}.${ext}`);
+  writeFileSync(path, bytes);
+  return { path, w: dims.w, h: dims.h };
 }
 
 function extFromContentType(ct: string | null): string | undefined {
@@ -286,4 +308,86 @@ function guessExtFromUrl(url: string): string | undefined {
   if (!m) return undefined;
   const ext = m[1]!.toLowerCase();
   return ext === "jpeg" ? "jpg" : ext;
+}
+
+/**
+ * Decode width/height from a raw image buffer by parsing format headers.
+ * Handles PNG, JPEG (SOFn markers), WebP (VP8 / VP8L / VP8X), GIF.
+ * Returns null when the format can't be recognized; callers fall back
+ * to a `0x0` dimension stamp on the filename.
+ *
+ * Exported so the backfill script can reuse the parser without spawning
+ * an external `identify` process.
+ */
+export function readImageDimensions(
+  buf: Buffer,
+): { w: number; h: number } | null {
+  if (buf.length < 24) return null;
+  // PNG: signature 0x89 50 4E 47 0D 0A 1A 0A, then IHDR chunk with
+  // width (4) + height (4) at byte 16.
+  if (
+    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47
+  ) {
+    return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+  }
+  // GIF: "GIF87a" / "GIF89a", little-endian width/height at byte 6/8.
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) {
+    return { w: buf.readUInt16LE(6), h: buf.readUInt16LE(8) };
+  }
+  // WebP: "RIFF....WEBP" then a chunk type. Three known shapes:
+  //   VP8  (lossy):  width/height in bits at offset 26 (14 bits each).
+  //   VP8L (lossless): packed at offset 21 (14 bits each, +1).
+  //   VP8X (extended): width-1, height-1 as 24-bit LE at offset 24/27.
+  if (
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+    buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+  ) {
+    const fourcc = buf.toString("ascii", 12, 16);
+    if (fourcc === "VP8 ") {
+      return {
+        w: buf.readUInt16LE(26) & 0x3fff,
+        h: buf.readUInt16LE(28) & 0x3fff,
+      };
+    }
+    if (fourcc === "VP8L") {
+      const b0 = buf[21]!, b1 = buf[22]!, b2 = buf[23]!, b3 = buf[24]!;
+      return {
+        w: 1 + (((b1 & 0x3f) << 8) | b0),
+        h: 1 + (((b3 & 0x0f) << 10) | (b2 << 2) | ((b1 & 0xc0) >> 6)),
+      };
+    }
+    if (fourcc === "VP8X") {
+      return {
+        w: 1 + (buf[24]! | (buf[25]! << 8) | (buf[26]! << 16)),
+        h: 1 + (buf[27]! | (buf[28]! << 8) | (buf[29]! << 16)),
+      };
+    }
+    return null;
+  }
+  // JPEG: SOI (0xFFD8), then walk segment markers until SOF0/1/2/3 etc.
+  // SOFn marker is 0xFF (0xC0..0xCF excluding 0xC4/0xC8/0xCC). Each
+  // segment carries a 2-byte big-endian length right after the marker.
+  if (buf[0] === 0xff && buf[1] === 0xd8) {
+    let i = 2;
+    while (i + 9 < buf.length) {
+      if (buf[i] !== 0xff) return null;
+      // Skip fill bytes (0xFF padding).
+      while (buf[i] === 0xff) i++;
+      const marker = buf[i++]!;
+      if (marker === 0xd8 || marker === 0xd9) return null; // SOI/EOI
+      // SOFn family - height at +1, width at +3 from segment data.
+      if (
+        (marker >= 0xc0 && marker <= 0xc3) ||
+        (marker >= 0xc5 && marker <= 0xc7) ||
+        (marker >= 0xc9 && marker <= 0xcb) ||
+        (marker >= 0xcd && marker <= 0xcf)
+      ) {
+        return { h: buf.readUInt16BE(i + 3), w: buf.readUInt16BE(i + 5) };
+      }
+      const segLen = buf.readUInt16BE(i);
+      i += segLen;
+    }
+    return null;
+  }
+  return null;
 }

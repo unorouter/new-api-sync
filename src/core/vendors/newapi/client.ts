@@ -41,7 +41,7 @@ export class NewApiClient {
     this._name = name;
   }
 
-  private get ctx(): ClientContext {
+  get ctx(): ClientContext {
     return {
       baseUrl: this.config.baseUrl,
       headers: this.headers,

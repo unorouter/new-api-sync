@@ -89,7 +89,24 @@ function normalizeChannel(channel: Channel): Omit<Channel, "id"> {
         ? channel.model_mapping
         : undefined,
     setting: normalizeCapabilities(channel.setting),
+    workflow_templates: normalizeWorkflowTemplates(channel.workflow_templates),
   };
+}
+
+/**
+ * Re-serialize workflow_templates JSON via a stable stringify so cosmetic
+ * whitespace and key-order changes don't trigger spurious updates.
+ */
+function normalizeWorkflowTemplates(
+  workflowTemplates?: string,
+): string | undefined {
+  if (!workflowTemplates) return undefined;
+  try {
+    const parsed = JSON.parse(workflowTemplates);
+    return stringify(parsed) ?? undefined;
+  } catch {
+    return workflowTemplates; // leave invalid JSON unchanged so the diff still flags it
+  }
 }
 
 /** Keep existing entries whose key is in `guard`, then add `desired` entries that aren't guarded. */

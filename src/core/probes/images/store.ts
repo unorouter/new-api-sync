@@ -49,7 +49,6 @@ export type ProbeErrorClass =
   | "unknown";
 
 export interface ChannelResult {
-  channelId: number;
   channelName: string;
   /** Reuses the same shape text-model tests write, so logs grep the same way. */
   exchange: TestExchange;
@@ -59,6 +58,13 @@ export interface ChannelResult {
    *  probe response carried no extractable url/b64_json (or download
    *  failed). */
   imagePaths?: string[];
+  /** Output dimensions (width x height) of each saved image, parallel to
+   *  `imagePaths`. Captured at save time via image-magick `identify` so
+   *  the master file carries the model's NATIVE output resolution
+   *  without having to walk back to disk. Useful for spotting models
+   *  that ignored our `size: 1024x1024` request and returned their
+   *  native default (Doubao 2048², Grok 1168x784, etc.). */
+  imageResolutions?: Array<{ w: number; h: number }>;
   /** USD delta on the upstream account between submit and completion of
    *  THIS attempt (per-probe billing measured via two `/api/user/self`
    *  balance reads bracketing the probe). Absent if the upstream doesn't
@@ -96,7 +102,6 @@ export interface ModelResult {
   provider: string;
   model: string;
   kind: ProbeKind;
-  workingChannelId?: number;
   workingChannelName?: string;
   /** Full exchange (request/response/headers/status/latency) of the channel
    *  that decided this model: present when the model PASSED. Mirrors the
@@ -175,10 +180,13 @@ export function appendResult(store: ProbeStore, r: ModelResult): void {
 
 /**
  * Slugify a string for use as a path component. `Qwen/Qwen-Image-Edit` and
- * `gpt-image-1.5` should both produce safe directory names.
+ * `gpt-image-1.5` should both produce safe directory names. Empty / all-
+ * non-ascii inputs (some upstreams ship emoji-only group names) collapse
+ * to `default` rather than a bare `_` so filenames stay readable.
  */
-function slug(s: string): string {
-  return s.replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "_";
+export function slug(s: string): string {
+  const cleaned = s.replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
+  return cleaned || "default";
 }
 
 /** Resolve the per-(provider, model) artifact directory used for both the

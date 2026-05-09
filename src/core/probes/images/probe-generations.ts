@@ -7,7 +7,6 @@ export interface GenerationsProbeOpts {
   baseUrl: string;
   apiKey: string;
   userId: number;
-  channelId: number;
   model: string;
   fixtures: Fixtures;
   /** Override the URL path. When omitted, defaults to
@@ -38,9 +37,6 @@ export async function probeGenerationsChannel(
     "Content-Type": "application/json",
     "New-Api-User": String(opts.userId),
   };
-  if (opts.channelId > 0) {
-    headers["Specify-Channel"] = String(opts.channelId);
-  }
 
   const body = {
     model: opts.model,

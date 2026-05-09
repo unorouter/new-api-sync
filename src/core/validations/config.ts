@@ -128,11 +128,54 @@ const OpenRouterProviderSchema = T.Object({
   ratio: T.Optional(T.Number({ minimum: 0 })),
 });
 
+// ComfyUI: hand-defined channel that runs ComfyUI workflows behind any of the
+// supported provider strategies (fal/replicate/runcomfy/runpod/native). There
+// is no upstream catalog to discover; the channel exposes one model per key
+// in `templates`. The whole `templates` block is serialized into the channel's
+// workflow_templates JSON column, the new-api adapter parses it at request
+// time.
+const ComfyUiTemplateSchema = T.Object(
+  {
+    description: T.Optional(str),
+    version: T.Optional(str),
+    workflow: T.Any(),
+    params: T.Optional(T.Record(str, T.Any())),
+    lora_chain: T.Optional(T.Any()),
+  },
+  { additionalProperties: true },
+);
+
+const ComfyUiProviderSchema = T.Object({
+  type: T.Literal("comfyui"),
+  ...ProviderCommonProps,
+  /** Provider strategy id used by the new-api adapter. v1 only "fal" is
+   *  wired; runcomfy/replicate/runpod/native follow the same shape. */
+  provider: T.Optional(
+    T.Union([
+      T.Literal("fal"),
+      T.Literal("replicate"),
+      T.Literal("runcomfy"),
+      T.Literal("runpod"),
+      T.Literal("native"),
+    ]),
+  ),
+  baseUrl: T.Optional(T.String({ format: "uri" })),
+  apiKey: str,
+  /** Channel display name + group on the target. Defaults to provider name. */
+  channelName: T.Optional(str),
+  /** Override channel tag; defaults to provider name. */
+  channelTag: T.Optional(str),
+  /** Map of model name -> ComfyUI workflow template. Each key becomes an
+   *  exposed model on the channel. */
+  templates: T.Record(str, ComfyUiTemplateSchema),
+});
+
 const AnyProviderSchema = T.Union([
   NewApiProviderSchema,
   Sub2ApiProviderSchema,
   NvidiaProviderSchema,
   OpenRouterProviderSchema,
+  ComfyUiProviderSchema,
 ]);
 
 export type ProviderConfig = Static<typeof NewApiProviderSchema>;
@@ -149,11 +192,13 @@ export type OpenRouterProviderConfig = Static<
   baseUrl: string;
   ratio: number;
 };
+export type ComfyUiProviderConfig = Static<typeof ComfyUiProviderSchema>;
 export type AnyProviderConfig =
   | ProviderConfig
   | Sub2ApiProviderConfig
   | NvidiaProviderConfig
-  | OpenRouterProviderConfig;
+  | OpenRouterProviderConfig
+  | ComfyUiProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
 const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);

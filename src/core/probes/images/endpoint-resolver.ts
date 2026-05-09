@@ -2,6 +2,18 @@ import type { UpstreamPricing } from "@core/vendors/newapi/types";
 import type { ProbeShape } from "./store";
 
 /**
+ * The four OAI-canonical paths every probe module carries a built-in body
+ * for. Single source of truth so candidates.ts (handled-endpoint filter)
+ * and the FALLBACK_PATHS dictionary can't drift apart.
+ */
+export const SHARED_OAI_PATHS: readonly string[] = [
+  "/v1/images/edits",
+  "/v1/images/generations",
+  "/v1/chat/completions",
+  "/v1/videos",
+];
+
+/**
  * Resolve the actual upstream URL + wire shape for a (model, endpoint-type)
  * pair. The general solution: every new-api provider declares its own
  * `supported_endpoint` map (`endpointPaths` after parsing) listing what

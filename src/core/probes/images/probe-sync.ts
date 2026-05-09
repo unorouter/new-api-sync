@@ -19,7 +19,6 @@ export interface SyncProbeOpts {
   /** Per-user inference API key (NOT the systemAccessToken). */
   apiKey: string;
   userId: number;
-  channelId: number;
   model: string;
   fixtures: Fixtures;
   /** Override the URL path. When omitted, defaults to /v1/images/edits.
@@ -36,9 +35,7 @@ export interface SyncProbeOpts {
 /**
  * Probe a model via OpenAI-compatible `/v1/images/edits`. Submits all 6
  * fixture JPEGs as `image[]` form fields plus the shared text prompt.
- *
- * Channel pinning: the bearer is `sk-<token>-<channelId>` per new-api's
- * Specify-Channel mechanism. `New-Api-User: <userId>` mirrors admin context.
+ * `New-Api-User: <userId>` mirrors admin context.
  */
 export async function probeSyncChannel(
   opts: SyncProbeOpts,
@@ -48,11 +45,6 @@ export async function probeSyncChannel(
     Authorization: `Bearer ${opts.apiKey}`,
     "New-Api-User": String(opts.userId),
   };
-  // channelId > 0 → pin via Specify-Channel header (admin-only on new-api;
-  // upstream silently ignores when caller lacks privileges).
-  if (opts.channelId > 0) {
-    headers["Specify-Channel"] = String(opts.channelId);
-  }
   const fd = new FormData();
   fd.set("model", opts.model);
   fd.set("prompt", opts.fixtures.prompt);

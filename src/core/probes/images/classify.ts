@@ -104,13 +104,36 @@ export function classifyResponse(
     return { errorClass: "timeout", errorSnippet: snippet };
   }
   if (status === 400 || status === 422) {
-    if (REFUSAL_PHRASES.some((re) => re.test(snippet))) {
+    // Model unavailability surfaced as 400. New-api forks return these
+    // shapes when the model isn't priced, isn't routable, or the upstream
+    // SKU rejected the API surface. None of these are ref-count caps -
+    // misclassifying them pollutes the master file and hides the real
+    // reason the probe failed.
+    if (
+      /Model not found|Model does not exist|model.*not.*priced|model_price_error|does not support this api/i.test(
+        snippet,
+      )
+    ) {
+      return { errorClass: "no_channel", errorSnippet: snippet };
+    }
+    if (/all_retries_failed|upstream_error|bad_response_status_code/i.test(snippet)) {
+      return { errorClass: "no_channel", errorSnippet: snippet };
+    }
+    // Explicit ref-count or missing-image rejections trigger the downshift
+    // / wire-shape retry. Includes "Missing required key: image" which
+    // some forks return as 400 (others wrap it as 429).
+    if (
+      REFUSAL_PHRASES.some((re) => re.test(snippet)) ||
+      /missing required (?:key|field|parameter)|required.*image|image.*required/i.test(
+        snippet,
+      )
+    ) {
       return { errorClass: "ref_count_rejected", errorSnippet: snippet };
     }
     if (CONTENT_REFUSAL_PHRASES.some((re) => re.test(snippet))) {
       return { errorClass: "refusal", errorSnippet: snippet };
     }
-    return { errorClass: "ref_count_rejected", errorSnippet: snippet };
+    return { errorClass: "unknown", errorSnippet: snippet };
   }
   if (status === undefined) {
     return { errorClass: "timeout", errorSnippet: snippet };

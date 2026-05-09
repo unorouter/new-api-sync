@@ -68,16 +68,6 @@ export function buildBody(opts: BuildBodyOpts): BuiltBody | null {
   if (lp.endsWith("/mj/submit/imagine")) {
     return buildMjImagineBody(opts);
   }
-  // Gemini Imagen native: only use the :predict shape when the URL
-  // actually ends in :predict. Some gateways (aigc) declare imagen-*
-  // under endpoint type `gemini` which resolves to :generateContent -
-  // sending {instances, parameters} there yields HTTP 500 "contents is
-  // required" because the gateway routes our body to its Gemini
-  // translator. For those cases, fall through to the Gemini
-  // multimodal builder so the gateway sees what its translator expects.
-  if (lp.includes(":predict")) {
-    return buildImagenPredictBody(opts);
-  }
   // Gemini-native multimodal generation. Imagen-* on :generateContent
   // also lands here: the gateway is responsible for translating our
   // {contents} body to Imagen's :predict shape on the upstream side.
@@ -226,40 +216,6 @@ function buildGeminiBody(opts: BuildBodyOpts): BuiltBody {
         },
       ],
       generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-    },
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Gemini Imagen `:predict` (`/v1beta/models/{model}:predict`)
-// ---------------------------------------------------------------------------
-//
-// Reference: ai.google.dev/gemini-api/docs/imagen. Imagen models use
-// the legacy Vertex `:predict` shape, NOT Gemini multimodal. Body is
-// {instances: [{prompt}], parameters: {sampleCount, aspectRatio?}}.
-// imagen-3.* is deprecated; imagen-4.0-* is current.
-//
-// We also rewrite the URL: providers that declare `gemini` endpoint
-// resolve to `:generateContent`, but Imagen rejects that path. Force
-// `:predict` here.
-
-function buildImagenPredictBody(opts: BuildBodyOpts): BuiltBody {
-  return {
-    multipart: false,
-    body: {
-      // The probe URL is set by the resolver to :generateContent for
-      // gemini-typed endpoints. Imagen requires :predict. Caller cannot
-      // change the URL here, so we rely on the gateway's URL-aware
-      // routing - but most gateways do NOT translate. This builder is
-      // best-effort: when a gateway DOES translate, the body is right;
-      // when it doesn't, the caller (probe-openai-image-edit) will get
-      // the same "Unknown name 'instances'" error and fail-fast.
-      instances: [{ prompt: opts.fixtures.prompt }],
-      parameters: { sampleCount: 1 },
-    },
-    bodyMeta: {
-      instances: [{ prompt: opts.fixtures.prompt }],
-      parameters: { sampleCount: 1 },
     },
   };
 }

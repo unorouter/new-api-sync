@@ -8,7 +8,6 @@ export interface OpenAiVendorProbeOpts {
   baseUrl: string;
   apiKey: string;
   userId: number;
-  channelId: number;
   model: string;
   fixtures: Fixtures;
   /** Override the URL path. When omitted, defaults to
@@ -39,9 +38,6 @@ export async function probeOpenAiVendorChannel(
     "Content-Type": "application/json",
     "New-Api-User": String(opts.userId),
   };
-  if (opts.channelId > 0) {
-    headers["Specify-Channel"] = String(opts.channelId);
-  }
 
   // Pick body shape from the URL path. Vendor-native chat-shaped paths
   // (Gemini `:generateContent`, Anthropic `/v1/messages`) need their own

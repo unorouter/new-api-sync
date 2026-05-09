@@ -1,7 +1,7 @@
 import type { UpstreamPricing } from "@core/vendors/newapi/types";
 import { buildBody } from "./body-builder";
 import { canonicalize, pickRepresentative } from "./canonicalize";
-import { resolveEndpoint } from "./endpoint-resolver";
+import { resolveEndpoint, SHARED_OAI_PATHS } from "./endpoint-resolver";
 
 /**
  * Three-flavor probe routing. Determined by the model's exposed endpoint
@@ -462,12 +462,7 @@ const STUB_FIXTURES = {
  * vendor body builder returns null - the probe falls back to its
  * canonical body.
  */
-const DEFAULT_OAI_PATHS = new Set([
-  "/v1/images/edits",
-  "/v1/images/generations",
-  "/v1/chat/completions",
-  "/v1/videos",
-]);
+const DEFAULT_OAI_PATHS = new Set(SHARED_OAI_PATHS);
 
 /**
  * True when at least one of the candidate's endpoint types resolves to a
@@ -521,12 +516,46 @@ function matchesAnyFilter(lowerName: string, filters: string[]): boolean {
 }
 
 /**
+ * Name-pattern -> kind map for the no-endpoint fallback. Only patterns
+ * that need a non-default kind are listed; everything else defaults to
+ * `openai-vendor`. Adding a new vendor: drop one line here AND make sure
+ * the pattern is in `NAME_ALLOWLIST_PATTERNS` (allowlist gates discovery,
+ * this map gates routing).
+ */
+const KIND_BY_NAME_PATTERN: ReadonlyArray<readonly [string, ProbeKind]> = [
+  // Sync (/v1/images/edits direct-shape): OpenAI-image-edit family.
+  ["gpt-image", "sync"],
+  ["chatgpt-image", "sync"],
+  ["imagen", "sync"],
+  ["recraft", "sync"],
+  ["ideogram", "sync"],
+  ["stable-diffusion", "sync"],
+  ["sd-3", "sync"],
+  ["sd3", "sync"],
+  ["mai-image", "sync"],
+  ["firefly", "sync"],
+  ["krea", "sync"],
+  ["flux-1.1", "sync"],
+  ["flux-2", "sync"],
+  ["flux-pro", "sync"],
+  ["flux-schnell", "sync"],
+  ["flux-dev", "sync"],
+  // Task (submit + poll on /v1/videos): video models that escape the
+  // exclusion list above (rare, mostly "luma photon" mis-tagged).
+  ["runway", "task"],
+  ["runwayml", "task"],
+  ["ray-2", "task"],
+  ["luma_video", "task"],
+  ["luma-video", "task"],
+  ["photon", "task"],
+];
+
+/**
  * Decide which probe path the candidate goes through:
  * - "task" if endpoints include `openai-video`.
- * - "sync" if endpoints include `image-generation` (or no endpoints exposed
- *   AND name suggests image-edit: gpt-image*, chatgpt-image*, imagen*).
- * - "openai-vendor" if endpoints include only `openai` (chat-completions
- *   shaped, vendor-specific body translation by new-api).
+ * - "sync" if endpoints include `image-generation` / `openai-image`.
+ * - With no endpoint metadata, infer from name via KIND_BY_NAME_PATTERN.
+ *   Default = "openai-vendor" (chat-completions translation).
  */
 function pickKind(endpointTypes: string[], lowerName: string): ProbeKind | undefined {
   if (endpointTypes.includes("openai-video")) return "task";
@@ -534,39 +563,8 @@ function pickKind(endpointTypes: string[], lowerName: string): ProbeKind | undef
   if (endpointTypes.includes("openai-image")) return "sync";
 
   if (endpointTypes.length === 0 || endpointTypes.every((e) => e === "openai")) {
-    // No endpoint metadata — infer from name.
-    // Sync path (true /v1/images/edits surface): vendors that ship the
-    // OpenAI-image-edit shape directly via new-api translation.
-    if (
-      lowerName.includes("gpt-image") ||
-      lowerName.includes("chatgpt-image") ||
-      lowerName.includes("imagen") ||
-      lowerName.includes("recraft") ||
-      lowerName.includes("ideogram") ||
-      lowerName.includes("stable-diffusion") ||
-      lowerName.includes("sd-3") ||
-      lowerName.includes("sd3") ||
-      lowerName.includes("mai-image") ||
-      lowerName.includes("firefly") ||
-      lowerName.includes("krea") ||
-      lowerName.includes("flux-1.1") ||
-      lowerName.includes("flux-2") ||
-      lowerName.includes("flux-pro") ||
-      lowerName.includes("flux-schnell") ||
-      lowerName.includes("flux-dev")
-    ) {
-      return "sync";
-    }
-    // Task path (submit + poll): video models that go through /v1/videos.
-    if (
-      lowerName.includes("runway") ||
-      lowerName.includes("runwayml") ||
-      lowerName.includes("ray-2") ||
-      lowerName.includes("luma_video") ||
-      lowerName.includes("luma-video") ||
-      lowerName.includes("photon")
-    ) {
-      return "task";
+    for (const [pattern, kind] of KIND_BY_NAME_PATTERN) {
+      if (lowerName.includes(pattern)) return kind;
     }
     return "openai-vendor";
   }

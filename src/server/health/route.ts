@@ -74,6 +74,7 @@ async function configSummary() {
     sub2api: 0,
     nvidia: 0,
     openrouter: 0,
+    comfyui: 0,
     total: 0,
   };
   try {
