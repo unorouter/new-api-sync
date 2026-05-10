@@ -84,6 +84,11 @@ export interface Channel {
   model_mapping?: string;
   setting?: string;
   workflow_templates?: string;
+  // 0 = log failures but stay enabled; 1 = auto-disable on failure (new-api default).
+  // Image/task channels should set 0 because cold starts and one-off NSFW filter
+  // trips look like failures and otherwise self-disable. Leave undefined to keep
+  // new-api's default behavior on existing rows.
+  auto_ban?: number;
 }
 
 export interface ModelMeta {

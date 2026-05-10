@@ -90,6 +90,10 @@ function normalizeChannel(channel: Channel): Omit<Channel, "id"> {
         : undefined,
     setting: normalizeCapabilities(channel.setting),
     workflow_templates: normalizeWorkflowTemplates(channel.workflow_templates),
+    // Compare auto_ban so providers that override it (e.g. comfyui) trigger
+    // an update on existing rows. Undefined on either side means "no
+    // opinion, leave it alone".
+    auto_ban: channel.auto_ban,
   };
 }
 

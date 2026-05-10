@@ -70,6 +70,12 @@ export function buildComfyUiChannels(
     tag,
     remark: `ComfyUI (${provider}) via ${providerConfig.name}`,
     workflow_templates: workflowTemplates,
+    // RunPod cold starts and one-off NSFW filter trips look like upstream
+    // failures to new-api. Without auto_ban=0, the channel keeps disabling
+    // itself and we have to manually re-enable it. Stay-enabled-on-failure
+    // is the right policy for image/task channels (failures are logged
+    // either way).
+    auto_ban: 0,
   };
 
   report.success = true;
