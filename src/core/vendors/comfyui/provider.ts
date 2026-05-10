@@ -47,10 +47,13 @@ export function buildComfyUiChannels(
     providerConfig.channelName ?? sanitizeGroupName(providerConfig.name);
   const tag = providerConfig.channelTag ?? providerConfig.name;
 
-  // The new-api adapter expects `provider` and `templates` siblings on the
-  // workflow_templates JSON object.
+  // The new-api adapter expects `provider`, `app`, and `templates` siblings on the
+  // workflow_templates JSON object. `app` is the provider-specific endpoint id
+  // (RunPod serverless endpoint id, fal app slug, etc.) — the adapter reads it
+  // when building the upstream submit URL.
   const workflowTemplates = JSON.stringify({
     provider,
+    app: providerConfig.app ?? "",
     templates: providerConfig.templates,
   });
 

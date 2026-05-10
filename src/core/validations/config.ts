@@ -171,6 +171,11 @@ const ComfyUiProviderSchema = T.Object({
   ),
   baseUrl: T.Optional(T.String({ format: "uri" })),
   apiKey: str,
+  /** Provider-specific endpoint id used by the new-api adapter when
+   *  building the upstream submit URL. For RunPod this is the serverless
+   *  endpoint id (e.g. "8genwa70xbaln4"); for fal it's the app slug
+   *  ("fal-ai/comfy-server"). Stored in the workflow_templates JSON. */
+  app: T.Optional(str),
   /** Channel display name + group on the target. Defaults to provider name. */
   channelName: T.Optional(str),
   /** Override channel tag; defaults to provider name. */
