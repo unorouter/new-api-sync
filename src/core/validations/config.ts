@@ -23,48 +23,25 @@ const GridPricingRowSchema = T.Record(
   T.Union([T.String(), T.Number()]),
 );
 
-const ModelMetadataSchema = T.Object({
-  maxOutputTokens: Opt(T.Integer({ minimum: 1 })),
-  isReasoning: Opt(T.Boolean()),
-  maxImageInputs: Opt(T.Integer({ minimum: 1 })),
-});
+// prettier-ignore
+const ModelMetadataSchema = T.Object({ maxOutputTokens: Opt(T.Integer({ minimum: 1 })), isReasoning: Opt(T.Boolean()), maxImageInputs: Opt(T.Integer({ minimum: 1 })) });
 export type ModelMetadata = Static<typeof ModelMetadataSchema>;
 
 const EnabledModelEntrySchema = T.Union([
   str,
-  T.Object({
-    type: str,
-    model: str,
-    modelPricingGrid: T.Array(GridPricingRowSchema, { minItems: 1 }),
-    metadata: Opt(ModelMetadataSchema),
-  }),
+  // prettier-ignore
+  T.Object({ type: str, model: str, modelPricingGrid: T.Array(GridPricingRowSchema, { minItems: 1 }), metadata: Opt(ModelMetadataSchema) }),
   T.Object({ model: str, metadata: Opt(ModelMetadataSchema) }),
 ]);
 
-const ModelTypeEnum = T.Union([
-  T.Literal("text"),
-  T.Literal("image"),
-  T.Literal("video"),
-  T.Literal("audio"),
-  T.Literal("embedding"),
-]);
+// prettier-ignore
+const ModelTypeEnum = T.Union([T.Literal("text"), T.Literal("image"), T.Literal("video"), T.Literal("audio"), T.Literal("embedding")]);
 
-const ProviderCommonProps = {
-  name: str,
-  testModelTypes: Opt(T.Array(ModelTypeEnum)),
-  enabledVendors: Opt(T.Array(str)),
-  enabledModels: Opt(T.Array(EnabledModelEntrySchema)),
-  priceAdjustment: Opt(PriceAdjustmentSchema),
-  perUpstreamConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),
-} as const;
+// prettier-ignore
+const ProviderCommonProps = { name: str, testModelTypes: Opt(T.Array(ModelTypeEnum)), enabledVendors: Opt(T.Array(str)), enabledModels: Opt(T.Array(EnabledModelEntrySchema)), priceAdjustment: Opt(PriceAdjustmentSchema), perUpstreamConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })) } as const;
 
-const NewApiProviderSchema = T.Object({
-  type: T.Literal("newapi"),
-  ...ProviderCommonProps,
-  baseUrl: uri,
-  systemAccessToken: str,
-  userId: T.Integer({ minimum: 1 }),
-});
+// prettier-ignore
+const NewApiProviderSchema = T.Object({ type: T.Literal("newapi"), ...ProviderCommonProps, baseUrl: uri, systemAccessToken: str, userId: T.Integer({ minimum: 1 }) });
 const Sub2ApiProviderSchema = T.Object({
   type: T.Literal("sub2api"),
   ...ProviderCommonProps,
@@ -76,23 +53,10 @@ const Sub2ApiProviderSchema = T.Object({
     }),
   ),
 });
-const NvidiaProviderSchema = T.Object({
-  type: T.Literal("nvidia"),
-  ...ProviderCommonProps,
-  baseUrl: Opt(uri),
-  imageBaseUrl: Opt(uri),
-  apiKey: str,
-  models: Opt(T.Array(str)),
-  ratio: Opt(T.Number({ exclusiveMinimum: 0 })),
-});
-const OpenRouterProviderSchema = T.Object({
-  type: T.Literal("openrouter"),
-  ...ProviderCommonProps,
-  baseUrl: Opt(uri),
-  apiKey: str,
-  models: Opt(T.Array(str)),
-  ratio: Opt(T.Number({ minimum: 0 })),
-});
+// prettier-ignore
+const NvidiaProviderSchema = T.Object({ type: T.Literal("nvidia"), ...ProviderCommonProps, baseUrl: Opt(uri), imageBaseUrl: Opt(uri), apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ exclusiveMinimum: 0 })) });
+// prettier-ignore
+const OpenRouterProviderSchema = T.Object({ type: T.Literal("openrouter"), ...ProviderCommonProps, baseUrl: Opt(uri), apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ minimum: 0 })) });
 const ComfyUiTemplateSchema = T.Object(
   {
     description: Opt(str),
@@ -107,13 +71,8 @@ const ComfyUiTemplateSchema = T.Object(
 const ComfyUiProviderSchema = T.Object({
   type: T.Literal("comfyui"),
   ...ProviderCommonProps,
-  provider: T.Union([
-    T.Literal("fal"),
-    T.Literal("replicate"),
-    T.Literal("runcomfy"),
-    T.Literal("runpod"),
-    T.Literal("native"),
-  ]),
+  // prettier-ignore
+  provider: T.Union([T.Literal("fal"), T.Literal("replicate"), T.Literal("runcomfy"), T.Literal("runpod"), T.Literal("native")]),
   baseUrl: uri,
   apiKey: str,
   app: Opt(str),
@@ -122,13 +81,8 @@ const ComfyUiProviderSchema = T.Object({
   templates: T.Record(str, ComfyUiTemplateSchema),
 });
 
-const AnyProviderSchema = T.Union([
-  NewApiProviderSchema,
-  Sub2ApiProviderSchema,
-  NvidiaProviderSchema,
-  OpenRouterProviderSchema,
-  ComfyUiProviderSchema,
-]);
+// prettier-ignore
+const AnyProviderSchema = T.Union([NewApiProviderSchema, Sub2ApiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, ComfyUiProviderSchema]);
 
 export type ProviderConfig = Static<typeof NewApiProviderSchema>;
 export type Sub2ApiProviderConfig = Static<typeof Sub2ApiProviderSchema>;
@@ -144,31 +98,18 @@ export type OpenRouterProviderConfig = Static<
   ratio: number;
 };
 export type ComfyUiProviderConfig = Static<typeof ComfyUiProviderSchema>;
-export type AnyProviderConfig =
-  | ProviderConfig
-  | Sub2ApiProviderConfig
-  | NvidiaProviderConfig
-  | OpenRouterProviderConfig
-  | ComfyUiProviderConfig;
+// prettier-ignore
+export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | ComfyUiProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
 const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);
-const ThemeEnum = T.Union([
-  T.Literal("light"),
-  T.Literal("dark"),
-  T.Literal("system"),
-]);
-const MainTabEnum = T.Union([
-  T.Literal("dashboard"),
-  T.Literal("config"),
-  T.Literal("history"),
-]);
+// prettier-ignore
+const ThemeEnum = T.Union([T.Literal("light"), T.Literal("dark"), T.Literal("system")]);
+// prettier-ignore
+const MainTabEnum = T.Union([T.Literal("dashboard"), T.Literal("config"), T.Literal("history")]);
 const HistoryTabEnum = T.Union([T.Literal("runs"), T.Literal("authenticity")]);
-const RunResultFilterEnum = T.Union([
-  T.Literal("all"),
-  T.Literal("passed"),
-  T.Literal("failed"),
-]);
+// prettier-ignore
+const RunResultFilterEnum = T.Union([T.Literal("all"), T.Literal("passed"), T.Literal("failed")]);
 const PipelineModeEnum = T.Union([T.Literal("run"), T.Literal("reset")]);
 
 export type LocaleValue = Static<typeof LocaleEnum>;
@@ -178,32 +119,13 @@ export type HistoryTabValue = Static<typeof HistoryTabEnum>;
 export type RunResultFilterValue = Static<typeof RunResultFilterEnum>;
 export type PipelineModeValue = Static<typeof PipelineModeEnum>;
 
-export const GlobalConfigSchema = T.Object({
-  locale: Opt(LocaleEnum),
-  theme: Opt(ThemeEnum),
-  mainTab: Opt(MainTabEnum),
-  historyTab: Opt(HistoryTabEnum),
-  selectedRunId: Opt(T.Union([T.String(), T.Null()])),
-  runResultFilter: Opt(RunResultFilterEnum),
-  runQuery: Opt(T.String()),
-  authenticityQuery: Opt(T.String()),
-  selectedConfigName: Opt(T.String()),
-  pipelineMode: Opt(PipelineModeEnum),
-  verbose: Opt(T.Boolean()),
-  onlyProviders: Opt(T.Record(T.String(), T.Array(T.String()))),
-  modelFilter: Opt(T.Record(T.String(), T.String())),
-  blacklist: Opt(T.Array(str)),
-  modelMapping: Opt(T.Record(T.String(), T.String())),
-});
+// prettier-ignore
+export const GlobalConfigSchema = T.Object({ locale: Opt(LocaleEnum), theme: Opt(ThemeEnum), mainTab: Opt(MainTabEnum), historyTab: Opt(HistoryTabEnum), selectedRunId: Opt(T.Union([T.String(), T.Null()])), runResultFilter: Opt(RunResultFilterEnum), runQuery: Opt(T.String()), authenticityQuery: Opt(T.String()), selectedConfigName: Opt(T.String()), pipelineMode: Opt(PipelineModeEnum), verbose: Opt(T.Boolean()), onlyProviders: Opt(T.Record(T.String(), T.Array(T.String()))), modelFilter: Opt(T.Record(T.String(), T.String())), blacklist: Opt(T.Array(str)), modelMapping: Opt(T.Record(T.String(), T.String())) });
 export type GlobalConfigType = Static<typeof GlobalConfigSchema>;
 
 export const ConfigSchema = T.Object({
-  target: T.Object({
-    baseUrl: uri,
-    systemAccessToken: str,
-    userId: T.Integer({ minimum: 1 }),
-    targetPrefix: Opt(str),
-  }),
+  // prettier-ignore
+  target: T.Object({ baseUrl: uri, systemAccessToken: str, userId: T.Integer({ minimum: 1 }), targetPrefix: Opt(str) }),
   testModelTypes: Opt(T.Array(ModelTypeEnum)),
   skipUnprofitableText: Opt(T.Boolean()),
   globalConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),

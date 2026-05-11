@@ -35,16 +35,22 @@ export function ServerHealthCard(props: { healthData: HealthData }) {
       <CardContent>
         <dl className="space-y-1 text-sm">
           <Row label={t("HEALTH.VERSION")}>{props.healthData.version}</Row>
-          <Row label={t("HEALTH.UPTIME")}>{formatUptime(props.healthData.uptime)}</Row>
-          <Row label={t("HEALTH.CONFIG_FILES")}>{props.healthData.config.files}</Row>
+          <Row label={t("HEALTH.UPTIME")}>
+            {formatUptime(props.healthData.uptime)}
+          </Row>
+          <Row label={t("HEALTH.CONFIG_FILES")}>
+            {props.healthData.config.files}
+          </Row>
           <Row label={t("HEALTH.STARTED_AT")}>
             {new Date(props.healthData.startedAt).toLocaleString()}
           </Row>
           <Row label={t("HEALTH.MEMORY")}>
-            {formatBytes(props.healthData.memory.rss)} rss / {formatBytes(props.healthData.memory.heapUsed)} heap
+            {formatBytes(props.healthData.memory.rss)} rss /{" "}
+            {formatBytes(props.healthData.memory.heapUsed)} heap
           </Row>
           <Row label={t("HEALTH.PLATFORM")}>
-            {props.healthData.runtime.platform} / {props.healthData.runtime.arch}
+            {props.healthData.runtime.platform} /{" "}
+            {props.healthData.runtime.arch}
           </Row>
           <Row label={t("HEALTH.AUTHENTICITY_BLACKLIST")}>
             {props.healthData.authenticityBlacklistSize}
@@ -52,7 +58,11 @@ export function ServerHealthCard(props: { healthData: HealthData }) {
           <Row label={t("HEALTH.LAST_RUN")}>
             {props.healthData.lastRun ? (
               <div className="min-w-0">
-                <div>{new Date(props.healthData.lastRun.timestamp).toLocaleString()}</div>
+                <div>
+                  {new Date(
+                    props.healthData.lastRun.timestamp,
+                  ).toLocaleString()}
+                </div>
                 <div className="text-muted-foreground text-xs">
                   {t("HEALTH.LAST_RUN_SUMMARY", {
                     passed: props.healthData.lastRun.passed,
@@ -62,7 +72,9 @@ export function ServerHealthCard(props: { healthData: HealthData }) {
                 </div>
               </div>
             ) : (
-              <span className="text-muted-foreground">{t("HEALTH.NO_RUNS")}</span>
+              <span className="text-muted-foreground">
+                {t("HEALTH.NO_RUNS")}
+              </span>
             )}
           </Row>
         </dl>

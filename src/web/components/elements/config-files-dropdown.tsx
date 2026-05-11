@@ -51,12 +51,7 @@ export function ConfigFilesDropdown() {
     if (selectedName !== "" && !names.includes(selectedName)) {
       setSelectedName("");
     }
-  }, [
-    files.data,
-    files.isPending,
-    selectedName,
-    setSelectedName,
-  ]);
+  }, [files.data, files.isPending, selectedName, setSelectedName]);
 
   const handleCreate = () => {
     const trimmed = createName.trim();
@@ -108,9 +103,7 @@ export function ConfigFilesDropdown() {
       >
         <SelectTrigger className="w-44">
           <SelectValue>
-            {selectedName === ""
-              ? t("CONFIG.FILES.MAIN")
-              : selectedName}
+            {selectedName === "" ? t("CONFIG.FILES.MAIN") : selectedName}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -149,17 +142,13 @@ export function ConfigFilesDropdown() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {t("CONFIG.FILES.CREATE_TITLE")}
-            </DialogTitle>
+            <DialogTitle>{t("CONFIG.FILES.CREATE_TITLE")}</DialogTitle>
             <DialogDescription>
               {t("CONFIG.FILES.CREATE_DESC")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
-            <Label>
-              {t("CONFIG.FILES.NAME")}
-            </Label>
+            <Label>{t("CONFIG.FILES.NAME")}</Label>
             <Input
               value={createName}
               onChange={(event) => {

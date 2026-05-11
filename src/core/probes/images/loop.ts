@@ -14,10 +14,12 @@ import {
   shapeHasImageInputs,
   shapeToKind,
 } from "./planner";
-import { probeGenerationsChannel } from "./probe-generations";
-import { probeOpenAiVendorChannel } from "./probe-openai-image-edit";
-import type { ProbeAttempt } from "./probe-sync";
-import { probeSyncChannel } from "./probe-sync";
+import {
+  probeGenerationsChannel,
+  probeOpenAiVendorChannel,
+  probeSyncChannel,
+  type ProbeAttempt,
+} from "./probe";
 import { probeTaskChannel } from "./probe-task";
 import {
   artifactDirFor,
@@ -72,16 +74,8 @@ export async function probeOneModel(opts: {
     balanceAfter: number;
   }) => void;
 }): Promise<ModelResult> {
-  const {
-    provider,
-    candidate,
-    fixtures,
-    deadGroups,
-    asyncBillingState,
-    onProgress,
-    fetchBalance,
-    onStepCost,
-  } = opts;
+  const { provider, candidate, fixtures, deadGroups, asyncBillingState } = opts;
+  const { onProgress, fetchBalance, onStepCost } = opts;
   const groups = (opts.groupMap.get(candidate.modelName) ?? [])
     .slice()
     .sort(compareGroupChannels);
@@ -100,33 +94,34 @@ export async function probeOneModel(opts: {
     modelName: candidate.modelName,
     pricing: opts.pricing,
   });
+  const prefix = `[${provider.name}] ${candidate.modelName}`;
   consola.info(
-    `[${provider.name}] ${candidate.modelName}: ${groups.length} group(s), cheapest-first: ${groups.map((g) => `${g.groupName}(x${g.groupRatio})`).join(", ")}`,
+    `${prefix}: ${groups.length} group(s), cheapest-first: ${groups.map((g) => `${g.groupName}(x${g.groupRatio})`).join(", ")}`,
   );
+
+  const fetchBalanceTimed = fetchBalance
+    ? () =>
+        Promise.race([
+          fetchBalance(),
+          new Promise<null>((r) => setTimeout(() => r(null), 10_000)),
+        ])
+    : undefined;
+  const getBalance = () => (fetchBalanceTimed ? fetchBalanceTimed() : null);
 
   const failed: ChannelResult[] = [];
   for (const g of groups) {
     const channelName = g.groupName;
     if (deadGroups.has(channelName)) {
-      consola.info(
-        `[${provider.name}] ${candidate.modelName} (${channelName}): skipping (auth-dead group)`,
-      );
+      consola.info(`${prefix} (${channelName}): skipping (auth-dead group)`);
       continue;
     }
     const apiKey = await opts.tokens.getApiKey(channelName);
     if (!apiKey) {
       consola.warn(
-        `[${provider.name}] ${candidate.modelName} (${channelName}): could not resolve api key, skipping group`,
+        `${prefix} (${channelName}): could not resolve api key, skipping group`,
       );
       continue;
     }
-    const fetchBalanceTimed = fetchBalance
-      ? async () =>
-          Promise.race([
-            fetchBalance(),
-            new Promise<null>((r) => setTimeout(() => r(null), 10_000)),
-          ])
-      : undefined;
 
     let channelPassed: ChannelResult | undefined;
     for (const step of stepsToTry) {
@@ -139,10 +134,8 @@ export async function probeOneModel(opts: {
         fixtures: fx,
         path: step.path,
       });
-      const tag = `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape})`;
-      const balanceBefore = fetchBalanceTimed
-        ? await fetchBalanceTimed()
-        : null;
+      const tag = `${prefix} (${channelName}/${probeShape})`;
+      const balanceBefore = await getBalance();
       let attempt = await runProbeShape(probeShape, mkArgs(fixtures));
       for (let r = 0; attempt.errorClass === "ratelimit" && r < 3; r++) {
         const wait = 5000 * 2 ** r;
@@ -176,7 +169,7 @@ export async function probeOneModel(opts: {
         }
       }
 
-      let balanceAfter = fetchBalanceTimed ? await fetchBalanceTimed() : null;
+      let balanceAfter = await getBalance();
       let stepDelta =
         balanceBefore !== null && balanceAfter !== null
           ? balanceBefore - balanceAfter
@@ -199,11 +192,10 @@ export async function probeOneModel(opts: {
           });
           balanceAfter = probed.balanceAfter;
           stepDelta = probed.stepDelta;
-          if (billing === "unknown") {
-            const settled =
-              stepDelta !== undefined && Math.abs(stepDelta) >= 0.0001;
-            asyncBillingState.set(settled);
-          }
+          if (billing === "unknown")
+            asyncBillingState.set(
+              stepDelta !== undefined && Math.abs(stepDelta) >= 0.0001,
+            );
         }
       }
 
@@ -239,15 +231,13 @@ export async function probeOneModel(opts: {
         attemptedAt: new Date().toISOString(),
         taskId: attempt.taskId,
       };
-
-      if (stepDelta !== undefined && balanceAfter !== null) {
+      if (stepDelta !== undefined && balanceAfter !== null)
         onStepCost?.({
           channelName,
           probeShape,
           delta: stepDelta,
           balanceAfter,
         });
-      }
       if (attempt.status === "ok") {
         channelPassed = cr;
         break;
@@ -256,7 +246,7 @@ export async function probeOneModel(opts: {
       if (attempt.errorClass === "auth") {
         deadGroups.add(channelName);
         consola.warn(
-          `[${provider.name}] ${candidate.modelName} (${channelName}): auth 403, marking group dead for rest of run`,
+          `${prefix} (${channelName}): auth 403, marking group dead for rest of run`,
         );
         onProgress?.(baseResult(failed));
         break;
@@ -283,7 +273,7 @@ export async function probeOneModel(opts: {
     const channelAttempts = failed.slice(-stepsToTry.length);
     if (channelAttempts.some((a) => isGatewayBrokenSignature(a))) {
       consola.warn(
-        `[${provider.name}] ${candidate.modelName}: gateway-broken body signature on ${channelName} (translator can't route this model), skipping remaining groups`,
+        `${prefix}: gateway-broken body signature on ${channelName} (translator can't route this model), skipping remaining groups`,
       );
       break;
     }

@@ -168,7 +168,9 @@ export function EnabledModelsEditor(props: Props) {
                   onChange={(event) =>
                     updateItem(i, { ...entry, model: event.target.value })
                   }
-                  placeholder={t("CONFIG.ENABLED_MODELS.MODEL_NAME_PLACEHOLDER")}
+                  placeholder={t(
+                    "CONFIG.ENABLED_MODELS.MODEL_NAME_PLACEHOLDER",
+                  )}
                   className="flex-1"
                 />
                 <Button

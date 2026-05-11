@@ -27,12 +27,8 @@ export function HistoryPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          {t("HISTORY.TITLE")}
-        </CardTitle>
-        <CardDescription>
-          {t("HISTORY.DESCRIPTION")}
-        </CardDescription>
+        <CardTitle>{t("HISTORY.TITLE")}</CardTitle>
+        <CardDescription>{t("HISTORY.DESCRIPTION")}</CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs
@@ -44,9 +40,7 @@ export function HistoryPage() {
           }}
         >
           <TabsList>
-            <TabsTrigger value="runs">
-              {t("HISTORY.TABS.RUNS")}
-            </TabsTrigger>
+            <TabsTrigger value="runs">{t("HISTORY.TABS.RUNS")}</TabsTrigger>
             <TabsTrigger value="authenticity">
               {t("HISTORY.TABS.AUTHENTICITY")}
             </TabsTrigger>

@@ -1,13 +1,18 @@
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
 import type {
+  AnthropicResponse,
+  ErrorEnvelope,
+  GeminiResponse,
   ModelRequestOpts,
+  OpenAIChatResponse,
+  OpenAIDataResponse,
   RequestConfig,
   StreamRequestConfig,
   ToolCallRequestConfig,
 } from "./types";
 
 const TEST_PROMPT = "Reply with only the word ok.";
-const noError = (data: unknown) => !(data as { error?: unknown }).error;
+const noError = (data: unknown) => !(data as ErrorEnvelope).error;
 const jsonBearer = (apiKey: string) => ({
   "Content-Type": "application/json",
   Authorization: `Bearer ${apiKey}`,
@@ -22,16 +27,13 @@ const userMsg = (content: string) => [{ role: "user", content }];
 
 export function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
-  if (channelType === CHANNEL_TYPES.ANTHROPIC) {
+  if (channelType === CHANNEL_TYPES.ANTHROPIC)
     return {
       url: `${baseUrl}/v1/messages`,
       headers: jsonAnthropic(apiKey),
       body: { model, messages: userMsg(TEST_PROMPT), max_tokens: 50 },
       isSuccess: (data) => {
-        const d = data as {
-          type?: string;
-          content?: Array<{ type?: string; text?: string }>;
-        };
+        const d = data as AnthropicResponse;
         if (d.type === "error") return false;
         const fullText = (d.content ?? [])
           .filter((b) => b.type === "text")
@@ -41,8 +43,7 @@ export function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
         return !fullText.includes("kiro");
       },
     };
-  }
-  if (channelType === CHANNEL_TYPES.GEMINI) {
+  if (channelType === CHANNEL_TYPES.GEMINI)
     return {
       url: `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`,
       headers: jsonOnly,
@@ -52,8 +53,7 @@ export function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
       },
       isSuccess: noError,
     };
-  }
-  if (useResponsesAPI) {
+  if (useResponsesAPI)
     return {
       url: `${baseUrl}/v1/responses`,
       headers: jsonBearer(apiKey),
@@ -70,7 +70,6 @@ export function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
       },
       isSuccess: noError,
     };
-  }
   return {
     url: `${baseUrl}/v1/chat/completions`,
     headers: jsonBearer(apiKey),
@@ -83,7 +82,7 @@ export function getStreamRequestConfig(
   opts: ModelRequestOpts,
 ): StreamRequestConfig | null {
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
-  if (channelType === CHANNEL_TYPES.ANTHROPIC) {
+  if (channelType === CHANNEL_TYPES.ANTHROPIC)
     return {
       url: `${baseUrl}/v1/messages`,
       headers: jsonAnthropic(apiKey),
@@ -95,7 +94,6 @@ export function getStreamRequestConfig(
       },
       completionMarker: "message_stop",
     };
-  }
   if (channelType === CHANNEL_TYPES.GEMINI || useResponsesAPI) return null;
   return {
     url: `${baseUrl}/v1/chat/completions`,
@@ -134,7 +132,7 @@ export function getToolCallConfig(
     return null;
   if (model.endsWith("-thinking") || model.includes("-thinking-")) return null;
 
-  if (channelType === CHANNEL_TYPES.ANTHROPIC) {
+  if (channelType === CHANNEL_TYPES.ANTHROPIC)
     return {
       url: `${baseUrl}/v1/messages`,
       headers: jsonAnthropic(apiKey),
@@ -152,10 +150,7 @@ export function getToolCallConfig(
         max_tokens: 100,
       },
       isToolCallSuccess: (data) => {
-        const d = data as {
-          stop_reason?: string;
-          content?: Array<{ type?: string }>;
-        };
+        const d = data as AnthropicResponse;
         if (d.stop_reason === "tool_use") return true;
         return (
           Array.isArray(d.content) &&
@@ -163,8 +158,7 @@ export function getToolCallConfig(
         );
       },
     };
-  }
-  if (channelType === CHANNEL_TYPES.GEMINI) {
+  if (channelType === CHANNEL_TYPES.GEMINI)
     return {
       url: `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`,
       headers: jsonOnly,
@@ -185,11 +179,7 @@ export function getToolCallConfig(
         generationConfig: { maxOutputTokens: 100 },
       },
       isToolCallSuccess: (data) => {
-        const d = data as {
-          candidates?: Array<{
-            content?: { parts?: Array<{ functionCall?: unknown }> };
-          }>;
-        };
+        const d = data as GeminiResponse;
         return (
           Array.isArray(d.candidates) &&
           d.candidates.some(
@@ -200,7 +190,6 @@ export function getToolCallConfig(
         );
       },
     };
-  }
   return {
     url: `${baseUrl}/v1/chat/completions`,
     headers: jsonBearer(apiKey),
@@ -221,12 +210,7 @@ export function getToolCallConfig(
       max_tokens: 100,
     },
     isToolCallSuccess: (data) => {
-      const d = data as {
-        choices?: Array<{
-          finish_reason?: string;
-          message?: { tool_calls?: unknown[] };
-        }>;
-      };
+      const d = data as OpenAIChatResponse;
       const choice = d.choices?.[0];
       if (!choice) return false;
       if (choice.finish_reason === "tool_calls") return true;
@@ -267,7 +251,7 @@ export const getEmbeddingTestConfig = (opts: ModelRequestOpts): RequestConfig =>
     "/v1/embeddings",
     { model: opts.model, input: "test" },
     (data) => {
-      const d = data as { error?: unknown; data?: unknown[] };
+      const d = data as OpenAIDataResponse;
       return !d.error && Array.isArray(d.data);
     },
   );

@@ -2,7 +2,7 @@ import type { TestExchange } from "@core/testing/types";
 import { buildBody } from "./body-builder";
 import { classifyResponse } from "./classify";
 import type { Fixtures } from "./fixtures";
-import type { ProbeAttempt } from "./probe-sync";
+import type { ProbeAttempt } from "./probe";
 
 export interface TaskProbeOpts {
   baseUrl: string;
@@ -129,12 +129,8 @@ export async function probeTaskChannel(
     lastPollHeaders: Record<string, string> = {};
   let lastPollBody: unknown = null,
     pollErr: string | undefined;
-  const pollHistory: Array<{
-    at: string;
-    httpStatus: number | undefined;
-    taskStatus: string | undefined;
-    body: unknown;
-  }> = [];
+  // prettier-ignore
+  const pollHistory: Array<{ at: string; httpStatus: number | undefined; taskStatus: string | undefined; body: unknown }> = [];
 
   const buildExchange = (
     pass: boolean,
@@ -179,14 +175,13 @@ export async function probeTaskChannel(
       });
       if (status === "succeeded")
         return { status: "ok", exchange: buildExchange(true), taskId };
-      if (status === "failed") {
+      if (status === "failed")
         return {
           status: "fail",
           exchange: buildExchange(false, { error: `task ${status}` }),
           errorClass: "task_failed",
           taskId,
         };
-      }
     } catch (err) {
       pollErr = errMsg(err);
       pollHistory.push({

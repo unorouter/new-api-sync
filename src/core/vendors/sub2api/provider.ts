@@ -180,6 +180,7 @@ export async function processSub2ApiProvider(
   let totalStart: number | null = null;
   let groupKeysForBalance: string[] = [];
 
+  const name = providerConfig.name;
   try {
     const resolvedGroups = providerConfig.adminApiKey
       ? await resolveViaAdmin(client, providerConfig, config)
@@ -192,14 +193,10 @@ export async function processSub2ApiProvider(
     totalStart = sumBalances(
       await Promise.all(groupKeysForBalance.map((k) => client.fetchBalance(k))),
     );
-    if (totalStart !== null) {
+    if (totalStart !== null)
       consola.info(
-        t("CORE.PROVIDER.BALANCE", {
-          name: providerConfig.name,
-          amount: totalStart.toFixed(4),
-        }),
+        t("CORE.PROVIDER.BALANCE", { name, amount: totalStart.toFixed(4) }),
       );
-    }
     let totalModels = 0,
       groupsProcessed = 0;
 
@@ -211,26 +208,25 @@ export async function processSub2ApiProvider(
         CHANNEL_TYPES.OPENAI;
       const useResponsesAPI = groupInfo.platform === "openai";
       const upstreamModels = [...groupInfo.models];
-      const capabilities = buildCapabilityMap(
-        upstreamModels,
-        lowercaseExposed(config),
-        ctx,
-      );
       const filterResult = await testAndFilterModels({
         allModels: upstreamModels,
         baseUrl: providerConfig.baseUrl,
         apiKey: groupInfo.apiKey,
         channelType,
-        providerLabel: `${providerConfig.name}/${groupInfo.platform}`,
+        providerLabel: `${name}/${groupInfo.platform}`,
         testableModelTypes: getTestModelTypes(config, providerConfig),
         useResponsesAPI,
-        capabilities,
+        capabilities: buildCapabilityMap(
+          upstreamModels,
+          lowercaseExposed(config),
+          ctx,
+        ),
       });
       const workingModels = filterResult.workingModels;
       if (workingModels.length === 0) {
         consola.warn(
           t("CORE.SUB2API.NO_WORKING_MODELS", {
-            name: providerConfig.name,
+            name,
             group: groupInfo.name,
             total: filterResult.testedCount,
           }),
@@ -239,7 +235,7 @@ export async function processSub2ApiProvider(
       }
       consola.info(
         t("CORE.SUB2API.GROUP_WORKING", {
-          name: providerConfig.name,
+          name,
           platform: groupInfo.platform,
           working: workingModels.length,
           total: groupInfo.models.size,
@@ -264,18 +260,16 @@ export async function processSub2ApiProvider(
       }));
 
       offers.push({
-        provider: providerConfig.name,
+        provider: name,
         providerKind: "sub2api",
         group: groupInfo.name,
-        sanitizedBase: sanitizeGroupName(
-          `${groupInfo.name}-${providerConfig.name}`,
-        ),
+        sanitizedBase: sanitizeGroupName(`${groupInfo.name}-${name}`),
         vendor,
         channelType,
         baseUrl: providerConfig.baseUrl,
         apiKey: groupInfo.apiKey,
         groupRatio: 1,
-        channelRemark: `${groupInfo.platform} via ${providerConfig.name}`,
+        channelRemark: `${groupInfo.platform} via ${name}`,
         models: offerModels,
         priceAdjustment: providerConfig.priceAdjustment,
         defaultAdjustment: -0.1,
@@ -299,17 +293,17 @@ export async function processSub2ApiProvider(
     );
     if (totalEnd !== null) {
       const cost = totalStart - totalEnd;
-      recordProviderCost(providerConfig.name, cost);
+      recordProviderCost(name, cost);
       const amount = totalEnd.toFixed(4);
-      consola.info(
+      const msg =
         cost > 0
           ? t("CORE.PROVIDER.BALANCE_WITH_COST", {
-              name: providerConfig.name,
+              name,
               amount,
               cost: `$${cost.toFixed(4)}`,
             })
-          : t("CORE.PROVIDER.BALANCE", { name: providerConfig.name, amount }),
-      );
+          : t("CORE.PROVIDER.BALANCE", { name, amount });
+      consola.info(msg);
     }
   }
 

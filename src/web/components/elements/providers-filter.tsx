@@ -88,7 +88,11 @@ export function ProvidersFilter(props: {
         }
       />
       <Combobox.Portal>
-        <Combobox.Positioner align="start" sideOffset={4} className="isolate z-50">
+        <Combobox.Positioner
+          align="start"
+          sideOffset={4}
+          className="isolate z-50"
+        >
           <Combobox.Popup
             className={cn(
               "bg-popover text-popover-foreground border-border data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 w-56 origin-(--transform-origin) overflow-hidden rounded-md border p-0 shadow-md outline-none",

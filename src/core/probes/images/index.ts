@@ -77,12 +77,8 @@ export async function runImageProbe(
     try {
       pricing = await client.fetchPricing();
     } catch (err) {
-      consola.warn(
-        t("CORE.IMAGES.PRICING_FAILED", {
-          name: provider.name,
-          err: errMsg(err),
-        }),
-      );
+      const params = { name: provider.name, err: errMsg(err) };
+      consola.warn(t("CORE.IMAGES.PRICING_FAILED", params));
       continue;
     }
     const legacyModelInfo = await tryFetchLegacyModelInfo(provider);
@@ -97,12 +93,8 @@ export async function runImageProbe(
       try {
         await tokens.preloadList();
       } catch (err) {
-        consola.warn(
-          t("CORE.IMAGES.NO_INFERENCE_TOKEN", {
-            name: provider.name,
-            err: errMsg(err),
-          }),
-        );
+        const params = { name: provider.name, err: errMsg(err) };
+        consola.warn(t("CORE.IMAGES.NO_INFERENCE_TOKEN", params));
         continue;
       }
     }
@@ -115,7 +107,7 @@ export async function runImageProbe(
       tokens,
       pricing,
     });
-    if (opts.dryRun) {
+    if (opts.dryRun)
       dryRunProviders.push(
         buildDryRunProvider({
           provider,
@@ -125,7 +117,6 @@ export async function runImageProbe(
           groupMap,
         }),
       );
-    }
   }
 
   let totalCandidates = 0,
@@ -136,14 +127,13 @@ export async function runImageProbe(
     "openai-vendor": 0,
     task: 0,
   };
-  for (const { provider, discovery } of candidatesByProvider.values()) {
+  for (const { provider, discovery } of candidatesByProvider.values())
     for (const c of discovery.candidates) {
       totalCandidates++;
       byKind[c.kind]++;
       if (isAlreadyTested(store, provider.name, c.modelName)) cached++;
       else toProbe++;
     }
-  }
   consola.info(
     t("CORE.IMAGES.CANDIDATES_FOUND", {
       total: totalCandidates,
@@ -155,16 +145,17 @@ export async function runImageProbe(
   const durationMs = () => Math.round(performance.now() - startedAt);
 
   if (opts.dryRun) {
+    const summary = {
+      totalCandidates,
+      byKind,
+      estimatedMaxCost: +(toProbe * ESTIMATED_COST_PER_PROBE_USD).toFixed(2),
+      alreadyDecided: cached,
+    };
     const path = saveDryRun({
       version: 1,
       generatedAt: new Date().toISOString(),
       providers: dryRunProviders,
-      summary: {
-        totalCandidates,
-        byKind,
-        estimatedMaxCost: +(toProbe * ESTIMATED_COST_PER_PROBE_USD).toFixed(2),
-        alreadyDecided: cached,
-      },
+      summary,
     } satisfies DryRunReport);
     consola.success(t("CORE.IMAGES.DRY_RUN_WRITTEN", { path }));
     return {
@@ -257,9 +248,7 @@ export async function runImageProbe(
     for (const { tokens } of candidatesByProvider.values()) {
       try {
         await tokens.cleanup();
-      } catch {
-        /* warned inside */
-      }
+      } catch {}
     }
     if (totalSpent > 0)
       consola.info(

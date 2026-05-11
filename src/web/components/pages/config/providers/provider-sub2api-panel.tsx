@@ -43,9 +43,7 @@ export function ProviderSub2ApiPanel(props: { index: number }) {
         placeholder={t("CONFIG.PROVIDER.ADMIN_API_KEY_PLACEHOLDER")}
       />
       <div className="grid gap-2">
-        <Label>
-          {t("CONFIG.PROVIDER.GROUPS")}
-        </Label>
+        <Label>{t("CONFIG.PROVIDER.GROUPS")}</Label>
         <Controller
           control={form.control}
           name={providerPath(props.index, "groups")}

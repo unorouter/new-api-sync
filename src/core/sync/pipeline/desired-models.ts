@@ -86,7 +86,6 @@ export function buildDesiredModels(opts: {
       eps?.includes("openai-video") ||
       (!eps && getTaskModelOverride(modelName) !== undefined);
     const prefix = isTaskModel ? `${typeTag},Task` : typeTag;
-
     const sourceTags = deriveTagsFromMetadata(
       resolveSourceMetadata(
         modelName,
@@ -97,15 +96,11 @@ export function buildDesiredModels(opts: {
     const rawTags = [prefix, spec.tags ?? "", sourceTags.join(",")]
       .filter(Boolean)
       .join(",");
-
     const seen = new Set<string>();
     const deduped = parseModelList(rawTags)
-      .filter((tag) => {
-        const lower = tag.toLowerCase();
-        if (seen.has(lower)) return false;
-        seen.add(lower);
-        return true;
-      })
+      .filter(
+        (tag) => !seen.has(tag.toLowerCase()) && seen.add(tag.toLowerCase()),
+      )
       .join(",");
     spec.tags =
       deduped.length > 255

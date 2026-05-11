@@ -63,14 +63,14 @@ Two files are loaded on startup:
 
 ### Global Options
 
-| Field                    | Description                                                                                                                                  |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `testModelTypes`         | Model types to test during sync: `["text", "image", "video", "audio", "embedding"]` (default: `["text"]`). Per-provider setting overrides.   |
-| `skipUnprofitableText`   | Drop text models whose effective ratio >= 1 (default: `true`). See Behaviors to Know.                                                        |
-| `globalConcurrency`      | Total simultaneous test/probe HTTP requests across the whole run (default: `50`).                                                            |
-| `perUpstreamConcurrency` | Default per-baseUrl request cap (default: `5`). Per-provider override allowed for upstreams that tolerate more or less.                      |
-| `blacklist`              | Exclude matching groups/models (text only, case-insensitive). Supports glob wildcards and provider-scoped patterns. See Blacklist below.     |
-| `modelMapping`           | Rename models: `{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                                     |
+| Field                    | Description                                                                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `testModelTypes`         | Model types to test during sync: `["text", "image", "video", "audio", "embedding"]` (default: `["text"]`). Per-provider setting overrides. |
+| `skipUnprofitableText`   | Drop text models whose effective ratio >= 1 (default: `true`). See Behaviors to Know.                                                      |
+| `globalConcurrency`      | Total simultaneous test/probe HTTP requests across the whole run (default: `50`).                                                          |
+| `perUpstreamConcurrency` | Default per-baseUrl request cap (default: `5`). Per-provider override allowed for upstreams that tolerate more or less.                    |
+| `blacklist`              | Exclude matching groups/models (text only, case-insensitive). Supports glob wildcards and provider-scoped patterns. See Blacklist below.   |
+| `modelMapping`           | Rename models: `{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                                   |
 
 ### new-api Provider (`type: "newapi"`)
 
@@ -123,19 +123,19 @@ Pulls from [OpenRouter](https://openrouter.ai/). Free models (`prompt=0` and `co
 
 Pulls from [NVIDIA NIM](https://build.nvidia.com/). Text models are emitted as a free tier; image models are emitted with fixed per-request pricing (`quotaType: 1`) against a separate `imageBaseUrl`.
 
-| Field                    | Required | Description                                                          |
-| ------------------------ | -------- | -------------------------------------------------------------------- |
-| `name`                   | yes      | Unique identifier, used as channel tag                               |
-| `apiKey`                 | yes      | NVIDIA API key                                                       |
-| `baseUrl`                |          | Defaults to `https://integrate.api.nvidia.com`                       |
-| `imageBaseUrl`           |          | Defaults to `https://ai.api.nvidia.com`                              |
-| `models`                 |          | Explicit model IDs; skips auto-discovery                             |
-| `enabledVendors`         |          | Filter by inferred vendor                                            |
-| `enabledModels`          |          | Glob patterns. Bare image-model IDs (no `*`) are added to the set    |
-| `ratio`                  |          | Text-tier group ratio (default `1`)                                  |
-| `testModelTypes`         |          | Override global test types                                           |
-| `priceAdjustment`        |          | Number or per-key object (see Price Adjustment below)                |
-| `perUpstreamConcurrency` |          | Override the global per-upstream concurrency cap                     |
+| Field                    | Required | Description                                                       |
+| ------------------------ | -------- | ----------------------------------------------------------------- |
+| `name`                   | yes      | Unique identifier, used as channel tag                            |
+| `apiKey`                 | yes      | NVIDIA API key                                                    |
+| `baseUrl`                |          | Defaults to `https://integrate.api.nvidia.com`                    |
+| `imageBaseUrl`           |          | Defaults to `https://ai.api.nvidia.com`                           |
+| `models`                 |          | Explicit model IDs; skips auto-discovery                          |
+| `enabledVendors`         |          | Filter by inferred vendor                                         |
+| `enabledModels`          |          | Glob patterns. Bare image-model IDs (no `*`) are added to the set |
+| `ratio`                  |          | Text-tier group ratio (default `1`)                               |
+| `testModelTypes`         |          | Override global test types                                        |
+| `priceAdjustment`        |          | Number or per-key object (see Price Adjustment below)             |
+| `perUpstreamConcurrency` |          | Override the global per-upstream concurrency cap                  |
 
 ### Blacklist
 
@@ -234,6 +234,5 @@ These calls are best-effort: failures are logged as warnings and do not block th
 ### Authenticity Auto-Blacklist
 
 `logs/authenticity-blacklist.json` is maintained automatically by the test runner to track Anthropic Claude models from providers that failed authenticity checks. This is internal state, but entries can be reviewed and removed from the History tab in the UI.
-
 
 <!-- bun sync run --only nvda1,open1,open2 -->

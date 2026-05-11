@@ -24,23 +24,10 @@ import { PlayIcon, SquareIcon } from "lucide-react";
 function PhaseBadge(props: { phase: SyncPhase }) {
   const t = useTranslations();
   if (props.phase === "running")
-    return (
-      <Badge variant="secondary">
-        {t("SYNC.PHASE.RUNNING")}
-      </Badge>
-    );
-  if (props.phase === "done")
-    return (
-      <Badge>
-        {t("SYNC.PHASE.DONE")}
-      </Badge>
-    );
+    return <Badge variant="secondary">{t("SYNC.PHASE.RUNNING")}</Badge>;
+  if (props.phase === "done") return <Badge>{t("SYNC.PHASE.DONE")}</Badge>;
   if (props.phase === "error")
-    return (
-      <Badge variant="destructive">
-        {t("SYNC.PHASE.ERROR")}
-      </Badge>
-    );
+    return <Badge variant="destructive">{t("SYNC.PHASE.ERROR")}</Badge>;
   return null;
 }
 
@@ -115,9 +102,7 @@ export function SyncPanel() {
             </span>
           ) : null}
         </CardTitle>
-        <CardDescription>
-          {t("SYNC.DESCRIPTION")}
-        </CardDescription>
+        <CardDescription>{t("SYNC.DESCRIPTION")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-4">
@@ -148,7 +133,10 @@ export function SyncPanel() {
             disabled={busy}
           />
 
-          <label className="flex items-center gap-2 text-sm data-disabled:opacity-50" data-disabled={busy ? "" : undefined}>
+          <label
+            className="flex items-center gap-2 text-sm data-disabled:opacity-50"
+            data-disabled={busy ? "" : undefined}
+          >
             <Switch
               checked={verbose}
               onCheckedChange={setVerbose}
@@ -207,7 +195,11 @@ export function SyncPanel() {
         <div className="bg-muted/40 border-border max-h-96 overflow-auto rounded-md border p-3 font-mono text-xs">
           {logs.length === 0 ? (
             <p className="text-muted-foreground">
-              {t(phase === "idle" ? "SYNC.EMPTY_IDLE" : "SYNC.EMPTY_WAITING" as TranslationKey)}
+              {t(
+                phase === "idle"
+                  ? "SYNC.EMPTY_IDLE"
+                  : ("SYNC.EMPTY_WAITING" as TranslationKey),
+              )}
             </p>
           ) : (
             <ul className="space-y-0.5">

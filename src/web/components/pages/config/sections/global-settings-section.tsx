@@ -180,11 +180,7 @@ export function GlobalSettingsSection() {
         </div>
 
         <div className="flex justify-end">
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={save.isPending}
-          >
+          <Button type="button" onClick={handleSave} disabled={save.isPending}>
             {t(
               save.isPending
                 ? "CONFIG.GLOBAL_SETTINGS.SAVING"

@@ -40,12 +40,8 @@ export function GlobalSection() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          {t("CONFIG.GLOBAL.TITLE")}
-        </CardTitle>
-        <CardDescription>
-          {t("CONFIG.GLOBAL.DESCRIPTION")}
-        </CardDescription>
+        <CardTitle>{t("CONFIG.GLOBAL.TITLE")}</CardTitle>
+        <CardDescription>{t("CONFIG.GLOBAL.DESCRIPTION")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <MyFormSwitch
@@ -106,9 +102,7 @@ export function GlobalSection() {
         </p>
 
         <div className="grid gap-2">
-          <Label>
-            {t("CONFIG.GLOBAL.BLACKLIST")}
-          </Label>
+          <Label>{t("CONFIG.GLOBAL.BLACKLIST")}</Label>
           <p className="text-muted-foreground text-xs">
             {t("CONFIG.GLOBAL.BLACKLIST_HELP")}
           </p>
@@ -142,9 +136,7 @@ export function GlobalSection() {
         </div>
 
         <div className="grid gap-2">
-          <Label>
-            {t("CONFIG.GLOBAL.MODEL_MAPPING")}
-          </Label>
+          <Label>{t("CONFIG.GLOBAL.MODEL_MAPPING")}</Label>
           <p className="text-muted-foreground text-xs">
             {t("CONFIG.GLOBAL.MODEL_MAPPING_HELP")}
           </p>

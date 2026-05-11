@@ -72,9 +72,7 @@ export function ProviderCommonFields(props: { index: number }) {
       />
 
       <div className="grid gap-2">
-        <Label>
-          {t("CONFIG.PROVIDER.ENABLED_VENDORS")}
-        </Label>
+        <Label>{t("CONFIG.PROVIDER.ENABLED_VENDORS")}</Label>
         {vendors.fields.map((field, i) => (
           <div key={field.id} className="flex items-center gap-2">
             <Input
@@ -107,9 +105,7 @@ export function ProviderCommonFields(props: { index: number }) {
       </div>
 
       <div className="grid gap-2">
-        <Label>
-          {t("CONFIG.PROVIDER.ENABLED_MODELS")}
-        </Label>
+        <Label>{t("CONFIG.PROVIDER.ENABLED_MODELS")}</Label>
         <Controller
           control={form.control}
           name={providerPath(props.index, "enabledModels")}
@@ -127,9 +123,7 @@ export function ProviderCommonFields(props: { index: number }) {
       </div>
 
       <div className="grid gap-2">
-        <Label>
-          {t("CONFIG.PROVIDER.PRICE_ADJUSTMENT")}
-        </Label>
+        <Label>{t("CONFIG.PROVIDER.PRICE_ADJUSTMENT")}</Label>
         <Controller
           control={form.control}
           name={providerPath(props.index, "priceAdjustment")}

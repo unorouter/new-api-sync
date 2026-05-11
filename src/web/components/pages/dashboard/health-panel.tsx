@@ -14,9 +14,7 @@ export function HealthPanel() {
   if (!health.data) return null;
 
   const selectedConfigLabel =
-    selectedConfigName === ""
-      ? t("CONFIG.FILES.MAIN")
-      : selectedConfigName;
+    selectedConfigName === "" ? t("CONFIG.FILES.MAIN") : selectedConfigName;
   const metrics = dashboardConfig.metrics;
 
   return (

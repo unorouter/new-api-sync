@@ -90,8 +90,8 @@ const getTierSuffix = (n: string): string | null =>
   TIER_SUFFIXES.find((s) => n.endsWith(s)) ?? null;
 
 function tierSuffixMismatch(a: string, b: string): boolean {
-  const sa = getTierSuffix(a);
-  const sb = getTierSuffix(b);
+  const sa = getTierSuffix(a),
+    sb = getTierSuffix(b);
   return (sa !== null || sb !== null) && sa !== sb;
 }
 
@@ -112,17 +112,16 @@ function normalize(name: string): string {
 function strippedVariants(name: string): string[] {
   const variants: string[] = [];
   let current = name;
-  for (const suffix of STRIPPABLE_SUFFIXES) {
-    if (current.endsWith(suffix)) {
-      current = current.slice(0, -suffix.length).replace(/-$/, "");
-      variants.push(current);
-    }
-  }
+  const trim = (len: number) => {
+    current = current.slice(0, -len).replace(/-$/, "");
+    variants.push(current);
+  };
+  for (const suffix of STRIPPABLE_SUFFIXES)
+    if (current.endsWith(suffix)) trim(suffix.length);
   for (const pattern of DATE_SUFFIX_PATTERNS) {
     const match = current.match(pattern);
     if (match) {
-      current = current.slice(0, -match[0].length).replace(/-$/, "");
-      variants.push(current);
+      trim(match[0].length);
       break;
     }
   }
@@ -169,40 +168,32 @@ function fuzzyLookup<T>(
 ): { key: string; value: T; score: number } | undefined {
   const norm = normalize(name);
   type Hit = { key: string; value: T; score: number };
-  const resolve = (
-    keys: string[] | undefined,
-  ): { key: string; value: T } | undefined => {
+  const score = (keys: string[] | undefined): Hit | undefined => {
     const k = keys?.[0];
     if (!k) return undefined;
     const v = index.candidates.get(k);
-    return v === undefined ? undefined : { key: k, value: v };
+    if (v === undefined || tierSuffixMismatch(norm, normalize(k)))
+      return undefined;
+    const s = similarity(name, k);
+    return s < threshold ? undefined : { key: k, value: v, score: s };
   };
-
-  const exact = resolve(index.normalized.get(norm));
-  if (exact) return { ...exact, score: 1.0 };
-
-  let best: Hit | undefined;
-  const tryMatch = (
-    keys: string[] | undefined,
-    updateBest: boolean,
-  ): Hit | undefined => {
-    const r = resolve(keys);
-    if (!r || tierSuffixMismatch(norm, normalize(r.key))) return undefined;
-    const score = similarity(name, r.key);
-    if (score < threshold) return undefined;
-    const hit = { ...r, score };
-    if (updateBest && (!best || score > best.score)) best = hit;
-    return hit;
-  };
-
+  const exactKey = index.normalized.get(norm)?.[0];
+  if (exactKey) {
+    const v = index.candidates.get(exactKey);
+    if (v !== undefined) return { key: exactKey, value: v, score: 1.0 };
+  }
   for (const variant of strippedVariants(norm)) {
-    const hit = tryMatch(index.normalized.get(variant), false);
+    const hit = score(index.normalized.get(variant));
     if (hit) return hit;
   }
+  let best: Hit | undefined;
+  const consider = (hit: Hit | undefined) => {
+    if (hit && (!best || hit.score > best.score)) best = hit;
+  };
   for (const [cNorm, keys] of index.normalized) {
     for (const variant of strippedVariants(cNorm)) {
       if (variant === norm) {
-        tryMatch(keys, true);
+        consider(score(keys));
         break;
       }
     }
@@ -210,7 +201,7 @@ function fuzzyLookup<T>(
   if (best) return best;
   for (const [cNorm, keys] of index.normalized) {
     if (cNorm.startsWith(norm + "-") || norm.startsWith(cNorm + "-"))
-      tryMatch(keys, true);
+      consider(score(keys));
   }
   return best;
 }
@@ -223,8 +214,7 @@ export function lookup<T>(
   const result = fuzzyLookup(modelName, index);
   if (result) return result;
   const originalName = reverseMapping.get(modelName);
-  if (originalName) return fuzzyLookup(originalName, index);
-  return undefined;
+  return originalName ? fuzzyLookup(originalName, index) : undefined;
 }
 
 export function buildMetadataMap(opts: {
@@ -234,63 +224,58 @@ export function buildMetadataMap(opts: {
   modelMapping: Record<string, string>;
 }): Map<string, ModelMetadata> {
   const basellmMap = new Map<string, { description?: string; tags?: string }>();
-  const addToBasellm = (key: string, entry: BasellmEntry) => {
-    const existing = basellmMap.get(key);
-    if (!existing) {
-      basellmMap.set(key, {
-        description: entry.description
-          ? stripMarkdown(entry.description)
-          : undefined,
-        tags: entry.tags,
-      });
-      return;
-    }
-    if (
-      existing.description &&
-      TEMPLATE_DESCRIPTION_RE.test(existing.description) &&
-      entry.description &&
-      !TEMPLATE_DESCRIPTION_RE.test(entry.description)
-    ) {
-      existing.description = stripMarkdown(entry.description);
-    }
-    if (!existing.tags && entry.tags) existing.tags = entry.tags;
-  };
   for (const entry of opts.basellmEntries) {
     if (!entry.model_name) continue;
-    addToBasellm(entry.model_name, entry);
     const slashIdx = entry.model_name.indexOf("/");
-    if (slashIdx >= 0)
-      addToBasellm(entry.model_name.slice(slashIdx + 1), entry);
+    const keys =
+      slashIdx >= 0
+        ? [entry.model_name, entry.model_name.slice(slashIdx + 1)]
+        : [entry.model_name];
+    for (const key of keys) {
+      const existing = basellmMap.get(key);
+      if (!existing) {
+        basellmMap.set(key, {
+          description: entry.description
+            ? stripMarkdown(entry.description)
+            : undefined,
+          tags: entry.tags,
+        });
+        continue;
+      }
+      if (
+        existing.description &&
+        TEMPLATE_DESCRIPTION_RE.test(existing.description) &&
+        entry.description &&
+        !TEMPLATE_DESCRIPTION_RE.test(entry.description)
+      ) {
+        existing.description = stripMarkdown(entry.description);
+      }
+      if (!existing.tags && entry.tags) existing.tags = entry.tags;
+    }
   }
 
   const reverseMapping = buildReverseMapping(opts.modelMapping);
   const orIndex = buildFuzzyIndex(opts.openRouterDescriptions);
   const blmIndex = buildFuzzyIndex(basellmMap);
-
   const result = new Map<string, ModelMetadata>();
-  let orHits = 0,
-    orFuzzyHits = 0,
-    blmHits = 0,
-    blmFuzzyHits = 0;
+  const counters = { orHits: 0, orFuzzy: 0, blmHits: 0, blmFuzzy: 0 };
 
   for (const modelName of opts.modelNames) {
     const meta: ModelMetadata = {};
     const orResult = lookup(modelName, orIndex, reverseMapping);
     const blmResult = lookup(modelName, blmIndex, reverseMapping);
-
     if (orResult) {
       meta.description = orResult.value;
-      orHits++;
-      if (orResult.score < 1.0) orFuzzyHits++;
+      counters.orHits++;
+      if (orResult.score < 1.0) counters.orFuzzy++;
     } else if (
       blmResult?.value.description &&
       !TEMPLATE_DESCRIPTION_RE.test(blmResult.value.description)
     ) {
       meta.description = blmResult.value.description;
-      blmHits++;
-      if (blmResult.score < 1.0) blmFuzzyHits++;
+      counters.blmHits++;
+      if (blmResult.score < 1.0) counters.blmFuzzy++;
     }
-
     if (blmResult?.value.tags) {
       let tags = blmResult.value.tags;
       if (tags.length > 255) {
@@ -302,14 +287,6 @@ export function buildMetadataMap(opts: {
     if (meta.description || meta.tags) result.set(modelName, meta);
   }
 
-  consola.info(
-    t("CORE.METADATA.SUMMARY", {
-      orHits,
-      orFuzzy: orFuzzyHits,
-      blmHits,
-      blmFuzzy: blmFuzzyHits,
-      total: result.size,
-    }),
-  );
+  consola.info(t("CORE.METADATA.SUMMARY", { ...counters, total: result.size }));
   return result;
 }

@@ -30,7 +30,11 @@ import {
 } from "@web/components/ui/tabs";
 import { useHistoryRun } from "@web/hooks/history-hook";
 import { useUiStore } from "@web/store/ui-store";
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "lucide-react";
 
 interface Props {
   id: string;
@@ -94,9 +98,7 @@ function RunBody(props: { data: RunData }) {
   // If the report has nothing at all, fall back to the original empty state.
   if (!hasResults && !hasSummary && !hasPricing && !hasEndpoints) {
     return (
-      <p className="text-muted-foreground text-sm">
-        {t("HISTORY.RUN.EMPTY")}
-      </p>
+      <p className="text-muted-foreground text-sm">{t("HISTORY.RUN.EMPTY")}</p>
     );
   }
 
@@ -125,10 +127,7 @@ function RunBody(props: { data: RunData }) {
 
       {hasSummary ? (
         <TabsContent value="summary" className="mt-3">
-          <SummaryView
-            summary={data.summary}
-            providers={data.providers}
-          />
+          <SummaryView summary={data.summary} providers={data.providers} />
         </TabsContent>
       ) : null}
 
@@ -180,7 +179,10 @@ interface ProviderEntry {
   tokens?: { created: number; existing: number; deleted: number };
 }
 
-function changeCount(set: ChangeSet, op: "created" | "updated" | "deleted"): number {
+function changeCount(
+  set: ChangeSet,
+  op: "created" | "updated" | "deleted",
+): number {
   const value = set[op];
   return Array.isArray(value) ? value.length : value;
 }
@@ -191,9 +193,7 @@ function SummaryView(props: {
 }) {
   const t = useTranslations();
   const summary = props.summary;
-  const providers = props.providers
-    ? Object.entries(props.providers)
-    : [];
+  const providers = props.providers ? Object.entries(props.providers) : [];
 
   return (
     <div className="space-y-4">
@@ -221,7 +221,9 @@ function SummaryView(props: {
               />
               <Stat
                 label={t("HISTORY.RUN.SUMMARY.OPTIONS")}
-                value={summary.options?.updated.length ?? summary.optionsUpdated ?? 0}
+                value={
+                  summary.options?.updated.length ?? summary.optionsUpdated ?? 0
+                }
               />
               <Stat
                 label={t("HISTORY.RUN.SUMMARY.CHANNELS")}
@@ -310,10 +312,7 @@ function SummaryView(props: {
                         </Badge>
                       ) : (
                         <span className="text-destructive flex items-center gap-1 text-xs">
-                          <Badge
-                            variant="destructive"
-                            className="text-[10px]"
-                          >
+                          <Badge variant="destructive" className="text-[10px]">
                             {t("HISTORY.RUN.SUMMARY.FAIL")}
                           </Badge>
                           {entry.error ? (
@@ -410,9 +409,7 @@ function ResultsView(props: { results: Result[] }) {
 
   if (props.results.length === 0) {
     return (
-      <p className="text-muted-foreground text-sm">
-        {t("HISTORY.RUN.EMPTY")}
-      </p>
+      <p className="text-muted-foreground text-sm">{t("HISTORY.RUN.EMPTY")}</p>
     );
   }
 
@@ -430,9 +427,7 @@ function ResultsView(props: { results: Result[] }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">
-              {t("HISTORY.RUN.FILTER_ALL")}
-            </SelectItem>
+            <SelectItem value="all">{t("HISTORY.RUN.FILTER_ALL")}</SelectItem>
             <SelectItem value="passed">
               {t("HISTORY.RUN.FILTER_PASSED")}
             </SelectItem>
@@ -448,11 +443,7 @@ function ResultsView(props: { results: Result[] }) {
           className="max-w-80"
         />
       </div>
-      <ResultsTable
-        results={props.results}
-        filter={filter}
-        query={query}
-      />
+      <ResultsTable results={props.results} filter={filter} query={query} />
     </div>
   );
 }
@@ -474,9 +465,7 @@ function ResultsTable(props: {
 
   if (filtered.length === 0) {
     return (
-      <p className="text-muted-foreground text-sm">
-        {t("HISTORY.RUN.EMPTY")}
-      </p>
+      <p className="text-muted-foreground text-sm">{t("HISTORY.RUN.EMPTY")}</p>
     );
   }
 
@@ -494,23 +483,20 @@ function ResultRow(props: { result: Result }) {
   const r = props.result;
   const [open, setOpen] = useState(false);
 
-  const hasTabs =
-    r.stream !== null || r.toolCall !== null;
+  const hasTabs = r.stream !== null || r.toolCall !== null;
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <div className="rounded-md border">
-        <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left text-sm hover:bg-muted/50">
+        <CollapsibleTrigger className="hover:bg-muted/50 flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left text-sm">
           <ChevronRightIcon
             className={`size-4 shrink-0 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
           />
-          <span className="font-mono text-xs min-w-24">{r.provider}</span>
-          <span className="font-mono text-xs flex-1">{r.model}</span>
+          <span className="min-w-24 font-mono text-xs">{r.provider}</span>
+          <span className="flex-1 font-mono text-xs">{r.model}</span>
 
           <ExchangeBadge label="H" exchange={r.http} />
-          {r.stream !== null && (
-            <ExchangeBadge label="S" exchange={r.stream} />
-          )}
+          {r.stream !== null && <ExchangeBadge label="S" exchange={r.stream} />}
           {r.toolCall !== null && (
             <ExchangeBadge label="T" exchange={r.toolCall} />
           )}
@@ -591,7 +577,7 @@ function ResultRow(props: { result: Result }) {
 function ExchangeBadge(props: { label: string; exchange: Exchange }) {
   const variant = props.exchange.pass ? "default" : "destructive";
   return (
-    <Badge variant={variant} className="font-mono text-[10px] px-1.5">
+    <Badge variant={variant} className="px-1.5 font-mono text-[10px]">
       {props.label}
       {props.exchange.status ? ` ${props.exchange.status}` : ""}
     </Badge>
@@ -606,7 +592,9 @@ function ExchangeDetail(props: { exchange: Exchange }) {
     <div className="space-y-3">
       <div className="flex items-center gap-2 text-xs">
         <Badge variant={ex.pass ? "default" : "destructive"}>
-          {ex.pass ? t("HISTORY.RUN.STATUS_PASS") : t("HISTORY.RUN.STATUS_FAIL")}
+          {ex.pass
+            ? t("HISTORY.RUN.STATUS_PASS")
+            : t("HISTORY.RUN.STATUS_FAIL")}
         </Badge>
         {ex.status !== undefined && (
           <span className="text-muted-foreground font-mono">
@@ -618,12 +606,10 @@ function ExchangeDetail(props: { exchange: Exchange }) {
             {t("HISTORY.RUN.LATENCY_MS", { ms: ex.latencyMs })}
           </span>
         )}
-        {ex.error && (
-          <span className="text-destructive">{ex.error}</span>
-        )}
+        {ex.error && <span className="text-destructive">{ex.error}</span>}
       </div>
 
-      <div className="font-mono text-xs break-all text-muted-foreground">
+      <div className="text-muted-foreground font-mono text-xs break-all">
         POST {ex.request.url}
       </div>
 
@@ -709,7 +695,7 @@ function JsonBlock(props: { data: unknown }) {
     text = String(props.data);
   }
   return (
-    <pre className="bg-muted overflow-x-auto rounded-md p-3 text-xs max-h-96 whitespace-pre-wrap">
+    <pre className="bg-muted max-h-96 overflow-x-auto rounded-md p-3 text-xs whitespace-pre-wrap">
       {text}
     </pre>
   );
@@ -834,7 +820,7 @@ function PricingGateRow(props: { entry: PricingGate }) {
               open ? "rotate-90" : ""
             }`}
           />
-          <span className="font-mono text-xs flex-1">{e.exposed}</span>
+          <span className="flex-1 font-mono text-xs">{e.exposed}</span>
           <Badge
             variant={decisionVariant(e.vote.decision)}
             className="text-[10px]"
@@ -1013,7 +999,7 @@ function EndpointsRow(props: { entry: EndpointsLog }) {
               open ? "rotate-90" : ""
             }`}
           />
-          <span className="font-mono text-xs flex-1">{e.id}</span>
+          <span className="flex-1 font-mono text-xs">{e.id}</span>
           <span className="text-muted-foreground font-mono text-xs">
             {e.endpoints.length}
           </span>
@@ -1058,8 +1044,9 @@ function EndpointsRow(props: { entry: EndpointsLog }) {
                 {e.endpoints.map((row, i) => {
                   const picked =
                     e.picked?.provider === row.provider &&
-                    Math.abs(toM(row.effectivePrompt) - toM(e.picked.promptUsd)) <
-                      1e-9;
+                    Math.abs(
+                      toM(row.effectivePrompt) - toM(e.picked.promptUsd),
+                    ) < 1e-9;
                   return (
                     <tr
                       key={i}

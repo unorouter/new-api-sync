@@ -10,13 +10,14 @@ function isPrivateIPv4(host: string): boolean {
   if (!m) return false;
   const a = +m[1]!,
     b = +m[2]!;
-  if (a === 10) return true;
-  if (a === 127) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 0) return true;
-  return false;
+  return (
+    a === 10 ||
+    a === 127 ||
+    a === 0 ||
+    (a === 192 && b === 168) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 169 && b === 254)
+  );
 }
 
 function maskHostnameLabel(label: string): string {

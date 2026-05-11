@@ -63,14 +63,14 @@ new-api-sync-windows-x64.exe ui  # Windows
 
 ### 全局选项
 
-| 字段                     | 说明                                                                                                                       |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `testModelTypes`         | 同步时测试的模型类型：`["text", "image", "video", "audio", "embedding"]`（默认：`["text"]`）。提供商级别设置可覆盖全局。   |
-| `skipUnprofitableText`   | 跳过有效倍率 >= 1 的文本模型（默认：`true`）。详见下方"行为说明"。                                                          |
-| `globalConcurrency`      | 整次运行中同时进行的测试 / 探测 HTTP 请求总数（默认：`50`）。                                                              |
-| `perUpstreamConcurrency` | 单个 baseUrl 的默认并发上限（默认：`5`）。可在提供商级别覆盖以适配各上游的限频策略。                                       |
-| `blacklist`              | 排除匹配的文本模型（大小写不敏感）。支持 Glob 通配符和提供商作用域模式。详见下方"黑名单"。                                 |
-| `modelMapping`           | 重命名模型：`{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                       |
+| 字段                     | 说明                                                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `testModelTypes`         | 同步时测试的模型类型：`["text", "image", "video", "audio", "embedding"]`（默认：`["text"]`）。提供商级别设置可覆盖全局。 |
+| `skipUnprofitableText`   | 跳过有效倍率 >= 1 的文本模型（默认：`true`）。详见下方"行为说明"。                                                       |
+| `globalConcurrency`      | 整次运行中同时进行的测试 / 探测 HTTP 请求总数（默认：`50`）。                                                            |
+| `perUpstreamConcurrency` | 单个 baseUrl 的默认并发上限（默认：`5`）。可在提供商级别覆盖以适配各上游的限频策略。                                     |
+| `blacklist`              | 排除匹配的文本模型（大小写不敏感）。支持 Glob 通配符和提供商作用域模式。详见下方"黑名单"。                               |
+| `modelMapping`           | 重命名模型：`{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                    |
 
 ### new-api 提供商 (`type: "newapi"`)
 

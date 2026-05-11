@@ -75,12 +75,10 @@ const NON_TEXT_TYPES: Set<string> = new Set(
   MODEL_TYPES.filter((t) => t !== "text"),
 );
 
-export function getEnabledModelGlobs(
+export const getEnabledModelGlobs = (
   entries: EnabledModelEntry[] | undefined,
-): string[] | undefined {
-  if (!entries) return undefined;
-  return entries.map((e) => (typeof e === "string" ? e : e.model));
-}
+): string[] | undefined =>
+  entries?.map((e) => (typeof e === "string" ? e : e.model));
 
 function extractEnabledModelField<T>(
   entries: EnabledModelEntry[] | undefined,
@@ -96,17 +94,15 @@ function extractEnabledModelField<T>(
   return result;
 }
 
-export function getPricingGridFromEnabledModels(
+export const getPricingGridFromEnabledModels = (
   entries: EnabledModelEntry[] | undefined,
-): Record<string, Record<string, string | number>[]> {
-  return extractEnabledModelField(entries, "modelPricingGrid");
-}
+): Record<string, Record<string, string | number>[]> =>
+  extractEnabledModelField(entries, "modelPricingGrid");
 
-export function getMetadataFromEnabledModels(
+export const getMetadataFromEnabledModels = (
   entries: EnabledModelEntry[] | undefined,
-): Record<string, Record<string, unknown>> {
-  return extractEnabledModelField(entries, "metadata");
-}
+): Record<string, Record<string, unknown>> =>
+  extractEnabledModelField(entries, "metadata");
 
 export const CONFIG_DEFAULTS = {
   skipUnprofitableText: true,
@@ -114,41 +110,11 @@ export const CONFIG_DEFAULTS = {
   perUpstreamConcurrency: 5,
 } as const;
 
-const BUILTIN_BLACKLIST: readonly string[] = [
-  "ai-synthetic-video-detector",
-  "arctic-embed-l",
-  "bge-m3",
-  "devstral-2-123b-instruct-2512",
-  "embed-qa-4",
-  "gliner-pii",
-  "ising-calibration-1-35b-a3b",
-  "laguna-m.1",
-  "laguna-xs.2",
-  "magistral-small-2506",
-  "ministral-14b-instruct-2512",
-  "mixtral-8x22b-instruct-v0.1",
-  "mixtral-8x7b-instruct-v0.1",
-  "nv-embed-v1",
-  "nv-embedcode-7b-v1",
-  "nv-embedqa-e5-v5",
-  "owl-alpha",
-  "phi-4-mini-instruct",
-  "phi-4-multimodal-instruct",
-  "riva-translate-4b-instruct-v1.1",
-  "sarvam-m",
-  "seed-oss-36b-instruct",
-  "solar-10.7b-instruct",
-  "step-3.5-flash",
-  "stockmark-2-100b-instruct",
-];
+// prettier-ignore
+const BUILTIN_BLACKLIST: readonly string[] = ["ai-synthetic-video-detector","arctic-embed-l","bge-m3","devstral-2-123b-instruct-2512","embed-qa-4","gliner-pii","ising-calibration-1-35b-a3b","laguna-m.1","laguna-xs.2","magistral-small-2506","ministral-14b-instruct-2512","mixtral-8x22b-instruct-v0.1","mixtral-8x7b-instruct-v0.1","nv-embed-v1","nv-embedcode-7b-v1","nv-embedqa-e5-v5","owl-alpha","phi-4-mini-instruct","phi-4-multimodal-instruct","riva-translate-4b-instruct-v1.1","sarvam-m","seed-oss-36b-instruct","solar-10.7b-instruct","step-3.5-flash","stockmark-2-100b-instruct"];
 
-type StripKeys =
-  | "blacklist"
-  | "modelMapping"
-  | "skipUnprofitableText"
-  | "providers"
-  | "globalConcurrency"
-  | "perUpstreamConcurrency";
+// prettier-ignore
+type StripKeys = "blacklist" | "modelMapping" | "skipUnprofitableText" | "providers" | "globalConcurrency" | "perUpstreamConcurrency";
 
 export interface RuntimeConfig extends Omit<ConfigSchemaType, StripKeys> {
   providers: AnyProviderConfig[];

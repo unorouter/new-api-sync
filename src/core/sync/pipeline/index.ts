@@ -31,11 +31,9 @@ export async function runProviderPipeline(
   targetSnapshot?: TargetSnapshot,
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
   const overrides = new Map<string, number>();
-  for (const p of config.providers) {
-    if ("baseUrl" in p && p.baseUrl && p.perUpstreamConcurrency) {
+  for (const p of config.providers)
+    if ("baseUrl" in p && p.baseUrl && p.perUpstreamConcurrency)
       overrides.set(p.baseUrl, p.perUpstreamConcurrency);
-    }
-  }
   setConcurrencyGate(
     new ConcurrencyGate({
       globalLimit: config.globalConcurrency,
@@ -82,7 +80,7 @@ export async function runProviderPipeline(
     modelMapping: config.modelMapping,
   });
 
-  for (const drop of plan.drops) {
+  for (const drop of plan.drops)
     consola.info(
       t("CORE.PRICING.DROP", {
         model: drop.model,
@@ -91,7 +89,6 @@ export async function runProviderPipeline(
         detail: drop.detail ? ` ${drop.detail}` : "",
       }),
     );
-  }
 
   const { mergedGroups, mergedModels, channels } = emitChannels({
     plan,
@@ -109,14 +106,13 @@ export async function runProviderPipeline(
       continue;
     }
     channels.push(...result.channels);
-    for (const channel of result.channels) {
+    for (const channel of result.channels)
       mergedGroups.push({
         name: channel.group,
         ratio: 1,
         description: `ComfyUI via ${provider.name}`,
         provider: channel.tag ?? provider.name,
       });
-    }
   }
 
   const allPricingGrids: Record<string, Record<string, string | number>[]> = {};

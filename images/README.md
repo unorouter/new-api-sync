@@ -6,14 +6,14 @@ These match Matic's actual workload (anime-style RP scene composition) far bette
 
 For local testing only. Source-license details aren't tracked here because we never redistribute the fixtures - they're inputs to a probe, not part of the released package.
 
-| File                | Subject                                                          | Source                                                  |
-| ------------------- | ---------------------------------------------------------------- | ------------------------------------------------------- |
-| `00-bg-tavern.jpg`  | Tavern interior - bar, stools, lanterns, shelves with bottles    | OpenGameArt: `Tavern1024x768` by Nila122                |
-| `01-user-sara.jpg`  | Anime girl, blonde with side braid, blue dress, magenta eyes     | OpenGameArt: `portrait21` (Sara) by RPG Action          |
-| `02-npc-trevor.jpg` | Anime male hero, blonde, red royal cape                          | OpenGameArt: `portrait24` (Trevor) by RPG Action        |
-| `03-npc-puck.jpg`   | Bearded ranger, brown hair, green hood                           | OpenGameArt: `portrait25` (Puck) by RPG Action          |
-| `04-npc-knight.jpg` | Bald armored knight, gold armor, mustache                        | OpenGameArt: `portrait26` (knight) by RPG Action        |
-| `05-npc-rogue.jpg`  | Brunette adventurer woman, leather vest, forest background      | OpenGameArt: `portraits.jpg` cell by Hyptosis           |
+| File                | Subject                                                       | Source                                           |
+| ------------------- | ------------------------------------------------------------- | ------------------------------------------------ |
+| `00-bg-tavern.jpg`  | Tavern interior - bar, stools, lanterns, shelves with bottles | OpenGameArt: `Tavern1024x768` by Nila122         |
+| `01-user-sara.jpg`  | Anime girl, blonde with side braid, blue dress, magenta eyes  | OpenGameArt: `portrait21` (Sara) by RPG Action   |
+| `02-npc-trevor.jpg` | Anime male hero, blonde, red royal cape                       | OpenGameArt: `portrait24` (Trevor) by RPG Action |
+| `03-npc-puck.jpg`   | Bearded ranger, brown hair, green hood                        | OpenGameArt: `portrait25` (Puck) by RPG Action   |
+| `04-npc-knight.jpg` | Bald armored knight, gold armor, mustache                     | OpenGameArt: `portrait26` (knight) by RPG Action |
+| `05-npc-rogue.jpg`  | Brunette adventurer woman, leather vest, forest background    | OpenGameArt: `portraits.jpg` cell by Hyptosis    |
 
 ## Refresh
 

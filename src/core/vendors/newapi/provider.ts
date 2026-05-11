@@ -68,7 +68,6 @@ function filterGroupModels(
 
 const CHEAPEST_FALLBACK_MAX = 3;
 type GateDecisionMap = Map<string, "keep" | "drop">;
-const decisionKey = (g: string, v: string, u: string) => `${g}|${v}|${u}`;
 
 function softCanonical(vote: PricingVoteResult): number | undefined {
   const ratios = vote.candidates
@@ -93,7 +92,6 @@ function planPreTestDecisions(opts: {
 }): GateDecisionMap {
   const byExposed = new Map<string, BucketCandidate[]>();
   const pName = opts.providerConfig.name;
-
   for (const p of opts.prepared) {
     for (const [vendor, vendorModels] of partitionByVendor(
       p.candidateModels,
@@ -132,7 +130,7 @@ function planPreTestDecisions(opts: {
         let bucket = byExposed.get(exposed);
         if (!bucket) byExposed.set(exposed, (bucket = []));
         bucket.push({
-          key: decisionKey(p.group.name, vendor, upstreamName),
+          key: `${p.group.name}|${vendor}|${upstreamName}`,
           group: p.group.name,
           vendor,
           upstream: upstreamName,
@@ -152,17 +150,17 @@ function planPreTestDecisions(opts: {
   for (const [exposed, candidates] of byExposed) {
     const first = candidates[0]!;
     const vc = first.vote.cluster;
+    const usd = (mr?: number, cr?: number) => ({
+      inputUsdPerM: mr !== undefined ? mr * 2 : undefined,
+      outputUsdPerM:
+        mr !== undefined && cr !== undefined ? mr * 2 * cr : undefined,
+    });
     recordPricingGate({
       exposed,
       vote: {
         candidates: first.vote.candidates.map((c) => ({
           ...c,
-          inputUsdPerM:
-            c.modelRatio !== undefined ? c.modelRatio * 2 : undefined,
-          outputUsdPerM:
-            c.modelRatio !== undefined && c.completionRatio !== undefined
-              ? c.modelRatio * 2 * c.completionRatio
-              : undefined,
+          ...usd(c.modelRatio, c.completionRatio),
         })),
         cluster: vc
           ? {
@@ -181,19 +179,16 @@ function planPreTestDecisions(opts: {
       const tr = getOpenRouterEndpointsTrace(orHit.matchedKey);
       if (tr) recordOpenRouterEndpointsForModel(tr);
     }
-
     if (!candidates.some((c) => c.charge !== undefined)) {
       for (const c of candidates) decisions.set(c.key, "keep");
       continue;
     }
-
     const canonical = candidates.find(
       (c) => c.canonical !== undefined,
     )!.canonical!;
     const atOrBelow = candidates.filter(
       (c) => c.charge !== undefined && c.charge <= canonical,
     );
-
     if (atOrBelow.length > 0) {
       for (const c of candidates) {
         if (c.charge !== undefined && c.charge > canonical) {
@@ -214,7 +209,6 @@ function planPreTestDecisions(opts: {
       }
       continue;
     }
-
     const cheapest = candidates.reduce((min, c) =>
       (c.charge ?? Infinity) < (min.charge ?? Infinity) ? c : min,
     );
@@ -261,7 +255,6 @@ function planPreTestDecisions(opts: {
       );
     }
   }
-
   return decisions;
 }
 
@@ -299,11 +292,10 @@ export async function processNewApiProvider(
   const offers: UpstreamOffer[] = [];
   const endpointPaths = new Map<string, EndpointPathInfo>();
   const localNormalizedEndpoints = new Map<string, string[]>();
-
   try {
     const upstream = new NewApiClient(providerConfig, pName);
     const pricing = await upstream.fetchPricing();
-
+    const pricingByName = new Map(pricing.models.map((m) => [m.name, m]));
     for (const m of pricing.models) {
       if (m.supportedEndpoints?.length)
         localNormalizedEndpoints.set(
@@ -313,7 +305,6 @@ export async function processNewApiProvider(
     }
     for (const [ep, info] of Object.entries(pricing.endpointPaths))
       endpointPaths.set(ep, info);
-
     let groups: GroupInfo[] = pricing.groups;
     const vf = vendorFilter(providerConfig.enabledVendors);
     if (vf) groups = groups.filter((g) => g.models.some(vf));
@@ -322,23 +313,19 @@ export async function processNewApiProvider(
       groups = groups.filter((g) =>
         g.models.some((m) => matchesAnyPattern(m, enabledGlobs)),
       );
-
     if (config.blacklist?.length) {
       for (const g of groups) {
         if (
           matchesBlacklist(g.name, config.blacklist, pName) ||
           matchesBlacklist(g.description, config.blacklist, pName)
-        ) {
+        )
           g.models = g.models.filter((m) => inferModelType(m) !== "text");
-        }
       }
       groups = groups.filter((g) => g.models.length > 0);
     }
-
     const upstreamPricing = new Map<string, number>();
     for (const m of pricing.models)
       if (typeof m.ratio === "number") upstreamPricing.set(m.name, m.ratio);
-
     const tokenPrefix = config.target.targetPrefix ?? pName;
     const partialSync = (config.modelFilter?.length ?? 0) > 0;
     const tokenResult = await upstream.ensureTokens(groups, tokenPrefix, {
@@ -349,17 +336,14 @@ export async function processNewApiProvider(
       existing: tokenResult.existing,
       deleted: tokenResult.deleted,
     };
-
     const startBalance = await upstream.fetchBalance();
-    if (startBalance !== null) {
+    if (startBalance !== null)
       consola.info(
         t("CORE.PROVIDER.BALANCE", {
           name: pName,
           amount: startBalance.toFixed(4),
         }),
       );
-    }
-
     const groupsWithNoWorkingModels: string[] = [];
     const usedSanitizedNames = new Map<string, number>();
     type Prepared = {
@@ -390,7 +374,6 @@ export async function processNewApiProvider(
         apiKey: tokenResult.tokens[group.name] ?? "",
       });
     }
-
     const gateDecisions = config.skipUnprofitableText
       ? planPreTestDecisions({
           prepared,
@@ -402,7 +385,6 @@ export async function processNewApiProvider(
           localNormalizedEndpoints,
         })
       : null;
-
     const groupResults = await Promise.all(
       prepared.map(async (p) => {
         throwIfRunAborted();
@@ -412,7 +394,6 @@ export async function processNewApiProvider(
           "unknown",
         );
         const probeLabel = `${pName}/${p.group.name}`;
-
         const bucketResults = await Promise.all(
           [...vendorBuckets.entries()].map(async ([vendor, vendorModels]) => {
             throwIfRunAborted();
@@ -441,7 +422,7 @@ export async function processNewApiProvider(
             const gatedModels = gateDecisions
               ? vendorModels.filter(
                   (m) =>
-                    gateDecisions.get(decisionKey(p.group.name, vendor, m)) !==
+                    gateDecisions.get(`${p.group.name}|${vendor}|${m}`) !==
                     "drop",
                 )
               : vendorModels;
@@ -451,7 +432,6 @@ export async function processNewApiProvider(
                 working: 0,
                 offer: null as null | UpstreamOffer,
               };
-
             const filterResult = await testAndFilterModels({
               allModels: gatedModels,
               baseUrl,
@@ -466,7 +446,6 @@ export async function processNewApiProvider(
                 ctx,
               ),
             });
-
             const workingUpstream = filterResult.workingModels;
             if (workingUpstream.length === 0)
               return {
@@ -474,7 +453,6 @@ export async function processNewApiProvider(
                 working: 0,
                 offer: null,
               };
-
             const seen = new Set<string>();
             const dedupedOfferModels: OfferModel[] = [];
             for (const upstreamName of workingUpstream) {
@@ -484,7 +462,7 @@ export async function processNewApiProvider(
               if (seen.has(exposed)) continue;
               seen.add(exposed);
               const normalized = localNormalizedEndpoints.get(upstreamName);
-              const m = pricing.models.find((pm) => pm.name === upstreamName);
+              const m = pricingByName.get(upstreamName);
               dedupedOfferModels.push({
                 exposed,
                 upstream: upstreamName,
@@ -502,7 +480,6 @@ export async function processNewApiProvider(
                 ),
               });
             }
-
             const offer: UpstreamOffer = {
               provider: pName,
               providerKind: "newapi",
@@ -525,7 +502,6 @@ export async function processNewApiProvider(
             };
           }),
         );
-
         const groupTotalTested = bucketResults.reduce(
           (a, b) => a + b.tested,
           0,
@@ -537,8 +513,7 @@ export async function processNewApiProvider(
         const groupOffers = bucketResults
           .map((b) => b.offer)
           .filter((o): o is UpstreamOffer => o !== null);
-
-        if (groupTotalTested > 0) {
+        if (groupTotalTested > 0)
           consola.info(
             t("CORE.PROVIDER.WORKING_ACROSS_VENDORS", {
               provider: pName,
@@ -548,7 +523,6 @@ export async function processNewApiProvider(
               vendors: vendorBuckets.size,
             }),
           );
-        }
         return {
           group: p.group,
           offers: groupOffers,
@@ -556,12 +530,10 @@ export async function processNewApiProvider(
         };
       }),
     );
-
     for (const gr of groupResults) {
       offers.push(...gr.offers);
       if (!gr.hadAnyOffer) groupsWithNoWorkingModels.push(gr.group.name);
     }
-
     if (!config.isTestMode)
       await cleanupEmptyGroupTokens(
         upstream,
@@ -569,33 +541,28 @@ export async function processNewApiProvider(
         tokenPrefix,
         report,
       );
-
     if (startBalance !== null) {
       const finalBalance = await upstream.fetchBalance();
       if (finalBalance !== null) {
         const cost = startBalance - finalBalance;
         recordProviderCost(pName, cost);
+        const amount = finalBalance.toFixed(4);
         consola.info(
           cost > 0
             ? t("CORE.PROVIDER.BALANCE_WITH_COST", {
                 name: pName,
-                amount: finalBalance.toFixed(4),
+                amount,
                 cost: colorize("yellow", `$${cost.toFixed(4)}`),
               })
-            : t("CORE.PROVIDER.BALANCE", {
-                name: pName,
-                amount: finalBalance.toFixed(4),
-              }),
+            : t("CORE.PROVIDER.BALANCE", { name: pName, amount }),
         );
       }
     }
-
     report.groups = groups.length;
     report.models = pricing.models.length;
     report.success = true;
   } catch (error) {
     report.error = error instanceof Error ? error.message : String(error);
   }
-
   return { report, offers, endpointMetadata: { endpointPaths } };
 }

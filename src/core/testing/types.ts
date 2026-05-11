@@ -127,6 +127,30 @@ export interface RawResult {
   responseHeaders: Record<string, string>;
 }
 
+export interface AnthropicResponse {
+  type?: string;
+  content?: Array<{ type?: string; text?: string }>;
+  stop_reason?: string;
+}
+export interface GeminiResponse {
+  candidates?: Array<{
+    content?: { parts?: Array<{ functionCall?: unknown; text?: string }> };
+  }>;
+}
+export interface OpenAIChatResponse {
+  choices?: Array<{
+    finish_reason?: string;
+    message?: { tool_calls?: unknown[]; content?: string };
+  }>;
+}
+export interface OpenAIDataResponse {
+  error?: unknown;
+  data?: unknown[];
+}
+export interface ErrorEnvelope {
+  error?: unknown;
+}
+
 export interface ModelTestDetail {
   model: string;
   success: boolean;

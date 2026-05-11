@@ -81,12 +81,8 @@ export function ProvidersSection() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          {t("CONFIG.PROVIDERS.TITLE")}
-        </CardTitle>
-        <CardDescription>
-          {t("CONFIG.PROVIDERS.DESCRIPTION")}
-        </CardDescription>
+        <CardTitle>{t("CONFIG.PROVIDERS.TITLE")}</CardTitle>
+        <CardDescription>{t("CONFIG.PROVIDERS.DESCRIPTION")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {providers.fields.length === 0 ? (
@@ -114,9 +110,7 @@ export function ProvidersSection() {
       <Dialog open={pickOpen} onOpenChange={setPickOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {t("CONFIG.PROVIDERS.PICK_TYPE")}
-            </DialogTitle>
+            <DialogTitle>{t("CONFIG.PROVIDERS.PICK_TYPE")}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-2">
             {TYPE_ORDER.map((type) => (

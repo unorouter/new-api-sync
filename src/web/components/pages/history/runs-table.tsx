@@ -37,9 +37,7 @@ export function RunsTable(props: Props) {
 
   if (!runs.data || runs.data.length === 0) {
     return (
-      <p className="text-muted-foreground text-sm">
-        {t("HISTORY.RUNS.EMPTY")}
-      </p>
+      <p className="text-muted-foreground text-sm">{t("HISTORY.RUNS.EMPTY")}</p>
     );
   }
 
@@ -48,21 +46,11 @@ export function RunsTable(props: Props) {
       <table className="w-full text-sm">
         <thead className="bg-muted/50">
           <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-medium">
-            <th>
-              {t("HISTORY.RUNS.COL_TIMESTAMP")}
-            </th>
-            <th className="text-right">
-              {t("HISTORY.RUNS.COL_PASSED")}
-            </th>
-            <th className="text-right">
-              {t("HISTORY.RUNS.COL_FAILED")}
-            </th>
-            <th className="text-right">
-              {t("HISTORY.RUNS.COL_TOTAL")}
-            </th>
-            <th className="text-right">
-              {t("HISTORY.RUNS.COL_SIZE")}
-            </th>
+            <th>{t("HISTORY.RUNS.COL_TIMESTAMP")}</th>
+            <th className="text-right">{t("HISTORY.RUNS.COL_PASSED")}</th>
+            <th className="text-right">{t("HISTORY.RUNS.COL_FAILED")}</th>
+            <th className="text-right">{t("HISTORY.RUNS.COL_TOTAL")}</th>
+            <th className="text-right">{t("HISTORY.RUNS.COL_SIZE")}</th>
           </tr>
         </thead>
         <tbody>

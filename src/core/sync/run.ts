@@ -184,12 +184,6 @@ function buildModelProviderMap(result: SyncRunResult): Map<string, string[]> {
   );
 }
 
-const annotate = (items: string[], lookup: (key: string) => string): string[] =>
-  items.map((key) => {
-    const tag = lookup(key);
-    return tag ? `${key} [${tag}]` : key;
-  });
-
 export function printRunSummary(result: SyncRunResult): void {
   const elapsed = (result.elapsedMs / 1000).toFixed(2);
   const ch = result.apply.channels;
@@ -202,10 +196,19 @@ export function printRunSummary(result: SyncRunResult): void {
   );
   const channelProviders = buildChannelProviderMap(result);
   const modelProviders = buildModelProviderMap(result);
-  const channelLookup = (name: string) => channelProviders.get(name) ?? "";
-  const modelLookup = (name: string) =>
-    modelProviders.get(name)?.join(", ") ?? "";
-  const emit = (items: string[], msg: string) => {
+  const annotate = (items: string[], lookup: (k: string) => string) =>
+    items
+      .map((k) => {
+        const tag = lookup(k);
+        return tag ? `${k} [${tag}]` : k;
+      })
+      .join(", ");
+  const chLookup = (n: string) => channelProviders.get(n) ?? "";
+  const mdLookup = (n: string) => modelProviders.get(n)?.join(", ") ?? "";
+  const emit = (
+    items: string[],
+    msg: string,
+  ) => {
     if (items.length > 0) consola.info(msg);
   };
   consola.info(
@@ -217,21 +220,15 @@ export function printRunSummary(result: SyncRunResult): void {
   );
   emit(
     ch.created,
-    t("CLI.SUMMARY.CHANNELS_ADDED", {
-      items: annotate(ch.created, channelLookup).join(", "),
-    }),
+    t("CLI.SUMMARY.CHANNELS_ADDED", { items: annotate(ch.created, chLookup) }),
   );
   emit(
     ch.updated,
-    t("CLI.SUMMARY.CHANNELS_UPDATED", {
-      items: annotate(ch.updated, channelLookup).join(", "),
-    }),
+    t("CLI.SUMMARY.CHANNELS_UPDATED", { items: annotate(ch.updated, chLookup) }),
   );
   emit(
     ch.deleted,
-    t("CLI.SUMMARY.CHANNELS_DELETED", {
-      items: annotate(ch.deleted, channelLookup).join(", "),
-    }),
+    t("CLI.SUMMARY.CHANNELS_DELETED", { items: annotate(ch.deleted, chLookup) }),
   );
   consola.info(
     t("CLI.SUMMARY.MODELS", {
@@ -243,21 +240,15 @@ export function printRunSummary(result: SyncRunResult): void {
   );
   emit(
     md.created,
-    t("CLI.SUMMARY.MODELS_ADDED", {
-      items: annotate(md.created, modelLookup).join(", "),
-    }),
+    t("CLI.SUMMARY.MODELS_ADDED", { items: annotate(md.created, mdLookup) }),
   );
   emit(
     md.updated,
-    t("CLI.SUMMARY.MODELS_UPDATED", {
-      items: annotate(md.updated, modelLookup).join(", "),
-    }),
+    t("CLI.SUMMARY.MODELS_UPDATED", { items: annotate(md.updated, mdLookup) }),
   );
   emit(
     md.deleted,
-    t("CLI.SUMMARY.MODELS_DELETED", {
-      items: annotate(md.deleted, modelLookup).join(", "),
-    }),
+    t("CLI.SUMMARY.MODELS_DELETED", { items: annotate(md.deleted, mdLookup) }),
   );
   consola.info(
     t("CLI.SUMMARY.OPTIONS_UPDATED", {

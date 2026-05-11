@@ -81,17 +81,8 @@ export function buildModelMetadata(opts: {
 
 export function deriveTagsFromMetadata(md: SourceMetadata): string[] {
   const tags: string[] = [];
-  const flags: Array<[keyof SourceMetadata, string]> = [
-    ["isReasoning", "Reasoning"],
-    ["supportsTools", "Tools"],
-    ["supportsVision", "Vision"],
-    ["supportsAudio", "Audio"],
-    ["supportsVideo", "Video"],
-    ["supportsPdf", "Files"],
-    ["supportsCache", "Cache"],
-    ["supportsWebSearch", "WebSearch"],
-    ["supportsComputerUse", "ComputerUse"],
-  ];
+  // prettier-ignore
+  const flags: Array<[keyof SourceMetadata, string]> = [["isReasoning","Reasoning"],["supportsTools","Tools"],["supportsVision","Vision"],["supportsAudio","Audio"],["supportsVideo","Video"],["supportsPdf","Files"],["supportsCache","Cache"],["supportsWebSearch","WebSearch"],["supportsComputerUse","ComputerUse"]];
   for (const [key, label] of flags) if (md[key]) tags.push(label);
 
   const ctx = md.contextWindow ?? md.maxInputTokens;

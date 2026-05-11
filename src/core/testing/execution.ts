@@ -107,11 +107,9 @@ function extractErrorMessage(data: unknown): string | null {
   return null;
 }
 
-async function runRawTest<T extends RequestConfig | ToolCallRequestConfig>(
-  config: T,
+export async function testRequest(
+  config: RequestConfig | ToolCallRequestConfig,
   timeoutMs: number,
-  isOkData: (data: unknown) => boolean,
-  fallbackError: string,
 ): Promise<TestExchange> {
   const raw = await rawPost(config.url, config.headers, config.body, timeoutMs);
   const request = {
@@ -119,7 +117,12 @@ async function runRawTest<T extends RequestConfig | ToolCallRequestConfig>(
     headers: config.headers,
     body: config.body,
   };
-  if (raw.data === null) {
+  const isTool = "isToolCallSuccess" in config;
+  const isOk = isTool ? config.isToolCallSuccess : config.isSuccess;
+  const fallback = isTool
+    ? t("CORE.TESTER.ERR_TOOL_CALL_MISSING")
+    : t("CORE.TESTER.ERR_BAD_RESPONSE");
+  if (raw.data === null)
     return {
       pass: false,
       request,
@@ -129,8 +132,7 @@ async function runRawTest<T extends RequestConfig | ToolCallRequestConfig>(
       status: raw.status ?? undefined,
       latencyMs: raw.latencyMs,
     };
-  }
-  const pass = raw.status !== null && raw.status < 400 && isOkData(raw.data);
+  const pass = raw.status !== null && raw.status < 400 && isOk(raw.data);
   return {
     pass,
     request,
@@ -138,33 +140,11 @@ async function runRawTest<T extends RequestConfig | ToolCallRequestConfig>(
     responseHeaders: raw.responseHeaders,
     error: pass
       ? undefined
-      : (raw.error ?? extractErrorMessage(raw.data) ?? fallbackError),
+      : (raw.error ?? extractErrorMessage(raw.data) ?? fallback),
     status: raw.status ?? undefined,
     latencyMs: raw.latencyMs,
   };
 }
-
-export const testRequest = (
-  config: RequestConfig,
-  timeoutMs: number,
-): Promise<TestExchange> =>
-  runRawTest(
-    config,
-    timeoutMs,
-    config.isSuccess,
-    t("CORE.TESTER.ERR_BAD_RESPONSE"),
-  );
-
-export const testToolCall = (
-  config: ToolCallRequestConfig,
-  timeoutMs: number,
-): Promise<TestExchange> =>
-  runRawTest(
-    config,
-    timeoutMs,
-    config.isToolCallSuccess,
-    t("CORE.TESTER.ERR_TOOL_CALL_MISSING"),
-  );
 
 export async function testStreamRequest(
   config: StreamRequestConfig,

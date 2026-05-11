@@ -21,12 +21,10 @@ export async function listTokens(ctx: ClientContext): Promise<UpstreamToken[]> {
       `${ctx.baseUrl}/api/token/?p=${page}&page_size=${PS}`,
       { headers: ctx.headers, timeoutMs: 30_000, retry: 3, retryDelayMs: 2000 },
     );
-    if (!data.success)
-      throw new Error(
-        t("ERROR.NEWAPI_TOKEN_LIST_API_FAILED", {
-          detail: data.message ? ` (${data.message})` : "",
-        }),
-      );
+    if (!data.success) {
+      const detail = data.message ? ` (${data.message})` : "";
+      throw new Error(t("ERROR.NEWAPI_TOKEN_LIST_API_FAILED", { detail }));
+    }
     const tokens = extractTokens(data);
     allTokens.push(...tokens);
     if (tokens.length < PS) break;
@@ -40,19 +38,16 @@ export async function createToken(
   name: string,
   group: string,
 ): Promise<boolean> {
+  const body = {
+    name,
+    group,
+    expired_time: -1,
+    unlimited_quota: true,
+    model_limits_enabled: false,
+  };
   const data = await tryFetchJson<{ success: boolean; message?: string }>(
     `${ctx.baseUrl}/api/token/`,
-    {
-      method: "POST",
-      headers: ctx.headers,
-      body: {
-        name,
-        group,
-        expired_time: -1,
-        unlimited_quota: true,
-        model_limits_enabled: false,
-      },
-    },
+    { method: "POST", headers: ctx.headers, body },
   );
   if (!data?.success) {
     consola.warn(
@@ -107,25 +102,22 @@ export async function updateTokenModelLimits(
   token: UpstreamToken,
   modelLimits: string,
 ): Promise<boolean> {
+  const body = {
+    id: token.id,
+    status: token.status,
+    name: token.name,
+    expired_time: token.expired_time ?? -1,
+    remain_quota: token.remain_quota ?? 0,
+    unlimited_quota: token.unlimited_quota ?? false,
+    model_limits_enabled: true,
+    model_limits: modelLimits,
+    allow_ips: token.allow_ips ?? "",
+    group: token.group,
+    cross_group_retry: token.cross_group_retry ?? false,
+  };
   const data = await tryFetchJson<{ success: boolean }>(
     `${ctx.baseUrl}/api/token/`,
-    {
-      method: "PUT",
-      headers: ctx.headers,
-      body: {
-        id: token.id,
-        status: token.status,
-        name: token.name,
-        expired_time: token.expired_time ?? -1,
-        remain_quota: token.remain_quota ?? 0,
-        unlimited_quota: token.unlimited_quota ?? false,
-        model_limits_enabled: true,
-        model_limits: modelLimits,
-        allow_ips: token.allow_ips ?? "",
-        group: token.group,
-        cross_group_retry: token.cross_group_retry ?? false,
-      },
-    },
+    { method: "PUT", headers: ctx.headers, body },
   );
   return data?.success ?? false;
 }

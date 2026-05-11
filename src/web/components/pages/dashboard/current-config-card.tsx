@@ -24,8 +24,12 @@ export function CurrentConfigCard(props: {
       </CardHeader>
       <CardContent>
         <dl className="space-y-1 text-sm">
-          <Row label={t("HEALTH.SELECTED_CONFIG")}>{props.selectedConfigLabel}</Row>
-          <Row label={t("HEALTH.PROVIDERS")}>{props.metrics.providerBreakdown?.total ?? 0}</Row>
+          <Row label={t("HEALTH.SELECTED_CONFIG")}>
+            {props.selectedConfigLabel}
+          </Row>
+          <Row label={t("HEALTH.PROVIDERS")}>
+            {props.metrics.providerBreakdown?.total ?? 0}
+          </Row>
           <Row label={t("HEALTH.PROVIDERS_BREAKDOWN")}>
             <span className="text-muted-foreground text-xs">
               {props.metrics.providerBreakdown

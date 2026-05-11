@@ -24,9 +24,6 @@ function collectModelsFromChannels(channels: Channel[]): Set<string> {
   return models;
 }
 
-const stableJson = (input: Record<string, unknown>): string =>
-  stringify(input) ?? "{}";
-
 function extractCapabilities(
   setting?: string,
 ): Record<string, unknown> | undefined {
@@ -102,16 +99,8 @@ function mergeProtected<T>(
   return merged;
 }
 
-const PARTIAL_MODEL_OPTION_KEYS = [
-  "ModelRatio",
-  "ModelPrice",
-  "CompletionRatio",
-  "ImageRatio",
-  "CacheRatio",
-  "CreateCacheRatio",
-  "ModelQuotaType",
-  "ModelGridPricing",
-] as const;
+// prettier-ignore
+const PARTIAL_MODEL_OPTION_KEYS = ["ModelRatio","ModelPrice","CompletionRatio","ImageRatio","CacheRatio","CreateCacheRatio","ModelQuotaType","ModelGridPricing"] as const;
 
 function buildManagedOptionValues(
   desired: DesiredState,
@@ -126,12 +115,10 @@ function buildManagedOptionValues(
   const protectedModels = collectModelsFromChannels(unmanagedChannels);
 
   const desiredModelsWithoutRatio = new Set<string>();
-  for (const channel of desired.channels) {
-    for (const model of parseModelList(channel.models)) {
+  for (const channel of desired.channels)
+    for (const model of parseModelList(channel.models))
       if (!(model in opts.modelRatio) && !(model in opts.modelPrice))
         desiredModelsWithoutRatio.add(model);
-    }
-  }
   const modelRatioGuard = new Set([
     ...protectedModels,
     ...desiredModelsWithoutRatio,
@@ -154,12 +141,12 @@ function buildManagedOptionValues(
   const managedGroups = new Set(
     snapshot.channels.filter(isManaged).map((ch) => ch.group),
   );
+  const partialKeys = (k: string) =>
+    Object.keys(parse<Record<string, unknown>>(k, {}));
   const groupGuard = isPartialSync
     ? new Set([
         ...unmanagedGroups,
-        ...Object.keys(parse<Record<string, unknown>>("GroupRatio", {})).filter(
-          (g) => !managedGroups.has(g),
-        ),
+        ...partialKeys("GroupRatio").filter((g) => !managedGroups.has(g)),
       ])
     : unmanagedGroups;
 
@@ -174,9 +161,7 @@ function buildManagedOptionValues(
     ? new Set(
         [
           ...modelRatioGuard,
-          ...PARTIAL_MODEL_OPTION_KEYS.flatMap((k) =>
-            Object.keys(parse<Record<string, unknown>>(k, {})),
-          ),
+          ...PARTIAL_MODEL_OPTION_KEYS.flatMap(partialKeys),
         ].filter((m) => !managedModels.has(m)),
       )
     : modelRatioGuard;
@@ -198,30 +183,20 @@ function buildManagedOptionValues(
     ]),
   ].sort((a, b) => (mergedGroupRatio[a] ?? 1) - (mergedGroupRatio[b] ?? 1));
 
-  const modelOptions: [string, Record<string, unknown>][] = [
-    ["ModelRatio", opts.modelRatio],
-    ["CompletionRatio", opts.completionRatio],
-    ["ModelPrice", opts.modelPrice],
-    ["ImageRatio", opts.imageRatio],
-    ["CacheRatio", opts.cacheRatio],
-    ["CreateCacheRatio", opts.createCacheRatio],
-    ["ModelQuotaType", opts.modelQuotaType],
-    ["ModelGridPricing", opts.modelGridPricing],
-  ];
+  // prettier-ignore
+  const modelOptions: [string, Record<string, unknown>][] = [["ModelRatio", opts.modelRatio],["CompletionRatio", opts.completionRatio],["ModelPrice", opts.modelPrice],["ImageRatio", opts.imageRatio],["CacheRatio", opts.cacheRatio],["CreateCacheRatio", opts.createCacheRatio],["ModelQuotaType", opts.modelQuotaType],["ModelGridPricing", opts.modelGridPricing]];
 
   const modelPatterns = opts.responsesApiModels.map(
     (m) => `^${m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
   );
+  const sj = (x: Record<string, unknown>) => stringify(x) ?? "{}";
   return {
-    GroupRatio: stableJson(mergedGroupRatio),
-    UserUsableGroups: stableJson(mergedUserGroups),
+    GroupRatio: sj(mergedGroupRatio),
+    UserUsableGroups: sj(mergedUserGroups),
     AutoGroups: JSON.stringify(mergedAutoGroups),
     DefaultUseAutoGroup: opts.defaultUseAutoGroup ? "true" : "false",
     ...Object.fromEntries(
-      modelOptions.map(([k, v]) => [
-        k,
-        stableJson(mergeOption(k, modelGuard, v)),
-      ]),
+      modelOptions.map(([k, v]) => [k, sj(mergeOption(k, modelGuard, v))]),
     ),
     "global.chat_completions_to_responses_policy": JSON.stringify({
       enabled: modelPatterns.length > 0,
@@ -281,14 +256,13 @@ export function buildSyncDiff(
         normalizeChannel(existing),
         normalizeChannel(normalizedDesired),
       )
-    ) {
+    )
       channelOps.push({
         type: "update",
         key: desiredChannel.name,
         existing,
         value: normalizedDesired,
       });
-    }
   }
 
   const modelFilter = config.modelFilter;
@@ -366,14 +340,13 @@ export function buildSyncDiff(
       existing.sync_official !== 1 ||
       existing.status !== 1;
 
-    if (needsUpdate) {
+    if (needsUpdate)
       modelOps.push({
         type: "update",
         key: modelName,
         existing,
         value: { ...targetModel, id: existing.id },
       });
-    }
   }
 
   for (const existing of snapshot.models) {

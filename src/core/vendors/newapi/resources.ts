@@ -30,9 +30,8 @@ export function drainUpstreamErrors(): UpstreamErrorEntry[] {
   return out;
 }
 export function peekUpstreamError(key: string): UpstreamErrorEntry | undefined {
-  for (let i = upstreamErrors.length - 1; i >= 0; i--) {
+  for (let i = upstreamErrors.length - 1; i >= 0; i--)
     if (upstreamErrors[i]!.key === key) return upstreamErrors[i];
-  }
   return undefined;
 }
 
@@ -69,10 +68,12 @@ async function paginate<T>(
 
 export async function listChannels(ctx: ClientContext): Promise<Channel[]> {
   return paginate(async (page) => {
-    const data = await fetchJson<{
+    const url = `${ctx.baseUrl}/api/channel/?p=${page}&page_size=${PS}`;
+    type R = {
       success: boolean;
       data: { data?: Channel[]; items?: Channel[] } | Channel[];
-    }>(`${ctx.baseUrl}/api/channel/?p=${page}&page_size=${PS}`, {
+    };
+    const data = await fetchJson<R>(url, {
       headers: ctx.headers,
       ...FETCH_OPTS,
     });
@@ -101,19 +102,15 @@ export async function createChannel(
     const message = data?.message ?? "no response";
     const key = channel.name ?? channel.tag ?? "<unnamed>";
     consola.warn(`[createChannel] ${ctx.name} failed for "${key}": ${message}`);
-    recordUpstreamError({
-      op: "createChannel",
-      key,
-      message,
-      payloadSnippet: {
-        name: channel.name,
-        tag: channel.tag,
-        type: channel.type,
-        models: channel.models,
-        group: channel.group,
-        hasKey: !!channel.key,
-      },
-    });
+    const payloadSnippet = {
+      name: channel.name,
+      tag: channel.tag,
+      type: channel.type,
+      models: channel.models,
+      group: channel.group,
+      hasKey: !!channel.key,
+    };
+    recordUpstreamError({ op: "createChannel", key, message, payloadSnippet });
     return null;
   }
   return data.data?.id ?? 0;
@@ -165,7 +162,6 @@ export async function listModels(ctx: ClientContext): Promise<ModelMeta[]> {
     )
   ).find((r) => r !== null);
   if (!winner) return [];
-
   const all: ModelMeta[] = [...winner.items];
   if (winner.items.length < PS) return all;
   const rest = await paginate(async (page) => {
@@ -238,11 +234,7 @@ export async function createVendor(
 ): Promise<Vendor | null> {
   const data = await tryFetchJson<ApiResponse<Vendor>>(
     `${ctx.baseUrl}/api/vendors/`,
-    {
-      method: "POST",
-      headers: ctx.headers,
-      body: vendor,
-    },
+    { method: "POST", headers: ctx.headers, body: vendor },
   );
   if (!data?.success) {
     recordUpstreamError({
@@ -272,10 +264,7 @@ export async function cleanupOrphanedModels(
 ): Promise<number> {
   const data = await tryFetchJson<ApiResponse<{ deleted: number }>>(
     `${ctx.baseUrl}/api/models/orphaned`,
-    {
-      method: "DELETE",
-      headers: ctx.headers,
-    },
+    { method: "DELETE", headers: ctx.headers },
   );
   if (!data) {
     consola.warn(t("CORE.NEWAPI.ORPHAN_CLEANUP_FAILED", { name: ctx.name }));

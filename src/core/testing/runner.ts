@@ -20,7 +20,6 @@ import {
 import {
   testRequest,
   testStreamRequest,
-  testToolCall,
   withRetry,
   type RetryPolicy,
 } from "./execution";
@@ -61,12 +60,12 @@ function redactedReport(): TestReport {
     timestamp: testReport.timestamp,
     providers: testReport.providers,
     summary: testReport.summary,
-    modelTests: testReport.modelTests.map((entry) => ({
-      ...entry,
-      http: redactExchange(entry.http),
-      stream: entry.stream ? redactExchange(entry.stream) : null,
-      toolCall: entry.toolCall ? redactExchange(entry.toolCall) : null,
-      authenticityProbes: entry.authenticityProbes?.map((p) => ({
+    modelTests: testReport.modelTests.map((e) => ({
+      ...e,
+      http: redactExchange(e.http),
+      stream: e.stream ? redactExchange(e.stream) : null,
+      toolCall: e.toolCall ? redactExchange(e.toolCall) : null,
+      authenticityProbes: e.authenticityProbes?.map((p) => ({
         ...p,
         request: { ...p.request, url: redactUrl(p.request.url) },
       })),
@@ -114,7 +113,12 @@ export function recordRunSummary(input: {
     const channel = op.type === "delete" ? op.existing : op.value;
     if (channel.tag) channelTagByName.set(channel.name, channel.tag);
   }
-  const bucketBy = (op: "created" | "updated" | "deleted", keys: string[]) => {
+  const ops: Array<["created" | "updated" | "deleted", string[]]> = [
+    ["created", input.apply.channels.created],
+    ["updated", input.apply.channels.updated],
+    ["deleted", input.apply.channels.deleted],
+  ];
+  for (const [op, keys] of ops) {
     for (const key of keys) {
       const tag = channelTagByName.get(key);
       if (!tag) continue;
@@ -123,10 +127,7 @@ export function recordRunSummary(input: {
         entry.channels = { created: [], updated: [], deleted: [] };
       entry.channels[op].push(key);
     }
-  };
-  bucketBy("created", input.apply.channels.created);
-  bucketBy("updated", input.apply.channels.updated);
-  bucketBy("deleted", input.apply.channels.deleted);
+  }
 
   testReport.summary = {
     providers: {
@@ -196,6 +197,9 @@ const HTTP_CONFIG_BY_TYPE = {
   text: getRequestConfig,
 } as const;
 
+// prettier-ignore
+const mkDetail = (model: string, channelType: number, success: boolean, streamSuccess: boolean | null, toolCallSuccess: boolean | null, authenticityProbed: boolean, httpStatus?: number): ModelTestDetail => ({ model, success, streamSuccess, toolCallSuccess, authenticityProbed, channelType, ...(httpStatus !== undefined && { httpStatus }) });
+
 async function testModels(opts: {
   baseUrl: string;
   apiKey: string;
@@ -220,47 +224,41 @@ async function testModels(opts: {
     opts.models.map((model) =>
       gate.run(opts.baseUrl, async () => {
         throwIfRunAborted();
-        const existingPass = passingByKey.get(passKey(prefix, model));
-        if (existingPass) {
-          return {
+        const ep = passingByKey.get(passKey(prefix, model));
+        if (ep)
+          return mkDetail(
             model,
-            success: true,
-            streamSuccess: existingPass.stream?.pass ?? null,
-            toolCallSuccess: existingPass.toolCall?.pass ?? null,
-            authenticityProbed: false,
-            channelType: opts.channelType,
-          };
-        }
+            opts.channelType,
+            true,
+            ep.stream?.pass ?? null,
+            ep.toolCall?.pass ?? null,
+            false,
+          );
 
         const blacklistKey = `${prefix}|${model}`;
+        const isClaude = model.startsWith("claude-");
         if (
           opts.channelType === CHANNEL_TYPES.ANTHROPIC &&
-          model.startsWith("claude-") &&
+          isClaude &&
           isAuthenticityBlacklisted(blacklistKey)
         ) {
+          const http: TestExchange = {
+            pass: false,
+            request: { url: "", headers: {}, body: null },
+            response: null,
+            responseHeaders: {},
+            error: t("CORE.TESTER.ERR_AUTHENTICITY_BLACKLISTED"),
+          };
           addTestResult({
             provider: prefix,
             model,
             cost: null,
-            http: {
-              pass: false,
-              request: { url: "", headers: {}, body: null },
-              response: null,
-              responseHeaders: {},
-              error: t("CORE.TESTER.ERR_AUTHENTICITY_BLACKLISTED"),
-            },
+            http,
             stream: null,
             toolCall: null,
             authentic: false,
           });
-          return {
-            model,
-            success: false,
-            streamSuccess: null,
-            toolCallSuccess: null,
-            authenticityProbed: false,
-            channelType: opts.channelType,
-          };
+          return mkDetail(model, opts.channelType, false, null, null, false);
         }
 
         const reqOpts: ModelRequestOpts = {
@@ -271,36 +269,21 @@ async function testModels(opts: {
           useResponsesAPI,
         };
         const modelType = inferModelType(model, undefined, opts.modelEndpoints);
-        const isTextModel = modelType === "text";
-        const httpConfig = HTTP_CONFIG_BY_TYPE[modelType](reqOpts);
-        const streamConfig = isTextModel
-          ? getStreamRequestConfig(reqOpts)
-          : null;
-        const toolCallConfig = isTextModel
+        const isText = modelType === "text";
+        const streamConfig = isText ? getStreamRequestConfig(reqOpts) : null;
+        const toolCfg = isText
           ? getToolCallConfig(reqOpts, opts.capabilities?.get(model))
           : null;
-        const pass = (r: TestExchange) => r.pass;
-        const nullish = Promise.resolve(null as TestExchange | null);
+        const retry = (fn: () => Promise<TestExchange>) =>
+          withRetry(fn, (r) => r.pass, opts.retryPolicy);
         const [httpResult, streamResult, toolResult] = await Promise.all([
-          withRetry(
-            () => testRequest(httpConfig, timeoutMs),
-            pass,
-            opts.retryPolicy,
+          retry(() =>
+            testRequest(HTTP_CONFIG_BY_TYPE[modelType](reqOpts), timeoutMs),
           ),
           streamConfig
-            ? withRetry(
-                () => testStreamRequest(streamConfig, timeoutMs),
-                pass,
-                opts.retryPolicy,
-              )
-            : nullish,
-          toolCallConfig
-            ? withRetry(
-                () => testToolCall(toolCallConfig, timeoutMs),
-                pass,
-                opts.retryPolicy,
-              )
-            : nullish,
+            ? retry(() => testStreamRequest(streamConfig, timeoutMs))
+            : null,
+          toolCfg ? retry(() => testRequest(toolCfg, timeoutMs)) : null,
         ]);
         const success = httpResult.pass;
         const streamSuccess = streamResult?.pass ?? null;
@@ -314,7 +297,7 @@ async function testModels(opts: {
                 : false;
 
         let authentic = true;
-        if (model.startsWith("claude-") && (success || streamSuccess)) {
+        if (isClaude && (success || streamSuccess)) {
           authentic = await testAnthropicAuthenticity({
             baseUrl: opts.baseUrl,
             apiKey: opts.apiKey,
@@ -335,10 +318,10 @@ async function testModels(opts: {
           http: httpResult,
           stream: streamResult,
           toolCall: toolResult,
-          authentic: model.startsWith("claude-") ? authentic : null,
+          authentic: isClaude ? authentic : null,
         });
 
-        const exchangeToLog = (r: TestExchange | null, pass: boolean) =>
+        const toLog = (r: TestExchange | null, pass: boolean) =>
           r === null
             ? undefined
             : {
@@ -352,27 +335,20 @@ async function testModels(opts: {
           prefix,
           model,
           modelType,
-          http: {
-            pass: finalSuccess,
-            status: httpResult.status,
-            latencyMs: httpResult.latencyMs,
-            error: httpResult.error,
-            body: httpResult.response,
-          },
-          stream: exchangeToLog(streamResult, finalStream === true),
-          tool: exchangeToLog(toolResult, toolCallSuccess === true),
+          http: toLog(httpResult, finalSuccess)!,
+          stream: toLog(streamResult, finalStream === true),
+          tool: toLog(toolResult, toolCallSuccess === true),
         });
 
-        return {
+        return mkDetail(
           model,
-          success: finalSuccess,
-          streamSuccess: finalStream,
+          opts.channelType,
+          finalSuccess,
+          finalStream,
           toolCallSuccess,
-          authenticityProbed:
-            model.startsWith("claude-") && (success || streamSuccess === true),
-          httpStatus: httpResult.status,
-          channelType: opts.channelType,
-        };
+          isClaude && (success || streamSuccess === true),
+          httpResult.status,
+        );
       }),
     ),
   );

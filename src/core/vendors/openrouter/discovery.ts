@@ -19,12 +19,10 @@ interface OpenRouterPricing {
   web_search?: string;
   discount?: string;
 }
-
 interface OpenRouterModel {
   id: string;
   pricing?: OpenRouterPricing;
 }
-
 interface OpenRouterEndpoint {
   provider_name?: string;
   tag?: string;

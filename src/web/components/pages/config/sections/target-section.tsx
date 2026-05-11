@@ -20,12 +20,8 @@ export function TargetSection() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          {t("CONFIG.TARGET.TITLE")}
-        </CardTitle>
-        <CardDescription>
-          {t("CONFIG.TARGET.DESCRIPTION")}
-        </CardDescription>
+        <CardTitle>{t("CONFIG.TARGET.TITLE")}</CardTitle>
+        <CardDescription>{t("CONFIG.TARGET.DESCRIPTION")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <MyFormInput

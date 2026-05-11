@@ -3,10 +3,10 @@ import { ConfigSchema, type ConfigSchemaType } from "@core/validations/config";
 import { typeboxResolver } from "@hookform/resolvers/typebox";
 import { Button } from "@web/components/ui/button";
 import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
 } from "@web/components/ui/card";
 import { Form } from "@web/components/ui/form";
 import { Skeleton } from "@web/components/ui/skeleton";
