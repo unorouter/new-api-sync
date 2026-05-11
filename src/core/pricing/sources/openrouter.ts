@@ -15,19 +15,10 @@ const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
 const OPENROUTER_ENDPOINTS_URL = (id: string) =>
   `https://openrouter.ai/api/v1/models/${id}/endpoints`;
 
-/**
- * Concurrency for the per-model /endpoints fan-out. Probe runs showed ~932
- * req/s sustainable from one IP with zero rate-limit headers exposed; 20 is
- * conservative. Bump only if total sync wall-time becomes a concern.
- */
+/** ~932 req/s sustainable from one IP; 20 is conservative. */
 const ENDPOINTS_CONCURRENCY = 20;
 
-/**
- * Pricing fields on the /v1/models summary response. We intentionally do NOT
- * use these for canonical pricing — they reflect the *cheapest* endpoint and
- * silently absorb provider-side promos (e.g. DeepSeek's 75% off-peak shows up
- * as the base "prompt" price). Kept only for shape compatibility / metadata.
- */
+/** Summary pricing reflects the cheapest endpoint and absorbs promos — kept for metadata only, never canonical. */
 interface OpenRouterSummaryModel {
   id: string;
   name?: string;
@@ -48,11 +39,7 @@ interface OpenRouterSummaryModel {
     is_moderated?: boolean;
   };
   supported_parameters?: string[];
-  /**
-   * OR's recommended defaults. `null` here means OR explicitly says "don't
-   * send this knob, the model rejects it" — useful even when the same key
-   * appears in `supported_parameters` (the union across endpoints).
-   */
+  /** `null` means OR explicitly says "don't send; the model rejects it" — distinct from absent. */
   default_parameters?: Record<string, number | null>;
   architecture?: {
     modality?: string;
@@ -65,19 +52,12 @@ interface OpenRouterSummaryModel {
 interface OpenRouterEndpoint {
   provider_name: string;
   quantization?: string;
-  /**
-   * Per-endpoint supported parameter list. Differs from the model-level
-   * union: e.g. Bedrock-Claude excludes min_p / penalties even though
-   * Anthropic-direct exposes some. Intersecting these gives us the safe
-   * set across all endpoints serving this model.
-   */
+  /** Per-endpoint list — intersect across endpoints for the safe set (Bedrock-Claude excludes samplers Anthropic-direct exposes). */
   supported_parameters?: string[];
   pricing?: {
-    /** USD per token for input / prompt. */
     prompt?: string;
-    /** USD per token for output / completion. */
     completion?: string;
-    /** Multiplier applied as effective_price = price * (1 - discount). 0 = no further discount. */
+    /** effective_price = price * (1 - discount). */
     discount?: number;
   };
 }
@@ -89,33 +69,26 @@ interface OpenRouterEndpointsResponse {
   };
 }
 
-/** Trace data captured per model for debug logging. */
 export interface OpenRouterEndpointsTrace {
   id: string;
   endpoints: Array<{
     provider: string;
     quantization?: string;
-    /** Per-endpoint supported_parameters from OR. Used for sampler intersection. */
     supportedParameters?: string[];
     prompt: number;
     completion: number;
     discount: number;
-    /** prompt * (1 - discount) — the effective per-token cost. */
     effectivePrompt: number;
-    /** completion * (1 - discount). */
     effectiveCompletion: number;
   }>;
-  /** The endpoint we picked as canonical (max effectivePrompt, status >= 0). */
   picked?: {
     provider: string;
     promptUsd: number;
     completionUsd: number;
-    /** Picked endpoint's quantization, surfaced for metadata. */
     quantization?: string;
   };
 }
 
-/** Module-level trace store, populated during fetch and consumed by testing logs. */
 const endpointTraces = new Map<string, OpenRouterEndpointsTrace>();
 
 export function getOpenRouterEndpointsTrace(
@@ -130,14 +103,7 @@ function parseUsdPerToken(s: string | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-/**
- * Build the SourceMetadata for one OR model.
- *
- * `supportedParameters` (intersection across all endpoints with valid pricing)
- * and `supportedParametersAll` (union) come from the per-endpoint trace, NOT
- * the model-level union OR exposes — that would lie in the common case where
- * one endpoint accepts a sampler nobody else does.
- */
+/** supportedParameters (intersection) + supportedParametersAll (union) come from the per-endpoint trace; the model-level union lies when one endpoint accepts a sampler nobody else does. */
 function toMetadata(model: OpenRouterSummaryModel): SourceMetadata {
   const md: SourceMetadata = {};
   const ctx = model.top_provider?.context_length ?? model.context_length;
@@ -181,8 +147,7 @@ function toMetadata(model: OpenRouterSummaryModel): SourceMetadata {
   if (model.default_parameters && Object.keys(model.default_parameters).length)
     md.defaultParameters = model.default_parameters;
 
-  // Intersection / union of per-endpoint supported_parameters. Falls back to
-  // the model-level union (params) when no per-endpoint data is present.
+  // Intersect/union per-endpoint supported_parameters; fall back to model-level union below.
   const trace = endpointTraces.get(model.id);
   if (trace?.endpoints && trace.endpoints.length > 0) {
     const lists = trace.endpoints
@@ -201,9 +166,7 @@ function toMetadata(model: OpenRouterSummaryModel): SourceMetadata {
     if (trace.picked?.quantization)
       md.quantization = trace.picked.quantization;
   }
-  // If no per-endpoint data but the model-level union is available, still
-  // surface it as both fields (intersection == union for a single-endpoint
-  // view of the world).
+  // No per-endpoint data: intersection == union from the model-level view.
   if (!md.supportedParameters && params.length > 0) {
     md.supportedParameters = [...params].sort();
     md.supportedParametersAll = md.supportedParameters;
@@ -212,25 +175,10 @@ function toMetadata(model: OpenRouterSummaryModel): SourceMetadata {
 }
 
 /**
- * Pick the canonical pricing for a model from its endpoint list.
- *
- * Strategy: take the *median* prompt and completion across endpoints. The
- * median is what most providers charge, which is the closest signal we have
- * to "real list price."
- *
- * Why not max: the highest endpoint is often a single outlier (e.g. Venice
- * at $1.75 while 11 of 15 providers charge $1.40 for glm-5.1, or Together
- * at $2.10 while 5 of 7 charge $1.74 for deepseek-v4-pro). Max ends up
- * sitting *above* the dominant cluster and prevents the voter from forming
- * a majority with basellm.
- *
- * Why not min: the cheapest endpoint is often a promo (DeepSeek-direct at
- * $0.435/M while everyone else charges $1.74 for the same V4-Pro model).
- * Min directly imports the promo into our canonical.
- *
- * Median picks the dominant cluster without being skewed by single-endpoint
- * outliers in either direction. Provider name returned is the endpoint
- * whose prompt is closest to the median, for the trace.
+ * Median prompt/completion across endpoints. Max would import single-endpoint
+ * outliers (Venice at $1.75 vs 11×$1.40 for glm-5.1); min would import promos
+ * (DeepSeek-direct $0.435/M vs $1.74 cluster for V4-Pro). Median tracks the
+ * dominant cluster.
  */
 function pickCanonicalEndpoint(endpoints: OpenRouterEndpoint[]):
   | {
@@ -240,9 +188,7 @@ function pickCanonicalEndpoint(endpoints: OpenRouterEndpoint[]):
       quantization?: string;
     }
   | undefined {
-  // Collect (prompt, completion, provider) triples for endpoints with valid
-  // prices. Carry the per-endpoint pair so completion uses the same row's
-  // value when we land on a specific median entry.
+  // completion is paired per-row so the median row's completion is used (not a separate completion median).
   interface Row {
     prompt: number;
     completion: number;
@@ -267,9 +213,7 @@ function pickCanonicalEndpoint(endpoints: OpenRouterEndpoint[]):
   }
   if (rows.length === 0) return undefined;
 
-  // Median by prompt. With even counts we pick the upper-middle entry rather
-  // than averaging — the model's actual price is whichever discrete value
-  // dominates, not a synthetic mean that no provider charges.
+  // Even counts: upper-middle (some provider's actual price), not a synthetic mean.
   rows.sort((a, b) => a.prompt - b.prompt);
   const medianRow = rows[Math.floor(rows.length / 2)]!;
   return {
@@ -316,18 +260,7 @@ async function fetchEndpointsForModel(
   return trace;
 }
 
-/**
- * Fetch the OpenRouter model catalog.
- *
- * Two-phase fetch:
- *   1. /v1/models — gets the id list + per-model metadata (context, modality,
- *      supported params, description). Pricing fields here are IGNORED for
- *      canonical resolution because they collapse to the cheapest endpoint
- *      and silently include promo prices.
- *   2. /v1/models/{id}/endpoints (per-model, concurrent) — gets the per-provider
- *      pricing rows. We pick `max(prompt * (1 - discount))` as the canonical
- *      price for each model. Traces are stored module-side for debug logging.
- */
+/** Two-phase: /v1/models for metadata, then /v1/models/{id}/endpoints (concurrent) for per-provider pricing → median per model. */
 export async function fetchOpenRouterPricingSource(): Promise<PricingSource | null> {
   endpointTraces.clear();
 
@@ -377,7 +310,6 @@ export async function fetchOpenRouterPricingSource(): Promise<PricingSource | nu
     }),
   );
 
-  // Build entries from traces (skipping models without endpoints).
   const validEntries: [string, OpenRouterSummaryModel][] = [];
   for (const [id, model] of summaryById) {
     if (!endpointTraces.has(id)) continue;

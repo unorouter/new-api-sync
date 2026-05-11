@@ -1,14 +1,5 @@
-// emitChannels: translate a PricedPlan into Channel[] + global state.
-//
-// Pricing math is done by compute(); this is purely a translation step:
-// PricedTier → Channel, plus the mergedGroups list buildOptionMaps reads,
-// plus a collision check across the union of baseline channels and the new
-// plan's tiers.
-//
-// The capabilities JSON (`{"capabilities": {...}}`) for channel.setting is
-// built here from tier.testDetails. emit owns this concern because it's
-// downstream of pricing and depends on per-tier filtering already done by
-// compute when it pushed the tier.
+// Pure translation: PricedPlan → Channel[] + mergedGroups. Capabilities JSON
+// for channel.setting derives from tier.testDetails (compute filtered already).
 
 import type { Channel, MergedGroup, MergedModel } from "@core/types";
 import { t } from "@server/i18n";
@@ -29,16 +20,10 @@ export interface EmitResult {
 export function emitChannels(args: EmitArgs): EmitResult {
   const { plan, baseline } = args;
 
-  // Skip tiers with zero surviving models. Happens when pricing drops every
-  // bucket (charge > ceiling) AND/OR probes 401 every bucket - we'd otherwise
-  // emit a channel with `models: ""` and new-api rejects with
-  // "channel cannot be empty". The tier is effectively dead either way; let
-  // the next sync re-create it once a real model survives the gate.
+  // Empty tier → new-api rejects with "channel cannot be empty"; let next sync re-create.
   const liveTiers = plan.tiers.filter((tier) => tier.models.length > 0);
 
-  // Collision detection across baseline channels (unmanaged) + new tiers.
-  // Same error format as the previous in-pipeline check so on-call greps
-  // still work.
+  // Same error format as the previous in-pipeline check (on-call greps).
   const seen = new Map<string, { source: "baseline" | "plan"; tag?: string }>();
   for (const ch of baseline.channels) {
     seen.set(ch.name, { source: "baseline", tag: ch.tag });
@@ -100,15 +85,10 @@ export function emitChannels(args: EmitArgs): EmitResult {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Capabilities JSON for channel.setting.
-//
-// Match the legacy format exactly: {"capabilities": {tool_calling, streaming, http}}.
-// Each field is true iff every test detail in the tier reports a non-null
-// success for that probe. The "tool_calling = false when all-null" branch
-// matches the old behaviour where reasoning-only buckets get marked
-// tool-incapable so they don't 400 on tool-call requests routed here.
-// ---------------------------------------------------------------------------
+// Capabilities JSON: {"capabilities": {tool_calling, streaming, http}}. Each
+// flag is true iff every detail in the tier reports non-null success.
+// tool_calling=false on all-null matches legacy (reasoning-only buckets get
+// marked tool-incapable so they don't 400 on tool-call requests).
 
 function buildSettingJson(tier: PricedTier): string | undefined {
   if (!tier.testDetails || tier.testDetails.length === 0) return undefined;
@@ -123,9 +103,6 @@ function buildSettingJson(tier: PricedTier): string | undefined {
   };
 
   const capabilities: Record<string, boolean> = {
-    // tool_calling=false when all test results were null — matches legacy
-    // behaviour: reasoning-only buckets get marked tool-incapable so they
-    // don't 400 on tool-call requests routed here.
     tool_calling: summarize((d) => d.toolCallSuccess) ?? false,
   };
   const streaming = summarize((d) => d.streamSuccess);

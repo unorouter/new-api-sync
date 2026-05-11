@@ -2,11 +2,7 @@ import { lookup } from "@core/catalog/metadata";
 import type { PricingSourceName } from "@core/types";
 import type { PricingSource } from "./sources/types";
 
-/**
- * Per-source result for one model lookup, suitable for serializing into a
- * testing log so operators can see exactly why the voted canonical landed
- * where it did (or didn't).
- */
+/** Per-source result, serialised into the testing log for debug. */
 export interface PricingVoteCandidate {
   source: PricingSourceName;
   matchedKey?: string;
@@ -15,38 +11,23 @@ export interface PricingVoteCandidate {
 }
 
 export interface PricingVoteCluster {
-  /** Sources that voted for this exact (bit-equal) modelRatio. */
   members: PricingSourceName[];
   modelRatio: number;
-  /** Mean completionRatio across cluster members (sources can disagree on output:input). */
+  /** Mean across cluster members (sources can disagree on output:input). */
   completionRatio: number;
 }
 
 export interface PricingVoteResult {
   candidates: PricingVoteCandidate[];
-  /** Largest cluster with size >= 2, or null when no majority emerged. */
+  /** Largest cluster size ≥ 2, or null. */
   cluster: PricingVoteCluster | null;
   decision: "voted" | "no-majority" | "no-matches";
 }
 
 /**
- * Resolve canonical pricing for a model by polling every source and clustering
- * exact matches on `modelRatio`.
- *
- * Algorithm:
- *   1. Fuzzy-lookup `modelName` in each source via the existing `lookup()`
- *      chain (so reverse-mapped names + stripped variants still resolve).
- *   2. Group hits by exact (bit-equal) `modelRatio`.
- *   3. Pick the largest group with size >= 2 — that's the "voted" canonical.
- *   4. On no group >= 2, return decision=no-majority and cluster=null. The
- *      caller then falls back to whatever new-api already has stored, instead
- *      of trusting any single source that might be promo-distorted.
- *
- * Why exact and not tolerance-based: rounding rarely diverges across sources
- * for the same listed price (they all do `usd_per_M / 2`), but promo prices
- * diverge by 4x or more. Exact equality cleanly separates "rounding noise"
- * (which is rarely an issue in practice) from "promo distortion" (which is
- * the whole reason this voter exists).
+ * Cluster sources by exact modelRatio. No cluster ≥ 2 → no-majority and the
+ * caller falls back to whatever new-api has stored, instead of trusting any
+ * single source that might be promo-distorted.
  */
 export function resolveCanonicalByVote(
   modelName: string,
@@ -77,13 +58,7 @@ export function resolveCanonicalByVote(
     return { candidates, cluster: null, decision: "no-matches" };
   }
 
-  // Group by modelRatio rounded to 4 decimals (= $0.0001/quota precision).
-  // Sources compute the ratio as `usd_per_M / 2`, which can leave
-  // floating-point artifacts (e.g. 0.1 vs 0.09999999999999999, or
-  // 0.2 vs 0.19999999999999998). Bit-exact equality treats those as
-  // disagreement and turns "all sources agree" into no-majority. Rounding
-  // collapses the noise without absorbing real disagreements (canonical
-  // prices rarely differ by less than 0.0001 between sources).
+  // Round to 4 decimals: collapses float artifacts (0.1 vs 0.09999...) without absorbing real disagreement.
   const round = (r: number) => Math.round(r * 10000) / 10000;
   const groups = new Map<number, PricingVoteCandidate[]>();
   for (const c of matched) {
@@ -93,9 +68,7 @@ export function resolveCanonicalByVote(
     else groups.set(r, [c]);
   }
 
-  // Pick the largest group; ties are broken by insertion order (first
-  // ratio key wins via Map iteration order — typically the highest-priority
-  // source's value).
+  // Ties: insertion order (first ratio key wins — typically highest-priority source).
   let best:
     | { ratio: number; members: PricingVoteCandidate[] }
     | undefined;
@@ -108,7 +81,6 @@ export function resolveCanonicalByVote(
     return { candidates, cluster: null, decision: "no-majority" };
   }
 
-  // Cluster completionRatio = mean across members (typically all the same).
   const completionRatios = best.members
     .map((m) => m.completionRatio)
     .filter((x): x is number => x !== undefined);

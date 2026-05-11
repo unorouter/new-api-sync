@@ -8,23 +8,15 @@ import {
 } from "fs";
 import { join } from "path";
 
-/**
- * Storage layer for `bun sync images`. One master JSON file plus per-attempt
- * raw artifacts. Atomic writes survive Ctrl-C mid-run.
- */
+// Storage for `bun sync images`: master JSON + per-attempt artifacts, atomic writes.
 
 /**
- * Distinct wire shapes the probe can submit. Routed by the candidate's
- * `endpointTypes` rather than by model "kind" so a model that advertises
- * BOTH `image-generation` (text-to-image, JSON) AND `openai编辑图片`
- * (image-edit, multipart) gets a separate attempt per shape - the user
- * sees ground truth for each endpoint independently. Errors don't bill,
- * so the extra attempts are free.
- *
- * - sync-edits        -> POST /v1/images/edits        (multipart, 6 image refs)
- * - sync-generations  -> POST /v1/images/generations  (JSON, text-to-image)
- * - openai-vendor     -> POST /v1/chat/completions    (multimodal, 6 refs)
- * - task              -> POST /v1/videos              (submit + poll)
+ * Wire shapes routed by endpoint type (a model advertising both
+ * `image-generation` and `image-edit` gets one attempt per shape):
+ *   sync-edits        -> POST /v1/images/edits        (multipart, 6 refs)
+ *   sync-generations  -> POST /v1/images/generations  (JSON, t2i)
+ *   openai-vendor     -> POST /v1/chat/completions    (multimodal, 6 refs)
+ *   task              -> POST /v1/videos              (submit + poll)
  */
 export type ProbeShape =
   | "sync-edits"
@@ -32,11 +24,7 @@ export type ProbeShape =
   | "openai-vendor"
   | "task";
 
-/**
- * High-level routing kind. Used in the master file as a quick filter
- * (sync vs openai-vendor vs task). Distinct attempts within a model are
- * differentiated by `ProbeShape` (per-endpoint).
- */
+/** Master-file filter (per-attempt detail lives in ProbeShape). */
 export type ProbeKind = "sync" | "openai-vendor" | "task";
 
 export type ProbeErrorClass =
@@ -47,58 +35,24 @@ export type ProbeErrorClass =
   | "timeout"
   | "refusal"
   | "task_failed"
-  /** 5xx with body indicating no upstream channel is configured for this
-   *  model (e.g. yun's "分组 X 下模型 Y 无可用渠道"). The gateway lists the
-   *  model in pricing but has no backend wired up - common on resellers
-   *  that copy upstream catalogs without provisioning every entry. */
+  /** 5xx body saying gateway has no backend wired up (e.g. yun's "无可用渠道"). */
   | "no_channel"
   | "unknown";
 
 export interface ChannelResult {
   channelName: string;
-  /** Reuses the same shape text-model tests write, so logs grep the same way. */
   exchange: TestExchange;
   errorClass?: ProbeErrorClass;
   artifactPath: string;
-  /** Absolute paths of any generated images saved to disk. Empty when the
-   *  probe response carried no extractable url/b64_json (or download
-   *  failed). */
   imagePaths?: string[];
-  /** Output dimensions (width x height) of each saved image, parallel to
-   *  `imagePaths`. Captured at save time via image-magick `identify` so
-   *  the master file carries the model's NATIVE output resolution
-   *  without having to walk back to disk. Useful for spotting models
-   *  that ignored our `size: 1024x1024` request and returned their
-   *  native default (Doubao 2048², Grok 1168x784, etc.). */
+  /** Native output dims — spots models that ignore our 1024x1024 (Doubao 2048², Grok 1168x784). */
   imageResolutions?: Array<{ w: number; h: number }>;
-  /** USD delta on the upstream account between submit and completion of
-   *  THIS attempt (per-probe billing measured via two `/api/user/self`
-   *  balance reads bracketing the probe). Absent if the upstream doesn't
-   *  expose a quota balance. Note: passing probes ALWAYS bill; failing
-   *  probes USUALLY don't but some upstreams charge for compute even on
-   *  failure - this field surfaces the actual ground truth. */
+  /** Balance delta bracketing this attempt. Failing probes occasionally still bill. */
   costUsd?: number;
-  /** Which wire shape this attempt tested. A model with multiple
-   *  endpoint_types (e.g. `["image-generation","dall-e-3"]`) gets one
-   *  ChannelResult per kind so we capture how each shape behaves. */
   probeKind?: ProbeKind;
-  /** Specific endpoint URL family that was hit. `sync-edits` and
-   *  `sync-generations` both have probeKind=sync but address different
-   *  upstream endpoints; this field disambiguates so the user can see at
-   *  a glance which wire was tested. */
   probeShape?: ProbeShape;
-  /** Group's pricing multiplier at probe time. Probes are ordered
-   *  cheapest-first, so a `workingChannel.groupRatio` of 0.5 tells the
-   *  user the model worked on the discounted tier. */
   groupRatio?: number;
-  /** Did the request body actually carry the 6 reference fixtures?
-   *  - `sync-edits` and `openai-vendor` always send refs (true).
-   *  - `sync-generations` is text-to-image, no refs (false).
-   *  - `task` always sends refs (true).
-   *  Useful for filtering: a "passing" sync-generations probe with
-   *  hasImageInputs=false produced an image but didn't actually test
-   *  reference handling, so it's not a valid candidate for the
-   *  6-character-compose workload even though it returned a URL. */
+  /** False only for sync-generations (text-to-image); useful for filtering 6-ref compose tests. */
   hasImageInputs?: boolean;
   attemptedAt: string;
   taskId?: string;
@@ -109,10 +63,7 @@ export interface ModelResult {
   model: string;
   kind: ProbeKind;
   workingChannelName?: string;
-  /** Full exchange (request/response/headers/status/latency) of the channel
-   *  that decided this model: present when the model PASSED. Mirrors the
-   *  shape recorded in `failedChannels[]` so the master file stands alone
-   *  without having to open per-attempt artifacts on disk. */
+  /** Inlined here so the master file stands alone (mirrors failedChannels[]). */
   workingChannel?: ChannelResult;
   failedChannels: ChannelResult[];
   decidedAt: string;
@@ -144,8 +95,7 @@ export function loadStore(): ProbeStore {
       return parsed;
     }
   } catch {
-    // Corrupted file — start fresh. The user can salvage the old file
-    // from the .tmp sibling if they want.
+    // corrupt — start fresh (the .tmp sibling is still on disk)
   }
   return { version: 1, generatedAt: new Date().toISOString(), results: [] };
 }
@@ -159,11 +109,7 @@ export function saveStore(store: ProbeStore): void {
   renameSync(tmp, path);
 }
 
-/**
- * `true` when the (provider, model) pair is already in the results file.
- * To re-test a combo, the user manually deletes its entry from
- * `logs/images-results.json` and re-runs.
- */
+/** To re-test, delete the entry from logs/images-results.json and re-run. */
 export function isAlreadyTested(
   store: ProbeStore,
   provider: string,
@@ -175,8 +121,7 @@ export function isAlreadyTested(
 }
 
 export function appendResult(store: ProbeStore, r: ModelResult): void {
-  // Replace any prior entry for the same (provider, model) — defensive in
-  // case a manual edit left a stale entry behind.
+  // Replace, not push — handles manual edits that left a stale entry.
   const i = store.results.findIndex(
     (x) => x.provider === r.provider && x.model === r.model,
   );
@@ -184,30 +129,17 @@ export function appendResult(store: ProbeStore, r: ModelResult): void {
   else store.results.push(r);
 }
 
-/**
- * Slugify a string for use as a path component. `Qwen/Qwen-Image-Edit` and
- * `gpt-image-1.5` should both produce safe directory names. Empty / all-
- * non-ascii inputs (some upstreams ship emoji-only group names) collapse
- * to `default` rather than a bare `_` so filenames stay readable.
- */
+/** Empty / all-non-ascii inputs collapse to "default" (some upstreams ship emoji-only group names). */
 export function slug(s: string): string {
   const cleaned = s.replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
   return cleaned || "default";
 }
 
-/** Resolve the per-(provider, model) artifact directory used for both the
- *  exchange JSON and the saved generated images. Exported so the
- *  download helper can reuse the same path scheme. */
 export function artifactDirFor(provider: string, model: string): string {
   return join(ARTIFACT_DIR(), slug(provider), slug(model));
 }
 
-/**
- * Write a redacted exchange JSON to
- * `logs/images/<provider>/<model>/<timestamp>.json` and return its absolute
- * path. Caller is responsible for redacting auth tokens BEFORE calling this
- * (see redactExchange in shared util).
- */
+/** Caller must redactExchange() before calling this. */
 export function writeArtifact(
   provider: string,
   model: string,
@@ -237,17 +169,13 @@ export function writeArtifact(
   return path;
 }
 
-// ---------------------------------------------------------------------------
-// Dry-run report
-// ---------------------------------------------------------------------------
+// ─── Dry-run report ───────────────────────────────────────────────────────
 
 const DRY_RUN_PATH = () => join(process.cwd(), "logs", "images-dry-run.json");
 
 export interface DryRunCandidate {
   model: string;
-  /** Canonical key shared with all `aliases` (after slug-variant collapse). */
   canonicalKey: string;
-  /** Other slugs on this provider that collapsed into this representative. */
   aliases?: string[];
   kind: ProbeKind;
   endpointTypes: string[];

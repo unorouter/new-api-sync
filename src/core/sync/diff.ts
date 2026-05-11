@@ -42,10 +42,7 @@ function extractCapabilities(
   }
 }
 
-/**
- * Merge desired capabilities into an existing setting JSON string,
- * preserving any manually configured fields (proxy, system_prompt, etc.).
- */
+/** Sync capabilities; preserve manual fields (proxy, system_prompt, ...). */
 function mergeSettingCapabilities(
   existingSetting: string | undefined,
   desiredSetting: string | undefined,
@@ -90,17 +87,12 @@ function normalizeChannel(channel: Channel): Omit<Channel, "id"> {
         : undefined,
     setting: normalizeCapabilities(channel.setting),
     workflow_templates: normalizeWorkflowTemplates(channel.workflow_templates),
-    // Compare auto_ban so providers that override it (e.g. comfyui) trigger
-    // an update on existing rows. Undefined on either side means "no
-    // opinion, leave it alone".
+    // comfyui overrides this; undefined either side = no opinion.
     auto_ban: channel.auto_ban,
   };
 }
 
-/**
- * Re-serialize workflow_templates JSON via a stable stringify so cosmetic
- * whitespace and key-order changes don't trigger spurious updates.
- */
+/** Stable stringify so key-order / whitespace changes don't trigger spurious updates. */
 function normalizeWorkflowTemplates(
   workflowTemplates?: string,
 ): string | undefined {
@@ -109,7 +101,7 @@ function normalizeWorkflowTemplates(
     const parsed = JSON.parse(workflowTemplates);
     return stringify(parsed) ?? undefined;
   } catch {
-    return workflowTemplates; // leave invalid JSON unchanged so the diff still flags it
+    return workflowTemplates; // invalid JSON: leave as-is so the diff still flags it
   }
 }
 
@@ -144,12 +136,7 @@ function buildManagedOptionValues(
 
   const protectedModels = collectModelsFromChannels(unmanagedChannels);
 
-  // Models in desired channels that don't have explicit ratio data from the
-  // sync (e.g. sub2api models — sub2api has no pricing info).  We preserve
-  // their existing target values so pricing isn't wiped. Use `in` checks
-  // (not truthiness) so that a legit `0` ratio from free providers still
-  // counts as "the sync explicitly set it" and propagates to the DB —
-  // otherwise stale non-zero ratios from prior syncs survive forever.
+  // `in` checks (not truthiness) so a legit 0 ratio from free providers still propagates.
   const desiredModelsWithoutRatio = new Set<string>();
   for (const channel of desired.channels) {
     for (const model of parseModelList(channel.models)) {
@@ -162,8 +149,7 @@ function buildManagedOptionValues(
     }
   }
 
-  // Guard set for model-level options: protect models from unmanaged channels
-  // AND models in managed channels that the sync didn't set pricing for.
+  // Guard: unmanaged channel models + managed-but-no-pricing-this-sync.
   const modelRatioGuard = new Set([
     ...protectedModels,
     ...desiredModelsWithoutRatio,
@@ -178,9 +164,7 @@ function buildManagedOptionValues(
     }
   };
 
-  // Merge `desired` into the parsed snapshot value at `key`, preserving any
-  // existing keys covered by `guard`. Collapses the eight near-identical
-  // mergeProtected(parse(...), guard, desired) calls below.
+  // Collapses 8× near-identical mergeProtected(parse(...), guard, desired) calls.
   const mergeOption = <T>(
     key: string,
     guard: Set<string>,
@@ -188,8 +172,7 @@ function buildManagedOptionValues(
   ): Record<string, T> =>
     mergeProtected(parse<Record<string, T>>(key, {}), guard, desired);
 
-  // During partial syncs (--only), guard existing option keys from providers
-  // NOT in this run. Groups belonging to managed providers must be updatable.
+  // --only: guard keys from non-included providers; managed providers stay updatable.
   const managedGroups = new Set(
     snapshot.channels
       .filter((ch) => ch.tag && desired.managedProviders.has(ch.tag))
@@ -203,10 +186,7 @@ function buildManagedOptionValues(
         ),
       ])
     : unmanagedGroups;
-  // Mirror managedGroups: collect models exposed by channels owned by
-  // providers in this partial sync. Those models must NOT be guarded —
-  // otherwise re-running --only on a provider can never update its own
-  // pricing, because a previous sync already wrote the keys to ModelPrice/etc.
+  // Mirror managedGroups for models: must NOT guard, else --only can't update its own pricing.
   const managedModels = new Set<string>();
   for (const channel of snapshot.channels) {
     if (channel.tag && desired.managedProviders.has(channel.tag)) {
@@ -261,8 +241,7 @@ function buildManagedOptionValues(
     ["ModelGridPricing", desired.options.modelGridPricing],
   ];
 
-  // Build model_patterns for chat/completions → /v1/responses policy.
-  // Each model name is escaped and anchored as an exact match.
+  // Escaped + anchored exact-match patterns for chat/completions → /v1/responses policy.
   const modelPatterns = desired.options.responsesApiModels.map(
     (m) => `^${m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
   );
@@ -360,11 +339,7 @@ export function buildSyncDiff(
     }
   }
 
-  // When a model filter is set (--models), narrow the deletion scope so
-  // channels for unrelated models stay untouched. A channel is in-scope
-  // for deletion only if at least one of its current models matches the
-  // filter — otherwise the user clearly didn't intend to manage it on
-  // this run, and deleting it would be destructive surprise behavior.
+  // --models filter: only delete channels whose current models intersect the filter.
   const modelFilter = config.modelFilter;
   const channelInModelFilterScope = (channel: Channel): boolean => {
     if (!modelFilter || modelFilter.length === 0) return true;
@@ -388,11 +363,7 @@ export function buildSyncDiff(
   const vendorNameToId = buildVendorIdMap(snapshot.vendors);
   const modelOps: DiffOperation<ModelMeta>[] = [];
 
-  // Backward-compat: older new-api versions don't have the `metadata` column.
-  // If the snapshot contains at least one model with metadata defined (even an
-  // empty string counts as "the field exists in the response"), we treat the
-  // server as metadata-capable. Otherwise we skip pushing metadata to avoid
-  // triggering futile update loops on servers that just drop the field.
+  // Older new-api lacks the metadata column; detect by any row defining the field.
   const serverSupportsMetadata = snapshot.models.some(
     (m) => m.metadata !== undefined,
   );
@@ -482,9 +453,7 @@ export function buildSyncDiff(
     const modelName = existing.model_name;
     if (desired.models.has(modelName)) continue;
     if (protectedModels.has(modelName)) continue;
-    // Skip deletion of models outside the model filter scope. Same
-    // reasoning as channels above — narrow the diff to the slice the
-    // user actually asked about.
+    // --models filter applies to delete-scope too.
     if (
       modelFilter &&
       modelFilter.length > 0 &&

@@ -1,14 +1,6 @@
-// Offer types: the input shape for the pricing pipeline.
-//
-// An UpstreamOffer is "this provider, in this upstream group, can serve these
-// models with these capabilities." It carries everything compute() needs
-// (per-model upstream ratios, free flags, fixed-price flags, test results)
-// and nothing it doesn't (no API keys are used during pricing math, but they
-// ride along so emit() can build channels without re-threading config).
-//
-// Each provider's discover function returns UpstreamOffer[]. The compute()
-// function consumes the union of all offers from all providers and produces
-// a global PricedPlan. There is no mid-pipeline state mutation.
+// Input shape for the pricing pipeline. Each provider's discover function
+// returns UpstreamOffer[]; compute() consumes the union and produces a
+// PricedPlan. No mid-pipeline mutation.
 
 import type { ModelType } from "@core/types";
 import type { ModelTestDetail } from "@core/testing/types";
@@ -22,84 +14,58 @@ export type ProviderKind =
   | "sub2api";
 
 export interface OfferModel {
-  /** Post-mapping name as exposed to users on the gateway. */
   exposed: string;
-  /** Original upstream name. Identical to `exposed` when no mapping applies. */
   upstream: string;
-  /** Upstream's per-model ratio. Undefined for providers that don't expose
-   *  per-model pricing (sub2api). When undefined, compute uses
-   *  "cheapest existing group ratio across other tiers + baseline" instead
-   *  of the rescale formula. */
+  /** Undefined = no per-model pricing (sub2api). Compute falls back to cheapest existing group ratio. */
   upstreamRatio?: number;
   upstreamCompletionRatio?: number;
   cacheRatio?: number;
   createCacheRatio?: number;
-  /** Fixed-per-request price (image generation). When set with
-   *  quotaType >= 1, the model is billed per call, not per token. */
+  /** With quotaType ≥ 1: per-call price, ratio path skipped. */
   modelPrice?: number;
-  /** Custom billing type override (1=per-request, 3=flat custom, 4=grid).
-   *  Models with quotaType >= 1 bypass the ratio path entirely. */
+  /** 1=per-request, 3=flat custom, 4=grid. ≥1 bypasses ratio. */
   quotaType?: number;
-  /** Test results for capability JSON in the channel `setting` field. */
   testDetail?: ModelTestDetail;
-  /** Forces ratio=0 / completionRatio=0 in the global model_ratios map and
-   *  group_ratio=0 on this offer's tier. Cap check is skipped. Used by
-   *  free-tier OpenRouter and NVIDIA offers. */
+  /** Forces ratio=0 + group_ratio=0; cap check skipped. (OpenRouter free, NVIDIA) */
   isFree?: boolean;
   modelType: ModelType;
-  /** Original upstream endpoint type strings, for task-override sub-split
-   *  detection (e.g. presence of "openai-video" gates the override). */
+  /** Original endpoint strings — gates task-override sub-split detection (e.g. presence of openai-video). */
   endpoints?: string[];
-  /** Normalized endpoint types (passed through normalizeEndpointTypes). Used
-   *  by inferModelType, capabilities JSON, and the openai-response detection
-   *  in collectResponsesApiModels. Replaces the previous shared
-   *  state.modelEndpoints map. */
+  /** Normalized via normalizeEndpointTypes; feeds inferModelType + responses-api detection. */
   normalizedEndpoints?: string[];
 }
 
 export interface UpstreamOffer {
-  /** Provider tag (config name). Used for channel.tag and managedProviders. */
   provider: string;
   providerKind: ProviderKind;
-  /** Upstream's group name (or a synthetic placeholder for sub2api which
-   *  has no upstream group concept). */
+  /** Upstream group name (synthetic placeholder for sub2api). */
   group: string;
-  /** Sanitized base for tier channel names, e.g. `${groupName}-${providerName}`
-   *  already passed through sanitizeGroupName + collision-disambiguation. */
+  /** Tier channel-name base; already sanitized + collision-disambiguated. */
   sanitizedBase: string;
   vendor: string;
   channelType: number;
   baseUrl: string;
   apiKey: string;
-  /** Upstream's own group ratio. 1.0 if the provider has no group concept
-   *  (sub2api). 0 for free providers (NVIDIA, OpenRouter free). */
+  /** 1.0 = no group concept (sub2api). 0 = free (NVIDIA, OpenRouter free). */
   groupRatio: number;
   channelRemark: string;
   models: OfferModel[];
   priceAdjustment?: AnyProviderConfig["priceAdjustment"];
   defaultAdjustment: number;
-  /** OpenRouter paid offers: trigger the cap-fitting binary search instead
-   *  of the standard rescale formula. The compute function picks one
-   *  group_ratio for the whole offer that keeps every model under canonical. */
+  /** OpenRouter paid: cap-fitting binary search picks one group_ratio for the whole offer. */
   paidTier?: boolean;
 }
 
-/** Endpoint type -> path/method, sourced from upstream supported_endpoint
- *  metadata (newapi only). Aggregated across all providers post-discovery
- *  so buildDesiredModels can render the per-channel `endpoints` JSON. */
+/** newapi only; empty for sub2api/nvidia/openrouter. */
 export interface EndpointPathInfo {
   path: string;
   method: string;
 }
 
-/** Per-provider discovery output, returned alongside offers. Replaces the
- *  former shared SyncState.endpointPaths map. Empty Map when the provider
- *  has no endpoint metadata to share (sub2api, nvidia, openrouter). */
 export interface ProviderEndpointMetadata {
   endpointPaths: Map<string, EndpointPathInfo>;
 }
 
-/** Standard return shape for every provider's process function. */
 export interface ProviderResult {
   report: ProviderReport;
   offers: UpstreamOffer[];

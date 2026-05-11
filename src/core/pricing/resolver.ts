@@ -13,24 +13,10 @@ import type {
 export type { BaseModelPricing, PricingSource, SourceMetadata };
 
 /**
- * Fetch all pricing sources in parallel.
- *
- * The order returned is the priority chain for `resolveBasePricing` (first hit
- * wins). For canonical-by-vote (the pre-test cap gate) the order doesn't
- * matter — every source is consulted and clustered.
- *
- * Sources, in priority order:
- *   1. simonw/llm-prices  — flat list-price catalog, ignores promos
- *   2. basellm (canonical) — per-vendor rows, vendor=upstream filtered
- *   3. LiteLLM             — broad coverage, accurate for Anthropic/OpenAI
- *   4. OpenRouter          — per-endpoint max prompt*(1-discount), best for breadth
- *
- * basellm entries are passed in pre-fetched (the pipeline already pulls them
- * for description/tags via fetchBasellmEntries), so we don't double-fetch.
- *
- * llm-prices is *advisory*: if its fetch fails we fall through to the other
- * three. The other three remain required — empty there means a real fetch
- * regression we want to fail loudly on.
+ * Priority chain for resolveBasePricing (first hit wins):
+ *   1. llm-prices (advisory; OK to fail)  2. basellm (canonical, vendor-filtered)
+ *   3. LiteLLM  4. OpenRouter
+ * Empty 2/3/4 throws — fetch regression should fail loud.
  */
 export async function fetchAllPricingSources(
   basellmEntries: BasellmEntry[],
@@ -58,11 +44,7 @@ export async function fetchAllPricingSources(
   );
 }
 
-/**
- * Resolve base pricing for a model by walking the priority chain. Returns
- * the first source that has a fuzzy match. Reuses lookup() from metadata.ts
- * which handles normalized exact, stripped variants, and reverse-mapping.
- */
+/** First fuzzy match in priority order. */
 export function resolveBasePricing(
   modelName: string,
   sources: PricingSource[],
@@ -75,18 +57,13 @@ export function resolveBasePricing(
   return undefined;
 }
 
-/**
- * Resolve merged metadata for a model. Walks all sources, layering fields:
- * each field from the highest-priority source that has it wins.
- * Returns the typed SourceMetadata object (no override applied here).
- */
+/** Merge fields across sources; higher-priority wins (walked in reverse so higher overwrites later). */
 export function resolveSourceMetadata(
   modelName: string,
   sources: PricingSource[],
   reverseMapping: Map<string, string>,
 ): SourceMetadata {
   const merged: SourceMetadata = {};
-  // Walk in reverse so higher-priority sources overwrite lower-priority ones
   for (let i = sources.length - 1; i >= 0; i--) {
     const source = sources[i]!;
     const hit = lookup(modelName, source.metadata, reverseMapping);
@@ -96,11 +73,7 @@ export function resolveSourceMetadata(
   return merged;
 }
 
-/**
- * Build merged metadata for a model. Walks all sources, layering fields:
- * each field from the highest-priority source that has it wins. Override
- * (from enabledModels[].metadata) always wins over source-derived data.
- */
+/** Override (from enabledModels[].metadata) wins over source-derived. */
 export function buildModelMetadata(opts: {
   modelName: string;
   sources: PricingSource[];
@@ -111,7 +84,6 @@ export function buildModelMetadata(opts: {
     ...resolveSourceMetadata(opts.modelName, opts.sources, opts.reverseMapping),
   };
 
-  // Override wins
   if (opts.override) {
     for (const [k, v] of Object.entries(opts.override)) {
       if (v !== undefined) merged[k] = v;
@@ -121,11 +93,7 @@ export function buildModelMetadata(opts: {
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
-/**
- * Derive feature tags from source metadata. Used to extend basellm-only tags
- * with capabilities that LiteLLM/OpenRouter expose. Output values match the
- * existing tag vocabulary (Reasoning, Tools, Vision, Audio, Files, Open Weights).
- */
+/** Tag vocab: Reasoning, Tools, Vision, Audio, Files, Cache, WebSearch, ComputerUse, <N>K|M. */
 export function deriveTagsFromMetadata(md: SourceMetadata): string[] {
   const tags: string[] = [];
   if (md.isReasoning) tags.push("Reasoning");
@@ -138,7 +106,6 @@ export function deriveTagsFromMetadata(md: SourceMetadata): string[] {
   if (md.supportsWebSearch) tags.push("WebSearch");
   if (md.supportsComputerUse) tags.push("ComputerUse");
 
-  // Context-window tag like "128K", "1M"
   const ctx = md.contextWindow ?? md.maxInputTokens;
   if (ctx != null && ctx > 0) {
     if (ctx >= 1_000_000) {
