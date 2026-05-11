@@ -59,7 +59,7 @@ const FALLBACK_PATHS: Record<string, string> = {
   "aigc-image": "/v1/images/generations",
   "aigc-image-edit": "/v1/images/edits",
   "dall-e-3": "/v1/images/generations",
-  "openai": "/v1/chat/completions",
+  openai: "/v1/chat/completions",
   // Short names (v3-style)
   images: "/v1/images/generations",
   edits: "/v1/images/edits",
@@ -108,7 +108,9 @@ export function resolveEndpoint(opts: {
   if (!path) return null;
 
   // Substitute {model} in the path. Some providers use `:model` instead.
-  path = path.replace(/\{model\}/g, opts.modelName).replace(/:model\b/g, opts.modelName);
+  path = path
+    .replace(/\{model\}/g, opts.modelName)
+    .replace(/:model\b/g, opts.modelName);
 
   return {
     path,
@@ -150,15 +152,34 @@ function classifyShape(path: string, endpointType: string): ProbeShape {
     return "task";
   }
   // Explicit edits route -> multipart.
-  if (lp.includes("/images/edits") || lt.includes("edit") || lt.includes("修图") || lt.includes("扩图")) {
+  if (
+    lp.includes("/images/edits") ||
+    lt.includes("edit") ||
+    lt.includes("修图") ||
+    lt.includes("扩图")
+  ) {
     return "sync-edits";
   }
   // Generations route -> JSON text-to-image.
-  if (lp.includes("/images/generations") || lt === "image-generation" || lt === "images" || lt === "openai-image" || lt === "aigc-image" || lt === "dall-e-3" || lt.includes("生图")) {
+  if (
+    lp.includes("/images/generations") ||
+    lt === "image-generation" ||
+    lt === "images" ||
+    lt === "openai-image" ||
+    lt === "aigc-image" ||
+    lt === "dall-e-3" ||
+    lt.includes("生图")
+  ) {
     return "sync-generations";
   }
   // Chat completions -> multimodal openai-vendor.
-  if (lp.includes("/chat/completions") || lp.includes(":generatecontent") || lt === "openai" || lt === "gemini" || lt === "chat") {
+  if (
+    lp.includes("/chat/completions") ||
+    lp.includes(":generatecontent") ||
+    lt === "openai" ||
+    lt === "gemini" ||
+    lt === "chat"
+  ) {
     return "openai-vendor";
   }
   // Default fallback.

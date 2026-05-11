@@ -1,7 +1,8 @@
 import { fetchJson } from "@core/runtime";
+import { readJson, writeJsonAtomic } from "@core/infra/fs";
+import { logsDir } from "@core/infra/paths";
 import { t } from "@server/i18n";
 import { consola } from "consola";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import type { AuthenticityProbeLog } from "./types";
 
@@ -14,10 +15,7 @@ export const authenticityProbeAccumulator = new Map<
   AuthenticityProbeLog[]
 >();
 
-function addAuthenticityProbe(
-  key: string,
-  entry: AuthenticityProbeLog,
-): void {
+function addAuthenticityProbe(key: string, entry: AuthenticityProbeLog): void {
   if (!authenticityProbeAccumulator.has(key))
     authenticityProbeAccumulator.set(key, []);
   authenticityProbeAccumulator.get(key)!.push(entry);
@@ -32,45 +30,63 @@ interface AuthenticityBlacklistEntry {
   reason: string;
 }
 
+/**
+ * Bump when probe rules change in a way that should invalidate old verdicts.
+ * Entries persisted under a lower version are dropped on load so they can be
+ * re-evaluated against the current rules.
+ */
+const AUTHENTICITY_RULES_VERSION = 1;
+
+interface PersistedBlacklist {
+  rulesVersion?: number;
+  entries: Record<string, AuthenticityBlacklistEntry>;
+}
+
 const AUTHENTICITY_BLACKLIST_FILE = "authenticity-blacklist.json";
 const authenticityBlacklist = new Map<string, AuthenticityBlacklistEntry>();
 
 function getAuthenticityBlacklistPath(): string {
-  return join(process.cwd(), "logs", AUTHENTICITY_BLACKLIST_FILE);
+  return join(logsDir(), AUTHENTICITY_BLACKLIST_FILE);
 }
 
 export function loadAuthenticityBlacklist(): void {
-  const path = getAuthenticityBlacklistPath();
-  if (!existsSync(path)) return;
-  try {
-    const raw = readFileSync(path, "utf8");
-    const entries = JSON.parse(raw) as Record<
-      string,
-      AuthenticityBlacklistEntry
-    >;
-    authenticityBlacklist.clear();
-    for (const [key, val] of Object.entries(entries)) {
-      authenticityBlacklist.set(key, val);
+  const raw = readJson<
+    PersistedBlacklist | Record<string, AuthenticityBlacklistEntry>
+  >(getAuthenticityBlacklistPath());
+  if (!raw) return;
+  // Legacy flat shape (Record<key, entry>) is treated as the current rules
+  // version: it was created by code with the same checks. Drops only happen
+  // when a future bump leaves a wrapped file behind with a lower version.
+  const wrapped = "entries" in raw && typeof raw.entries === "object";
+  if (wrapped) {
+    const version = (raw as PersistedBlacklist).rulesVersion ?? 0;
+    if (version < AUTHENTICITY_RULES_VERSION) {
+      consola.info(
+        `[authenticity] dropping blacklist (rules v${version} < v${AUTHENTICITY_RULES_VERSION})`,
+      );
+      return;
     }
-    consola.info(
-      t("CORE.TESTER.AUTHENTICITY_LOADED", {
-        count: authenticityBlacklist.size,
-      }),
-    );
-  } catch {
-    // Corrupted file, start fresh
   }
+  const entries = wrapped
+    ? (raw as PersistedBlacklist).entries
+    : (raw as Record<string, AuthenticityBlacklistEntry>);
+  authenticityBlacklist.clear();
+  for (const [key, val] of Object.entries(entries)) {
+    authenticityBlacklist.set(key, val);
+  }
+  consola.info(
+    t("CORE.TESTER.AUTHENTICITY_LOADED", { count: authenticityBlacklist.size }),
+  );
 }
 
 export function saveAuthenticityBlacklist(): void {
   if (authenticityBlacklist.size === 0) return;
-  const logsDir = join(process.cwd(), "logs");
-  mkdirSync(logsDir, { recursive: true });
-  const obj: Record<string, AuthenticityBlacklistEntry> = {};
-  for (const [key, val] of authenticityBlacklist) {
-    obj[key] = val;
-  }
-  writeFileSync(getAuthenticityBlacklistPath(), JSON.stringify(obj, null, 2));
+  const entries: Record<string, AuthenticityBlacklistEntry> = {};
+  for (const [key, val] of authenticityBlacklist) entries[key] = val;
+  writeJsonAtomic(getAuthenticityBlacklistPath(), {
+    rulesVersion: AUTHENTICITY_RULES_VERSION,
+    entries,
+  });
 }
 
 function addToAuthenticityBlacklist(key: string, reason: string): void {
@@ -460,7 +476,9 @@ async function runAnthropicProbe(opts: {
 }
 
 function makeNonce(): string {
-  return Math.random().toString(36).slice(2, 8);
+  const bytes = new Uint8Array(4);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export async function testAnthropicAuthenticity(opts: {
@@ -529,7 +547,8 @@ export async function testAnthropicAuthenticity(opts: {
         if (hasCodingToolRefusal(text)) return false;
         if (hasScamPage(text)) return false;
         if (hasForeignIdentity(text, "model-name")) return false;
-        if (!text.includes("claude") && !text.includes("anthropic")) return false;
+        if (!text.includes("claude") && !text.includes("anthropic"))
+          return false;
         // Strip the nonce tag before checking fake-signature blocklist so a
         // tag prefix doesn't break exact-match.
         const stripped = text.replace(/^\s*\[[a-z0-9]{4,8}\]\s*/i, "").trim();
@@ -587,9 +606,7 @@ export async function testAnthropicAuthenticity(opts: {
   // receive someone else's response. Blacklist as unsafe-proxy — it's not
   // model substitution but it IS a correctness/privacy bug we shouldn't
   // expose to users.
-  const muxLabels = results
-    .filter((r) => r.muxFailure)
-    .map((r) => r.label);
+  const muxLabels = results.filter((r) => r.muxFailure).map((r) => r.label);
   if (muxLabels.length >= 2) {
     consola.warn(
       t("CORE.TESTER.AUTH_MUX_FAILURE", {

@@ -1,5 +1,11 @@
 import type { TestExchange } from "@core/testing/types";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "fs";
 import { join } from "path";
 
 /**
@@ -216,7 +222,14 @@ export function writeArtifact(
   writeFileSync(
     path,
     JSON.stringify(
-      { provider, model, channel: channelLabel, probeShape, recordedAt: ts, exchange },
+      {
+        provider,
+        model,
+        channel: channelLabel,
+        probeShape,
+        recordedAt: ts,
+        exchange,
+      },
       null,
       2,
     ),

@@ -32,7 +32,8 @@ export interface OpenAiVendorProbeOpts {
 export async function probeOpenAiVendorChannel(
   opts: OpenAiVendorProbeOpts,
 ): Promise<ProbeAttempt> {
-  const url = opts.baseUrl.replace(/\/$/, "") + (opts.path ?? "/v1/chat/completions");
+  const url =
+    opts.baseUrl.replace(/\/$/, "") + (opts.path ?? "/v1/chat/completions");
   const headers: Record<string, string> = {
     Authorization: `Bearer ${opts.apiKey}`,
     "Content-Type": "application/json",
@@ -44,7 +45,9 @@ export async function probeOpenAiVendorChannel(
   // multimodal schema; the OAI chat-completions default falls through
   // when no vendor match (the new-api translation layer handles
   // openai-shaped bodies on most channels).
-  const built = opts.path ? buildBody({ path: opts.path, model: opts.model, fixtures: opts.fixtures }) : null;
+  const built = opts.path
+    ? buildBody({ path: opts.path, model: opts.model, fixtures: opts.fixtures })
+    : null;
   let body: Record<string, unknown>;
   let sanitizedBody: Record<string, unknown>;
   if (built) {
@@ -82,8 +85,8 @@ export async function probeOpenAiVendorChannel(
   const start = performance.now();
   const ctrl = new AbortController();
   // Default 10 minutes. Image generation upstreams routinely take 2-5
-   // minutes (e.g. gpt-image-2 measured at 229s on yun, billable). 90s
-   // aborts healthy requests mid-flight before the upstream returns.
+  // minutes (e.g. gpt-image-2 measured at 229s on yun, billable). 90s
+  // aborts healthy requests mid-flight before the upstream returns.
   const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 600_000);
 
   let resp: Response | undefined;

@@ -152,8 +152,11 @@ function parsePricingV2(
       groupRatios[name] = group.GroupRatio;
 
       for (const [modelName, pricing] of Object.entries(group.ModelPrice)) {
-        if (pricing.price > 0 && !(modelName in modelRatios)) {
-          modelRatios[modelName] = pricing.price;
+        if (pricing.price > 0) {
+          const prev = modelRatios[modelName];
+          if (prev === undefined || pricing.price < prev) {
+            modelRatios[modelName] = pricing.price;
+          }
         }
       }
 

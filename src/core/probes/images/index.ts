@@ -63,14 +63,7 @@ export interface RunImagesReport {
   durationMs: number;
 }
 
-/**
- * Run the image-edit channel probe against every newapi-typed provider in
- * the resolved RuntimeConfig. Honors `--only` / `--models` upstream filters
- * (already applied to `config.providers` and `config.modelFilter`).
- *
- * In dry-run mode: writes `logs/images-dry-run.json` and returns without
- * sending any upstream requests.
- */
+/** Probe every newapi provider for working image-edit channels. Dry-run writes logs/images-dry-run.json without hitting upstreams. */
 export async function runImageProbe(
   opts: RunImagesOpts,
 ): Promise<RunImagesReport> {
@@ -86,11 +79,14 @@ export async function runImageProbe(
   );
   for (const p of skippedProviders) {
     consola.warn(
-      t("CORE.IMAGES.SKIPPING_NON_NEWAPI_PROVIDER", { name: p.name, type: p.type }),
+      t("CORE.IMAGES.SKIPPING_NON_NEWAPI_PROVIDER", {
+        name: p.name,
+        type: p.type,
+      }),
     );
   }
 
-  // ---- discovery + dry-run ----
+  // ─── Discovery + dry-run ────────────────────────────────────────────────
   const dryRunProviders: DryRunProvider[] = [];
   const candidatesByProvider = new Map<
     string,
@@ -99,13 +95,7 @@ export async function runImageProbe(
       client: NewApiClient;
       groupMap: Map<string, GroupChannel[]>;
       discovery: DiscoveryReport;
-      /** Lazy token resolver. Inference keys are unmasked / created only
-       *  when the probe actually walks into a group, never up front. */
       tokens: ProbeTokenManager;
-      /** Provider's parsed pricing - kept around so the probe loop can
-       *  resolve actual endpoint URLs from `pricing.endpointPaths` per
-       *  endpoint type (e.g. yun's flux-kontext-pro -> Replicate path
-       *  `/replicate/v1/.../predictions` instead of `/v1/images/edits`). */
       pricing: UpstreamPricing;
     }
   >();
@@ -135,14 +125,6 @@ export async function runImageProbe(
       modelNameFilter: opts.config.modelFilter ?? [],
     });
 
-    // Lazy per-group token manager. Lists existing tokens ONCE per
-    // provider (paginated, 429-retried) and caches the masked metadata.
-    // Full keys / creates / deletes happen on demand inside probeOneModel
-    // when each group is actually visited, so providers that throttle
-    // /api/token/{id}/key (pol returns 429 on every call) only fail the
-    // groups whose key actually resolves - not the whole provider. The
-    // group-map carries (groupName, "" placeholder); the real apiKey is
-    // resolved per probe via `tokens.getApiKey(groupName)`.
     const tokens = new ProbeTokenManager(client.ctx, provider.name);
     if (!opts.dryRun) {
       try {
@@ -234,48 +216,33 @@ export async function runImageProbe(
     };
   }
 
-  // ---- cost estimate (informational only) ----
-  // The whole-run cost guard is gone: in --step mode the user confirms each
-  // probe individually, so an upfront prompt is redundant. In streaming
-  // (non-step) mode the user already opted into running by not passing
-  // --step, so don't double-prompt.
+  // Informational only; --step prompts per-probe and streaming mode already opted in.
   const estimate = +(toProbe * ESTIMATED_COST_PER_PROBE_USD).toFixed(2);
   consola.info(
     t("CORE.IMAGES.ESTIMATED_COST", { cost: estimate, count: toProbe }),
   );
 
-  // ---- probe loop ----
-  // Sequential execution: one probe at a time. Image-edit probes are slow
-  // (multipart upload + 90s timeout, video tasks poll for up to 10min) and
-  // running them in parallel saturates upstream rate limits. We also want
-  // deterministic, restartable runs - so the store is saved after every
-  // single channel attempt, not just at end-of-model. Crash mid-run? Next
-  // run picks up exactly where this one stopped.
+  // ─── Probe loop ──────────────────────────────────────────────────────────
+  // Sequential by design: parallel probes saturate upstream rate limits and
+  // we save after every channel attempt for crash-resume.
   let passed = 0;
   let failed = 0;
   let noChannel = 0;
 
-  // Save callback handed to probeOneModel so it can persist after each
-  // channel attempt, not just at end-of-model.
   const saveProgress = (partial: ModelResult) => {
     appendResult(store, partial);
     saveStore(store);
   };
 
   let totalSpent = 0;
-  // Per-provider dead-group cache. Some resellers (aigc) let users create
-  // tokens for groups their account isn't a member of - inference then
-  // rejects with 403 "无权访问 X 分组". Once we've seen that on a group, all
-  // subsequent models on the same provider would burn the same probe for the
-  // same response, so cache the dead group and skip it the second time.
+  // Per-provider 403 cache. Some resellers (aigc) let users create tokens for
+  // groups their account isn't a member of; inference rejects with "无权访问".
   const deadGroupsByProvider = new Map<string, Set<string>>();
-  // Per-provider async-billing autodetect. "unknown" until the first
-  // passing probe reveals whether this provider posts debits async (yun-
-  // style) or synchronously. Once classified, subsequent probes either
-  // skip the 60s settle wait (sync providers) or run it (yun et al.).
+  // Per-provider async-billing autodetect: yun-style providers post debits
+  // ~20s after the response; sync providers debit immediately. First passing
+  // probe classifies; subsequent probes skip or run the 60s settle.
   const asyncBillingByProvider = new Map<string, "unknown" | boolean>();
   try {
-    let aborted = false;
     outer: for (const [
       providerName,
       { provider, client, groupMap, discovery, tokens, pricing },
@@ -286,12 +253,8 @@ export async function runImageProbe(
       for (const c of discovery.candidates) {
         if (isAlreadyTested(store, providerName, c.modelName)) continue;
 
-        // --step: confirm each probe individually so the user can stop
-        // mid-run after observing results. Default behavior (no --step) is
-        // straight-through. The label shows the actual wire shapes that
-        // will run (resolved per-endpoint), not the stale discovery
-        // `kind` - so models with mixed endpoints (e.g. yun mj_blend
-        // routed via /mj/submit/* as task) are correctly labeled.
+        // --step: per-probe confirm. Shows resolved wire shapes (mixed-endpoint
+        // models like yun mj_blend label correctly as `task`, not stale `kind`).
         if (opts.step) {
           const planned = probeStepsFor({
             endpointTypes: c.endpointTypes,
@@ -306,7 +269,6 @@ export async function runImageProbe(
           );
           if (!ok) {
             consola.info(t("CORE.IMAGES.ABORTED_BY_USER"));
-            aborted = true;
             break outer;
           }
         }
@@ -347,13 +309,8 @@ export async function runImageProbe(
         else failed++;
       }
     }
-    if (aborted) {
-      // Fall through to summary so the user sees what they got.
-    }
   } finally {
-    // Delete only tokens this run created (existing ones owned by regular
-    // sync are left alone). Failures log a warning but don't throw - we
-    // never want cleanup errors to mask the run's own outcome.
+    // Best-effort token cleanup; never let it mask the run outcome.
     for (const { tokens } of candidatesByProvider.values()) {
       try {
         await tokens.cleanup();
@@ -362,7 +319,9 @@ export async function runImageProbe(
       }
     }
     if (totalSpent > 0) {
-      consola.info(`Total actual spend across this run: $${totalSpent.toFixed(4)}`);
+      consola.info(
+        `Total actual spend across this run: $${totalSpent.toFixed(4)}`,
+      );
     }
   }
 
@@ -377,47 +336,38 @@ export async function runImageProbe(
     }),
   );
 
-  return { totalCandidates, toProbe, cached, passed, failed, noChannel, durationMs };
+  return {
+    totalCandidates,
+    toProbe,
+    cached,
+    passed,
+    failed,
+    noChannel,
+    durationMs,
+  };
 }
 
-// ---------------------------------------------------------------------------
-// Per-model probe loop
-// ---------------------------------------------------------------------------
+// ─── Per-model probe loop ─────────────────────────────────────────────────
 
 async function probeOneModel(opts: {
   provider: ProviderConfig;
   candidate: Candidate;
   groupMap: Map<string, GroupChannel[]>;
-  /** Lazy token manager. `getApiKey(group)` is called per group on first
-   *  visit; result is cached for the rest of the run. */
   tokens: ProbeTokenManager;
-  /** Provider's parsed pricing - used to resolve actual endpoint URLs
-   *  per endpoint type (per-model overrides for Replicate/Tencent/etc). */
   pricing: UpstreamPricing;
   fixtures: Fixtures;
-  /** Cross-model dead-group cache shared by the orchestrator. Populated when
-   *  a group returns auth 403 ("无权访问 X 分组"). Subsequent models on the
-   *  same provider skip probing this group so we don't burn one attempt per
-   *  model on a guaranteed permission failure. */
+  /** Cross-model 403-dead-group cache; share + persist across the provider's models. */
   deadGroups: Set<string>;
-  /** Per-provider async-billing state (unknown until the first passing
-   *  probe samples it). Read on every step to decide whether the settle
-   *  loop runs; written once when a passing probe resolves the question. */
+  /** Async-billing classification state (provider-scoped). Read every step, set once on first passing probe. */
   asyncBillingState: {
     get: () => "unknown" | boolean;
     set: (v: boolean) => void;
   };
-  /** Persist a partial ModelResult after every channel attempt so the
-   *  store survives Ctrl-C / network errors mid-loop and resume picks up
-   *  with no lost work. */
+  /** Persist partial result after every channel attempt (crash-resume). */
   onProgress?: (partial: ModelResult) => void;
-  /** Per-step balance reader. Bracketed around EACH probe attempt
-   *  (group × shape) so the user sees movement after every wire-shape
-   *  test, not only at end-of-model. Returns null when the upstream
-   *  doesn't expose a quota balance. */
+  /** Balance bracket per (group × shape); null when upstream exposes no quota. */
   fetchBalance?: () => Promise<number | null>;
-  /** Called after each step with the measured delta + cumulative running
-   *  total so the orchestrator can log balance movement consistently. */
+  /** Emitted per step so the orchestrator can log running total + balance movement. */
   onStepCost?: (info: {
     channelName: string;
     probeShape: ProbeShape;
@@ -425,7 +375,19 @@ async function probeOneModel(opts: {
     balanceAfter: number;
   }) => void;
 }): Promise<ModelResult> {
-  const { provider, candidate, groupMap, tokens, pricing, fixtures, deadGroups, asyncBillingState, onProgress, fetchBalance, onStepCost } = opts;
+  const {
+    provider,
+    candidate,
+    groupMap,
+    tokens,
+    pricing,
+    fixtures,
+    deadGroups,
+    asyncBillingState,
+    onProgress,
+    fetchBalance,
+    onStepCost,
+  } = opts;
   const groups = (groupMap.get(candidate.modelName) ?? [])
     .slice()
     .sort(compareGroupChannels);
@@ -440,17 +402,8 @@ async function probeOneModel(opts: {
     };
   }
 
-  // Derive every (wire shape, URL path) the model's endpoint_types
-  // declare. We resolve each endpoint type to its actual upstream URL
-  // via `pricing.endpointPaths` (provider-declared) and fall back to a
-  // built-in dictionary for short names. This generalizes across yun
-  // (which declares per-model Replicate paths like
-  // `/replicate/v1/.../predictions`), link (`Edit image -> /v1/images/edits`),
-  // v3 (no paths exposed; falls back to standard dictionary), etc.
-  //
-  // Returns one (shape, path) pair per declared endpoint type; multi-
-  // endpoint models get one attempt per pair. Failures don't bill so
-  // probing extra shapes is free.
+  // One (shape, path) per declared endpoint type via pricing.endpointPaths;
+  // multi-endpoint models get one attempt per pair. Errors don't bill.
   const stepsToTry = probeStepsFor({
     endpointTypes: candidate.endpointTypes,
     primary: candidate.kind,
@@ -458,24 +411,14 @@ async function probeOneModel(opts: {
     pricing,
   });
 
-  // Tell the user the planned probe order before we start hitting the
-  // upstream. Cheapest tier first means a quick PASS on the cheap group
-  // skips the rest entirely - useful for sanity-checking which groups are
-  // actually being burned through.
   consola.info(
     `[${provider.name}] ${candidate.modelName}: ${groups.length} group(s), cheapest-first: ${groups.map((g) => `${g.groupName}(x${g.groupRatio})`).join(", ")}`,
   );
 
   const failed: ChannelResult[] = [];
   for (const g of groups) {
-    // Group name is the "channel name" surfaced in results: each group is a
-    // distinct routing bucket on new-api with its own bound token.
     const channelName = g.groupName;
 
-    // Skip groups already known to reject our user with 403. aigc lets us
-    // mint tokens for paid-tier groups (企业 / 白金会员 / etc.) but inference
-    // refuses them - one model already paid the probe to learn this, so
-    // every subsequent model on the same provider skips ahead.
     if (deadGroups.has(channelName)) {
       consola.info(
         `[${provider.name}] ${candidate.modelName} (${channelName}): skipping (auth-dead group)`,
@@ -483,12 +426,6 @@ async function probeOneModel(opts: {
       continue;
     }
 
-    // Resolve the inference api key on first probe of this group. The
-    // manager creates the token if missing, fetches the unmasked key
-    // (with 429 retry), and caches both for later groups + reruns. A
-    // null return means the upstream wouldn't let us acquire a usable
-    // key for this group (e.g. /key endpoint permanently throttled), so
-    // skip this group and keep going - other groups may still work.
     const apiKey = await tokens.getApiKey(channelName);
     if (!apiKey) {
       consola.warn(
@@ -497,8 +434,7 @@ async function probeOneModel(opts: {
       continue;
     }
 
-    // 10s timeout wrapper on /api/user/self reads. A hung balance endpoint
-    // shouldn't drain the 60s settle budget down to 2-3 polls.
+    // 10s cap on balance reads so a hung /api/user/self can't drain the settle budget.
     const fetchBalanceTimed = fetchBalance
       ? async () =>
           Promise.race([
@@ -507,15 +443,10 @@ async function probeOneModel(opts: {
           ])
       : undefined;
 
-    // Within a group, try each (wire shape, path) step. Stop on first
-    // PASS - if /v1/images/edits worked we don't need to also try
-    // /v1/images/generations.
+    // Stop the (group, shape) inner loop on first PASS.
     let channelPassed: ChannelResult | undefined;
     for (const step of stepsToTry) {
       const probeShape = step.shape;
-      // Closure that builds the call args. Same baseUrl/apiKey/userId/
-      // model/path; only `fixtures` differs across the rate-limit retry
-      // and the image-count downshift retry.
       const mkArgs = (fx: Fixtures) => ({
         baseUrl: provider.baseUrl,
         apiKey,
@@ -524,19 +455,14 @@ async function probeOneModel(opts: {
         fixtures: fx,
         path: step.path,
       });
-      // Balance bracket per STEP (group x shape): so users see balance
-      // movement on every probe attempt, not just per model.
-      const balanceBefore = fetchBalanceTimed ? await fetchBalanceTimed() : null;
-      // Retry on 429: rate-limited probes get up to 3 attempts with
-      // exponential backoff before we record the failure. A genuine
-      // 429-on-everything provider will still surface in the artifact
-      // (final attempt's response carries the 429 body). Other status
-      // codes pass through immediately - we don't want to retry a real
-      // refusal / 4xx and double-bill.
+      const balanceBefore = fetchBalanceTimed
+        ? await fetchBalanceTimed()
+        : null;
+      // 429 retry (3 attempts, 5/10/20s). Non-429 errors pass through to avoid double-billing real refusals.
       let attempt = await runProbeShape(probeShape, mkArgs(fixtures));
       let retriedRateLimit = 0;
       while (attempt.errorClass === "ratelimit" && retriedRateLimit < 3) {
-        const wait = 5000 * 2 ** retriedRateLimit; // 5s / 10s / 20s
+        const wait = 5000 * 2 ** retriedRateLimit;
         consola.warn(
           `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape}): rate-limited, retry in ${wait / 1000}s (${retriedRateLimit + 1}/3)`,
         );
@@ -544,19 +470,15 @@ async function probeOneModel(opts: {
         attempt = await runProbeShape(probeShape, mkArgs(fixtures));
         retriedRateLimit++;
       }
-      // Image-count downshift: some models cap reference images at 1-3
-      // (qwen-image-edit-plus, image-01, qwen-image-2.0-2in1). They reject
-      // 6-ref payloads with explicit cap messages like "supports 0~3 image
-      // content items. Got 6". Read the cap from the body, trim the
-      // fixtures to fit, and re-run the same step once. We only do this
-      // once per step (no spiral) - if the smaller payload also fails,
-      // record the second failure as the canonical result.
+      // Image-count downshift (e.g. "supports 0~3 image content items. Got 6").
+      // One retry only — if the trimmed payload also fails, that's the verdict.
       if (attempt.status === "fail") {
-        const bodyText = attempt.exchange.response == null
-          ? ""
-          : typeof attempt.exchange.response === "string"
-            ? attempt.exchange.response
-            : JSON.stringify(attempt.exchange.response);
+        const bodyText =
+          attempt.exchange.response == null
+            ? ""
+            : typeof attempt.exchange.response === "string"
+              ? attempt.exchange.response
+              : JSON.stringify(attempt.exchange.response);
         const maxImgs = extractMaxImagesFromRejection(bodyText);
         if (
           maxImgs !== null &&
@@ -572,18 +494,9 @@ async function probeOneModel(opts: {
           );
         }
       }
-      // Async billing settle: providers post the quota debit some seconds
-      // AFTER the HTTP response returns (yun, etc.). Reading balance
-      // immediately yields the pre-debit value, which surfaces as a bogus
-      // $0.0000 on probes that actually billed.
-      //
-      // Provider classification (asyncBillingState):
-      //   - "unknown" + first PASS with $0 immediate delta: probe 20s once
-      //     to see if a debit lands. Set the state for the rest of the
-      //     provider so subsequent probes don't repeat the test.
-      //   - true: known async (yun) - run the 60s settle loop.
-      //   - false: known sync - take the immediate read; no waiting.
-      // Failures always read once (failures rarely bill; not worth the wait).
+      // Async-billing settle: yun-style providers debit ~20s after response.
+      // unknown -> probe 20s, classify provider; true -> full 60s settle;
+      // false -> skip (immediate read is truth). Failures don't trigger settle.
       let balanceAfter = fetchBalanceTimed ? await fetchBalanceTimed() : null;
       let stepDelta =
         balanceBefore !== null && balanceAfter !== null
@@ -598,9 +511,8 @@ async function probeOneModel(opts: {
       if (noImmediateDebit) {
         const billing = asyncBillingState.get();
         if (billing === false) {
-          // Sync provider: skip. The $0 read is the truth.
+          // sync provider: $0 read is truth
         } else if (billing === true) {
-          // Known async: full 60s settle.
           ({ balanceAfter, stepDelta } = await pollSettle({
             balanceBefore: balanceBefore!,
             fetchBalance: fetchBalanceTimed!,
@@ -610,7 +522,6 @@ async function probeOneModel(opts: {
             initialDelta: stepDelta,
           }));
         } else {
-          // Unknown: probe once at 20s to classify the provider.
           const probed = await pollSettle({
             balanceBefore: balanceBefore!,
             fetchBalance: fetchBalanceTimed!,
@@ -639,13 +550,8 @@ async function probeOneModel(opts: {
         redacted,
       );
 
-      // Save the actual generated image bytes (URL download or base64
-      // decode) to disk before the upstream CDN URL expires. Run for both
-      // pass and fail attempts: a failed-classification probe (e.g. our
-      // heuristic didn't see an image, but the body still has one) is
-      // exactly the case we want bytes for, to inspect what the model
-      // actually produced. We pass the ORIGINAL response, not the
-      // redacted one - the redactor could in theory mangle data: URIs.
+      // Save image bytes (run for fail too — heuristic might miss an image).
+      // Pass the original (non-redacted) response so data: URIs survive intact.
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
       const savedImages = await saveResponseImages({
         response: attempt.exchange.response,
@@ -658,9 +564,12 @@ async function probeOneModel(opts: {
         exchange: redacted,
         errorClass: attempt.errorClass,
         artifactPath,
-        imagePaths: savedImages.length > 0 ? savedImages.map((s) => s.path) : undefined,
+        imagePaths:
+          savedImages.length > 0 ? savedImages.map((s) => s.path) : undefined,
         imageResolutions:
-          savedImages.length > 0 ? savedImages.map((s) => ({ w: s.w, h: s.h })) : undefined,
+          savedImages.length > 0
+            ? savedImages.map((s) => ({ w: s.w, h: s.h }))
+            : undefined,
         probeKind: shapeToKind(probeShape),
         probeShape,
         hasImageInputs: shapeHasImageInputs(probeShape),
@@ -670,10 +579,6 @@ async function probeOneModel(opts: {
         taskId: attempt.taskId,
       };
 
-      // Surface this step's balance movement to the orchestrator so the
-      // user sees per-attempt cost in the live log, not only the per-model
-      // aggregate. Pass through balanceAfter so callers can update their
-      // running totals + balance display.
       if (stepDelta !== undefined && balanceAfter !== null) {
         onStepCost?.({
           channelName,
@@ -688,16 +593,12 @@ async function probeOneModel(opts: {
         break;
       }
       failed.push(cr);
-      // Auth 403 on this group => the user isn't a member. Same response
-      // would come back for every remaining model and every wire shape, so
-      // mark the group dead, abandon this group's remaining steps, and let
-      // the orchestrator skip it on subsequent models.
+      // 403 here will hit every remaining model on this group — mark dead.
       if (attempt.errorClass === "auth") {
         deadGroups.add(channelName);
         consola.warn(
           `[${provider.name}] ${candidate.modelName} (${channelName}): auth 403, marking group dead for rest of run`,
         );
-        // Persist before breaking out of the inner shape loop.
         onProgress?.({
           provider: provider.name,
           model: candidate.modelName,
@@ -707,8 +608,7 @@ async function probeOneModel(opts: {
         });
         break;
       }
-      // Persist mid-loop so a crash on the next shape doesn't lose the
-      // already-tried wire shape.
+      // Persist after every shape attempt so a crash keeps prior work.
       onProgress?.({
         provider: provider.name,
         model: candidate.modelName,
@@ -743,17 +643,9 @@ async function probeOneModel(opts: {
       return decided;
     }
 
-    // Gateway-broken model abort: at least one shape on this group hit the
-    // gateway body-translator signature (e.g. aigc's Imagen routing returns
-    // "contents is required" / "Unknown name 'contents'" because the
-    // gateway can't translate any of our wire shapes to Imagen's actual
-    // `:predict` API). Every other group will hit the SAME error - gateway
-    // routing is global, not per-group. Skip the rest of the groups for
-    // this model to save ~5-12 attempts of guaranteed failures.
-    //
-    // We DON'T require every shape to fail this way; mixing in some 503s
-    // ("system memory overloaded") is normal and doesn't change the verdict.
-    // One body-translator hit is enough evidence the model is unsupported.
+    // Gateway-broken model abort: gateway routing is global, not per-group.
+    // One body-translator signature ("contents is required" etc.) means every
+    // other group will hit the same error — skip remaining groups.
     const channelAttempts = failed.slice(-stepsToTry.length);
     if (channelAttempts.some((a) => isGatewayBrokenSignature(a))) {
       consola.warn(
@@ -779,11 +671,7 @@ async function probeOneModel(opts: {
   };
 }
 
-/**
- * Poll the upstream balance endpoint every 2s until the debit lands or
- * the budget runs out. Returns the latest reading + delta. Used both for
- * the autodetect probe (20s budget) and the known-async settle (60s).
- */
+/** Poll balance every 2s until a debit lands or budget runs out. */
 async function pollSettle(opts: {
   balanceBefore: number;
   fetchBalance: () => Promise<number | null>;
@@ -818,10 +706,7 @@ function runProbeShape(
     userId: number;
     model: string;
     fixtures: Fixtures;
-    /** Provider-declared URL override. Resolves Replicate, Tencent VOD,
-     *  and other non-standard task wires to the path the provider
-     *  declared in `endpointPaths`. When undefined each probe falls back
-     *  to its standard hardcoded path. */
+    /** Provider-declared URL override (Replicate, Tencent VOD, etc); undefined → probe default. */
     path?: string;
   },
 ): Promise<ProbeAttempt> {
@@ -837,37 +722,27 @@ function shapeToKind(shape: ProbeShape): ProbeKind {
   return "openai-vendor";
 }
 
-/**
- * Whether a probe shape attaches the 6 reference fixtures to its request.
- * `sync-generations` is the only shape that doesn't (text-to-image only) -
- * the rest send the refs as multipart parts, multimodal `image_url` parts,
- * or task-submission `images[]`. A passing `sync-generations` probe means
- * the gateway returned an image but the model never actually saw the
- * reference fixtures, so the result has limited value for the 6-character
- * compose workload.
- */
+/** Only sync-generations is text-to-image; the rest carry the 6 refs. */
 function shapeHasImageInputs(shape: ProbeShape): boolean {
   return shape !== "sync-generations";
 }
 
 /**
- * Names that signal the model REQUIRES reference images regardless of what
- * endpoint type the gateway declares. Many edit-only models on resellers
- * are mis-listed under `image-generation` (the t2i endpoint), so when we
- * probe with text-only we get `"Missing required key: image"` 400s. By
- * also adding edit-style shapes for these names we exercise the multipart
- * + chat-multimodal paths that actually carry the refs.
+ * Names that need refs regardless of advertised endpoint. Many edit-only models
+ * on resellers are mis-listed under image-generation; probing text-only yields
+ * "Missing required key: image" 400s. Adding edit-style shapes for these names
+ * exercises the multipart + chat-multimodal paths that actually carry refs.
  */
 const NAME_REQUIRES_REFS = [
-  "edit",       // qwen-image-edit-*, seededit, flux-kontext-edit
-  "kontext",    // flux-kontext-* are reference-conditioned
-  "i2i",        // image-to-image
-  "i2v",        // image-to-video (refs required)
+  "edit",
+  "kontext",
+  "i2i",
+  "i2v",
   "img2img",
   "image-to-image",
   "image-to-video",
-  "redux",      // flux redux is image-conditioned
-  "remix",      // ideogram remix is reference-conditioned
+  "redux",
+  "remix",
 ];
 
 /**
@@ -883,21 +758,14 @@ interface ProbeStep {
 }
 
 /**
- * Derive the full list of (wire shape, path) steps to test for a
- * candidate. The general rule: every endpoint type the model advertises
- * resolves to one step via the provider's `endpointPaths` map. This
- * generalizes across yun (declares 156 per-model paths including
- * `/replicate/v1/.../predictions` for Replicate-routed models), link
- * (declares `Edit image -> /v1/images/edits`), v3 (no map; falls back to
- * standard /v1/images/* dictionary), and any other new-api fork.
+ * One (shape, path) step per declared endpoint type, deduped by `shape|path`.
+ * Multi-endpoint models get one attempt per pair; errors don't bill.
  *
- * Multi-endpoint models get one step per endpoint type so we capture
- * how each wire behaves. Errors don't bill so probing extra is free.
- *
- * Name-based override: models matching NAME_REQUIRES_REFS (edit, kontext,
- * i2i, remix, ...) ALWAYS get sync-edits + openai-vendor steps even when
- * the gateway only advertises text-to-image, because text-only would
- * trigger "Missing required key: image" rejections.
+ * Name-based override (NAME_REQUIRES_REFS): edit/kontext/i2i/etc models add
+ * sync-edits + openai-vendor steps even when the gateway only advertises
+ * text-to-image, because text-only triggers "Missing required key: image".
+ * Dedup by shape prevents double-billing openai-vendor on *edit* models that
+ * already declared the `openai` endpoint.
  */
 function probeStepsFor(opts: {
   endpointTypes: string[];
@@ -905,7 +773,7 @@ function probeStepsFor(opts: {
   modelName: string;
   pricing: UpstreamPricing;
 }): ProbeStep[] {
-  const seen = new Set<string>(); // shape|path key for dedup
+  const seen = new Set<string>();
   const steps: ProbeStep[] = [];
   const add = (shape: ProbeShape, path?: string) => {
     const key = `${shape}|${path ?? ""}`;
@@ -923,16 +791,6 @@ function probeStepsFor(opts: {
     if (resolved) add(resolved.shape, resolved.path);
   }
 
-  // Name-based override: edit/i2i/kontext models need refs even when the
-  // gateway only advertises image-generation. Add the ref-carrying shapes
-  // (with default paths since these are the universal fallbacks).
-  //
-  // Important: skip when a step of the same shape was ALREADY added via
-  // endpointTypes resolution. Otherwise we double-probe `openai-vendor`
-  // for any model named "*edit*" whose pricing already declares the
-  // `openai` endpoint type (the resolver gave us
-  // `openai-vendor + /v1/chat/completions`, and the override would tack
-  // on another `openai-vendor` with no path - same wire, billed twice).
   const lowerName = opts.modelName.toLowerCase();
   if (NAME_REQUIRES_REFS.some((k) => lowerName.includes(k))) {
     const haveShape = (s: ProbeShape) => steps.some((st) => st.shape === s);
@@ -941,8 +799,6 @@ function probeStepsFor(opts: {
   }
 
   if (steps.length === 0) {
-    // Fall back to primary kind (used for legacy V2 shapes where
-    // endpointTypes may be empty and we derived kind from the model name).
     if (opts.primary === "sync") add("sync-edits");
     else if (opts.primary === "openai-vendor") add("openai-vendor");
     else add("task");
@@ -951,22 +807,12 @@ function probeStepsFor(opts: {
 }
 
 /**
- * Detect "gateway translator broken for this model" responses. The aigc
- * Imagen example: catalog declares the model under `image-generation` and
- * `gemini` and `openai` endpoints, but the actual upstream Imagen API only
- * accepts `:predict` shape. So:
- *   - /v1/images/generations -> aigc translates OAI->Gemini -> upstream
- *     rejects with `"contents is required"` (HTTP 500).
- *   - :generateContent + /v1/chat/completions -> we send Gemini multimodal,
- *     upstream rejects with `Unknown name "contents"` /
- *     `Unknown name "generationConfig"` / `Unknown name "safetySettings"`.
- *
- * Either body shows the gateway can't reach Imagen with any known wire
- * format. The same will happen on every group (gateway routing is global),
- * so once all shapes on the first group hit this signature, abort.
- *
- * Detected as `errorClass: "ref_count_rejected"` (already classified by
- * classify.ts) PLUS one of the body fingerprints below.
+ * Gateway can't translate any wire shape to upstream (e.g. aigc routes Imagen
+ * to Gemini/OpenAI but Imagen actually wants :predict). Both routes reject:
+ * OAI->Gemini gives "contents is required"; Gemini multimodal gives
+ * "Unknown name contents/instances/parts/generationConfig/safetySettings".
+ * Gateway routing is global, so one signature means every group will fail
+ * the same way — abort the model.
  */
 function isGatewayBrokenSignature(attempt: ChannelResult): boolean {
   if (attempt.errorClass !== "ref_count_rejected") return false;
@@ -978,13 +824,13 @@ function isGatewayBrokenSignature(attempt: ChannelResult): boolean {
         : JSON.stringify(attempt.exchange.response);
   return (
     /contents is required/i.test(body) ||
-    /Unknown name "(?:contents|instances|parts|generationConfig|safetySettings)"/.test(body)
+    /Unknown name "(?:contents|instances|parts|generationConfig|safetySettings)"/.test(
+      body,
+    )
   );
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// ─── Helpers ──────────────────────────────────────────────────────────────
 
 function buildDryRunProvider(opts: {
   provider: ProviderConfig;
@@ -1028,12 +874,7 @@ function buildDryRunProvider(opts: {
   };
 }
 
-/**
- * Some upstreams (yun) return a legacy V2 pricing shape with `model_info`
- * carrying tags. The standard `parsePricing` discards those. Re-fetch
- * `/api/pricing` raw and pull the model_info block out so the candidate
- * filter can use tag signals on legacy shapes.
- */
+/** Re-fetch raw /api/pricing to recover V2 model_info.tags that parsePricing discards. */
 async function tryFetchLegacyModelInfo(
   provider: ProviderConfig,
 ): Promise<
@@ -1051,7 +892,12 @@ async function tryFetchLegacyModelInfo(
     });
     if (!r.ok) return undefined;
     const json = (await r.json()) as {
-      data?: { model_info?: Record<string, { supplier?: string; tags?: string[]; illustrate?: string }> };
+      data?: {
+        model_info?: Record<
+          string,
+          { supplier?: string; tags?: string[]; illustrate?: string }
+        >;
+      };
     };
     return json?.data?.model_info;
   } catch {

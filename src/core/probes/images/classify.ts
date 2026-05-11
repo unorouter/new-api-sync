@@ -47,10 +47,18 @@ export function classifyResponse(
     //
     // Surface all of these as `no_channel` / `refusal` so the retry
     // loop skips them and we don't hammer the upstream.
-    if (/model disabled|model not found|no available channel|无可用渠道|模型已禁用|上游负载已饱和|upstream.*saturat/i.test(snippet)) {
+    if (
+      /model disabled|model not found|no available channel|无可用渠道|模型已禁用|上游负载已饱和|upstream.*saturat/i.test(
+        snippet,
+      )
+    ) {
       return { errorClass: "no_channel", errorSnippet: snippet };
     }
-    if (/missing required (?:key|field|parameter)|required.*image|image.*required/i.test(snippet)) {
+    if (
+      /missing required (?:key|field|parameter)|required.*image|image.*required/i.test(
+        snippet,
+      )
+    ) {
       return { errorClass: "ref_count_rejected", errorSnippet: snippet };
     }
     // Replicate-style "model or version is required": we hit a bare
@@ -72,7 +80,11 @@ export function classifyResponse(
     // gemini endpoint but the model itself wants :predict shape).
     // Wrapped as 429 by aigc; treat as ref_count_rejected so the loop
     // skips (no point retrying with the same wrong body).
-    if (/contents is required|Unknown name "(?:contents|instances|parts|generationConfig|safetySettings)"/i.test(snippet)) {
+    if (
+      /contents is required|Unknown name "(?:contents|instances|parts|generationConfig|safetySettings)"/i.test(
+        snippet,
+      )
+    ) {
       return { errorClass: "ref_count_rejected", errorSnippet: snippet };
     }
     return { errorClass: "ratelimit", errorSnippet: snippet };
@@ -98,7 +110,11 @@ export function classifyResponse(
     // / "Unknown name 'instances'" (when hit on :generateContent vs
     // :predict mismatch). Either way it's a body-shape impedance
     // mismatch we can't resolve without per-model wire knowledge.
-    if (/contents is required|Unknown name "(?:contents|instances|parts|generationConfig|safetySettings)"/i.test(snippet)) {
+    if (
+      /contents is required|Unknown name "(?:contents|instances|parts|generationConfig|safetySettings)"/i.test(
+        snippet,
+      )
+    ) {
       return { errorClass: "ref_count_rejected", errorSnippet: snippet };
     }
     return { errorClass: "timeout", errorSnippet: snippet };
@@ -116,7 +132,11 @@ export function classifyResponse(
     ) {
       return { errorClass: "no_channel", errorSnippet: snippet };
     }
-    if (/all_retries_failed|upstream_error|bad_response_status_code/i.test(snippet)) {
+    if (
+      /all_retries_failed|upstream_error|bad_response_status_code/i.test(
+        snippet,
+      )
+    ) {
       return { errorClass: "no_channel", errorSnippet: snippet };
     }
     // Explicit ref-count or missing-image rejections trigger the downshift
@@ -201,7 +221,9 @@ export function looksLikeImageResponse(bodyText: string): boolean {
     /\bimage_url\b/.test(bodyText) ||
     /\bdata:image\/(?:png|jpe?g|webp|gif)/i.test(bodyText) ||
     /https?:\/\/[^\s"']+\.(?:png|jpe?g|webp|gif)/i.test(bodyText) ||
-    /"inline_?[Dd]ata"\s*:\s*\{[^}]*"(?:mime_?[Tt]ype)"\s*:\s*"image\//.test(bodyText) ||
+    /"inline_?[Dd]ata"\s*:\s*\{[^}]*"(?:mime_?[Tt]ype)"\s*:\s*"image\//.test(
+      bodyText,
+    ) ||
     /!\[[^\]]*\]\(https?:\/\/[^\s)]+\)/.test(bodyText)
   );
 }

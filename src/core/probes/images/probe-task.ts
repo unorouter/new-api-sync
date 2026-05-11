@@ -39,7 +39,8 @@ export interface TaskProbeOpts {
 export async function probeTaskChannel(
   opts: TaskProbeOpts,
 ): Promise<ProbeAttempt> {
-  const submitUrl = opts.baseUrl.replace(/\/$/, "") + (opts.path ?? "/v1/videos");
+  const submitUrl =
+    opts.baseUrl.replace(/\/$/, "") + (opts.path ?? "/v1/videos");
   const headers: Record<string, string> = {
     Authorization: `Bearer ${opts.apiKey}`,
     "Content-Type": "application/json",
@@ -52,7 +53,9 @@ export async function probeTaskChannel(
   // `/ent/v2/reference2image`) each have their own JSON schema; the
   // builder dispatches on the path. The default OAI-Videos shape
   // (`/v1/videos`) falls through when no vendor match.
-  const built = opts.path ? buildBody({ path: opts.path, model: opts.model, fixtures: opts.fixtures }) : null;
+  const built = opts.path
+    ? buildBody({ path: opts.path, model: opts.model, fixtures: opts.fixtures })
+    : null;
   const submitBody: Record<string, unknown> = built
     ? (built.body as Record<string, unknown>)
     : {
@@ -102,7 +105,9 @@ export async function probeTaskChannel(
     ? (built.bodyMeta as Record<string, unknown>)
     : {
         ...submitBody,
-        images: (submitBody.images as string[]).map(() => "[DATA_URI_REDACTED]"),
+        images: (submitBody.images as string[]).map(
+          () => "[DATA_URI_REDACTED]",
+        ),
       };
 
   // Submit failed before we got a task id.
@@ -196,7 +201,10 @@ export async function probeTaskChannel(
             pollHistory,
             taskId,
           },
-          responseHeaders: { submit: submitHeaders, poll: lastPollHeaders } as unknown as Record<string, string>,
+          responseHeaders: {
+            submit: submitHeaders,
+            poll: lastPollHeaders,
+          } as unknown as Record<string, string>,
           status: lastPollStatus,
           latencyMs: Math.round(performance.now() - start),
         };
@@ -216,7 +224,10 @@ export async function probeTaskChannel(
             pollHistory,
             taskId,
           },
-          responseHeaders: { submit: submitHeaders, poll: lastPollHeaders } as unknown as Record<string, string>,
+          responseHeaders: {
+            submit: submitHeaders,
+            poll: lastPollHeaders,
+          } as unknown as Record<string, string>,
           status: lastPollStatus,
           latencyMs: Math.round(performance.now() - start),
           error: `task ${status}`,
@@ -251,7 +262,10 @@ export async function probeTaskChannel(
       pollHistory,
       taskId,
     },
-    responseHeaders: { submit: submitHeaders, poll: lastPollHeaders } as unknown as Record<string, string>,
+    responseHeaders: {
+      submit: submitHeaders,
+      poll: lastPollHeaders,
+    } as unknown as Record<string, string>,
     status: lastPollStatus,
     latencyMs: Math.round(performance.now() - start),
     error: pollErr ?? "poll-deadline-exceeded",
@@ -306,10 +320,16 @@ function buildPollUrl(submitUrl: string, taskId: string): string {
   const encoded = encodeURIComponent(taskId);
   // Midjourney: /mj/submit/<anything> -> /mj/task/<id>/fetch
   if (/\/mj\/submit\/[^/]+$/.test(submitUrl)) {
-    return submitUrl.replace(/\/mj\/submit\/[^/]+$/, `/mj/task/${encoded}/fetch`);
+    return submitUrl.replace(
+      /\/mj\/submit\/[^/]+$/,
+      `/mj/task/${encoded}/fetch`,
+    );
   }
   // Replicate: /replicate/v1/(models/.../)?predictions(/<id>) -> /replicate/v1/predictions/<id>
-  if (submitUrl.includes("/replicate/v1/") && submitUrl.endsWith("/predictions")) {
+  if (
+    submitUrl.includes("/replicate/v1/") &&
+    submitUrl.endsWith("/predictions")
+  ) {
     return submitUrl.replace(
       /\/replicate\/v1\/.*\/predictions$/,
       `/replicate/v1/predictions/${encoded}`,
@@ -324,7 +344,8 @@ function extractTaskStatus(pollJson: unknown): string | undefined {
     const o = pollJson as Record<string, unknown>;
     if (typeof o.status === "string") return normalizeTaskStatus(o.status);
     const data = o.data as Record<string, unknown> | undefined;
-    if (data && typeof data.status === "string") return normalizeTaskStatus(data.status);
+    if (data && typeof data.status === "string")
+      return normalizeTaskStatus(data.status);
   }
   return undefined;
 }
@@ -345,10 +366,21 @@ function extractTaskStatus(pollJson: unknown): string | undefined {
  */
 function normalizeTaskStatus(raw: string): string {
   const lower = raw.toLowerCase();
-  if (lower === "success" || lower === "succeeded" || lower === "completed" || lower === "complete") {
+  if (
+    lower === "success" ||
+    lower === "succeeded" ||
+    lower === "completed" ||
+    lower === "complete"
+  ) {
     return "succeeded";
   }
-  if (lower === "failure" || lower === "failed" || lower === "cancelled" || lower === "canceled" || lower === "error") {
+  if (
+    lower === "failure" ||
+    lower === "failed" ||
+    lower === "cancelled" ||
+    lower === "canceled" ||
+    lower === "error"
+  ) {
     return "failed";
   }
   return lower;

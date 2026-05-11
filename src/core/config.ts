@@ -39,6 +39,25 @@ export function configDir(): string {
   return dirname(exe);
 }
 
+/**
+ * Substitute `${VAR}` and `${VAR:-default}` references with `process.env[VAR]`.
+ * Lets secrets stay out of checked-in YAML. Unresolved `${VAR}` (no env, no
+ * default) is left intact so typebox validation surfaces a clear failure
+ * instead of silently passing an empty string.
+ */
+function expandEnvVars(text: string): string {
+  if (typeof process === "undefined") return text;
+  return text.replace(
+    /\$\{([A-Z_][A-Z0-9_]*)(?::-([^}]*))?\}/gi,
+    (match, name, fallback) => {
+      const v = process.env[name];
+      if (v !== undefined) return v;
+      if (fallback !== undefined) return fallback;
+      return match;
+    },
+  );
+}
+
 // ============ Global config (config.global.yml) ============
 
 /**
@@ -285,7 +304,8 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
 
   let parsedRaw: unknown;
   try {
-    parsedRaw = Bun.YAML.parse(await file.text());
+    const text = expandEnvVars(await file.text());
+    parsedRaw = Bun.YAML.parse(text);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(

@@ -40,7 +40,8 @@ export interface SyncProbeOpts {
 export async function probeSyncChannel(
   opts: SyncProbeOpts,
 ): Promise<ProbeAttempt> {
-  const url = opts.baseUrl.replace(/\/$/, "") + (opts.path ?? "/v1/images/edits");
+  const url =
+    opts.baseUrl.replace(/\/$/, "") + (opts.path ?? "/v1/images/edits");
   const headers: Record<string, string> = {
     Authorization: `Bearer ${opts.apiKey}`,
     "New-Api-User": String(opts.userId),
@@ -141,7 +142,10 @@ function looksLikeImageEditOk(parsed: unknown, raw: string): boolean {
     const o = parsed as Record<string, unknown>;
     if (Array.isArray(o.data)) {
       const first = o.data[0] as Record<string, unknown> | undefined;
-      if (first && (typeof first.url === "string" || typeof first.b64_json === "string")) {
+      if (
+        first &&
+        (typeof first.url === "string" || typeof first.b64_json === "string")
+      ) {
         return true;
       }
     }
