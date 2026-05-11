@@ -1,7 +1,7 @@
 import type { TestExchange } from "@core/testing/types";
-import { buildBody } from "./body-builder";
-import { classifyResponse } from "./classify";
-import type { Fixtures } from "./fixtures";
+import { buildBody } from "../body-builder";
+import { classifyResponse } from "../classify";
+import type { Fixtures } from "../io/fixtures";
 import type { ProbeAttempt } from "./probe";
 
 export interface TaskProbeOpts {

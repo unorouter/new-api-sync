@@ -1,8 +1,8 @@
 import type { ProviderConfig } from "@core/validations/config";
 import { redactUrl } from "@core/testing/redact";
-import type { DiscoveryReport } from "./candidates";
+import type { DiscoveryReport } from "./pipeline/candidates";
 import { compareGroupChannels, type GroupChannel } from "./group-map";
-import type { DryRunCandidate, DryRunProvider } from "./store";
+import type { DryRunCandidate, DryRunProvider } from "./io/store";
 
 export function buildDryRunProvider(opts: {
   provider: ProviderConfig;

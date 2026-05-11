@@ -1,5 +1,5 @@
 import type { UpstreamPricing } from "@core/vendors/newapi/types";
-import type { ProbeShape } from "./store";
+import type { ProbeShape } from "./io/store";
 
 export const SHARED_OAI_PATHS: readonly string[] = [
   "/v1/images/edits",

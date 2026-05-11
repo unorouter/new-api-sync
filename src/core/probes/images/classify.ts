@@ -1,4 +1,4 @@
-import type { ProbeErrorClass } from "./store";
+import type { ProbeErrorClass } from "./io/store";
 
 const REFUSAL_PHRASES = [
   /too many (?:reference )?images?/i,

@@ -9,9 +9,9 @@ import {
   type DiscoveryReport,
   type ProbeKind,
 } from "./candidates";
-import { buildDryRunProvider, tryFetchLegacyModelInfo } from "./dry-run";
-import { loadFixtures } from "./fixtures";
-import { buildGroupMap, type GroupChannel } from "./group-map";
+import { buildDryRunProvider, tryFetchLegacyModelInfo } from "../dry-run";
+import { loadFixtures } from "../io/fixtures";
+import { buildGroupMap, type GroupChannel } from "../group-map";
 import { probeOneModel } from "./loop";
 import { probeStepsFor } from "./planner";
 import {
@@ -23,8 +23,8 @@ import {
   type DryRunProvider,
   type DryRunReport,
   type ModelResult,
-} from "./store";
-import { ProbeTokenManager } from "./token-manager";
+} from "../io/store";
+import { ProbeTokenManager } from "../token-manager";
 
 const ESTIMATED_COST_PER_PROBE_USD = 0.1;
 

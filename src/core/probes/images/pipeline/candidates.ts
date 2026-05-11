@@ -1,8 +1,8 @@
 import type { UpstreamPricing } from "@core/vendors/newapi/types";
-import { buildBody } from "./body-builder";
-import { canonicalize, pickRepresentative } from "./canonicalize";
-import { resolveEndpoint, SHARED_OAI_PATHS } from "./endpoint-resolver";
-import type { Fixtures } from "./fixtures";
+import { buildBody } from "../body-builder";
+import { canonicalize, pickRepresentative } from "../canonicalize";
+import { resolveEndpoint, SHARED_OAI_PATHS } from "../endpoint-resolver";
+import type { Fixtures } from "../io/fixtures";
 
 export type ProbeKind = "sync" | "openai-vendor" | "task";
 

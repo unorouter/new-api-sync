@@ -1,8 +1,8 @@
 import type { TestExchange } from "@core/testing/types";
-import { buildBody } from "./body-builder";
-import { classifyResponse, looksLikeImageResponse } from "./classify";
-import type { Fixtures } from "./fixtures";
-import type { ProbeErrorClass } from "./store";
+import { buildBody } from "../body-builder";
+import { classifyResponse, looksLikeImageResponse } from "../classify";
+import type { Fixtures } from "../io/fixtures";
+import type { ProbeErrorClass } from "../io/store";
 
 export interface ChannelProbeOpts {
   baseUrl: string;

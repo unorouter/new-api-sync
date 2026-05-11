@@ -1,4 +1,4 @@
-import type { Fixtures } from "./fixtures";
+import type { Fixtures } from "./io/fixtures";
 
 export interface BuiltBody {
   multipart: boolean;

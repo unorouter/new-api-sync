@@ -1,7 +1,7 @@
 import type { UpstreamPricing } from "@core/vendors/newapi/types";
 import type { ProbeKind } from "./candidates";
-import { resolveEndpoint } from "./endpoint-resolver";
-import type { ChannelResult, ProbeShape } from "./store";
+import { resolveEndpoint } from "../endpoint-resolver";
+import type { ChannelResult, ProbeShape } from "../io/store";
 
 /** Edit-only models mis-listed as image-generation: text-only probes 400 on "Missing required key: image". */
 // prettier-ignore

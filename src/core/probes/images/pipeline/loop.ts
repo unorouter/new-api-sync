@@ -4,10 +4,10 @@ import type { UpstreamPricing } from "@core/vendors/newapi/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import type { Candidate } from "./candidates";
-import { extractMaxImagesFromRejection } from "./classify";
-import { saveResponseImages } from "./download";
-import { withFixtureCount, type Fixtures } from "./fixtures";
-import { compareGroupChannels, type GroupChannel } from "./group-map";
+import { extractMaxImagesFromRejection } from "../classify";
+import { saveResponseImages } from "../io/download";
+import { withFixtureCount, type Fixtures } from "../io/fixtures";
+import { compareGroupChannels, type GroupChannel } from "../group-map";
 import {
   isGatewayBrokenSignature,
   probeStepsFor,
@@ -19,8 +19,8 @@ import {
   probeOpenAiVendorChannel,
   probeSyncChannel,
   type ProbeAttempt,
-} from "./probe";
-import { probeTaskChannel } from "./probe-task";
+} from "../runners/probe";
+import { probeTaskChannel } from "../runners/probe-task";
 import {
   artifactDirFor,
   slug,
@@ -28,8 +28,8 @@ import {
   type ChannelResult,
   type ModelResult,
   type ProbeShape,
-} from "./store";
-import type { ProbeTokenManager } from "./token-manager";
+} from "../io/store";
+import type { ProbeTokenManager } from "../token-manager";
 
 type ProbeRunOpts = {
   baseUrl: string;
