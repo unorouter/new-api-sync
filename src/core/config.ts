@@ -13,35 +13,31 @@ import { Value } from "@sinclair/typebox/value";
 import { basename, dirname, join } from "node:path";
 import YAML from "yaml";
 
-// ─── Paths ─────────────────────────────────────────────────────────────────
-
-/** Dev: process.cwd(). Compiled binary: dirname(execPath). Returns "" in browser bundle. */
 export function configDir(): string {
   if (typeof process === "undefined") return "";
-  const exe = process.execPath;
-  const exeName = basename(exe).toLowerCase();
-  const isBunRuntime = exeName === "bun" || exeName.startsWith("bun.");
-  if (isBunRuntime) return process.cwd();
-  return dirname(exe);
+  const exeName = basename(process.execPath).toLowerCase();
+  if (exeName === "bun" || exeName.startsWith("bun.")) return process.cwd();
+  return dirname(process.execPath);
 }
 
-/** ${VAR} / ${VAR:-default} → process.env[VAR]. Unresolved left intact. */
 function expandEnvVars(text: string): string {
   if (typeof process === "undefined") return text;
   return text.replace(
     /\$\{([A-Z_][A-Z0-9_]*)(?::-([^}]*))?\}/gi,
-    (match, name, fallback) => {
+    (m, name, fb) => {
       const v = process.env[name];
-      if (v !== undefined) return v;
-      if (fallback !== undefined) return fallback;
-      return match;
+      return v !== undefined ? v : fb !== undefined ? fb : m;
     },
   );
 }
 
-// ─── Global config (config.global.yml) ────────────────────────────────────
-// Cross-config: locale, theme, shared blacklist/modelMapping merged into every per-config.
 export const GLOBAL_CONFIG_PATH = join(configDir(), "config.global.yml");
+
+function formatTypeBoxErrors(schema: TSchema, value: unknown): string {
+  return [...Value.Errors(schema, value)]
+    .map((e) => `${e.path || "root"}: ${e.message}`)
+    .join("\n");
+}
 
 export async function loadGlobalConfig(): Promise<GlobalConfigType> {
   const file = Bun.file(GLOBAL_CONFIG_PATH);
@@ -58,33 +54,27 @@ export async function loadGlobalConfig(): Promise<GlobalConfigType> {
       }),
     );
   }
-  if (parsedRaw === null || parsedRaw === undefined) return {};
-  if (!Value.Check(GlobalConfigSchema, parsedRaw)) {
-    const errors = [...Value.Errors(GlobalConfigSchema, parsedRaw)]
-      .map((e) => `${e.path || "root"}: ${e.message}`)
-      .join("\n");
+  if (parsedRaw == null) return {};
+  if (!Value.Check(GlobalConfigSchema, parsedRaw))
     throw new Error(
-      t("ERROR.GLOBAL_CONFIG_VALIDATION_FAILED", { detail: errors }),
+      t("ERROR.GLOBAL_CONFIG_VALIDATION_FAILED", {
+        detail: formatTypeBoxErrors(GlobalConfigSchema, parsedRaw),
+      }),
     );
-  }
   return parsedRaw as GlobalConfigType;
 }
 
 export async function writeGlobalConfig(next: GlobalConfigType): Promise<void> {
-  const yaml = YAML.stringify(next, {
-    lineWidth: 0,
-    defaultStringType: "QUOTE_DOUBLE",
-  });
-  await Bun.write(GLOBAL_CONFIG_PATH, yaml);
+  await Bun.write(
+    GLOBAL_CONFIG_PATH,
+    YAML.stringify(next, { lineWidth: 0, defaultStringType: "QUOTE_DOUBLE" }),
+  );
 }
-
-// ─── enabledModels accessors ───────────────────────────────────────────────
 
 const NON_TEXT_TYPES: Set<string> = new Set(
   MODEL_TYPES.filter((t) => t !== "text"),
 );
 
-/** Extract model glob strings from enabledModels (ignoring grid pricing metadata). */
 export function getEnabledModelGlobs(
   entries: EnabledModelEntry[] | undefined,
 ): string[] | undefined {
@@ -92,44 +82,38 @@ export function getEnabledModelGlobs(
   return entries.map((e) => (typeof e === "string" ? e : e.model));
 }
 
-/** Extract pricing grid data from enabledModels into a model → rows map. */
+function extractEnabledModelField<T>(
+  entries: EnabledModelEntry[] | undefined,
+  field: string,
+): Record<string, T> {
+  const result: Record<string, T> = {};
+  if (!entries) return result;
+  for (const entry of entries) {
+    if (typeof entry === "string") continue;
+    const value = (entry as Record<string, unknown>)[field];
+    if (value) result[entry.model] = value as T;
+  }
+  return result;
+}
+
 export function getPricingGridFromEnabledModels(
   entries: EnabledModelEntry[] | undefined,
 ): Record<string, Record<string, string | number>[]> {
-  const result: Record<string, Record<string, string | number>[]> = {};
-  if (!entries) return result;
-  for (const entry of entries) {
-    if (typeof entry === "string") continue;
-    if ("modelPricingGrid" in entry && entry.modelPricingGrid) {
-      result[entry.model] = entry.modelPricingGrid;
-    }
-  }
-  return result;
+  return extractEnabledModelField(entries, "modelPricingGrid");
 }
 
-/** Extract per-model metadata overrides from enabledModels. */
 export function getMetadataFromEnabledModels(
   entries: EnabledModelEntry[] | undefined,
 ): Record<string, Record<string, unknown>> {
-  const result: Record<string, Record<string, unknown>> = {};
-  if (!entries) return result;
-  for (const entry of entries) {
-    if (typeof entry === "string") continue;
-    if ("metadata" in entry && entry.metadata) {
-      result[entry.model] = entry.metadata;
-    }
-  }
-  return result;
+  return extractEnabledModelField(entries, "metadata");
 }
 
-// Defaults applied post-parse to match the previous Zod .default() semantics.
 export const CONFIG_DEFAULTS = {
   skipUnprofitableText: true,
   globalConcurrency: 50,
   perUpstreamConcurrency: 5,
 } as const;
 
-/** Always-blacklist (broken upstreams, mis-served embed/audio/video). Substring against bare names. */
 const BUILTIN_BLACKLIST: readonly string[] = [
   "ai-synthetic-video-detector",
   "arctic-embed-l",
@@ -158,15 +142,15 @@ const BUILTIN_BLACKLIST: readonly string[] = [
   "stockmark-2-100b-instruct",
 ];
 
-export interface RuntimeConfig extends Omit<
-  ConfigSchemaType,
+type StripKeys =
   | "blacklist"
   | "modelMapping"
   | "skipUnprofitableText"
   | "providers"
   | "globalConcurrency"
-  | "perUpstreamConcurrency"
-> {
+  | "perUpstreamConcurrency";
+
+export interface RuntimeConfig extends Omit<ConfigSchemaType, StripKeys> {
   providers: AnyProviderConfig[];
   skipUnprofitableText: boolean;
   globalConcurrency: number;
@@ -178,68 +162,44 @@ export interface RuntimeConfig extends Omit<
   isTestMode?: boolean;
 }
 
-// ─── Validation helpers ────────────────────────────────────────────────────
-
-/** Cross-field rules TypeBox can't express. Empty array = valid. */
 export function customValidateConfig(config: ConfigSchemaType): string[] {
   const errors: string[] = [];
-
   const seen = new Set<string>();
+
   for (const [i, p] of config.providers.entries()) {
-    if (seen.has(p.name)) {
+    if (seen.has(p.name))
       errors.push(
         t("ERROR.CONFIG_DUPLICATE_PROVIDER", { index: i, name: p.name }),
       );
-    }
     seen.add(p.name);
-  }
 
-  const checkAdjustment = (path: string, adj: unknown): void => {
-    if (adj === undefined || typeof adj !== "object" || adj === null) return;
-    if (!("default" in adj)) {
-      errors.push(t("ERROR.CONFIG_PRICE_ADJUSTMENT_NEEDS_DEFAULT", { path }));
+    const adj = p.priceAdjustment;
+    if (adj && typeof adj === "object") {
+      const path = `providers.${i}.priceAdjustment`;
+      if (!("default" in adj))
+        errors.push(t("ERROR.CONFIG_PRICE_ADJUSTMENT_NEEDS_DEFAULT", { path }));
+      for (const [key, val] of Object.entries(adj))
+        if (typeof val === "number" && !NON_TEXT_TYPES.has(key) && val >= 1)
+          errors.push(
+            t("ERROR.CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT", { path, key }),
+          );
     }
-    for (const [key, val] of Object.entries(adj)) {
-      if (typeof val !== "number") continue;
-      // Text-type keys (vendors + default) must stay below 1.
-      if (!NON_TEXT_TYPES.has(key) && val >= 1) {
-        errors.push(
-          t("ERROR.CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT", { path, key }),
-        );
-      }
-    }
-  };
 
-  for (const [i, p] of config.providers.entries()) {
-    checkAdjustment(`providers.${i}.priceAdjustment`, p.priceAdjustment);
-  }
-
-  for (const [i, p] of config.providers.entries()) {
     if (
       p.type === "sub2api" &&
       !p.adminApiKey &&
       (!p.groups || p.groups.length === 0)
-    ) {
+    )
       errors.push(t("ERROR.CONFIG_SUB2API_REQUIRES_KEY", { index: i }));
-    }
   }
 
   return errors;
 }
 
-// ─── Loader ────────────────────────────────────────────────────────────────
-
 const CONFIG_CANDIDATES = [
   join(configDir(), "config.yml"),
   join(configDir(), "config.yaml"),
 ];
-
-function formatTypeBoxErrors(schema: TSchema, value: unknown): string {
-  const errors = [...Value.Errors(schema, value)].map(
-    (e) => `${e.path || "root"}: ${e.message}`,
-  );
-  return errors.join("\n");
-}
 
 export async function loadConfig(path?: string): Promise<RuntimeConfig> {
   let resolvedPath = path;
@@ -260,14 +220,12 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
   }
 
   const file = Bun.file(resolvedPath);
-  if (!(await file.exists())) {
+  if (!(await file.exists()))
     throw new Error(t("ERROR.CONFIG_FILE_NOT_FOUND", { path: resolvedPath }));
-  }
 
   let parsedRaw: unknown;
   try {
-    const text = expandEnvVars(await file.text());
-    parsedRaw = Bun.YAML.parse(text);
+    parsedRaw = Bun.YAML.parse(expandEnvVars(await file.text()));
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(
@@ -275,44 +233,37 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
     );
   }
 
-  if (!Value.Check(ConfigSchema, parsedRaw)) {
+  if (!Value.Check(ConfigSchema, parsedRaw))
     throw new Error(
       t("ERROR.CONFIG_VALIDATION_FAILED", {
         detail: formatTypeBoxErrors(ConfigSchema, parsedRaw),
       }),
     );
-  }
 
   const typed = parsedRaw as ConfigSchemaType;
   const customErrors = customValidateConfig(typed);
-  if (customErrors.length > 0) {
+  if (customErrors.length > 0)
     throw new Error(
-      t("ERROR.CONFIG_VALIDATION_FAILED", {
-        detail: customErrors.join("\n"),
-      }),
+      t("ERROR.CONFIG_VALIDATION_FAILED", { detail: customErrors.join("\n") }),
     );
-  }
 
   const providers = typed.providers.map((p) => {
-    if (p.type === "nvidia") {
+    if (p.type === "nvidia")
       return {
         ...p,
         baseUrl: p.baseUrl ?? "https://integrate.api.nvidia.com",
         imageBaseUrl: p.imageBaseUrl ?? "https://ai.api.nvidia.com",
         ratio: p.ratio ?? 1,
       };
-    }
-    if (p.type === "openrouter") {
+    if (p.type === "openrouter")
       return {
         ...p,
         baseUrl: p.baseUrl ?? "https://openrouter.ai/api",
         ratio: p.ratio ?? 0,
       };
-    }
     return p;
   });
 
-  // blacklist: union (builtin + global + typed). modelMapping: global wins on collision (user directive).
   const global = await loadGlobalConfig();
   const mergedBlacklist = [
     ...new Set([
@@ -321,14 +272,12 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
       ...(typed.blacklist ?? []),
     ]),
   ];
-  // Values lowercase (toBareName produces lowercase). Keys without `/` lowercased too. Keys with `/` are upstream IDs left as-is.
   const mergedMapping: Record<string, string> = {};
   for (const [k, v] of [
     ...Object.entries(typed.modelMapping ?? {}),
     ...Object.entries(global.modelMapping ?? {}),
   ]) {
-    const normalizedKey = k.includes("/") ? k : k.toLowerCase();
-    mergedMapping[normalizedKey] = v.toLowerCase();
+    mergedMapping[k.includes("/") ? k : k.toLowerCase()] = v.toLowerCase();
   }
 
   return {
@@ -345,9 +294,6 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
   };
 }
 
-/** Returns the effective set of model types to test for a provider.
- * Provider-level overrides global; default is text-only.
- * Empty array means skip all testing. */
 export function getTestModelTypes(
   config: RuntimeConfig,
   provider: AnyProviderConfig,
@@ -357,29 +303,30 @@ export function getTestModelTypes(
   return new Set<ModelType>(["text"]);
 }
 
+function normalizeCsv(values: string[]): string[] {
+  return values
+    .flatMap((v) => v.split(","))
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
 export function applyOnlyProviders(
   config: RuntimeConfig,
   onlyNames: string[],
 ): RuntimeConfig {
   if (onlyNames.length === 0) return config;
-
-  const normalized = onlyNames
-    .flatMap((name) => name.split(","))
-    .map((name) => name.trim())
-    .filter(Boolean);
-
+  const normalized = normalizeCsv(onlyNames);
   if (normalized.length === 0) return config;
 
   const available = new Set(config.providers.map((p) => p.name));
   const unknown = normalized.filter((name) => !available.has(name));
-  if (unknown.length > 0) {
+  if (unknown.length > 0)
     throw new Error(
       t("ERROR.CONFIG_UNKNOWN_PROVIDERS", {
         unknown: unknown.join(", "),
         available: [...available].join(", "),
       }),
     );
-  }
 
   const onlySet = new Set(normalized);
   return {
@@ -394,13 +341,7 @@ export function applyModelFilter(
   raw: string[],
 ): RuntimeConfig {
   if (raw.length === 0) return config;
-
-  const normalized = raw
-    .flatMap((entry) => entry.split(","))
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-
+  const normalized = normalizeCsv(raw);
   if (normalized.length === 0) return config;
-
   return { ...config, modelFilter: normalized };
 }

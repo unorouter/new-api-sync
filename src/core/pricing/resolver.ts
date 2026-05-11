@@ -12,12 +12,6 @@ import type {
 
 export type { BaseModelPricing, PricingSource, SourceMetadata };
 
-/**
- * Priority chain for resolveBasePricing (first hit wins):
- *   1. llm-prices (advisory; OK to fail)  2. basellm (canonical, vendor-filtered)
- *   3. LiteLLM  4. OpenRouter
- * Empty 2/3/4 throws — fetch regression should fail loud.
- */
 export async function fetchAllPricingSources(
   basellmEntries: BasellmEntry[],
 ): Promise<PricingSource[]> {
@@ -44,7 +38,6 @@ export async function fetchAllPricingSources(
   );
 }
 
-/** First fuzzy match in priority order. */
 export function resolveBasePricing(
   modelName: string,
   sources: PricingSource[],
@@ -57,7 +50,6 @@ export function resolveBasePricing(
   return undefined;
 }
 
-/** Merge fields across sources; higher-priority wins (walked in reverse so higher overwrites later). */
 export function resolveSourceMetadata(
   modelName: string,
   sources: PricingSource[],
@@ -65,15 +57,12 @@ export function resolveSourceMetadata(
 ): SourceMetadata {
   const merged: SourceMetadata = {};
   for (let i = sources.length - 1; i >= 0; i--) {
-    const source = sources[i]!;
-    const hit = lookup(modelName, source.metadata, reverseMapping);
-    if (!hit) continue;
-    Object.assign(merged, hit.value);
+    const hit = lookup(modelName, sources[i]!.metadata, reverseMapping);
+    if (hit) Object.assign(merged, hit.value);
   }
   return merged;
 }
 
-/** Override (from enabledModels[].metadata) wins over source-derived. */
 export function buildModelMetadata(opts: {
   modelName: string;
   sources: PricingSource[];
@@ -83,40 +72,35 @@ export function buildModelMetadata(opts: {
   const merged: Record<string, unknown> = {
     ...resolveSourceMetadata(opts.modelName, opts.sources, opts.reverseMapping),
   };
-
   if (opts.override) {
-    for (const [k, v] of Object.entries(opts.override)) {
+    for (const [k, v] of Object.entries(opts.override))
       if (v !== undefined) merged[k] = v;
-    }
   }
-
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
-/** Tag vocab: Reasoning, Tools, Vision, Audio, Files, Cache, WebSearch, ComputerUse, <N>K|M. */
 export function deriveTagsFromMetadata(md: SourceMetadata): string[] {
   const tags: string[] = [];
-  if (md.isReasoning) tags.push("Reasoning");
-  if (md.supportsTools) tags.push("Tools");
-  if (md.supportsVision) tags.push("Vision");
-  if (md.supportsAudio) tags.push("Audio");
-  if (md.supportsVideo) tags.push("Video");
-  if (md.supportsPdf) tags.push("Files");
-  if (md.supportsCache) tags.push("Cache");
-  if (md.supportsWebSearch) tags.push("WebSearch");
-  if (md.supportsComputerUse) tags.push("ComputerUse");
+  const flags: Array<[keyof SourceMetadata, string]> = [
+    ["isReasoning", "Reasoning"],
+    ["supportsTools", "Tools"],
+    ["supportsVision", "Vision"],
+    ["supportsAudio", "Audio"],
+    ["supportsVideo", "Video"],
+    ["supportsPdf", "Files"],
+    ["supportsCache", "Cache"],
+    ["supportsWebSearch", "WebSearch"],
+    ["supportsComputerUse", "ComputerUse"],
+  ];
+  for (const [key, label] of flags) if (md[key]) tags.push(label);
 
   const ctx = md.contextWindow ?? md.maxInputTokens;
   if (ctx != null && ctx > 0) {
-    if (ctx >= 1_000_000) {
-      const m = ctx / 1_000_000;
-      tags.push(m === Math.floor(m) ? `${m}M` : `${m.toFixed(1)}M`);
-    } else if (ctx >= 1000) {
-      const k = ctx / 1000;
-      tags.push(k === Math.floor(k) ? `${k}K` : `${k.toFixed(1)}K`);
-    } else {
-      tags.push(`${ctx}`);
-    }
+    const fmt = (n: number, unit: string) =>
+      `${n === Math.floor(n) ? n : n.toFixed(1)}${unit}`;
+    if (ctx >= 1_000_000) tags.push(fmt(ctx / 1_000_000, "M"));
+    else if (ctx >= 1000) tags.push(fmt(ctx / 1000, "K"));
+    else tags.push(`${ctx}`);
   }
   return tags;
 }

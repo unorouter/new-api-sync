@@ -29,39 +29,36 @@ export class Sub2ApiClient {
     };
   }
 
-  async listAccounts(): Promise<Sub2ApiAccount[]> {
-    const allAccounts: Sub2ApiAccount[] = [];
+  private async paginate<T>(
+    path: string,
+    onError: (detail: string) => string,
+  ): Promise<T[]> {
+    const all: T[] = [];
     let page = 1;
     const pageSize = 100;
-
     while (true) {
-      const response = await fetchJson<
-        Sub2ApiResponse<PaginatedData<Sub2ApiAccount>>
-      >(
-        `${this.baseUrl}/api/v1/admin/accounts?page=${page}&page_size=${pageSize}`,
+      const response = await fetchJson<Sub2ApiResponse<PaginatedData<T>>>(
+        `${this.baseUrl}${path}?page=${page}&page_size=${pageSize}`,
         { headers: this.adminHeaders },
       );
-      if (response.code !== 0 || !response.data) {
-        throw new Error(
-          t("ERROR.SUB2API_ACCOUNT_LIST_FAILED", {
-            detail: response.message ?? "unknown",
-          }),
-        );
-      }
-      const data = response.data;
-
-      allAccounts.push(...data.items);
-      if (page >= data.pages) break;
+      if (response.code !== 0 || !response.data)
+        throw new Error(onError(response.message ?? "unknown"));
+      all.push(...response.data.items);
+      if (page >= response.data.pages) break;
       page++;
     }
+    return all;
+  }
 
-    consola.info(
-      t("CORE.SUB2API.ACCOUNTS_FOUND", {
-        name: this.name,
-        count: allAccounts.length,
-      }),
+  async listAccounts(): Promise<Sub2ApiAccount[]> {
+    const all = await this.paginate<Sub2ApiAccount>(
+      "/api/v1/admin/accounts",
+      (detail) => t("ERROR.SUB2API_ACCOUNT_LIST_FAILED", { detail }),
     );
-    return allAccounts;
+    consola.info(
+      t("CORE.SUB2API.ACCOUNTS_FOUND", { name: this.name, count: all.length }),
+    );
+    return all;
   }
 
   async getAccountModels(accountId: number): Promise<Sub2ApiModel[]> {
@@ -80,32 +77,9 @@ export class Sub2ApiClient {
   }
 
   async listGroups(): Promise<Sub2ApiGroup[]> {
-    const allGroups: Sub2ApiGroup[] = [];
-    let page = 1;
-    const pageSize = 100;
-
-    while (true) {
-      const response = await fetchJson<
-        Sub2ApiResponse<PaginatedData<Sub2ApiGroup>>
-      >(
-        `${this.baseUrl}/api/v1/admin/groups?page=${page}&page_size=${pageSize}`,
-        { headers: this.adminHeaders },
-      );
-      if (response.code !== 0 || !response.data) {
-        throw new Error(
-          t("ERROR.SUB2API_GROUP_LIST_FAILED", {
-            detail: response.message ?? "unknown",
-          }),
-        );
-      }
-      const data = response.data;
-
-      allGroups.push(...data.items);
-      if (page >= data.pages) break;
-      page++;
-    }
-
-    return allGroups;
+    return this.paginate<Sub2ApiGroup>("/api/v1/admin/groups", (detail) =>
+      t("ERROR.SUB2API_GROUP_LIST_FAILED", { detail }),
+    );
   }
 
   async getGroupApiKey(groupId: number): Promise<string | null> {
@@ -122,17 +96,9 @@ export class Sub2ApiClient {
         }),
       );
     }
-    const data = response.data;
-
-    const activeKey = data.items.find((k) => k.status === "active");
-    return activeKey?.key ?? null;
+    return response.data.items.find((k) => k.status === "active")?.key ?? null;
   }
 
-  /**
-   * Fetch the current balance for a user/group API key via /api/v1/users/me.
-   * Returns null when the endpoint is unreachable or the response shape is
-   * unexpected. Used to compute per-provider test cost as start - end.
-   */
   async fetchBalance(apiKey: string): Promise<number | null> {
     const data = await tryFetchJson<{
       code?: number;
@@ -140,31 +106,24 @@ export class Sub2ApiClient {
     }>(`${this.baseUrl}/api/v1/users/me`, {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
-    if (!data || data.code !== 0 || data.data?.balance === undefined) {
+    if (!data || data.code !== 0 || data.data?.balance === undefined)
       return null;
-    }
     return data.data.balance;
   }
 
   async listGatewayModels(apiKey: string, platform: string): Promise<string[]> {
     const isGemini = platform === "gemini";
     const endpoint = isGemini ? "/v1beta/models" : "/v1/models";
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${apiKey}`,
-    };
-
     const response = await fetchJson<Record<string, unknown>>(
       `${this.baseUrl}${endpoint}`,
-      { headers },
+      { headers: { Authorization: `Bearer ${apiKey}` } },
     );
-
     if (isGemini) {
       const models = (response.models ?? []) as Array<{ name?: string }>;
       return models
         .map((m) => (m.name ?? "").replace(/^models\//, ""))
         .filter(Boolean);
     }
-
     const data = (response.data ?? []) as Array<{ id?: string }>;
     return data.map((m) => m.id ?? "").filter(Boolean);
   }

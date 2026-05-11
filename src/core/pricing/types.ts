@@ -34,10 +34,7 @@ export interface PricedTier {
   testDetails?: ModelTestDetail[];
 }
 
-export type PricedDropReason =
-  | "cap-exceeded"
-  | "no-fit"
-  | "collision";
+type PricedDropReason = "cap-exceeded" | "no-fit" | "collision";
 
 export interface PricedDrop {
   model: string;

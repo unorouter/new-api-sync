@@ -7,7 +7,9 @@ export const ErrorResponseSchema = T.Object({
 });
 
 /** Helper: `{ success: true, data: <schema> }`. */
-export const successResponse = <S extends ReturnType<typeof T.Object>>(data: S) =>
+export const successResponse = <S extends ReturnType<typeof T.Object>>(
+  data: S,
+) =>
   T.Object({
     success: T.Literal(true),
     data,

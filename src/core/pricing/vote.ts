@@ -3,14 +3,14 @@ import type { PricingSourceName } from "@core/types";
 import type { PricingSource } from "./sources/types";
 
 /** Per-source result, serialised into the testing log for debug. */
-export interface PricingVoteCandidate {
+interface PricingVoteCandidate {
   source: PricingSourceName;
   matchedKey?: string;
   modelRatio?: number;
   completionRatio?: number;
 }
 
-export interface PricingVoteCluster {
+interface PricingVoteCluster {
   members: PricingSourceName[];
   modelRatio: number;
   /** Mean across cluster members (sources can disagree on output:input). */
@@ -69,9 +69,7 @@ export function resolveCanonicalByVote(
   }
 
   // Ties: insertion order (first ratio key wins — typically highest-priority source).
-  let best:
-    | { ratio: number; members: PricingVoteCandidate[] }
-    | undefined;
+  let best: { ratio: number; members: PricingVoteCandidate[] } | undefined;
   for (const [ratio, members] of groups) {
     if (!best || members.length > best.members.length) {
       best = { ratio, members };

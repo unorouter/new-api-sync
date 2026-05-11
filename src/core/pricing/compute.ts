@@ -1,13 +1,3 @@
-// Pricing math (pure):
-//   written_ratio = canonical[model] ?? cheapest upstreamRatio ?? 1
-//   isFree              → group_ratio = 0
-//   modelPrice / quota  → group_ratio = offer.groupRatio * (1+adj)
-//   upstreamRatio       → group_ratio = offer.groupRatio * (1+adj) * (upstream/written)
-//   sub2api (no upstream) → group_ratio = cheapest_existing * (1+adj)
-//   Cap (if > 1): drop when written * group_ratio > canonical * cap
-// Paid OpenRouter picks one ratio per (provider, vendor) from PAID_GROUP_RATIO_CANDIDATES.
-// Channel names: sanitizedBase-vendor[-tN][-tNa].
-
 import { getTaskModelOverride } from "@core/catalog/constants/channel-types";
 import {
   parseModelList,
@@ -18,14 +8,17 @@ import type { MergedModel } from "@core/types";
 import { resolvePriceAdjustment } from "./index";
 import type { OfferModel, UpstreamOffer } from "./offers";
 import { resolveBasePricing, type PricingSource } from "./resolver";
-import type { BaselineInputs, PricedDrop, PricedPlan, PricedTier } from "./types";
+import type {
+  BaselineInputs,
+  PricedDrop,
+  PricedPlan,
+  PricedTier,
+} from "./types";
 
-export interface ComputeArgs {
+interface ComputeArgs {
   offers: UpstreamOffer[];
   baseline: BaselineInputs;
-  /** Voted canonical retail ratios, keyed by exposed name. */
   canonical: Map<string, number>;
-  /** Used to backfill completion/cache for canonical-overridden models. */
   pricingSources: PricingSource[];
   reverseMapping: Map<string, string>;
   modelMapping: Record<string, string>;
@@ -33,48 +26,56 @@ export interface ComputeArgs {
 
 const PAID_GROUP_RATIO_CANDIDATES = [1, 0.5, 0.25, 0.1, 0.05, 0.01] as const;
 
-interface RescaleContext {
-  writtenRatio: number;
-  canonical?: number;
-  completionRatio: number;
-  cacheRatio?: number;
-  createCacheRatio?: number;
-  modelPrice?: number;
-  quotaType?: number;
+const bucketKey = (r: number) => Math.round(r * 1e6) / 1e6;
+const channelOf = (o: UpstreamOffer) => `${o.sanitizedBase}-${o.vendor}`;
+
+function addToBucket(
+  buckets: Map<number, OfferModel[]>,
+  key: number,
+  m: OfferModel,
+): void {
+  let b = buckets.get(key);
+  if (!b) buckets.set(key, (b = []));
+  b.push(m);
+}
+
+function adjustmentFor(
+  offer: UpstreamOffer,
+  m: OfferModel,
+  args: ComputeArgs,
+): number {
+  return resolvePriceAdjustment({
+    adj: offer.priceAdjustment,
+    model: m.exposed,
+    vendor: offer.vendor,
+    modelType: m.modelType,
+    fallback: offer.defaultAdjustment,
+    modelMapping: args.modelMapping,
+  });
 }
 
 export function computePricedPlan(args: ComputeArgs): PricedPlan {
   const { offers, baseline, canonical, pricingSources, reverseMapping } = args;
-
   const drops: PricedDrop[] = [];
   const tiers: PricedTier[] = [];
-
-  // ─── Step 1: build the global model_ratios map ─────────────────────────
-  // canonical wins; else cheapest upstream_ratio across paid non-fixed offers;
-  // free → ratio=0; fixed-price preserves modelPrice/quotaType.
-
   const modelRatios = new Map<string, MergedModel>();
 
-  // baseline seeded first for partial-sync semantics.
-  for (const [name, ratio] of baseline.modelRatios) {
+  for (const [name, ratio] of baseline.modelRatios)
     modelRatios.set(name, { ...ratio });
-  }
 
-  const offersByModel = new Map<string, Array<{ offer: UpstreamOffer; model: OfferModel }>>();
+  const offersByModel = new Map<
+    string,
+    Array<{ offer: UpstreamOffer; model: OfferModel }>
+  >();
   for (const offer of offers) {
     for (const m of offer.models) {
       let arr = offersByModel.get(m.exposed);
-      if (!arr) {
-        arr = [];
-        offersByModel.set(m.exposed, arr);
-      }
+      if (!arr) offersByModel.set(m.exposed, (arr = []));
       arr.push({ offer, model: m });
     }
   }
 
-  // Use resolveBasePricing (fuzzy) so completion/cache fields stay consistent with canonical.
   for (const [model, occurrences] of offersByModel) {
-    // Any offer with modelPrice>0 or quotaType>=1 forces the fixed-price path.
     const fixedOffer = occurrences.find(
       (o) =>
         (o.model.modelPrice !== undefined && o.model.modelPrice > 0) ||
@@ -95,9 +96,7 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       continue;
     }
 
-    // Free models still flow through canonical so the UI can render "original price" struck-through.
     const canonicalRatio = canonical.get(model);
-    // sourceHit only contributes completion/cache when its ratio matches canonical (else canonical was substituted past an outlier).
     const rawSourceHit =
       canonicalRatio !== undefined && pricingSources.length > 0
         ? resolveBasePricing(model, pricingSources, reverseMapping)
@@ -109,15 +108,12 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
         ? rawSourceHit
         : undefined;
 
-    // Paid non-free contribute to cheapest.
     let cheapestOffer: { offer: UpstreamOffer; model: OfferModel } | undefined;
     for (const occ of occurrences) {
-      if (occ.model.isFree) continue;
-      if (occ.model.upstreamRatio === undefined) continue;
+      if (occ.model.isFree || occ.model.upstreamRatio === undefined) continue;
       if (
         cheapestOffer === undefined ||
-        (occ.model.upstreamRatio ?? Infinity) <
-          (cheapestOffer.model.upstreamRatio ?? Infinity)
+        occ.model.upstreamRatio < cheapestOffer.model.upstreamRatio!
       ) {
         cheapestOffer = occ;
       }
@@ -127,33 +123,25 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
     let completionRatio: number;
     let cacheRatio: number | undefined;
     let createCacheRatio: number | undefined;
+    const co = cheapestOffer?.model;
 
     if (sourceHit) {
       writtenRatio = sourceHit.modelRatio;
       completionRatio = sourceHit.completionRatio;
       cacheRatio = sourceHit.cacheRatio;
       createCacheRatio = sourceHit.createCacheRatio;
-    } else if (canonicalRatio !== undefined) {
-      writtenRatio = canonicalRatio;
-      completionRatio =
-        cheapestOffer?.model.upstreamCompletionRatio ?? 1;
-      cacheRatio = cheapestOffer?.model.cacheRatio;
-      createCacheRatio = cheapestOffer?.model.createCacheRatio;
-    } else if (cheapestOffer) {
-      writtenRatio = cheapestOffer.model.upstreamRatio!;
-      completionRatio = cheapestOffer.model.upstreamCompletionRatio ?? 1;
-      cacheRatio = cheapestOffer.model.cacheRatio;
-      createCacheRatio = cheapestOffer.model.createCacheRatio;
+    } else if (canonicalRatio !== undefined || co) {
+      writtenRatio = canonicalRatio ?? co!.upstreamRatio!;
+      completionRatio = co?.upstreamCompletionRatio ?? 1;
+      cacheRatio = co?.cacheRatio;
+      createCacheRatio = co?.createCacheRatio;
     } else {
-      // No canonical, no paid upstream. Keep baseline; else all-free → 0/0, else 1/1 fallback.
-      const existing = modelRatios.get(model);
-      if (existing) continue;
+      if (modelRatios.get(model)) continue;
       const allFree = occurrences.every((o) => o.model.isFree);
       writtenRatio = allFree ? 0 : 1;
       completionRatio = allFree ? 0 : 1;
     }
 
-    // Preserve cache fields from baseline if new sources don't carry them.
     const existing = modelRatios.get(model);
     modelRatios.set(model, {
       ratio: writtenRatio,
@@ -166,17 +154,14 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
     });
   }
 
-  // ─── Step 2: rescale formula → PricedTier per offer ─────────────────────
-
-  const baselineCheapestGroupForModel = buildBaselineCheapestMap(baseline);
-
-  // Phase A: independent ratios (free/paid/upstream-priced).
-  // Phase B: needs cheapest-across-baseline+A lookup (sub2api).
   const phaseAOffers: UpstreamOffer[] = [];
   const phaseBOffers: UpstreamOffer[] = [];
   for (const offer of offers) {
-    // OpenRouter (paid → ladder, free → isFree=0), NVIDIA (free/fixed): always phase A.
-    if (offer.paidTier || offer.providerKind === "openrouter" || offer.providerKind === "nvidia") {
+    if (
+      offer.paidTier ||
+      offer.providerKind === "openrouter" ||
+      offer.providerKind === "nvidia"
+    ) {
       phaseAOffers.push(offer);
       continue;
     }
@@ -187,31 +172,25 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
         (m.modelPrice !== undefined && m.modelPrice >= 0) ||
         (m.quotaType !== undefined && m.quotaType >= 1),
     );
-    if (hasUpstream) phaseAOffers.push(offer);
-    else phaseBOffers.push(offer);
+    (hasUpstream ? phaseAOffers : phaseBOffers).push(offer);
   }
 
   for (const offer of phaseAOffers) {
-    if (offer.paidTier) {
+    if (offer.paidTier)
       processPaidOffer(offer, modelRatios, canonical, tiers, drops);
-    } else {
-      processStandardOffer(offer, modelRatios, canonical, args, tiers, drops);
-    }
+    else processStandardOffer(offer, modelRatios, canonical, args, tiers);
   }
 
-  // Cumulative cheapest-group across baseline + phase A; consumed by sub2api lookups.
-  const cheapestForPhaseB = new Map(baselineCheapestGroupForModel);
+  const cheapestForPhaseB = buildBaselineCheapestMap(baseline);
   for (const tier of tiers) {
     if (tier.groupRatio < 0) continue;
     for (const m of tier.models) {
       const cur = cheapestForPhaseB.get(m);
-      if (cur === undefined || tier.groupRatio < cur) {
+      if (cur === undefined || tier.groupRatio < cur)
         cheapestForPhaseB.set(m, tier.groupRatio);
-      }
     }
   }
 
-  // sub2api: one tier per (offer, distinct group_ratio).
   for (const offer of phaseBOffers) {
     processNoUpstreamOffer(
       offer,
@@ -227,86 +206,35 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
   return { tiers, modelRatios, drops };
 }
 
-// ─── Standard (newapi, openrouter free, nvidia) ────────────────────────────
-
 function processStandardOffer(
   offer: UpstreamOffer,
   modelRatios: Map<string, MergedModel>,
-  canonical: Map<string, number>,
+  _canonical: Map<string, number>,
   args: ComputeArgs,
   tiers: PricedTier[],
-  _drops: PricedDrop[],
 ): void {
-  // Bucket models by effective ratio (1e6-rounded for stable keys).
   const buckets = new Map<number, OfferModel[]>();
   for (const m of offer.models) {
     const written = modelRatios.get(m.exposed);
-    if (!written) {
-      // Should never happen if Step 1 ran for every model; defensive skip.
-      continue;
+    if (!written) continue;
+    let groupRatio: number;
+    if (m.isFree) groupRatio = 0;
+    else {
+      const adj = adjustmentFor(offer, m, args);
+      if (
+        (written.modelPrice !== undefined && written.modelPrice > 0) ||
+        (written.quotaType !== undefined && written.quotaType >= 1)
+      )
+        groupRatio = offer.groupRatio * (1 + adj);
+      else if (m.upstreamRatio !== undefined && written.ratio > 0)
+        groupRatio =
+          offer.groupRatio * (1 + adj) * (m.upstreamRatio / written.ratio);
+      else groupRatio = offer.groupRatio * (1 + adj);
     }
-    const ctx: RescaleContext = {
-      writtenRatio: written.ratio,
-      canonical: canonical.get(m.exposed),
-      completionRatio: written.completionRatio,
-      cacheRatio: written.cacheRatio,
-      createCacheRatio: written.createCacheRatio,
-      modelPrice: written.modelPrice,
-      quotaType: written.quotaType,
-    };
-    const groupRatio = computeStandardGroupRatio(offer, m, ctx, args);
-    if (groupRatio === undefined) continue;
-
-    // Cap check lives in the pre-test planner (newapi/provider.ts); re-applying here would silently drop cheapest-fallback survivors.
-    const key = Math.round(groupRatio * 1e6) / 1e6;
-    let bucket = buckets.get(key);
-    if (!bucket) {
-      bucket = [];
-      buckets.set(key, bucket);
-    }
-    bucket.push(m);
+    addToBucket(buckets, bucketKey(groupRatio), m);
   }
-
-  if (buckets.size === 0) return;
-
-  pushBucketsAsTiers(offer, buckets, tiers);
+  if (buckets.size > 0) pushBucketsAsTiers(offer, buckets, tiers);
 }
-
-function computeStandardGroupRatio(
-  offer: UpstreamOffer,
-  m: OfferModel,
-  ctx: RescaleContext,
-  args: ComputeArgs,
-): number | undefined {
-  if (m.isFree) return 0;
-
-  const adjustment = resolvePriceAdjustment({
-    adj: offer.priceAdjustment,
-    model: m.exposed,
-    vendor: offer.vendor,
-    modelType: m.modelType,
-    fallback: offer.defaultAdjustment,
-    modelMapping: args.modelMapping,
-  });
-
-  // Fixed-price: group_ratio still scales modelPrice.
-  if (
-    (ctx.modelPrice !== undefined && ctx.modelPrice > 0) ||
-    (ctx.quotaType !== undefined && ctx.quotaType >= 1)
-  ) {
-    return offer.groupRatio * (1 + adjustment);
-  }
-
-  // Standard rescale.
-  if (m.upstreamRatio !== undefined && ctx.writtenRatio > 0) {
-    const rescale = m.upstreamRatio / ctx.writtenRatio;
-    return offer.groupRatio * (1 + adjustment) * rescale;
-  }
-  // Defensive: shouldn't hit (phase B handles no-upstream).
-  return offer.groupRatio * (1 + adjustment);
-}
-
-// ─── Paid OpenRouter: pick one ladder candidate per vendor ──────────────────
 
 function processPaidOffer(
   offer: UpstreamOffer,
@@ -315,12 +243,10 @@ function processPaidOffer(
   tiers: PricedTier[],
   drops: PricedDrop[],
 ): void {
-  // Pre-bucketed per-vendor by the caller. Ladder pick replaces the rescale formula.
   let chosen: { ratio: number; kept: OfferModel[] } | null = null;
   for (const candidate of PAID_GROUP_RATIO_CANDIDATES) {
     const kept = offer.models.filter((m) => {
-      const written = modelRatios.get(m.exposed);
-      const ratio = written?.ratio ?? 1;
+      const ratio = modelRatios.get(m.exposed)?.ratio ?? 1;
       const ceiling = canonical.get(m.exposed) ?? ratio;
       return ratio * candidate <= ceiling;
     });
@@ -328,16 +254,15 @@ function processPaidOffer(
       chosen = { ratio: candidate, kept };
       break;
     }
-    if (kept.length > 0 && !chosen) {
-      chosen = { ratio: candidate, kept };
-    }
+    if (kept.length > 0 && !chosen) chosen = { ratio: candidate, kept };
   }
 
+  const channel = channelOf(offer);
   if (!chosen || chosen.kept.length === 0) {
     for (const m of offer.models) {
       drops.push({
         model: m.exposed,
-        channel: `${offer.sanitizedBase}-${offer.vendor}`,
+        channel,
         reason: "no-fit",
         detail: "no group_ratio candidate fits within canonical",
       });
@@ -350,7 +275,7 @@ function processPaidOffer(
     if (!keptSet.has(m)) {
       drops.push({
         model: m.exposed,
-        channel: `${offer.sanitizedBase}-${offer.vendor}`,
+        channel,
         reason: "cap-exceeded",
         effectiveRatio: chosen.ratio,
         detail: `at chosen group_ratio=${chosen.ratio}`,
@@ -358,17 +283,9 @@ function processPaidOffer(
     }
   }
 
-  // One tier per paid offer (no sub-bucketing).
-  const buckets = new Map<number, OfferModel[]>();
-  buckets.set(chosen.ratio, chosen.kept);
+  const buckets = new Map<number, OfferModel[]>([[chosen.ratio, chosen.kept]]);
   pushBucketsAsTiers(offer, buckets, tiers);
 }
-
-// =========================================================================
-// No-upstream-ratio offers (sub2api): use cheapest existing
-// group_ratio for the model across baseline + phase A tiers, then apply
-// the per-model adjustment. Tiers are bucketed by computed ratio.
-// =========================================================================
 
 function processNoUpstreamOffer(
   offer: UpstreamOffer,
@@ -380,20 +297,12 @@ function processNoUpstreamOffer(
   drops: PricedDrop[],
 ): void {
   const buckets = new Map<number, OfferModel[]>();
+  const channel = channelOf(offer);
   for (const m of offer.models) {
-    const adjustment = resolvePriceAdjustment({
-      adj: offer.priceAdjustment,
-      model: m.exposed,
-      vendor: offer.vendor,
-      modelType: m.modelType,
-      fallback: offer.defaultAdjustment,
-      modelMapping: args.modelMapping,
-    });
-
+    const adj = adjustmentFor(offer, m, args);
     const cheapest = cheapestForModel.get(m.exposed) ?? offer.groupRatio;
-    const groupRatio = cheapest * (1 + adjustment);
+    const groupRatio = cheapest * (1 + adj);
 
-    // Cap: never sell above 1x canonical.
     if (groupRatio > 1) {
       const written = modelRatios.get(m.exposed)?.ratio ?? 1;
       const charge = written * groupRatio;
@@ -401,28 +310,17 @@ function processNoUpstreamOffer(
       if (charge > ceiling) {
         drops.push({
           model: m.exposed,
-          channel: `${offer.sanitizedBase}-${offer.vendor}`,
+          channel,
           reason: "cap-exceeded",
           effectiveRatio: groupRatio,
         });
         continue;
       }
     }
-
-    const key = Math.round(groupRatio * 1e6) / 1e6;
-    let bucket = buckets.get(key);
-    if (!bucket) {
-      bucket = [];
-      buckets.set(key, bucket);
-    }
-    bucket.push(m);
+    addToBucket(buckets, bucketKey(groupRatio), m);
   }
-
-  if (buckets.size === 0) return;
-  pushBucketsAsTiers(offer, buckets, tiers);
+  if (buckets.size > 0) pushBucketsAsTiers(offer, buckets, tiers);
 }
-
-// ─── Bucket → tier (task-override sub-split + name suffixes) ────────────────
 
 function pushBucketsAsTiers(
   offer: UpstreamOffer,
@@ -431,7 +329,6 @@ function pushBucketsAsTiers(
 ): void {
   let tierIdx = 0;
   for (const [groupRatio, bucketModels] of buckets) {
-    // Task-model override fires only when upstream exposes openai-video, or when endpoint data is absent.
     const subGroups = new Map<
       string,
       { models: OfferModel[]; channelType?: number; baseUrlSuffix?: string }
@@ -440,7 +337,9 @@ function pushBucketsAsTiers(
       const isTaskUpstream = m.endpoints
         ? m.endpoints.includes("openai-video")
         : true;
-      const override = isTaskUpstream ? getTaskModelOverride(m.exposed) : undefined;
+      const override = isTaskUpstream
+        ? getTaskModelOverride(m.exposed)
+        : undefined;
       const key = override
         ? `${override.channelType}:${override.baseUrlSuffix ?? ""}`
         : "default";
@@ -462,30 +361,18 @@ function pushBucketsAsTiers(
         buckets.size > 1 || subGroups.size > 1
           ? `-t${tierIdx}${subGroups.size > 1 ? String.fromCharCode(97 + subIdx) : ""}`
           : "";
-      const channelName = `${offer.sanitizedBase}-${offer.vendor}${tierSuffix}`;
-      const channelType = sub.channelType ?? offer.channelType;
-      const baseUrl =
-        offer.baseUrl.replace(/\/$/, "") + (sub.baseUrlSuffix ?? "");
-
-      // Reverse mapping for this tier only (models where exposed !== upstream).
       const tierModelMapping: Record<string, string> = {};
-      for (const m of sub.models) {
-        if (m.exposed !== m.upstream) {
-          tierModelMapping[m.exposed] = m.upstream;
-        }
-      }
-
-      // emit() reads these to build capabilities JSON.
+      for (const m of sub.models)
+        if (m.exposed !== m.upstream) tierModelMapping[m.exposed] = m.upstream;
       const tierDetails: ModelTestDetail[] = [];
-      for (const m of sub.models) {
+      for (const m of sub.models)
         if (m.testDetail) tierDetails.push(m.testDetail);
-      }
 
       tiers.push({
-        channelName,
+        channelName: `${offer.sanitizedBase}-${offer.vendor}${tierSuffix}`,
         vendor: offer.vendor,
-        channelType,
-        baseUrl,
+        channelType: sub.channelType ?? offer.channelType,
+        baseUrl: offer.baseUrl.replace(/\/$/, "") + (sub.baseUrlSuffix ?? ""),
         apiKey: offer.apiKey,
         providerTag: offer.provider,
         channelRemark: offer.channelRemark,
@@ -504,9 +391,9 @@ function pushBucketsAsTiers(
   }
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function buildBaselineCheapestMap(baseline: BaselineInputs): Map<string, number> {
+function buildBaselineCheapestMap(
+  baseline: BaselineInputs,
+): Map<string, number> {
   const groupRatioByName = new Map<string, number>(
     baseline.groups.map((g) => [g.name, g.ratio]),
   );
@@ -515,11 +402,8 @@ function buildBaselineCheapestMap(baseline: BaselineInputs): Map<string, number>
     const gRatio = groupRatioByName.get(ch.group) ?? 1;
     for (const m of parseModelList(ch.models)) {
       const cur = cheapest.get(m);
-      if (cur === undefined || gRatio < cur) {
-        cheapest.set(m, gRatio);
-      }
+      if (cur === undefined || gRatio < cur) cheapest.set(m, gRatio);
     }
   }
   return cheapest;
 }
-

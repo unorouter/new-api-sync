@@ -31,7 +31,6 @@ const ESTIMATED_COST_PER_PROBE_USD = 0.1;
 export interface RunImagesOpts {
   config: RuntimeConfig;
   dryRun?: boolean;
-  /** When set, prompt before EACH individual probe. Default = straight-through. */
   step?: boolean;
 }
 
@@ -45,7 +44,18 @@ export interface RunImagesReport {
   durationMs: number;
 }
 
-/** Probe every newapi provider for working image-edit channels. Dry-run writes logs/images-dry-run.json without hitting upstreams. */
+const errMsg = (err: unknown) =>
+  err instanceof Error ? err.message : String(err);
+
+interface ProviderEntry {
+  provider: ProviderConfig;
+  client: NewApiClient;
+  groupMap: Map<string, GroupChannel[]>;
+  discovery: DiscoveryReport;
+  tokens: ProbeTokenManager;
+  pricing: UpstreamPricing;
+}
+
 export async function runImageProbe(
   opts: RunImagesOpts,
 ): Promise<RunImagesReport> {
@@ -53,31 +63,12 @@ export async function runImageProbe(
   const fixtures = await loadFixtures();
   const store = loadStore();
 
-  const newapiProviders = opts.config.providers.filter(
+  const newapiProviders: ProviderConfig[] = opts.config.providers.filter(
     (p): p is ProviderConfig => p.type === "newapi",
   );
-  for (const p of opts.config.providers.filter((p) => p.type !== "newapi")) {
-    consola.warn(
-      t("CORE.IMAGES.SKIPPING_NON_NEWAPI_PROVIDER", {
-        name: p.name,
-        type: p.type,
-      }),
-    );
-  }
 
-  // ─── Discovery + dry-run ────────────────────────────────────────────────
   const dryRunProviders: DryRunProvider[] = [];
-  const candidatesByProvider = new Map<
-    string,
-    {
-      provider: ProviderConfig;
-      client: NewApiClient;
-      groupMap: Map<string, GroupChannel[]>;
-      discovery: DiscoveryReport;
-      tokens: ProbeTokenManager;
-      pricing: UpstreamPricing;
-    }
-  >();
+  const candidatesByProvider = new Map<string, ProviderEntry>();
 
   for (const provider of newapiProviders) {
     consola.info(t("CORE.IMAGES.PROVIDER_SCANNING", { name: provider.name }));
@@ -89,12 +80,11 @@ export async function runImageProbe(
       consola.warn(
         t("CORE.IMAGES.PRICING_FAILED", {
           name: provider.name,
-          err: err instanceof Error ? err.message : String(err),
+          err: errMsg(err),
         }),
       );
       continue;
     }
-
     const legacyModelInfo = await tryFetchLegacyModelInfo(provider);
     const discovery = discoverCandidates({
       providerName: provider.name,
@@ -102,7 +92,6 @@ export async function runImageProbe(
       legacyModelInfo,
       modelNameFilter: opts.config.modelFilter ?? [],
     });
-
     const tokens = new ProbeTokenManager(client.ctx, provider.name);
     if (!opts.dryRun) {
       try {
@@ -111,13 +100,12 @@ export async function runImageProbe(
         consola.warn(
           t("CORE.IMAGES.NO_INFERENCE_TOKEN", {
             name: provider.name,
-            err: err instanceof Error ? err.message : String(err),
+            err: errMsg(err),
           }),
         );
         continue;
       }
     }
-
     const groupMap = buildGroupMap(pricing);
     candidatesByProvider.set(provider.name, {
       provider,
@@ -127,7 +115,6 @@ export async function runImageProbe(
       tokens,
       pricing,
     });
-
     if (opts.dryRun) {
       dryRunProviders.push(
         buildDryRunProvider({
@@ -141,10 +128,9 @@ export async function runImageProbe(
     }
   }
 
-  // ─── Aggregate ──────────────────────────────────────────────────────────
-  let totalCandidates = 0;
-  let cached = 0;
-  let toProbe = 0;
+  let totalCandidates = 0,
+    cached = 0,
+    toProbe = 0;
   const byKind: Record<ProbeKind, number> = {
     sync: 0,
     "openai-vendor": 0,
@@ -158,7 +144,6 @@ export async function runImageProbe(
       else toProbe++;
     }
   }
-
   consola.info(
     t("CORE.IMAGES.CANDIDATES_FOUND", {
       total: totalCandidates,
@@ -167,9 +152,10 @@ export async function runImageProbe(
       cached,
     }),
   );
+  const durationMs = () => Math.round(performance.now() - startedAt);
 
   if (opts.dryRun) {
-    const report: DryRunReport = {
+    const path = saveDryRun({
       version: 1,
       generatedAt: new Date().toISOString(),
       providers: dryRunProviders,
@@ -179,8 +165,7 @@ export async function runImageProbe(
         estimatedMaxCost: +(toProbe * ESTIMATED_COST_PER_PROBE_USD).toFixed(2),
         alreadyDecided: cached,
       },
-    };
-    const path = saveDryRun(report);
+    } satisfies DryRunReport);
     consola.success(t("CORE.IMAGES.DRY_RUN_WRITTEN", { path }));
     return {
       totalCandidates,
@@ -189,33 +174,25 @@ export async function runImageProbe(
       passed: 0,
       failed: 0,
       noChannel: 0,
-      durationMs: Math.round(performance.now() - startedAt),
+      durationMs: durationMs(),
     };
   }
 
-  // Informational only; --step prompts per-probe and streaming mode already opted in.
-  const estimate = +(toProbe * ESTIMATED_COST_PER_PROBE_USD).toFixed(2);
   consola.info(
-    t("CORE.IMAGES.ESTIMATED_COST", { cost: estimate, count: toProbe }),
+    t("CORE.IMAGES.ESTIMATED_COST", {
+      cost: +(toProbe * ESTIMATED_COST_PER_PROBE_USD).toFixed(2),
+      count: toProbe,
+    }),
   );
 
-  // ─── Probe loop ──────────────────────────────────────────────────────────
-  // Sequential by design: parallel probes saturate upstream rate limits and
-  // we save after every channel attempt for crash-resume.
-  let passed = 0;
-  let failed = 0;
-  let noChannel = 0;
-  let totalSpent = 0;
-
-  const saveProgress = (partial: ModelResult) => {
-    appendResult(store, partial);
+  let passed = 0,
+    failed = 0,
+    noChannel = 0,
+    totalSpent = 0;
+  const persist = (r: ModelResult) => {
+    appendResult(store, r);
     saveStore(store);
   };
-
-  // Per-provider 403 cache (aigc-style tokens that don't actually grant the
-  // group). Per-provider async-billing autodetect (yun debits async ~20s
-  // after response; sync providers debit immediately).
-  const deadGroupsByProvider = new Map<string, Set<string>>();
   const asyncBillingByProvider = new Map<string, "unknown" | boolean>();
 
   try {
@@ -224,12 +201,9 @@ export async function runImageProbe(
       { provider, client, groupMap, discovery, tokens, pricing },
     ] of candidatesByProvider) {
       const deadGroups = new Set<string>();
-      deadGroupsByProvider.set(providerName, deadGroups);
       asyncBillingByProvider.set(providerName, "unknown");
-
       for (const c of discovery.candidates) {
         if (isAlreadyTested(store, providerName, c.modelName)) continue;
-
         if (opts.step) {
           const planned = probeStepsFor({
             endpointTypes: c.endpointTypes,
@@ -247,7 +221,6 @@ export async function runImageProbe(
             break outer;
           }
         }
-
         const result = await probeOneModel({
           provider,
           candidate: c,
@@ -260,7 +233,7 @@ export async function runImageProbe(
             get: () => asyncBillingByProvider.get(providerName) ?? "unknown",
             set: (v) => asyncBillingByProvider.set(providerName, v),
           },
-          onProgress: saveProgress,
+          onProgress: persist,
           fetchBalance: () => client.fetchBalance(),
           onStepCost: ({ channelName, probeShape, delta, balanceAfter }) => {
             totalSpent += Math.max(0, delta);
@@ -285,27 +258,25 @@ export async function runImageProbe(
       try {
         await tokens.cleanup();
       } catch {
-        /* warned inside cleanup */
+        /* warned inside */
       }
     }
-    if (totalSpent > 0) {
+    if (totalSpent > 0)
       consola.info(
         `Total actual spend across this run: $${totalSpent.toFixed(4)}`,
       );
-    }
   }
 
-  const durationMs = Math.round(performance.now() - startedAt);
+  const dur = durationMs();
   consola.success(
     t("CORE.IMAGES.SUMMARY", {
       total: toProbe,
       passed,
       failed,
       noChannel,
-      durationSec: (durationMs / 1000).toFixed(1),
+      durationSec: (dur / 1000).toFixed(1),
     }),
   );
-
   return {
     totalCandidates,
     toProbe,
@@ -313,6 +284,6 @@ export async function runImageProbe(
     passed,
     failed,
     noChannel,
-    durationMs,
+    durationMs: dur,
   };
 }

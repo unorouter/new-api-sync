@@ -29,30 +29,33 @@ interface ResolvedGroup {
   models: Set<string>;
 }
 
-function getEnabledPlatforms(enabledVendors?: string[]): Set<string> | null {
-  if (!enabledVendors?.length) return null;
-  return new Set(
-    enabledVendors.flatMap(
-      (v) => VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()],
-    ),
+const getEnabledPlatforms = (enabledVendors?: string[]): Set<string> | null =>
+  enabledVendors?.length
+    ? new Set(
+        enabledVendors.flatMap(
+          (v) =>
+            VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()],
+        ),
+      )
+    : null;
+
+const sumBalances = (values: (number | null)[]): number | null =>
+  values.reduce<number | null>(
+    (acc, b) => (b === null ? acc : (acc ?? 0) + b),
+    null,
   );
-}
 
 async function resolveViaAdmin(
   client: Sub2ApiClient,
   providerConfig: Sub2ApiProviderConfig,
   config: RuntimeConfig,
 ): Promise<ResolvedGroup[]> {
-  const allGroups = await client.listGroups();
-  let activeGroups = allGroups.filter((g) => g.status === "active");
-
   const enabledPlatforms = getEnabledPlatforms(providerConfig.enabledVendors);
-  if (enabledPlatforms) {
-    activeGroups = activeGroups.filter((g) =>
-      enabledPlatforms.has(g.platform.toLowerCase()),
-    );
-  }
-
+  const activeGroups = (await client.listGroups()).filter(
+    (g) =>
+      g.status === "active" &&
+      (!enabledPlatforms || enabledPlatforms.has(g.platform.toLowerCase())),
+  );
   if (activeGroups.length === 0) return [];
 
   const groupKeys = new Map<
@@ -76,7 +79,6 @@ async function resolveViaAdmin(
       apiKey,
     });
   }
-
   if (groupKeys.size === 0) return [];
   consola.info(
     t("CORE.SUB2API.GROUPS_WITH_KEYS", {
@@ -99,21 +101,23 @@ async function resolveViaAdmin(
   for (const account of activeAccounts) {
     const platform = account.platform.toLowerCase();
     if (!platformModels.has(platform)) platformModels.set(platform, new Set());
-    const accountModels = await client.getAccountModels(account.id);
-    for (const id of filterModels(
-      accountModels.map((m) => m.id.replace(/^models\//, "")),
-      config,
-      providerConfig,
-    )) {
+    const ids = (await client.getAccountModels(account.id)).map((m) =>
+      m.id.replace(/^models\//, ""),
+    );
+    for (const id of filterModels(ids, config, providerConfig))
       platformModels.get(platform)!.add(id);
-    }
   }
 
   const resolved: ResolvedGroup[] = [];
   for (const [, info] of groupKeys) {
     const models = platformModels.get(info.platform);
-    if (!models || models.size === 0) continue;
-    resolved.push({ ...info, models });
+    if (models?.size)
+      resolved.push({
+        name: info.name,
+        platform: info.platform,
+        apiKey: info.apiKey,
+        models,
+      });
   }
   return resolved;
 }
@@ -125,14 +129,12 @@ async function resolveViaGroups(
 ): Promise<ResolvedGroup[]> {
   const groups = providerConfig.groups ?? [];
   if (groups.length === 0) return [];
+  const enabledPlatforms = getEnabledPlatforms(providerConfig.enabledVendors);
 
   const resolved: ResolvedGroup[] = [];
   for (const group of groups) {
     const platform = group.platform.toLowerCase();
-
-    const enabledPlatforms = getEnabledPlatforms(providerConfig.enabledVendors);
     if (enabledPlatforms && !enabledPlatforms.has(platform)) continue;
-
     const modelIds = await client.listGatewayModels(group.key, platform);
     const filtered = filterModels(modelIds, config, providerConfig);
     if (filtered.length === 0) {
@@ -144,7 +146,6 @@ async function resolveViaGroups(
       );
       continue;
     }
-
     resolved.push({
       name: group.name ?? platform,
       platform,
@@ -152,7 +153,6 @@ async function resolveViaGroups(
       models: new Set(filtered),
     });
   }
-
   consola.info(
     t("CORE.SUB2API.GROUPS_WITH_MODELS", {
       name: providerConfig.name,
@@ -165,10 +165,7 @@ async function resolveViaGroups(
 export async function processSub2ApiProvider(
   providerConfig: Sub2ApiProviderConfig,
   config: RuntimeConfig,
-  ctx: {
-    pricingSources: PricingSource[];
-    reverseMapping: Map<string, string>;
-  },
+  ctx: { pricingSources: PricingSource[]; reverseMapping: Map<string, string> },
 ): Promise<ProviderResult> {
   const report: ProviderReport = {
     name: providerConfig.name,
@@ -180,7 +177,6 @@ export async function processSub2ApiProvider(
   const offers: UpstreamOffer[] = [];
   const endpointMetadata = { endpointPaths: new Map() };
   const client = new Sub2ApiClient(providerConfig);
-  // Lifted out of try so post-loop cost can read them.
   let totalStart: number | null = null;
   let groupKeysForBalance: string[] = [];
 
@@ -188,21 +184,14 @@ export async function processSub2ApiProvider(
     const resolvedGroups = providerConfig.adminApiKey
       ? await resolveViaAdmin(client, providerConfig, config)
       : await resolveViaGroups(client, providerConfig, config);
-
     if (resolvedGroups.length === 0) {
       report.error = t("CORE.ERROR.NO_GROUPS_WITH_MODELS");
       return { report, offers, endpointMetadata };
     }
-
-    // Total cost = Σ(start - end) across groups; sub2api balance is per-user.
     groupKeysForBalance = resolvedGroups.map((g) => g.apiKey);
-    const startBalances = await Promise.all(
-      groupKeysForBalance.map((k) => client.fetchBalance(k)),
+    totalStart = sumBalances(
+      await Promise.all(groupKeysForBalance.map((k) => client.fetchBalance(k))),
     );
-    totalStart = startBalances.reduce<number | null>((acc, b) => {
-      if (b === null) return acc;
-      return (acc ?? 0) + b;
-    }, null);
     if (totalStart !== null) {
       consola.info(
         t("CORE.PROVIDER.BALANCE", {
@@ -211,11 +200,8 @@ export async function processSub2ApiProvider(
         }),
       );
     }
-
-    // Offers carry no upstream ratio; compute() picks cheapest existing group ratio across baseline + other tiers.
-    const defaultAdjustment = -0.1;
-    let totalModels = 0;
-    let groupsProcessed = 0;
+    let totalModels = 0,
+      groupsProcessed = 0;
 
     for (const groupInfo of resolvedGroups) {
       const vendor =
@@ -224,7 +210,6 @@ export async function processSub2ApiProvider(
         SUB2API_PLATFORM_CHANNEL_TYPES[groupInfo.platform.toLowerCase()] ??
         CHANNEL_TYPES.OPENAI;
       const useResponsesAPI = groupInfo.platform === "openai";
-
       const upstreamModels = [...groupInfo.models];
       const capabilities = buildCapabilityMap(
         upstreamModels,
@@ -242,7 +227,6 @@ export async function processSub2ApiProvider(
         capabilities,
       });
       const workingModels = filterResult.workingModels;
-
       if (workingModels.length === 0) {
         consola.warn(
           t("CORE.SUB2API.NO_WORKING_MODELS", {
@@ -253,7 +237,6 @@ export async function processSub2ApiProvider(
         );
         continue;
       }
-
       consola.info(
         t("CORE.SUB2API.GROUP_WORKING", {
           name: providerConfig.name,
@@ -266,33 +249,27 @@ export async function processSub2ApiProvider(
       const responsesApiEndpoints = useResponsesAPI
         ? ["openai-response"]
         : undefined;
-
-      const offerModels: OfferModel[] = workingModels.map((upstreamName) => {
-        const exposed = (
+      const offerModels: OfferModel[] = workingModels.map((upstreamName) => ({
+        exposed: (
           config.modelMapping?.[upstreamName] ?? upstreamName
-        ).toLowerCase();
-        const detail = filterResult.details?.find(
-          (d) => d.model === upstreamName,
-        );
-        return {
-          exposed,
-          upstream: upstreamName,
-          modelType: inferModelType(exposed, responsesApiEndpoints),
-          endpoints: responsesApiEndpoints,
-          normalizedEndpoints: responsesApiEndpoints,
-          testDetail: detail,
-        };
-      });
-
-      const sanitizedBase = sanitizeGroupName(
-        `${groupInfo.name}-${providerConfig.name}`,
-      );
+        ).toLowerCase(),
+        upstream: upstreamName,
+        modelType: inferModelType(
+          (config.modelMapping?.[upstreamName] ?? upstreamName).toLowerCase(),
+          responsesApiEndpoints,
+        ),
+        endpoints: responsesApiEndpoints,
+        normalizedEndpoints: responsesApiEndpoints,
+        testDetail: filterResult.details?.find((d) => d.model === upstreamName),
+      }));
 
       offers.push({
         provider: providerConfig.name,
         providerKind: "sub2api",
         group: groupInfo.name,
-        sanitizedBase,
+        sanitizedBase: sanitizeGroupName(
+          `${groupInfo.name}-${providerConfig.name}`,
+        ),
         vendor,
         channelType,
         baseUrl: providerConfig.baseUrl,
@@ -301,9 +278,8 @@ export async function processSub2ApiProvider(
         channelRemark: `${groupInfo.platform} via ${providerConfig.name}`,
         models: offerModels,
         priceAdjustment: providerConfig.priceAdjustment,
-        defaultAdjustment,
+        defaultAdjustment: -0.1,
       });
-
       totalModels += offerModels.length;
       groupsProcessed++;
     }
@@ -311,35 +287,28 @@ export async function processSub2ApiProvider(
     report.groups = groupsProcessed;
     report.models = totalModels;
     report.success = groupsProcessed > 0;
-    if (!report.success) {
+    if (!report.success)
       report.error = t("CORE.ERROR.NO_GROUPS_PRODUCED_CHANNELS");
-    }
   } catch (error) {
     report.error = error instanceof Error ? error.message : String(error);
   }
 
   if (totalStart !== null && groupKeysForBalance.length > 0) {
-    const endBalances = await Promise.all(
-      groupKeysForBalance.map((k) => client.fetchBalance(k)),
+    const totalEnd = sumBalances(
+      await Promise.all(groupKeysForBalance.map((k) => client.fetchBalance(k))),
     );
-    const totalEnd = endBalances.reduce<number | null>((acc, b) => {
-      if (b === null) return acc;
-      return (acc ?? 0) + b;
-    }, null);
     if (totalEnd !== null) {
       const cost = totalStart - totalEnd;
       recordProviderCost(providerConfig.name, cost);
+      const amount = totalEnd.toFixed(4);
       consola.info(
         cost > 0
           ? t("CORE.PROVIDER.BALANCE_WITH_COST", {
               name: providerConfig.name,
-              amount: totalEnd.toFixed(4),
+              amount,
               cost: `$${cost.toFixed(4)}`,
             })
-          : t("CORE.PROVIDER.BALANCE", {
-              name: providerConfig.name,
-              amount: totalEnd.toFixed(4),
-            }),
+          : t("CORE.PROVIDER.BALANCE", { name: providerConfig.name, amount }),
       );
     }
   }

@@ -54,7 +54,7 @@ export function redactUrl(url: string): string {
   return out;
 }
 
-export function redactHeaders(
+function redactHeaders(
   headers: Record<string, string>,
 ): Record<string, string> {
   const out: Record<string, string> = {};

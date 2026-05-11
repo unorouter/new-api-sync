@@ -7,10 +7,7 @@ import {
 import { inferModelType } from "@core/catalog/constants/inference";
 import { parseModelList } from "@core/catalog/constants/patterns";
 import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
-import {
-  type BasellmEntry,
-  buildMetadataMap,
-} from "@core/catalog/metadata";
+import { type BasellmEntry, buildMetadataMap } from "@core/catalog/metadata";
 import {
   buildModelMetadata,
   deriveTagsFromMetadata,
@@ -21,26 +18,20 @@ import type { Channel, DesiredModelSpec } from "@core/types";
 
 export function buildDesiredModels(opts: {
   channels: Channel[];
-  /** Keyed by both exposed and upstream for each OfferModel. */
   originalEndpointsByName: Map<string, string[]>;
-  /** Keyed by both exposed and upstream. */
   normalizedEndpointsByName: Map<string, string[]>;
-  /** Aggregated across providers. */
   endpointPaths: Map<string, { path: string; method: string }>;
   reverseMapping: Map<string, string>;
   basellmEntries: BasellmEntry[];
   openRouterDescriptions: Map<string, string>;
   modelMapping: Record<string, string>;
-  /** Keyed by upstream id; applied after bare-name resolution. */
   metadataByUpstream: Record<string, Record<string, unknown>>;
-  /** Auto-populate metadata; enabledModels override still wins. */
   pricingSources: PricingSource[];
 }): Map<string, DesiredModelSpec> {
   const models = new Map<string, DesiredModelSpec>();
 
   for (const channel of opts.channels) {
-    const channelModels = parseModelList(channel.models);
-    for (const modelName of channelModels) {
+    for (const modelName of parseModelList(channel.models)) {
       const vendor = inferVendorFromModelName(modelName);
       const originalEps =
         opts.originalEndpointsByName.get(modelName) ??
@@ -52,25 +43,21 @@ export function buildDesiredModels(opts: {
         const epMap: Record<string, string> = {};
         for (const origEp of originalEps) {
           const normalized = normalizeEndpointType(origEp);
-          const info = opts.endpointPaths.get(origEp);
-          const path = info?.path ?? ENDPOINT_DEFAULT_PATHS[normalized];
+          const path =
+            opts.endpointPaths.get(origEp)?.path ??
+            ENDPOINT_DEFAULT_PATHS[normalized];
           if (path) epMap[normalized] = path;
         }
         if (Object.keys(epMap).length > 0) endpoints = JSON.stringify(epMap);
       } else {
-        // Infer from model type.
-        const modelType = inferModelType(modelName);
-        const canonicalEp = MODEL_TYPE_CANONICAL_ENDPOINT[modelType];
+        const canonicalEp =
+          MODEL_TYPE_CANONICAL_ENDPOINT[inferModelType(modelName)];
         if (canonicalEp) {
           const path = ENDPOINT_DEFAULT_PATHS[canonicalEp];
           if (path) endpoints = JSON.stringify({ [canonicalEp]: path });
         }
       }
-      models.set(modelName, {
-        model_name: modelName,
-        vendor,
-        endpoints,
-      });
+      models.set(modelName, { model_name: modelName, vendor, endpoints });
     }
   }
 
@@ -88,8 +75,6 @@ export function buildDesiredModels(opts: {
     }
   }
 
-  // Tags merge: type prefix (+ optional Task) → basellm → capability tags.
-  // Task gated on upstream actually exposing openai-video (grok-imagine-video may resell as chat-completions).
   for (const [modelName, spec] of models) {
     const originalName = opts.reverseMapping.get(modelName) ?? modelName;
     const eps =
@@ -102,13 +87,13 @@ export function buildDesiredModels(opts: {
       (!eps && getTaskModelOverride(modelName) !== undefined);
     const prefix = isTaskModel ? `${typeTag},Task` : typeTag;
 
-    const sourceMd = resolveSourceMetadata(
-      modelName,
-      opts.pricingSources,
-      opts.reverseMapping,
+    const sourceTags = deriveTagsFromMetadata(
+      resolveSourceMetadata(
+        modelName,
+        opts.pricingSources,
+        opts.reverseMapping,
+      ),
     );
-    const sourceTags = deriveTagsFromMetadata(sourceMd);
-
     const rawTags = [prefix, spec.tags ?? "", sourceTags.join(",")]
       .filter(Boolean)
       .join(",");
@@ -128,18 +113,14 @@ export function buildDesiredModels(opts: {
         : deduped;
   }
 
-  // Source-derived defaults < enabledModels[].metadata override. Build exposed→upstream from each channel's model_mapping (global reverseMapping only covers modelMapping renames).
   const exposedToUpstream = new Map<string, string>();
   for (const ch of opts.channels) {
     if (!ch.model_mapping) continue;
     try {
       const mm = JSON.parse(ch.model_mapping) as Record<string, string>;
-      for (const [exposed, upstream] of Object.entries(mm)) {
+      for (const [exposed, upstream] of Object.entries(mm))
         exposedToUpstream.set(exposed, upstream);
-      }
-    } catch {
-      /* malformed */
-    }
+    } catch {}
   }
   for (const [modelName, spec] of models) {
     const upstream = exposedToUpstream.get(modelName) ?? modelName;
@@ -151,9 +132,7 @@ export function buildDesiredModels(opts: {
       reverseMapping: opts.reverseMapping,
       override,
     });
-    if (merged) {
-      spec.metadata = JSON.stringify(merged);
-    }
+    if (merged) spec.metadata = JSON.stringify(merged);
   }
 
   return models;
@@ -173,9 +152,7 @@ export function collectResponsesApiModels(
       const eps =
         normalizedEndpointsByName.get(modelName) ??
         normalizedEndpointsByName.get(originalName);
-      if (eps?.includes("openai-response")) {
-        result.push(mappedName);
-      }
+      if (eps?.includes("openai-response")) result.push(mappedName);
     }
   }
   return result;

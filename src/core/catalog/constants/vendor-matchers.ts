@@ -1,190 +1,59 @@
-export interface VendorMatcher {
+interface VendorMatcher {
   modelPatterns: string[];
   nameAliases?: string[];
   displayName?: string;
   icon?: string;
 }
 
+// prettier-ignore
 export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
-  anthropic: {
-    modelPatterns: ["claude"],
-    displayName: "Anthropic",
-    icon: "Claude.Color",
-  },
-  google: {
-    modelPatterns: ["gemini", "palm", "veo", "gemma", "lyria", "imagen"],
-    displayName: "Google",
-    icon: "Gemini.Color",
-  },
-  openai: {
-    modelPatterns: ["gpt", "o1-", "o3-", "o4-", "chatgpt", "sora"],
-    displayName: "OpenAI",
-    icon: "OpenAI",
-  },
-  kling: {
-    modelPatterns: ["kling"],
-    nameAliases: ["kling", "可灵"],
-    displayName: "Kling",
-    icon: "Kling.Color",
-  },
-  deepseek: {
-    modelPatterns: ["deepseek"],
-    displayName: "DeepSeek",
-    icon: "DeepSeek.Color",
-  },
+  anthropic: { modelPatterns: ["claude"], displayName: "Anthropic", icon: "Claude.Color" },
+  google: { modelPatterns: ["gemini","palm","veo","gemma","lyria","imagen"], displayName: "Google", icon: "Gemini.Color" },
+  openai: { modelPatterns: ["gpt","o1-","o3-","o4-","chatgpt","sora"], displayName: "OpenAI", icon: "OpenAI" },
+  kling: { modelPatterns: ["kling"], nameAliases: ["kling","可灵"], displayName: "Kling", icon: "Kling.Color" },
+  deepseek: { modelPatterns: ["deepseek"], displayName: "DeepSeek", icon: "DeepSeek.Color" },
   xai: { modelPatterns: ["grok"], displayName: "xAI", icon: "XAI" },
-  mistral: {
-    modelPatterns: ["mistral", "codestral"],
-    displayName: "Mistral",
-    icon: "Mistral.Color",
-  },
+  mistral: { modelPatterns: ["mistral","codestral"], displayName: "Mistral", icon: "Mistral.Color" },
   meta: { modelPatterns: ["llama"], displayName: "Meta", icon: "Meta.Color" },
-  nvidia: {
-    modelPatterns: ["nemotron"],
-    displayName: "NVIDIA",
-    icon: "Nvidia.Color",
-  },
-  liquid: {
-    modelPatterns: ["lfm-"],
-    nameAliases: ["liquid"],
-    displayName: "Liquid",
-    icon: "Liquid",
-  },
-  inclusionai: {
-    modelPatterns: ["ling-"],
-    nameAliases: ["inclusionai"],
-    displayName: "InclusionAI",
-  },
-  nousresearch: {
-    modelPatterns: ["hermes-"],
-    nameAliases: ["nous", "nousresearch"],
-    displayName: "Nous Research",
-    icon: "NousResearch",
-  },
-  venice: {
-    modelPatterns: ["venice"],
-    nameAliases: ["venice"],
-    displayName: "Venice AI",
-    icon: "Venice.Color",
-  },
-  alibaba: {
-    modelPatterns: ["qwen", "qwq-"],
-    nameAliases: ["阿里", "通义", "qwen", "阿里巴巴"],
-    displayName: "Alibaba",
-    icon: "AlibabaCloud.Color",
-  },
-  bailian: {
-    modelPatterns: ["wan2", "z-image"],
-    nameAliases: ["bailian", "阿里云百炼"],
-    displayName: "Bailian",
-    icon: "AlibabaCloud.Color",
-  },
-  flux: {
-    modelPatterns: ["flux-", "flux."],
-    nameAliases: ["flux"],
-    displayName: "Flux",
-    icon: "Flux",
-  },
-  cohere: {
-    modelPatterns: ["command-", "c4ai-"],
-    displayName: "Cohere",
-    icon: "Cohere.Color",
-  },
-  minimax: {
-    modelPatterns: ["abab", "minimax-"],
-    displayName: "MiniMax",
-    icon: "Minimax.Color",
-  },
-  moonshot: {
-    modelPatterns: ["moonshot-", "kimi-"],
-    nameAliases: ["月之暗面", "kimi"],
-    displayName: "Moonshot",
-    icon: "Moonshot",
-  },
-  zhipu: {
-    modelPatterns: ["glm-", "glm4", "glm5", "glm6", "chatglm"],
-    // basellm splits this vendor across two rows ("Zhipu AI" and "Z.AI")
-    // for the same company. We accept both so the canonical filter keeps
-    // the cheaper / more accurate row (e.g. glm-5.1 lists Z.AI at $1.40/M
-    // while Zhipu AI shows a stale $6/M).
-    nameAliases: ["智谱", "zhipu ai", "chatglm", "z.ai", "z-ai", "zai"],
-    displayName: "Zhipu",
-    icon: "Zhipu.Color",
-  },
-  perplexity: {
-    modelPatterns: ["sonar"],
-    displayName: "Perplexity",
-    icon: "Perplexity.Color",
-  },
-  baidu: {
-    modelPatterns: ["ernie-", "qianfan-"],
-    nameAliases: ["百度", "文心"],
-    displayName: "Baidu",
-    icon: "Wenxin",
-  },
-  xunfei: {
-    modelPatterns: ["sparkdesk"],
-    nameAliases: ["讯飞", "spark"],
-    displayName: "Xunfei",
-    icon: "Spark.Color",
-  },
-  tencent: {
-    modelPatterns: ["hunyuan-", "hy3-", "hy4-"],
-    nameAliases: ["腾讯", "混元"],
-    displayName: "Tencent",
-    icon: "Hunyuan",
-  },
-  bytedance: {
-    modelPatterns: ["doubao-"],
-    nameAliases: ["字节", "豆包", "doubao"],
-    displayName: "ByteDance",
-    icon: "Doubao.Color",
-  },
-  stabilityai: {
-    modelPatterns: ["stable-diffusion", "stability"],
-    nameAliases: ["stability ai", "stabilityai"],
-    displayName: "Stability AI",
-    icon: "Stability",
-  },
+  nvidia: { modelPatterns: ["nemotron"], displayName: "NVIDIA", icon: "Nvidia.Color" },
+  liquid: { modelPatterns: ["lfm-"], nameAliases: ["liquid"], displayName: "Liquid", icon: "Liquid" },
+  inclusionai: { modelPatterns: ["ling-"], nameAliases: ["inclusionai"], displayName: "InclusionAI" },
+  nousresearch: { modelPatterns: ["hermes-"], nameAliases: ["nous","nousresearch"], displayName: "Nous Research", icon: "NousResearch" },
+  venice: { modelPatterns: ["venice"], nameAliases: ["venice"], displayName: "Venice AI", icon: "Venice.Color" },
+  alibaba: { modelPatterns: ["qwen","qwq-"], nameAliases: ["阿里","通义","qwen","阿里巴巴"], displayName: "Alibaba", icon: "AlibabaCloud.Color" },
+  bailian: { modelPatterns: ["wan2","z-image"], nameAliases: ["bailian","阿里云百炼"], displayName: "Bailian", icon: "AlibabaCloud.Color" },
+  flux: { modelPatterns: ["flux-","flux."], nameAliases: ["flux"], displayName: "Flux", icon: "Flux" },
+  cohere: { modelPatterns: ["command-","c4ai-"], displayName: "Cohere", icon: "Cohere.Color" },
+  minimax: { modelPatterns: ["abab","minimax-"], displayName: "MiniMax", icon: "Minimax.Color" },
+  moonshot: { modelPatterns: ["moonshot-","kimi-"], nameAliases: ["月之暗面","kimi"], displayName: "Moonshot", icon: "Moonshot" },
+  zhipu: { modelPatterns: ["glm-","glm4","glm5","glm6","chatglm"], nameAliases: ["智谱","zhipu ai","chatglm","z.ai","z-ai","zai"], displayName: "Zhipu", icon: "Zhipu.Color" },
+  perplexity: { modelPatterns: ["sonar"], displayName: "Perplexity", icon: "Perplexity.Color" },
+  baidu: { modelPatterns: ["ernie-","qianfan-"], nameAliases: ["百度","文心"], displayName: "Baidu", icon: "Wenxin" },
+  xunfei: { modelPatterns: ["sparkdesk"], nameAliases: ["讯飞","spark"], displayName: "Xunfei", icon: "Spark.Color" },
+  tencent: { modelPatterns: ["hunyuan-","hy3-","hy4-"], nameAliases: ["腾讯","混元"], displayName: "Tencent", icon: "Hunyuan" },
+  bytedance: { modelPatterns: ["doubao-"], nameAliases: ["字节","豆包","doubao"], displayName: "ByteDance", icon: "Doubao.Color" },
+  stabilityai: { modelPatterns: ["stable-diffusion","stability"], nameAliases: ["stability ai","stabilityai"], displayName: "Stability AI", icon: "Stability" },
   yi: { modelPatterns: ["yi-"], displayName: "Yi", icon: "Yi.Color" },
   ai360: { modelPatterns: ["360gpt"], displayName: "360 AI", icon: "Ai360" },
-  xiaomi: {
-    modelPatterns: ["mimo-"],
-    nameAliases: ["xiaomi", "小米"],
-    displayName: "Xiaomi",
-    icon: "Xiaomi",
-  },
+  xiaomi: { modelPatterns: ["mimo-"], nameAliases: ["xiaomi","小米"], displayName: "Xiaomi", icon: "Xiaomi" },
 };
 
 export function inferVendorFromModelName(name: string): string | undefined {
   const n = name.toLowerCase();
   for (const [vendor, matcher] of Object.entries(VENDOR_MATCHERS)) {
-    if (matcher.modelPatterns.some((p) => n.includes(p) || n.startsWith(p))) {
+    if (matcher.modelPatterns.some((p) => n.includes(p) || n.startsWith(p)))
       return vendor;
-    }
   }
   return undefined;
 }
 
-/**
- * Iterate every (canonical, matcher) pair in VENDOR_MATCHERS. Co-located
- * here so callers don't repeat `Object.entries(VENDOR_MATCHERS)` and so the
- * iteration shape is decoupled from the storage shape.
- */
 export function forEachVendor(
   fn: (canonical: string, matcher: VendorMatcher) => void,
 ): void {
-  for (const [canonical, matcher] of Object.entries(VENDOR_MATCHERS)) {
+  for (const [canonical, matcher] of Object.entries(VENDOR_MATCHERS))
     fn(canonical, matcher);
-  }
 }
 
-/**
- * Find a vendor entry from a list whose name matches the canonical key,
- * its `displayName`, or any of its `nameAliases`. Returns undefined if no
- * match is found. Used by the sync/diff code to map our canonical vendor
- * keys onto whatever names the upstream new-api instance uses.
- */
 export function findVendorByAlias<V extends { name: string }>(
   vendors: V[],
   canonical: string,

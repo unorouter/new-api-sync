@@ -7,11 +7,7 @@ import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
 import type { AnyProviderConfig } from "@core/validations/config";
 
-export type ProviderKind =
-  | "newapi"
-  | "nvidia"
-  | "openrouter"
-  | "sub2api";
+type ProviderKind = "newapi" | "nvidia" | "openrouter" | "sub2api";
 
 export interface OfferModel {
   exposed: string;
@@ -62,7 +58,7 @@ export interface EndpointPathInfo {
   method: string;
 }
 
-export interface ProviderEndpointMetadata {
+interface ProviderEndpointMetadata {
   endpointPaths: Map<string, EndpointPathInfo>;
 }
 

@@ -46,50 +46,34 @@ import type {
 import type { ApplyReport, ProviderReport, SyncDiff } from "@core/types";
 import { redactExchange, redactUrl } from "./redact";
 
-function redactResult(entry: ModelTestLog): ModelTestLog {
-  return {
-    ...entry,
-    http: redactExchange(entry.http),
-    stream: entry.stream ? redactExchange(entry.stream) : null,
-    toolCall: entry.toolCall ? redactExchange(entry.toolCall) : null,
-    authenticityProbes: entry.authenticityProbes?.map((p) => ({
-      ...p,
-      request: { ...p.request, url: redactUrl(p.request.url) },
-    })),
-  };
-}
-
-function redactedReport(): TestReport {
-  return {
-    timestamp: testReport.timestamp,
-    providers: testReport.providers,
-    summary: testReport.summary,
-    modelTests: testReport.modelTests.map(redactResult),
-    pricingGate:
-      testReport.pricingGate && testReport.pricingGate.length > 0
-        ? testReport.pricingGate
-        : undefined,
-    openrouterEndpoints:
-      testReport.openrouterEndpoints &&
-      testReport.openrouterEndpoints.length > 0
-        ? testReport.openrouterEndpoints
-        : undefined,
-  };
-}
-
-// ─── Test report accumulator (module state) ────────────────────────────────
-
 const testReport: TestReport = {
   timestamp: new Date().toISOString(),
   providers: {},
   modelTests: [],
 };
-
-// O(1) "already-tested" lookups; without this testModels is O(N²) on large syncs.
 const passingByKey = new Map<string, ModelTestLog>();
+const passKey = (provider: string, model: string) => `${provider}|${model}`;
 
-function passKey(provider: string, model: string): string {
-  return `${provider}|${model}`;
+function redactedReport(): TestReport {
+  const pg = testReport.pricingGate;
+  const oe = testReport.openrouterEndpoints;
+  return {
+    timestamp: testReport.timestamp,
+    providers: testReport.providers,
+    summary: testReport.summary,
+    modelTests: testReport.modelTests.map((entry) => ({
+      ...entry,
+      http: redactExchange(entry.http),
+      stream: entry.stream ? redactExchange(entry.stream) : null,
+      toolCall: entry.toolCall ? redactExchange(entry.toolCall) : null,
+      authenticityProbes: entry.authenticityProbes?.map((p) => ({
+        ...p,
+        request: { ...p.request, url: redactUrl(p.request.url) },
+      })),
+    })),
+    pricingGate: pg && pg.length > 0 ? pg : undefined,
+    openrouterEndpoints: oe && oe.length > 0 ? oe : undefined,
+  };
 }
 
 function addTestResult(entry: ModelTestLog): void {
@@ -101,19 +85,14 @@ function addTestResult(entry: ModelTestLog): void {
 
 function ensureProviderEntry(provider: string): ProviderCostEntry {
   let entry = testReport.providers[provider];
-  if (!entry) {
-    entry = {};
-    testReport.providers[provider] = entry;
-  }
+  if (!entry) testReport.providers[provider] = entry = {};
   return entry;
 }
 
-/** Last-writer wins. */
 export function recordProviderCost(provider: string, testCost: number): void {
   ensureProviderEntry(provider).testCost = testCost;
 }
 
-/** Mirrors what printRunSummary writes to stdout; call before writeTestReport. */
 export function recordRunSummary(input: {
   providerReports: ProviderReport[];
   apply: ApplyReport;
@@ -121,32 +100,27 @@ export function recordRunSummary(input: {
   elapsedMs: number;
   success: boolean;
 }): void {
-  for (const report of input.providerReports) {
-    const entry = ensureProviderEntry(report.name);
-    entry.success = report.success;
-    if (report.error) entry.error = report.error;
-    entry.groups = report.groups;
-    entry.models = report.models;
-    entry.tokens = report.tokens;
+  for (const r of input.providerReports) {
+    const entry = ensureProviderEntry(r.name);
+    entry.success = r.success;
+    if (r.error) entry.error = r.error;
+    entry.groups = r.groups;
+    entry.models = r.models;
+    entry.tokens = r.tokens;
   }
 
-  // Bucket by tag so per-provider deltas concat back to the global lists.
   const channelTagByName = new Map<string, string>();
   for (const op of input.diff.channels) {
     const channel = op.type === "delete" ? op.existing : op.value;
     if (channel.tag) channelTagByName.set(channel.name, channel.tag);
   }
-  const bucketBy = (
-    op: "created" | "updated" | "deleted",
-    keys: string[],
-  ): void => {
+  const bucketBy = (op: "created" | "updated" | "deleted", keys: string[]) => {
     for (const key of keys) {
       const tag = channelTagByName.get(key);
       if (!tag) continue;
       const entry = ensureProviderEntry(tag);
-      if (!entry.channels) {
+      if (!entry.channels)
         entry.channels = { created: [], updated: [], deleted: [] };
-      }
       entry.channels[op].push(key);
     }
   };
@@ -168,14 +142,12 @@ export function recordRunSummary(input: {
   };
 }
 
-/** Deduped by exposed name — the vote is a global model property. */
 export function recordPricingGate(entry: PricingGateLog): void {
   if (!testReport.pricingGate) testReport.pricingGate = [];
   if (testReport.pricingGate.some((e) => e.exposed === entry.exposed)) return;
   testReport.pricingGate.push(entry);
 }
 
-/** Audit trail for actually-tested models, not all 370 in the prefetch. Deduped by id. */
 export function recordOpenRouterEndpointsForModel(
   entry: OpenRouterEndpointsLog,
 ): void {
@@ -183,8 +155,6 @@ export function recordOpenRouterEndpointsForModel(
   if (testReport.openrouterEndpoints.some((e) => e.id === entry.id)) return;
   testReport.openrouterEndpoints.push(entry);
 }
-
-// ─── Test report I/O ───────────────────────────────────────────────────────
 
 export function writeTestReport(): void {
   saveAuthenticityBlacklist();
@@ -197,35 +167,36 @@ export function writeTestReport(): void {
   consola.info(t("CORE.TESTER.REPORT_WRITTEN", { path }));
 }
 
-// ─── Tool-call error classification ────────────────────────────────────────
-
-/** Reasoning-only models reject tool_choice but still pass HTTP+Stream. Detect by message (generalises to future models). */
-function isToolChoiceUnsupportedError(result: TestExchange): boolean {
-  const status = result.status;
-  if (status !== undefined && status < 400) return false;
-  const haystacks: string[] = [];
-  if (typeof result.error === "string") haystacks.push(result.error);
-  if (typeof result.response === "string") haystacks.push(result.response);
-  else if (result.response && typeof result.response === "object") {
-    haystacks.push(JSON.stringify(result.response));
-  }
-  const blob = haystacks.join(" ").toLowerCase();
-  if (!blob.includes("tool_choice")) return false;
+function isToolChoiceUnsupportedError(r: TestExchange): boolean {
+  if (r.status !== undefined && r.status < 400) return false;
+  const parts: string[] = [];
+  if (typeof r.error === "string") parts.push(r.error);
+  if (typeof r.response === "string") parts.push(r.response);
+  else if (r.response && typeof r.response === "object")
+    parts.push(JSON.stringify(r.response));
+  const blob = parts.join(" ").toLowerCase();
   return (
-    blob.includes("not support") ||
-    blob.includes("unsupported") ||
-    blob.includes("not allowed")
+    blob.includes("tool_choice") &&
+    (blob.includes("not support") ||
+      blob.includes("unsupported") ||
+      blob.includes("not allowed"))
   );
 }
-
-// ─── Public API ────────────────────────────────────────────────────────────
 
 export interface ModelCapabilityHint {
   supportsTools?: boolean;
   isReasoning?: boolean;
 }
 
-export async function testModels(opts: {
+const HTTP_CONFIG_BY_TYPE = {
+  image: getImageTestConfig,
+  video: getVideoTestConfig,
+  embedding: getEmbeddingTestConfig,
+  audio: getAudioTestConfig,
+  text: getRequestConfig,
+} as const;
+
+async function testModels(opts: {
   baseUrl: string;
   apiKey: string;
   models: string[];
@@ -235,61 +206,38 @@ export async function testModels(opts: {
   timeoutMs?: number;
   logPrefix?: string;
   modelEndpoints?: Map<string, string[]>;
-  /** Default 2 attempts, retry-any. NVIDIA passes NVIDIA_RETRY_POLICY. */
   retryPolicy?: RetryPolicy<TestExchange>;
-  /** Keep 429 models (OpenRouter free-tier: daily quota exhausted ≠ broken). */
   acceptRateLimited?: boolean;
-  /**
-   * Per-model capability hints from external pricing metadata
-   * (LiteLLM/OpenRouter/basellm). Used to skip the tool-call probe for
-   * reasoning-only or tools-unsupported models before paying the request.
-   */
   capabilities?: Map<string, ModelCapabilityHint>;
-}): Promise<{
-  workingModels: string[];
-  details: ModelTestDetail[];
-}> {
-  const baseUrl = opts.baseUrl;
-  const apiKey = opts.apiKey;
-  const models = opts.models;
-  const channelType = opts.channelType;
+}): Promise<{ workingModels: string[]; details: ModelTestDetail[] }> {
   const useResponsesAPI = opts.useResponsesAPI ?? false;
-  const retryPolicy = opts.retryPolicy;
   const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
   const prefix = opts.logPrefix ?? "unknown";
   const gate = getConcurrencyGate();
-
-  // All models run as a single Promise.all; the shared ConcurrencyGate
-  // enforces both the global cap and the per-upstream cap. opts.concurrency
-  // is intentionally ignored now — the gate is the only knob.
   void opts.concurrency;
 
   const results: ModelTestDetail[] = await Promise.all(
-    models.map((model) =>
-      gate.run(baseUrl, async () => {
+    opts.models.map((model) =>
+      gate.run(opts.baseUrl, async () => {
         throwIfRunAborted();
         const existingPass = passingByKey.get(passKey(prefix, model));
         if (existingPass) {
-          consola.debug(t("CORE.TESTER.ALREADY_PASSED", { prefix, model }));
           return {
             model,
             success: true,
             streamSuccess: existingPass.stream?.pass ?? null,
             toolCallSuccess: existingPass.toolCall?.pass ?? null,
             authenticityProbed: false,
-            channelType,
+            channelType: opts.channelType,
           };
         }
 
         const blacklistKey = `${prefix}|${model}`;
         if (
-          channelType === CHANNEL_TYPES.ANTHROPIC &&
+          opts.channelType === CHANNEL_TYPES.ANTHROPIC &&
           model.startsWith("claude-") &&
           isAuthenticityBlacklisted(blacklistKey)
         ) {
-          consola.debug(
-            t("CORE.TESTER.AUTHENTICITY_BLACKLISTED", { prefix, model }),
-          );
           addTestResult({
             provider: prefix,
             model,
@@ -311,78 +259,68 @@ export async function testModels(opts: {
             streamSuccess: null,
             toolCallSuccess: null,
             authenticityProbed: false,
-            channelType,
+            channelType: opts.channelType,
           };
         }
 
         const reqOpts: ModelRequestOpts = {
-          baseUrl,
-          apiKey,
+          baseUrl: opts.baseUrl,
+          apiKey: opts.apiKey,
           model,
-          channelType,
+          channelType: opts.channelType,
           useResponsesAPI,
         };
-
         const modelType = inferModelType(model, undefined, opts.modelEndpoints);
-        const isNonTextModel = modelType !== "text";
-
-        // Text: HTTP/stream/tool fire in parallel. Non-text: HTTP only.
-        const httpConfigByType = {
-          image: getImageTestConfig,
-          video: getVideoTestConfig,
-          embedding: getEmbeddingTestConfig,
-          audio: getAudioTestConfig,
-          text: getRequestConfig,
-        } as const;
-        const httpConfig = httpConfigByType[modelType](reqOpts);
-
-        const streamConfig = isNonTextModel
-          ? null
-          : getStreamRequestConfig(reqOpts);
-        const toolCallConfig = isNonTextModel
-          ? null
-          : getToolCallConfig(reqOpts, opts.capabilities?.get(model));
-
+        const isTextModel = modelType === "text";
+        const httpConfig = HTTP_CONFIG_BY_TYPE[modelType](reqOpts);
+        const streamConfig = isTextModel
+          ? getStreamRequestConfig(reqOpts)
+          : null;
+        const toolCallConfig = isTextModel
+          ? getToolCallConfig(reqOpts, opts.capabilities?.get(model))
+          : null;
+        const pass = (r: TestExchange) => r.pass;
+        const nullish = Promise.resolve(null as TestExchange | null);
         const [httpResult, streamResult, toolResult] = await Promise.all([
           withRetry(
             () => testRequest(httpConfig, timeoutMs),
-            (r) => r.pass,
-            retryPolicy,
+            pass,
+            opts.retryPolicy,
           ),
           streamConfig
             ? withRetry(
                 () => testStreamRequest(streamConfig, timeoutMs),
-                (r) => r.pass,
-                retryPolicy,
+                pass,
+                opts.retryPolicy,
               )
-            : Promise.resolve(null as TestExchange | null),
+            : nullish,
           toolCallConfig
             ? withRetry(
                 () => testToolCall(toolCallConfig, timeoutMs),
-                (r) => r.pass,
-                retryPolicy,
+                pass,
+                opts.retryPolicy,
               )
-            : Promise.resolve(null as TestExchange | null),
+            : nullish,
         ]);
         const success = httpResult.pass;
         const streamSuccess = streamResult?.pass ?? null;
-        // tool_choice rejection: mark null (n/a) so the model isn't failed on HTTP+Stream.
-        const toolCallSuccess: boolean | null = (() => {
-          if (toolResult === null) return null;
-          if (toolResult.pass) return true;
-          if (isToolChoiceUnsupportedError(toolResult)) return null;
-          return false;
-        })();
+        const toolCallSuccess: boolean | null =
+          toolResult === null
+            ? null
+            : toolResult.pass
+              ? true
+              : isToolChoiceUnsupportedError(toolResult)
+                ? null
+                : false;
 
         let authentic = true;
-        const logKey = `${prefix}|${model}`;
         if (model.startsWith("claude-") && (success || streamSuccess)) {
           authentic = await testAnthropicAuthenticity({
-            baseUrl,
-            apiKey,
+            baseUrl: opts.baseUrl,
+            apiKey: opts.apiKey,
             model,
             timeoutMs,
-            logKey,
+            logKey: blacklistKey,
           });
         }
 
@@ -400,6 +338,16 @@ export async function testModels(opts: {
           authentic: model.startsWith("claude-") ? authentic : null,
         });
 
+        const exchangeToLog = (r: TestExchange | null, pass: boolean) =>
+          r === null
+            ? undefined
+            : {
+                pass,
+                status: r.status,
+                latencyMs: r.latencyMs,
+                error: r.error,
+                body: r.response,
+              };
         logTestSummary({
           prefix,
           model,
@@ -411,26 +359,8 @@ export async function testModels(opts: {
             error: httpResult.error,
             body: httpResult.response,
           },
-          stream:
-            streamResult === null
-              ? undefined
-              : {
-                  pass: finalStream === true,
-                  status: streamResult.status,
-                  latencyMs: streamResult.latencyMs,
-                  error: streamResult.error,
-                  body: streamResult.response,
-                },
-          tool:
-            toolResult === null
-              ? undefined
-              : {
-                  pass: toolCallSuccess === true,
-                  status: toolResult.status,
-                  latencyMs: toolResult.latencyMs,
-                  error: toolResult.error,
-                  body: toolResult.response,
-                },
+          stream: exchangeToLog(streamResult, finalStream === true),
+          tool: exchangeToLog(toolResult, toolCallSuccess === true),
         });
 
         return {
@@ -441,7 +371,7 @@ export async function testModels(opts: {
           authenticityProbed:
             model.startsWith("claude-") && (success || streamSuccess === true),
           httpStatus: httpResult.status,
-          channelType,
+          channelType: opts.channelType,
         };
       }),
     ),
@@ -469,59 +399,32 @@ export async function testAndFilterModels(opts: {
   testableModelTypes: Set<ModelType>;
   modelEndpoints?: Map<string, string[]>;
   useResponsesAPI?: boolean;
-  /** Passed through to `testModels` for providers that need custom retry. */
   retryPolicy?: RetryPolicy<TestExchange>;
-  /** Passed through to `testModels`. See `testModels.acceptRateLimited`. */
   acceptRateLimited?: boolean;
-  /** Passed through to `testModels`. See `testModels.capabilities`. */
   capabilities?: Map<string, ModelCapabilityHint>;
 }): Promise<{
   workingModels: string[];
   testedCount: number;
   details?: ModelTestDetail[];
 }> {
-  const skipTesting = opts.testableModelTypes.size === 0;
-
+  const provider = opts.providerLabel;
   const testableModels = opts.allModels.filter((m) => {
-    const modelType = inferModelType(m, undefined, opts.modelEndpoints);
-    if (modelType !== "text" && opts.testableModelTypes.has(modelType))
-      return true;
+    const mt = inferModelType(m, undefined, opts.modelEndpoints);
+    if (mt !== "text" && opts.testableModelTypes.has(mt)) return true;
     return isTestableModel(m, undefined, opts.modelEndpoints);
   });
   const nonTestableModels = opts.allModels.filter(
     (m) => !testableModels.includes(m),
   );
 
-  consola.debug(
-    t("CORE.TESTER.TESTABLE_COUNT", {
-      provider: opts.providerLabel,
-      testable: testableModels.length,
-      nonTestable: nonTestableModels.length,
-    }),
-  );
-  consola.trace(
-    t("CORE.TESTER.TESTABLE_LIST", {
-      provider: opts.providerLabel,
-      models: testableModels.join(", ") || "(none)",
-    }),
-  );
-  if (nonTestableModels.length > 0) {
-    consola.trace(
-      t("CORE.TESTER.NON_TESTABLE_LIST", {
-        provider: opts.providerLabel,
-        models: nonTestableModels.join(", "),
-      }),
-    );
-  }
-
   let testedWorkingModels: string[] = [];
   let details: ModelTestDetail[] | undefined;
 
-  if (skipTesting) {
+  if (opts.testableModelTypes.size === 0) {
     testedWorkingModels = testableModels;
     consola.info(
       t("CORE.TESTER.MODELS_TESTING_SKIPPED", {
-        provider: opts.providerLabel,
+        provider,
         count: testableModels.length,
       }),
     );
@@ -533,7 +436,7 @@ export async function testAndFilterModels(opts: {
       channelType: opts.channelType,
       useResponsesAPI: opts.useResponsesAPI,
       modelEndpoints: opts.modelEndpoints,
-      logPrefix: opts.providerLabel,
+      logPrefix: provider,
       retryPolicy: opts.retryPolicy,
       acceptRateLimited: opts.acceptRateLimited,
       capabilities: opts.capabilities,
@@ -541,55 +444,27 @@ export async function testAndFilterModels(opts: {
     testedWorkingModels = testResult.workingModels;
     details = testResult.details;
 
-    const failedDetails = testResult.details.filter(
+    const failed = testResult.details.filter(
       (d) =>
         !d.success || d.streamSuccess === false || d.toolCallSuccess === false,
     );
-    if (failedDetails.length > 0) {
-      const labeled = failedDetails.map((d) => {
-        const h = d.success ? "✓" : "✗";
-        const s =
-          d.streamSuccess === false
-            ? "✗"
-            : d.streamSuccess === null
-              ? "·"
-              : "✓";
-        const tool =
-          d.toolCallSuccess === false
-            ? "✗"
-            : d.toolCallSuccess === null
-              ? "·"
-              : "✓";
-        return `${d.model} ${h}H ${s}S ${tool}T`;
-      });
+    if (failed.length > 0) {
+      const g = (v: boolean | null) =>
+        v === false ? "x" : v === null ? "." : "v";
+      const labeled = failed
+        .map(
+          (d) =>
+            `${d.model} ${d.success ? "v" : "x"}H ${g(d.streamSuccess)}S ${g(d.toolCallSuccess)}T`,
+        )
+        .join(", ");
       consola.info(
-        t("CORE.TESTER.PROVIDER_FAILED", {
-          provider: opts.providerLabel,
-          models: labeled.join(", "),
-        }),
+        t("CORE.TESTER.PROVIDER_FAILED", { provider, models: labeled }),
       );
     }
   }
 
-  const workingModels = [...testedWorkingModels, ...nonTestableModels];
-
-  if (nonTestableModels.length > 0) {
-    consola.debug(
-      t("CORE.TESTER.INCLUDED_NO_TEST", {
-        provider: opts.providerLabel,
-        count: nonTestableModels.length,
-      }),
-    );
-    consola.trace(
-      t("CORE.TESTER.INCLUDED_NO_TEST_LIST", {
-        provider: opts.providerLabel,
-        models: nonTestableModels.join(", "),
-      }),
-    );
-  }
-
   return {
-    workingModels,
+    workingModels: [...testedWorkingModels, ...nonTestableModels],
     testedCount: testableModels.length,
     details,
   };

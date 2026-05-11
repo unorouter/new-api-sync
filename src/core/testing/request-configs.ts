@@ -8,7 +8,6 @@ import type {
 
 const TEST_PROMPT = "Reply with only the word ok.";
 const noError = (data: unknown) => !(data as { error?: unknown }).error;
-
 const jsonBearer = (apiKey: string) => ({
   "Content-Type": "application/json",
   Authorization: `Bearer ${apiKey}`,
@@ -18,19 +17,16 @@ const jsonAnthropic = (apiKey: string) => ({
   "x-api-key": apiKey,
   "anthropic-version": "2023-06-01",
 });
+const jsonOnly = { "Content-Type": "application/json" };
+const userMsg = (content: string) => [{ role: "user", content }];
 
 export function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
-
   if (channelType === CHANNEL_TYPES.ANTHROPIC) {
     return {
       url: `${baseUrl}/v1/messages`,
       headers: jsonAnthropic(apiKey),
-      body: {
-        model,
-        messages: [{ role: "user", content: TEST_PROMPT }],
-        max_tokens: 50,
-      },
+      body: { model, messages: userMsg(TEST_PROMPT), max_tokens: 50 },
       isSuccess: (data) => {
         const d = data as {
           type?: string;
@@ -49,7 +45,7 @@ export function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
   if (channelType === CHANNEL_TYPES.GEMINI) {
     return {
       url: `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      headers: { "Content-Type": "application/json" },
+      headers: jsonOnly,
       body: {
         contents: [{ parts: [{ text: TEST_PROMPT }] }],
         generationConfig: { maxOutputTokens: 3 },
@@ -64,7 +60,10 @@ export function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
       body: {
         model,
         input: [
-          { role: "user", content: [{ type: "input_text", text: TEST_PROMPT }] },
+          {
+            role: "user",
+            content: [{ type: "input_text", text: TEST_PROMPT }],
+          },
         ],
         max_output_tokens: 3,
         store: false,
@@ -75,11 +74,7 @@ export function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
   return {
     url: `${baseUrl}/v1/chat/completions`,
     headers: jsonBearer(apiKey),
-    body: {
-      model,
-      messages: [{ role: "user", content: TEST_PROMPT }],
-      max_tokens: 3,
-    },
+    body: { model, messages: userMsg(TEST_PROMPT), max_tokens: 3 },
     isSuccess: noError,
   };
 }
@@ -88,14 +83,13 @@ export function getStreamRequestConfig(
   opts: ModelRequestOpts,
 ): StreamRequestConfig | null {
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
-
   if (channelType === CHANNEL_TYPES.ANTHROPIC) {
     return {
       url: `${baseUrl}/v1/messages`,
       headers: jsonAnthropic(apiKey),
       body: {
         model,
-        messages: [{ role: "user", content: TEST_PROMPT }],
+        messages: userMsg(TEST_PROMPT),
         max_tokens: 5,
         stream: true,
       },
@@ -108,7 +102,7 @@ export function getStreamRequestConfig(
     headers: jsonBearer(apiKey),
     body: {
       model,
-      messages: [{ role: "user", content: TEST_PROMPT }],
+      messages: userMsg(TEST_PROMPT),
       max_tokens: 5,
       stream: true,
     },
@@ -132,11 +126,12 @@ export function getToolCallConfig(
   meta?: { supportsTools?: boolean; isReasoning?: boolean },
 ): ToolCallRequestConfig | null {
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
-
-  if (useResponsesAPI) return null;
-  // Skip reasoning-only / tools-unsupported models; name fallback for missing metadata.
-  if (meta?.supportsTools === false) return null;
-  if (meta?.isReasoning === true) return null;
+  if (
+    useResponsesAPI ||
+    meta?.supportsTools === false ||
+    meta?.isReasoning === true
+  )
+    return null;
   if (model.endsWith("-thinking") || model.includes("-thinking-")) return null;
 
   if (channelType === CHANNEL_TYPES.ANTHROPIC) {
@@ -145,9 +140,13 @@ export function getToolCallConfig(
       headers: jsonAnthropic(apiKey),
       body: {
         model,
-        messages: [{ role: "user", content: TOOL_PROMPT }],
+        messages: userMsg(TOOL_PROMPT),
         tools: [
-          { name: TOOL_NAME, description: TOOL_DESC, input_schema: TOOL_PARAMS },
+          {
+            name: TOOL_NAME,
+            description: TOOL_DESC,
+            input_schema: TOOL_PARAMS,
+          },
         ],
         tool_choice: { type: "any" },
         max_tokens: 100,
@@ -165,17 +164,20 @@ export function getToolCallConfig(
       },
     };
   }
-
   if (channelType === CHANNEL_TYPES.GEMINI) {
     return {
       url: `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      headers: { "Content-Type": "application/json" },
+      headers: jsonOnly,
       body: {
         contents: [{ parts: [{ text: TOOL_PROMPT }] }],
         tools: [
           {
             functionDeclarations: [
-              { name: TOOL_NAME, description: TOOL_DESC, parameters: TOOL_PARAMS },
+              {
+                name: TOOL_NAME,
+                description: TOOL_DESC,
+                parameters: TOOL_PARAMS,
+              },
             ],
           },
         ],
@@ -199,13 +201,12 @@ export function getToolCallConfig(
       },
     };
   }
-
   return {
     url: `${baseUrl}/v1/chat/completions`,
     headers: jsonBearer(apiKey),
     body: {
       model,
-      messages: [{ role: "user", content: TOOL_PROMPT }],
+      messages: userMsg(TOOL_PROMPT),
       tools: [
         {
           type: "function",
@@ -234,41 +235,46 @@ export function getToolCallConfig(
   };
 }
 
-export function getImageTestConfig(opts: ModelRequestOpts): RequestConfig {
-  return {
-    url: `${opts.baseUrl}/v1/images/generations`,
-    headers: jsonBearer(opts.apiKey),
-    body: { model: opts.model, prompt: "a tiny red circle", n: 1, size: "256x256" },
-    isSuccess: noError,
-  };
-}
+const bearerBody = (
+  opts: ModelRequestOpts,
+  url: string,
+  body: object,
+  isSuccess: (d: unknown) => boolean = noError,
+): RequestConfig => ({
+  url: `${opts.baseUrl}${url}`,
+  headers: jsonBearer(opts.apiKey),
+  body,
+  isSuccess,
+});
 
-export function getVideoTestConfig(opts: ModelRequestOpts): RequestConfig {
-  return {
-    url: `${opts.baseUrl}/v1/videos`,
-    headers: jsonBearer(opts.apiKey),
-    body: { model: opts.model, prompt: "a slow pan over a landscape" },
-    isSuccess: noError,
-  };
-}
+export const getImageTestConfig = (opts: ModelRequestOpts): RequestConfig =>
+  bearerBody(opts, "/v1/images/generations", {
+    model: opts.model,
+    prompt: "a tiny red circle",
+    n: 1,
+    size: "256x256",
+  });
 
-export function getEmbeddingTestConfig(opts: ModelRequestOpts): RequestConfig {
-  return {
-    url: `${opts.baseUrl}/v1/embeddings`,
-    headers: jsonBearer(opts.apiKey),
-    body: { model: opts.model, input: "test" },
-    isSuccess: (data) => {
+export const getVideoTestConfig = (opts: ModelRequestOpts): RequestConfig =>
+  bearerBody(opts, "/v1/videos", {
+    model: opts.model,
+    prompt: "a slow pan over a landscape",
+  });
+
+export const getEmbeddingTestConfig = (opts: ModelRequestOpts): RequestConfig =>
+  bearerBody(
+    opts,
+    "/v1/embeddings",
+    { model: opts.model, input: "test" },
+    (data) => {
       const d = data as { error?: unknown; data?: unknown[] };
       return !d.error && Array.isArray(d.data);
     },
-  };
-}
+  );
 
-export function getAudioTestConfig(opts: ModelRequestOpts): RequestConfig {
-  return {
-    url: `${opts.baseUrl}/v1/audio/speech`,
-    headers: jsonBearer(opts.apiKey),
-    body: { model: opts.model, input: "test", voice: "alloy" },
-    isSuccess: noError,
-  };
-}
+export const getAudioTestConfig = (opts: ModelRequestOpts): RequestConfig =>
+  bearerBody(opts, "/v1/audio/speech", {
+    model: opts.model,
+    input: "test",
+    voice: "alloy",
+  });

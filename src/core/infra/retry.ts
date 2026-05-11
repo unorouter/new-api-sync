@@ -23,38 +23,6 @@ export async function withRetry<T>(
   return last;
 }
 
-/** NVIDIA NIM: transient failures (timeouts, 429, 5xx) are worth retrying; deterministic 4xx fails fast. */
-export const NVIDIA_TRANSIENT: RetryPolicy<{ status?: number | null }> = {
-  attempts: 3,
-  backoffMs: [2000, 4000],
-  shouldRetry: (r) => {
-    const s = r.status;
-    if (s === undefined || s === null) return true;
-    return s === 429 || s >= 500;
-  },
-};
-
-/** Pagination over flaky upstreams: a single missed page truncates results. */
-export const UPSTREAM_PAGE: RetryPolicy<{ status?: number | null }> = {
-  attempts: 4,
-  backoffMs: [0, 3000, 10_000],
-  shouldRetry: (r) => {
-    const s = r.status;
-    if (s === undefined || s === null) return true;
-    return s === 429 || s >= 500;
-  },
-};
-
-/** new-api token endpoints (e.g. pol) 429 frequently; back off and retry only on rate-limit. */
-export const NEWAPI_429: RetryPolicy<{
-  errorClass?: string;
-  status?: number | null;
-}> = {
-  attempts: 4,
-  backoffMs: [5000, 10_000, 20_000],
-  shouldRetry: (r) => r.errorClass === "ratelimit" || r.status === 429,
-};
-
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }

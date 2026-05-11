@@ -22,43 +22,60 @@ import { t } from "@server/i18n";
 import { consola } from "consola";
 import { join } from "path";
 
-async function ensureVendors(client: NewApiClient, desired: DesiredState, snap: TargetSnapshot): Promise<number> {
+async function ensureVendors(
+  client: NewApiClient,
+  desired: DesiredState,
+  snap: TargetSnapshot,
+): Promise<number> {
   const neededVendors = new Set<string>();
-  for (const model of desired.models.values()) {
+  for (const model of desired.models.values())
     if (model.vendor) neededVendors.add(model.vendor.toLowerCase());
-  }
-
   const existingByCanonical = new Map<string, (typeof snap.vendors)[0]>();
   forEachVendor((canonical) => {
     const found = findVendorByAlias(snap.vendors, canonical);
     if (found) existingByCanonical.set(canonical, found);
   });
-
   let changed = 0;
   for (const vendor of neededVendors) {
     const matcher = VENDOR_MATCHERS[vendor];
-    const displayName = matcher?.displayName ?? vendor.charAt(0).toUpperCase() + vendor.slice(1);
+    const displayName =
+      matcher?.displayName ?? vendor.charAt(0).toUpperCase() + vendor.slice(1);
     const icon = matcher?.icon;
     const iconLabel = icon ?? t("CORE.SYNC.ICON_NONE");
-
     const existing = existingByCanonical.get(vendor);
     if (existing) {
       if (existing.icon !== icon || existing.name !== displayName) {
-        if (await client.updateVendor({ id: existing.id, name: displayName, icon })) {
-          consola.info(t("CORE.SYNC.VENDOR_UPDATED", { name: displayName, id: existing.id, icon: iconLabel }));
+        if (
+          await client.updateVendor({
+            id: existing.id,
+            name: displayName,
+            icon,
+          })
+        ) {
+          consola.info(
+            t("CORE.SYNC.VENDOR_UPDATED", {
+              name: displayName,
+              id: existing.id,
+              icon: iconLabel,
+            }),
+          );
           changed++;
         }
       }
       continue;
     }
-
     const result = await client.createVendor({ name: displayName, icon });
     if (result) {
-      consola.info(t("CORE.SYNC.VENDOR_CREATED", { name: displayName, id: result.id, icon: iconLabel }));
+      consola.info(
+        t("CORE.SYNC.VENDOR_CREATED", {
+          name: displayName,
+          id: result.id,
+          icon: iconLabel,
+        }),
+      );
       changed++;
-    } else {
+    } else
       consola.warn(t("CORE.SYNC.VENDOR_CREATE_FAILED", { name: displayName }));
-    }
   }
   return changed;
 }
@@ -79,9 +96,12 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
   loadAuthenticityBlacklist();
 
   const health = await target.healthCheck();
-  if (!health.ok) {
-    throw new Error(t("ERROR.TARGET_HEALTH_CHECK_FAILED", { detail: health.error ?? "unknown" }));
-  }
+  if (!health.ok)
+    throw new Error(
+      t("ERROR.TARGET_HEALTH_CHECK_FAILED", {
+        detail: health.error ?? "unknown",
+      }),
+    );
 
   throwIfRunAborted();
   let snap = await snapshot(target);
@@ -90,12 +110,12 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
 
   throwIfRunAborted();
   const vendorsCreated = await ensureVendors(target, desired, snap);
-  if (vendorsCreated > 0) snap = { ...snap, vendors: await target.listVendors() };
+  if (vendorsCreated > 0)
+    snap = { ...snap, vendors: await target.listVendors() };
 
   throwIfRunAborted();
   const diff = buildSyncDiff(config, desired, snap);
   const apply = await applySyncDiff(target, diff);
-
   if (apply.options.updated.length > 0) await target.updateCache();
 
   throwIfRunAborted();
@@ -103,7 +123,8 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
   await updateGuestTokenIfConfigured(target, postApplyPricing);
 
   const successfulProviders = providerReports.filter((p) => p.success).length;
-  const hasProviderSuccess = successfulProviders > 0 || config.providers.length === 0;
+  const hasProviderSuccess =
+    successfulProviders > 0 || config.providers.length === 0;
   const elapsedMs = Date.now() - start;
   const success = hasProviderSuccess && apply.errors.length === 0;
 
@@ -114,13 +135,19 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
   return { success, providerReports, desired, diff, apply, elapsedMs };
 }
 
-/** logs/{ts}-apply-errors.json with each ApplyError paired to the upstream reason. */
-function writeApplyErrorsLog(applyErrors: SyncRunResult["apply"]["errors"]): void {
+function writeApplyErrorsLog(
+  applyErrors: SyncRunResult["apply"]["errors"],
+): void {
   const upstream = drainUpstreamErrors();
   if (applyErrors.length === 0 && upstream.length === 0) return;
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const path = join(logsDir(), `${ts}-apply-errors.json`);
-  writeJsonAtomic(path, { version: 1, generatedAt: new Date().toISOString(), applyErrors, upstream });
+  writeJsonAtomic(path, {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    applyErrors,
+    upstream,
+  });
   consola.info(`Apply errors written to ${path}`);
 }
 
@@ -135,10 +162,8 @@ function buildChannelProviderMap(result: SyncRunResult): Map<string, string> {
 
 function buildModelProviderMap(result: SyncRunResult): Map<string, string[]> {
   const map = new Map<string, Set<string>>();
-  const desiredChannels = result.desired.channels;
-  for (const channel of desiredChannels) {
-    if (!channel.tag) continue;
-    if (!channel.models) continue;
+  for (const channel of result.desired.channels) {
+    if (!channel.tag || !channel.models) continue;
     for (const raw of channel.models.split(",")) {
       const name = raw.trim();
       if (!name) continue;
@@ -152,79 +177,130 @@ function buildModelProviderMap(result: SyncRunResult): Map<string, string[]> {
   }
   for (const op of result.diff.models) {
     if (op.type !== "delete") continue;
-    if (map.has(op.key)) continue;
-    map.set(op.key, new Set<string>());
+    if (!map.has(op.key)) map.set(op.key, new Set<string>());
   }
   return new Map(
     Array.from(map.entries()).map(([k, v]) => [k, Array.from(v).sort()]),
   );
 }
 
-function annotate(items: string[], lookup: (key: string) => string): string[] {
-  return items.map((key) => {
+const annotate = (items: string[], lookup: (key: string) => string): string[] =>
+  items.map((key) => {
     const tag = lookup(key);
     return tag ? `${key} [${tag}]` : key;
   });
-}
 
 export function printRunSummary(result: SyncRunResult): void {
   const elapsed = (result.elapsedMs / 1000).toFixed(2);
   const ch = result.apply.channels;
   const md = result.apply.models;
-  consola.info(t("CLI.SUMMARY.PROVIDERS", {
-    passed: result.providerReports.filter((p) => p.success).length,
-    total: result.providerReports.length,
-  }));
+  consola.info(
+    t("CLI.SUMMARY.PROVIDERS", {
+      passed: result.providerReports.filter((p) => p.success).length,
+      total: result.providerReports.length,
+    }),
+  );
   const channelProviders = buildChannelProviderMap(result);
   const modelProviders = buildModelProviderMap(result);
   const channelLookup = (name: string) => channelProviders.get(name) ?? "";
-  const modelLookup = (name: string) => {
-    const tags = modelProviders.get(name);
-    return tags && tags.length > 0 ? tags.join(", ") : "";
+  const modelLookup = (name: string) =>
+    modelProviders.get(name)?.join(", ") ?? "";
+  const emit = (items: string[], msg: string) => {
+    if (items.length > 0) consola.info(msg);
   };
-  consola.info(t("CLI.SUMMARY.CHANNELS", { created: ch.created.length, updated: ch.updated.length, deleted: ch.deleted.length }));
-  const chAdded = annotate(ch.created, channelLookup);
-  if (chAdded.length > 0) consola.info(t("CLI.SUMMARY.CHANNELS_ADDED", { items: chAdded.join(", ") }));
-  const chUpdated = annotate(ch.updated, channelLookup);
-  if (chUpdated.length > 0) consola.info(t("CLI.SUMMARY.CHANNELS_UPDATED", { items: chUpdated.join(", ") }));
-  const chDeleted = annotate(ch.deleted, channelLookup);
-  if (chDeleted.length > 0) consola.info(t("CLI.SUMMARY.CHANNELS_DELETED", { items: chDeleted.join(", ") }));
-  consola.info(t("CLI.SUMMARY.MODELS", {
-    created: md.created.length,
-    updated: md.updated.length,
-    deleted: md.deleted.length,
-    orphans: md.orphansDeleted,
-  }));
-  const mdAdded = annotate(md.created, modelLookup);
-  if (mdAdded.length > 0) consola.info(t("CLI.SUMMARY.MODELS_ADDED", { items: mdAdded.join(", ") }));
-  const mdUpdated = annotate(md.updated, modelLookup);
-  if (mdUpdated.length > 0) consola.info(t("CLI.SUMMARY.MODELS_UPDATED", { items: mdUpdated.join(", ") }));
-  const mdDeleted = annotate(md.deleted, modelLookup);
-  if (mdDeleted.length > 0) consola.info(t("CLI.SUMMARY.MODELS_DELETED", { items: mdDeleted.join(", ") }));
-  consola.info(t("CLI.SUMMARY.OPTIONS_UPDATED", { count: result.apply.options.updated.length }));
-  if (result.apply.options.updated.length > 0) {
-    consola.info(t("CLI.SUMMARY.OPTIONS_UPDATED_LIST", { items: result.apply.options.updated.join(", ") }));
-  }
+  consola.info(
+    t("CLI.SUMMARY.CHANNELS", {
+      created: ch.created.length,
+      updated: ch.updated.length,
+      deleted: ch.deleted.length,
+    }),
+  );
+  emit(
+    ch.created,
+    t("CLI.SUMMARY.CHANNELS_ADDED", {
+      items: annotate(ch.created, channelLookup).join(", "),
+    }),
+  );
+  emit(
+    ch.updated,
+    t("CLI.SUMMARY.CHANNELS_UPDATED", {
+      items: annotate(ch.updated, channelLookup).join(", "),
+    }),
+  );
+  emit(
+    ch.deleted,
+    t("CLI.SUMMARY.CHANNELS_DELETED", {
+      items: annotate(ch.deleted, channelLookup).join(", "),
+    }),
+  );
+  consola.info(
+    t("CLI.SUMMARY.MODELS", {
+      created: md.created.length,
+      updated: md.updated.length,
+      deleted: md.deleted.length,
+      orphans: md.orphansDeleted,
+    }),
+  );
+  emit(
+    md.created,
+    t("CLI.SUMMARY.MODELS_ADDED", {
+      items: annotate(md.created, modelLookup).join(", "),
+    }),
+  );
+  emit(
+    md.updated,
+    t("CLI.SUMMARY.MODELS_UPDATED", {
+      items: annotate(md.updated, modelLookup).join(", "),
+    }),
+  );
+  emit(
+    md.deleted,
+    t("CLI.SUMMARY.MODELS_DELETED", {
+      items: annotate(md.deleted, modelLookup).join(", "),
+    }),
+  );
+  consola.info(
+    t("CLI.SUMMARY.OPTIONS_UPDATED", {
+      count: result.apply.options.updated.length,
+    }),
+  );
+  if (result.apply.options.updated.length > 0)
+    consola.info(
+      t("CLI.SUMMARY.OPTIONS_UPDATED_LIST", {
+        items: result.apply.options.updated.join(", "),
+      }),
+    );
 
   for (const provider of result.providerReports) {
     if (provider.success) continue;
-    consola.warn(t("CLI.SUMMARY.PROVIDER_ERROR", { name: provider.name, error: provider.error ?? t("CLI.ERROR.UNKNOWN_SHORT") }));
+    consola.warn(
+      t("CLI.SUMMARY.PROVIDER_ERROR", {
+        name: provider.name,
+        error: provider.error ?? t("CLI.ERROR.UNKNOWN_SHORT"),
+      }),
+    );
   }
-  for (const error of result.apply.errors) {
-    consola.error(t("CLI.SUMMARY.APPLY_ERROR", { phase: error.phase, key: error.key, message: error.message }));
-  }
-
+  for (const error of result.apply.errors)
+    consola.error(
+      t("CLI.SUMMARY.APPLY_ERROR", {
+        phase: error.phase,
+        key: error.key,
+        message: error.message,
+      }),
+    );
   if (result.success) consola.success(t("CLI.SUMMARY.COMPLETED", { elapsed }));
   else consola.error(t("CLI.SUMMARY.COMPLETED_WITH_ERRORS", { elapsed }));
 }
 
 export function printResetSummary(result: ResetResult): void {
-  consola.info(t("CLI.SUMMARY.RESET_COMPLETE", {
-    channels: result.channelsDeleted,
-    channelsUpdated: result.channelsUpdated,
-    models: result.modelsDeleted,
-    orphans: result.orphanModelsDeleted,
-    tokens: result.tokensDeleted,
-    options: result.optionsUpdated.length,
-  }));
+  consola.info(
+    t("CLI.SUMMARY.RESET_COMPLETE", {
+      channels: result.channelsDeleted,
+      channelsUpdated: result.channelsUpdated,
+      models: result.modelsDeleted,
+      orphans: result.orphanModelsDeleted,
+      tokens: result.tokensDeleted,
+      options: result.optionsUpdated.length,
+    }),
+  );
 }

@@ -26,12 +26,10 @@ import {
 import { buildOptionMaps } from "./option-maps";
 import { runAllProviders } from "./providers";
 
-// Math lives in pricing/compute.ts. Orchestration: collect offers, resolve canonical, compute+emit.
 export async function runProviderPipeline(
   config: RuntimeConfig,
   targetSnapshot?: TargetSnapshot,
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
-  // Per-upstream overrides keyed by baseUrl (probe code looks up sans provider name).
   const overrides = new Map<string, number>();
   for (const p of config.providers) {
     if ("baseUrl" in p && p.baseUrl && p.perUpstreamConcurrency) {
@@ -53,7 +51,6 @@ export async function runProviderPipeline(
     managedProviders,
   });
 
-  // Sources feed canonical + description/tags enrichment.
   const [basellmEntries, openRouterDescriptions] = await Promise.all([
     fetchBasellmEntries(),
     fetchOpenRouterDescriptions(),
@@ -96,12 +93,11 @@ export async function runProviderPipeline(
     );
   }
 
-  const emitted = emitChannels({ plan, baseline });
-  const mergedGroups = emitted.mergedGroups;
-  const mergedModels = emitted.mergedModels;
-  const channels = emitted.channels;
+  const { mergedGroups, mergedModels, channels } = emitChannels({
+    plan,
+    baseline,
+  });
 
-  // ComfyUI: hand-defined; register group in mergedGroups so pricing UI shows it.
   for (const provider of config.providers) {
     if (provider.type !== "comfyui") continue;
     const result = buildComfyUiChannels(provider as ComfyUiProviderConfig);
@@ -124,17 +120,16 @@ export async function runProviderPipeline(
   }
 
   const allPricingGrids: Record<string, Record<string, string | number>[]> = {};
+  const allMetadata: Record<string, Record<string, unknown>> = {};
   for (const provider of config.providers) {
     Object.assign(
       allPricingGrids,
       getPricingGridFromEnabledModels(provider.enabledModels),
     );
-  }
-
-  const allMetadata: Record<string, Record<string, unknown>> = {};
-  for (const provider of config.providers) {
-    const metadata = getMetadataFromEnabledModels(provider.enabledModels);
-    Object.assign(allMetadata, metadata);
+    Object.assign(
+      allMetadata,
+      getMetadataFromEnabledModels(provider.enabledModels),
+    );
   }
 
   const optionMaps = buildOptionMaps(
@@ -144,7 +139,6 @@ export async function runProviderPipeline(
     allPricingGrids,
   );
 
-  // ComfyUI per-template prices → ModelPrice (quotaType=1).
   for (const provider of config.providers) {
     if (provider.type !== "comfyui") continue;
     const cfg = provider as ComfyUiProviderConfig;
@@ -186,8 +180,7 @@ export async function runProviderPipeline(
         responsesApiModels: [...new Set(responsesApiModels)],
       },
       managedProviders: new Set([
-        ...config.providers.map((provider) => provider.name),
-        // Full sync: claim orphan-tag channels so they get cleaned up.
+        ...config.providers.map((p) => p.name),
         ...(targetSnapshot && !config.onlyProviders
           ? targetSnapshot.channels.filter((ch) => ch.tag).map((ch) => ch.tag!)
           : []),

@@ -35,25 +35,16 @@ interface OpenRouterEndpoint {
 interface OpenRouterModelList {
   data: OpenRouterModel[];
 }
-
 interface OpenRouterEndpointsResponse {
   data?: { endpoints?: OpenRouterEndpoint[] };
 }
 
 export interface OpenRouterCatalogue {
-  /** Model IDs with at least one healthy zero-cost endpoint. */
   freeIds: string[];
-  /** Model IDs with no free endpoint (only paid routes available). */
-  paidIds: string[];
-  /** id -> true if free, false if paid. */
-  isFreeById: Map<string, boolean>;
-  /** id -> provider tags of the healthy zero-cost endpoints. */
-  freeProviderTagsById: Map<string, string[]>;
 }
 
 const ENDPOINT_PROBE_CONCURRENCY = 8;
 
-/** Every numeric pricing field parses to exactly 0. */
 function isZeroPricing(p: OpenRouterPricing | undefined): boolean {
   if (!p) return false;
   for (const v of Object.values(p)) {
@@ -64,14 +55,6 @@ function isZeroPricing(p: OpenRouterPricing | undefined): boolean {
   return true;
 }
 
-/**
- * `/v1/models` shows only the cheapest route's headline price, so a model
- * with `pricing.prompt = "0"` may still bill on its actual provider routes.
- * For each candidate we hit `/v1/models/{slug}/endpoints` and accept it as
- * truly free only when at least one healthy endpoint has a fully-zero
- * pricing object. The endpoint tags are kept so the offer can later pin
- * routing via `provider.only` and avoid silent failover to a paid route.
- */
 async function fetchModelEndpoints(
   baseUrl: string,
   apiKey: string,
@@ -108,68 +91,27 @@ export async function discoverOpenRouterFreeModels(
     timeoutMs: 15_000,
   });
 
-  const empty: OpenRouterCatalogue = {
-    freeIds: [],
-    paidIds: [],
-    isFreeById: new Map(),
-    freeProviderTagsById: new Map(),
-  };
-  if (!raw?.data?.length) return empty;
+  if (!raw?.data?.length) return { freeIds: [] };
 
-  // Stage 1: candidates worth probing - anything that claims to be free at
-  // the catalogue level. A non-candidate (paid headline price) cannot have
-  // a free underlying route, so we skip the per-model fetch.
   const candidates = raw.data.filter((m) => isZeroPricing(m.pricing));
-
   consola.info(
     t("CORE.OPENROUTER.PROBING_ENDPOINTS", { count: candidates.length }),
   );
 
-  // Stage 2: per-endpoint verification. Concurrency-capped because
-  // OpenRouter has no rate limits but we still want to be polite.
   const limit = pLimit(ENDPOINT_PROBE_CONCURRENCY);
   const results = await Promise.all(
     candidates.map((m) =>
       limit(async () => {
-        // Use `m.id` not `canonical_slug`: the `:free` suffix is a routing
-        // alias that selects the free endpoint pool. canonical_slug strips
-        // the suffix (e.g. `google/gemma-4-31b-it-20260402`), and fetching
-        // `/endpoints` on the unsuffixed slug resolves to the PAID routes
-        // only - the free-pool endpoints are reachable solely via the
-        // `:free` ID. Using canonical_slug here misclassified ~30 free
-        // variants as paid.
         const endpoints = await fetchModelEndpoints(baseUrl, apiKey, m.id);
-        const freeTags: string[] = [];
-        for (const ep of endpoints) {
-          const healthy = (ep.status ?? 0) >= 0;
-          if (healthy && isZeroPricing(ep.pricing) && ep.tag) {
-            freeTags.push(ep.tag);
-          }
-        }
-        return { id: m.id, freeTags };
+        const hasFree = endpoints.some(
+          (ep) => (ep.status ?? 0) >= 0 && isZeroPricing(ep.pricing) && ep.tag,
+        );
+        return { id: m.id, hasFree };
       }),
     ),
   );
 
   const freeIds: string[] = [];
-  const paidIds: string[] = [];
-  const isFreeById = new Map<string, boolean>();
-  const freeProviderTagsById = new Map<string, string[]>();
-  for (const { id, freeTags } of results) {
-    if (freeTags.length > 0) {
-      freeIds.push(id);
-      isFreeById.set(id, true);
-      freeProviderTagsById.set(id, freeTags);
-    } else {
-      paidIds.push(id);
-      isFreeById.set(id, false);
-    }
-  }
-  // Models we never probed (paid headline) are recorded as paid so the
-  // provider can still classify enabledModels extras without a second fetch.
-  for (const m of raw.data) {
-    if (!isFreeById.has(m.id)) isFreeById.set(m.id, false);
-  }
-
-  return { freeIds, paidIds, isFreeById, freeProviderTagsById };
+  for (const r of results) if (r.hasFree) freeIds.push(r.id);
+  return { freeIds };
 }

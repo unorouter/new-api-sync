@@ -3,7 +3,7 @@ import type { UpstreamPricing } from "@core/vendors/newapi/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 
-export interface GuestTokenUpdateResult {
+interface GuestTokenUpdateResult {
   configured: boolean;
   updated: boolean;
   freeModelCount: number;
@@ -45,7 +45,9 @@ function collectTrulyFreeModels(pricing: UpstreamPricing): string[] {
   const free: string[] = [];
   for (const model of pricing.models) {
     if (model.groups.length === 0) continue;
-    const isFree = model.groups.every((g) => isGroupPriceZero(pricing, model, g));
+    const isFree = model.groups.every((g) =>
+      isGroupPriceZero(pricing, model, g),
+    );
     if (isFree) free.push(model.name);
   }
   free.sort();
@@ -54,7 +56,12 @@ function collectTrulyFreeModels(pricing: UpstreamPricing): string[] {
 
 function isGroupPriceZero(
   pricing: UpstreamPricing,
-  model: { name: string; ratio: number; modelPrice?: number; quotaType?: number },
+  model: {
+    name: string;
+    ratio: number;
+    modelPrice?: number;
+    quotaType?: number;
+  },
   groupName: string,
 ): boolean {
   // Any per-call price > 0 is not free regardless of group ratio.

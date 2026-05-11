@@ -19,17 +19,17 @@ import stringify from "safe-stable-stringify";
 
 function collectModelsFromChannels(channels: Channel[]): Set<string> {
   const models = new Set<string>();
-  for (const ch of channels) {
+  for (const ch of channels)
     for (const m of parseModelList(ch.models)) models.add(m);
-  }
   return models;
 }
 
-function stableJson(input: Record<string, unknown>): string {
-  return stringify(input) ?? "{}";
-}
+const stableJson = (input: Record<string, unknown>): string =>
+  stringify(input) ?? "{}";
 
-function extractCapabilities(setting?: string): Record<string, unknown> | undefined {
+function extractCapabilities(
+  setting?: string,
+): Record<string, unknown> | undefined {
   if (!setting) return undefined;
   try {
     return JSON.parse(setting)?.capabilities ?? undefined;
@@ -38,13 +38,17 @@ function extractCapabilities(setting?: string): Record<string, unknown> | undefi
   }
 }
 
-/** Sync capabilities; preserve manual fields (proxy, system_prompt, ...). */
-function mergeSettingCapabilities(existingSetting: string | undefined, desiredSetting: string | undefined): string | undefined {
+function mergeSettingCapabilities(
+  existingSetting?: string,
+  desiredSetting?: string,
+): string | undefined {
   const desiredCaps = extractCapabilities(desiredSetting);
   if (!desiredCaps) return undefined;
   let existing: Record<string, unknown> = {};
   if (existingSetting) {
-    try { existing = JSON.parse(existingSetting); } catch { existing = {}; }
+    try {
+      existing = JSON.parse(existingSetting);
+    } catch {}
   }
   existing.capabilities = desiredCaps;
   return JSON.stringify(existing);
@@ -55,62 +59,83 @@ function normalizeCapabilities(setting?: string): string | undefined {
   return caps ? JSON.stringify(caps) : undefined;
 }
 
-function normalizeChannel(channel: Channel): Omit<Channel, "id"> {
+function normalizeWorkflowTemplates(wf?: string): string | undefined {
+  if (!wf) return undefined;
+  try {
+    return stringify(JSON.parse(wf)) ?? undefined;
+  } catch {
+    return wf;
+  }
+}
+
+function normalizeChannel(c: Channel): Omit<Channel, "id"> {
   return {
-    name: channel.name,
-    type: channel.type,
-    key: channel.key,
-    base_url: channel.base_url.replace(/\/$/, ""),
-    models: channel.models,
-    group: channel.group,
-    priority: channel.priority,
-    weight: channel.weight,
-    status: channel.status,
-    tag: channel.tag,
-    remark: channel.remark,
-    model_mapping: channel.model_mapping && channel.model_mapping !== "{}" ? channel.model_mapping : undefined,
-    setting: normalizeCapabilities(channel.setting),
-    workflow_templates: normalizeWorkflowTemplates(channel.workflow_templates),
-    // comfyui overrides this; undefined either side = no opinion.
-    auto_ban: channel.auto_ban,
+    name: c.name,
+    type: c.type,
+    key: c.key,
+    base_url: c.base_url.replace(/\/$/, ""),
+    models: c.models,
+    group: c.group,
+    priority: c.priority,
+    weight: c.weight,
+    status: c.status,
+    tag: c.tag,
+    remark: c.remark,
+    model_mapping:
+      c.model_mapping && c.model_mapping !== "{}" ? c.model_mapping : undefined,
+    setting: normalizeCapabilities(c.setting),
+    workflow_templates: normalizeWorkflowTemplates(c.workflow_templates),
+    auto_ban: c.auto_ban,
   };
 }
 
-/** Stable stringify so key-order / whitespace changes don't trigger spurious updates. */
-function normalizeWorkflowTemplates(workflowTemplates?: string): string | undefined {
-  if (!workflowTemplates) return undefined;
-  try {
-    return stringify(JSON.parse(workflowTemplates)) ?? undefined;
-  } catch {
-    return workflowTemplates; // invalid JSON: leave as-is so the diff still flags it
-  }
-}
-
-/** Keep existing entries whose key is in `guard`, then add `desired` entries that aren't guarded. */
-function mergeProtected<T>(existing: Record<string, T>, guard: Set<string>, desired: Record<string, T>): Record<string, T> {
+function mergeProtected<T>(
+  existing: Record<string, T>,
+  guard: Set<string>,
+  desired: Record<string, T>,
+): Record<string, T> {
   const merged: Record<string, T> = {};
-  for (const [key, value] of Object.entries(existing)) if (guard.has(key)) merged[key] = value;
-  for (const [key, value] of Object.entries(desired)) if (!(key in merged)) merged[key] = value;
+  for (const [k, v] of Object.entries(existing))
+    if (guard.has(k)) merged[k] = v;
+  for (const [k, v] of Object.entries(desired))
+    if (!(k in merged)) merged[k] = v;
   return merged;
 }
 
-function buildManagedOptionValues(desired: DesiredState, snapshot: TargetSnapshot, isPartialSync: boolean): Record<string, string> {
-  const unmanagedChannels = snapshot.channels.filter((ch) => !ch.tag || !desired.managedProviders.has(ch.tag));
+const PARTIAL_MODEL_OPTION_KEYS = [
+  "ModelRatio",
+  "ModelPrice",
+  "CompletionRatio",
+  "ImageRatio",
+  "CacheRatio",
+  "CreateCacheRatio",
+  "ModelQuotaType",
+  "ModelGridPricing",
+] as const;
+
+function buildManagedOptionValues(
+  desired: DesiredState,
+  snapshot: TargetSnapshot,
+  isPartialSync: boolean,
+): Record<string, string> {
+  const opts = desired.options;
+  const isManaged = (ch: Channel) =>
+    ch.tag && desired.managedProviders.has(ch.tag);
+  const unmanagedChannels = snapshot.channels.filter((ch) => !isManaged(ch));
   const unmanagedGroups = new Set(unmanagedChannels.map((ch) => ch.group));
   const protectedModels = collectModelsFromChannels(unmanagedChannels);
 
-  // `in` checks (not truthiness) so a legit 0 ratio from free providers still propagates.
   const desiredModelsWithoutRatio = new Set<string>();
   for (const channel of desired.channels) {
     for (const model of parseModelList(channel.models)) {
-      if (!(model in desired.options.modelRatio) && !(model in desired.options.modelPrice)) {
+      if (!(model in opts.modelRatio) && !(model in opts.modelPrice))
         desiredModelsWithoutRatio.add(model);
-      }
     }
   }
-
-  // Guard: unmanaged channel models + managed-but-no-pricing-this-sync.
-  const modelRatioGuard = new Set([...protectedModels, ...desiredModelsWithoutRatio]);
+  const modelRatioGuard = new Set([
+    ...protectedModels,
+    ...desiredModelsWithoutRatio,
+  ]);
 
   const parse = <T>(key: string, fallback: T): T => {
     try {
@@ -120,84 +145,90 @@ function buildManagedOptionValues(desired: DesiredState, snapshot: TargetSnapsho
       return fallback;
     }
   };
-  const mergeOption = <T>(key: string, guard: Set<string>, desired: Record<string, T>) =>
-    mergeProtected(parse<Record<string, T>>(key, {}), guard, desired);
+  const mergeOption = <T>(
+    key: string,
+    guard: Set<string>,
+    d: Record<string, T>,
+  ) => mergeProtected(parse<Record<string, T>>(key, {}), guard, d);
 
-  // --only: guard keys from non-included providers; managed providers stay updatable.
-  const managedGroups = new Set(snapshot.channels.filter((ch) => ch.tag && desired.managedProviders.has(ch.tag)).map((ch) => ch.group));
+  const managedGroups = new Set(
+    snapshot.channels.filter(isManaged).map((ch) => ch.group),
+  );
   const groupGuard = isPartialSync
     ? new Set([
         ...unmanagedGroups,
-        ...Object.keys(parse<Record<string, unknown>>("GroupRatio", {})).filter((g) => !managedGroups.has(g)),
+        ...Object.keys(parse<Record<string, unknown>>("GroupRatio", {})).filter(
+          (g) => !managedGroups.has(g),
+        ),
       ])
     : unmanagedGroups;
-  // Mirror managedGroups for models: must NOT guard, else --only can't update its own pricing.
+
   const managedModels = new Set<string>();
-  for (const channel of snapshot.channels) {
-    if (channel.tag && desired.managedProviders.has(channel.tag)) {
-      for (const m of parseModelList(channel.models)) managedModels.add(m);
-    }
-  }
-  for (const channel of desired.channels) {
-    for (const m of parseModelList(channel.models)) managedModels.add(m);
-  }
+  for (const ch of snapshot.channels)
+    if (isManaged(ch))
+      for (const m of parseModelList(ch.models)) managedModels.add(m);
+  for (const ch of desired.channels)
+    for (const m of parseModelList(ch.models)) managedModels.add(m);
 
   const modelGuard = isPartialSync
     ? new Set(
         [
           ...modelRatioGuard,
-          ...Object.keys(parse<Record<string, unknown>>("ModelRatio", {})),
-          ...Object.keys(parse<Record<string, unknown>>("ModelPrice", {})),
-          ...Object.keys(parse<Record<string, unknown>>("CompletionRatio", {})),
-          ...Object.keys(parse<Record<string, unknown>>("ImageRatio", {})),
-          ...Object.keys(parse<Record<string, unknown>>("CacheRatio", {})),
-          ...Object.keys(parse<Record<string, unknown>>("CreateCacheRatio", {})),
-          ...Object.keys(parse<Record<string, unknown>>("ModelQuotaType", {})),
-          ...Object.keys(parse<Record<string, unknown>>("ModelGridPricing", {})),
+          ...PARTIAL_MODEL_OPTION_KEYS.flatMap((k) =>
+            Object.keys(parse<Record<string, unknown>>(k, {})),
+          ),
         ].filter((m) => !managedModels.has(m)),
       )
     : modelRatioGuard;
 
-  const mergedGroupRatio = mergeOption("GroupRatio", groupGuard, desired.options.groupRatio);
+  const mergedGroupRatio = mergeOption(
+    "GroupRatio",
+    groupGuard,
+    opts.groupRatio,
+  );
   const mergedUserGroups = mergeProtected(
     parse<Record<string, string>>("UserUsableGroups", {}),
     groupGuard,
-    { auto: t("CORE.GROUPS.AUTO_LABEL"), ...desired.options.userUsableGroups },
+    { auto: t("CORE.GROUPS.AUTO_LABEL"), ...opts.userUsableGroups },
   );
   const mergedAutoGroups = [
     ...new Set([
       ...parse<string[]>("AutoGroups", []).filter((g) => groupGuard.has(g)),
-      ...desired.options.autoGroups,
+      ...opts.autoGroups,
     ]),
   ].sort((a, b) => (mergedGroupRatio[a] ?? 1) - (mergedGroupRatio[b] ?? 1));
 
   const modelOptions: [string, Record<string, unknown>][] = [
-    ["ModelRatio", desired.options.modelRatio],
-    ["CompletionRatio", desired.options.completionRatio],
-    ["ModelPrice", desired.options.modelPrice],
-    ["ImageRatio", desired.options.imageRatio],
-    ["CacheRatio", desired.options.cacheRatio],
-    ["CreateCacheRatio", desired.options.createCacheRatio],
-    ["ModelQuotaType", desired.options.modelQuotaType],
-    ["ModelGridPricing", desired.options.modelGridPricing],
+    ["ModelRatio", opts.modelRatio],
+    ["CompletionRatio", opts.completionRatio],
+    ["ModelPrice", opts.modelPrice],
+    ["ImageRatio", opts.imageRatio],
+    ["CacheRatio", opts.cacheRatio],
+    ["CreateCacheRatio", opts.createCacheRatio],
+    ["ModelQuotaType", opts.modelQuotaType],
+    ["ModelGridPricing", opts.modelGridPricing],
   ];
 
-  // Escaped + anchored exact-match patterns for chat/completions → /v1/responses policy.
-  const modelPatterns = desired.options.responsesApiModels.map((m) => `^${m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
-  const responsesPolicy = JSON.stringify({
-    enabled: modelPatterns.length > 0,
-    all_channels: false,
-    channel_types: [1],
-    model_patterns: modelPatterns,
-  });
-
+  const modelPatterns = opts.responsesApiModels.map(
+    (m) => `^${m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+  );
   return {
     GroupRatio: stableJson(mergedGroupRatio),
     UserUsableGroups: stableJson(mergedUserGroups),
     AutoGroups: JSON.stringify(mergedAutoGroups),
-    DefaultUseAutoGroup: desired.options.defaultUseAutoGroup ? "true" : "false",
-    ...Object.fromEntries(modelOptions.map(([key, value]) => [key, stableJson(mergeOption(key, modelGuard, value))])),
-    "global.chat_completions_to_responses_policy": responsesPolicy,
+    DefaultUseAutoGroup: opts.defaultUseAutoGroup ? "true" : "false",
+    ...Object.fromEntries(
+      modelOptions.map(([k, v]) => [
+        k,
+        stableJson(mergeOption(k, modelGuard, v)),
+      ]),
+    ),
+    "global.chat_completions_to_responses_policy": JSON.stringify({
+      enabled: modelPatterns.length > 0,
+      all_channels: false,
+      channel_types: [1],
+      model_patterns: modelPatterns,
+    }),
   };
 }
 
@@ -206,20 +237,26 @@ function buildVendorIdMap(vendors: Vendor[]): Record<string, number> {
   for (const vendor of vendors) map[vendor.name.toLowerCase()] = vendor.id;
   forEachVendor((canonical, matcher) => {
     const names = matcher.nameAliases;
-    if (!names || names.length === 0) return;
-    if (map[canonical] !== undefined) return;
+    if (!names || names.length === 0 || map[canonical] !== undefined) return;
     for (const name of names) {
-      const match = vendors.find((v) => v.name.toLowerCase().includes(name.toLowerCase()));
-      if (match) { map[canonical] = match.id; return; }
+      const match = vendors.find((v) =>
+        v.name.toLowerCase().includes(name.toLowerCase()),
+      );
+      if (match) {
+        map[canonical] = match.id;
+        return;
+      }
     }
   });
   return map;
 }
 
-export function buildSyncDiff(config: RuntimeConfig, desired: DesiredState, snapshot: TargetSnapshot): SyncDiff {
+export function buildSyncDiff(
+  config: RuntimeConfig,
+  desired: DesiredState,
+  snapshot: TargetSnapshot,
+): SyncDiff {
   const managedProviders = config.onlyProviders ?? desired.managedProviders;
-
-  // ---- Channels ----
   const channelOps: DiffOperation<Channel>[] = [];
   const existingByName = new Map(snapshot.channels.map((ch) => [ch.name, ch]));
   const desiredByName = new Map(desired.channels.map((ch) => [ch.name, ch]));
@@ -227,54 +264,69 @@ export function buildSyncDiff(config: RuntimeConfig, desired: DesiredState, snap
   for (const desiredChannel of desired.channels) {
     const existing = existingByName.get(desiredChannel.name);
     if (!existing) {
-      channelOps.push({ type: "create", key: desiredChannel.name, value: desiredChannel });
+      channelOps.push({
+        type: "create",
+        key: desiredChannel.name,
+        value: desiredChannel,
+      });
       continue;
     }
     const normalizedDesired = { ...desiredChannel, id: existing.id };
-    normalizedDesired.setting = mergeSettingCapabilities(existing.setting, desiredChannel.setting);
-    if (!deepEqual(normalizeChannel(existing), normalizeChannel(normalizedDesired))) {
-      channelOps.push({ type: "update", key: desiredChannel.name, existing, value: normalizedDesired });
+    normalizedDesired.setting = mergeSettingCapabilities(
+      existing.setting,
+      desiredChannel.setting,
+    );
+    if (
+      !deepEqual(
+        normalizeChannel(existing),
+        normalizeChannel(normalizedDesired),
+      )
+    ) {
+      channelOps.push({
+        type: "update",
+        key: desiredChannel.name,
+        existing,
+        value: normalizedDesired,
+      });
     }
   }
 
-  // --models filter: only delete channels whose current models intersect the filter.
   const modelFilter = config.modelFilter;
-  const channelInModelFilterScope = (channel: Channel): boolean => {
-    if (!modelFilter || modelFilter.length === 0) return true;
-    const channelModels = parseModelList(channel.models);
-    return channelModels.some((m) => matchesAnyPattern(m, modelFilter));
-  };
+  const inScope = (channel: Channel): boolean =>
+    !modelFilter ||
+    modelFilter.length === 0 ||
+    parseModelList(channel.models).some((m) =>
+      matchesAnyPattern(m, modelFilter),
+    );
 
   for (const existing of snapshot.channels) {
     if (!existing.tag || !managedProviders.has(existing.tag)) continue;
-    if (desiredByName.has(existing.name)) continue;
-    if (!channelInModelFilterScope(existing)) continue;
+    if (desiredByName.has(existing.name) || !inScope(existing)) continue;
     channelOps.push({ type: "delete", key: existing.name, existing });
   }
 
-  // ---- Models ----
   const vendorNameToId = buildVendorIdMap(snapshot.vendors);
   const modelOps: DiffOperation<ModelMeta>[] = [];
+  const serverSupportsMetadata = snapshot.models.some(
+    (m) => m.metadata !== undefined,
+  );
 
-  // Older new-api lacks the metadata column; detect by any row defining the field.
-  const serverSupportsMetadata = snapshot.models.some((m) => m.metadata !== undefined);
-
-  // Deduplicate existing models: keep the entry with the highest ID, delete the rest.
   const existingModelsByName = new Map<string, ModelMeta>();
-  const duplicateModels: ModelMeta[] = [];
   for (const model of snapshot.models) {
     const prev = existingModelsByName.get(model.model_name);
     if (!prev) {
       existingModelsByName.set(model.model_name, model);
-    } else {
-      const [keep, discard] = (prev.id ?? 0) >= (model.id ?? 0) ? [prev, model] : [model, prev];
-      existingModelsByName.set(model.model_name, keep);
-      duplicateModels.push(discard);
+      continue;
     }
-  }
-  for (const dup of duplicateModels) {
-    if (!dup.id) continue;
-    modelOps.push({ type: "delete", key: `${dup.model_name} (dup #${dup.id})`, existing: dup });
+    const [keep, discard] =
+      (prev.id ?? 0) >= (model.id ?? 0) ? [prev, model] : [model, prev];
+    existingModelsByName.set(model.model_name, keep);
+    if (discard.id)
+      modelOps.push({
+        type: "delete",
+        key: `${discard.model_name} (dup #${discard.id})`,
+        existing: discard,
+      });
   }
 
   const protectedModels = collectModelsFromChannels(
@@ -283,7 +335,9 @@ export function buildSyncDiff(config: RuntimeConfig, desired: DesiredState, snap
 
   for (const [modelName, desiredModel] of desired.models.entries()) {
     const existing = existingModelsByName.get(modelName);
-    const vendorId = desiredModel.vendor ? vendorNameToId[desiredModel.vendor.toLowerCase()] : undefined;
+    const vendorId = desiredModel.vendor
+      ? vendorNameToId[desiredModel.vendor.toLowerCase()]
+      : undefined;
     const targetModel: Omit<ModelMeta, "id"> = {
       model_name: desiredModel.model_name,
       vendor_id: vendorId,
@@ -300,7 +354,9 @@ export function buildSyncDiff(config: RuntimeConfig, desired: DesiredState, snap
       continue;
     }
 
-    const metadataDiffers = serverSupportsMetadata && (existing.metadata ?? "") !== (targetModel.metadata ?? "");
+    const metadataDiffers =
+      serverSupportsMetadata &&
+      (existing.metadata ?? "") !== (targetModel.metadata ?? "");
     const needsUpdate =
       existing.vendor_id !== targetModel.vendor_id ||
       existing.endpoints !== targetModel.endpoints ||
@@ -311,32 +367,42 @@ export function buildSyncDiff(config: RuntimeConfig, desired: DesiredState, snap
       existing.status !== 1;
 
     if (needsUpdate) {
-      modelOps.push({ type: "update", key: modelName, existing, value: { ...targetModel, id: existing.id } });
+      modelOps.push({
+        type: "update",
+        key: modelName,
+        existing,
+        value: { ...targetModel, id: existing.id },
+      });
     }
   }
 
   for (const existing of snapshot.models) {
     const modelName = existing.model_name;
-    if (desired.models.has(modelName)) continue;
-    if (protectedModels.has(modelName)) continue;
-    if (modelFilter && modelFilter.length > 0 && !matchesAnyPattern(modelName, modelFilter)) continue;
-    const isMappingSource = desired.mappingSources.has(modelName);
-    if (!isMappingSource && existing.sync_official !== 1) continue;
+    if (desired.models.has(modelName) || protectedModels.has(modelName))
+      continue;
+    if (
+      modelFilter &&
+      modelFilter.length > 0 &&
+      !matchesAnyPattern(modelName, modelFilter)
+    )
+      continue;
+    if (!desired.mappingSources.has(modelName) && existing.sync_official !== 1)
+      continue;
     if (!existing.id) continue;
     modelOps.push({ type: "delete", key: modelName, existing });
   }
 
-  // ---- Options ----
-  const isPartialSync = config.onlyProviders !== undefined;
-  const desiredOptionValues = buildManagedOptionValues(desired, snapshot, isPartialSync);
+  const desiredOptionValues = buildManagedOptionValues(
+    desired,
+    snapshot,
+    config.onlyProviders !== undefined,
+  );
   const optionOps: DiffOperation<string>[] = [];
   for (const [key, value] of Object.entries(desiredOptionValues)) {
     const existing = snapshot.options[key];
-    if (existing === undefined) {
-      optionOps.push({ type: "create", key, value });
-      continue;
-    }
-    if (existing !== value) optionOps.push({ type: "update", key, existing, value });
+    if (existing === undefined) optionOps.push({ type: "create", key, value });
+    else if (existing !== value)
+      optionOps.push({ type: "update", key, existing, value });
   }
 
   return {

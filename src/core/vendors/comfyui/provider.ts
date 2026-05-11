@@ -6,9 +6,10 @@ import { sanitizeGroupName } from "@core/catalog/constants/patterns";
 import type { Channel, ProviderReport } from "@core/types";
 import type { ComfyUiProviderConfig } from "@core/validations/config";
 
-export function buildComfyUiChannels(
-  providerConfig: ComfyUiProviderConfig,
-): { channels: Channel[]; report: ProviderReport } {
+export function buildComfyUiChannels(providerConfig: ComfyUiProviderConfig): {
+  channels: Channel[];
+  report: ProviderReport;
+} {
   const report: ProviderReport = {
     name: providerConfig.name,
     success: false,

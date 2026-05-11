@@ -1,33 +1,25 @@
-// Pure translation: PricedPlan → Channel[] + mergedGroups. Capabilities JSON
-// for channel.setting derives from tier.testDetails (compute filtered already).
-
 import type { Channel, MergedGroup, MergedModel } from "@core/types";
 import { t } from "@server/i18n";
 import type { PricedPlan, PricedTier } from "./types";
 import type { BaselineInputs } from "./types";
 
-export interface EmitArgs {
+interface EmitArgs {
   plan: PricedPlan;
   baseline: BaselineInputs;
 }
 
-export interface EmitResult {
+interface EmitResult {
   channels: Channel[];
   mergedGroups: MergedGroup[];
   mergedModels: Map<string, MergedModel>;
 }
 
 export function emitChannels(args: EmitArgs): EmitResult {
-  const { plan, baseline } = args;
+  const liveTiers = args.plan.tiers.filter((tier) => tier.models.length > 0);
 
-  // Empty tier → new-api rejects with "channel cannot be empty"; let next sync re-create.
-  const liveTiers = plan.tiers.filter((tier) => tier.models.length > 0);
-
-  // Same error format as the previous in-pipeline check (on-call greps).
   const seen = new Map<string, { source: "baseline" | "plan"; tag?: string }>();
-  for (const ch of baseline.channels) {
+  for (const ch of args.baseline.channels)
     seen.set(ch.name, { source: "baseline", tag: ch.tag });
-  }
   for (const tier of liveTiers) {
     const existing = seen.get(tier.channelName);
     if (existing) {
@@ -56,8 +48,6 @@ export function emitChannels(args: EmitArgs): EmitResult {
       provider: tier.providerTag,
     });
 
-    const setting = buildSettingJson(tier);
-
     channels.push({
       name: tier.channelName,
       type: tier.channelType,
@@ -74,30 +64,23 @@ export function emitChannels(args: EmitArgs): EmitResult {
         tier.modelMapping && Object.keys(tier.modelMapping).length > 0
           ? JSON.stringify(tier.modelMapping)
           : undefined,
-      setting,
+      setting: buildSettingJson(tier),
     });
   }
 
-  return {
-    channels,
-    mergedGroups,
-    mergedModels: plan.modelRatios,
-  };
+  return { channels, mergedGroups, mergedModels: args.plan.modelRatios };
 }
-
-// Capabilities JSON: {"capabilities": {tool_calling, streaming, http}}. Each
-// flag is true iff every detail in the tier reports non-null success.
-// tool_calling=false on all-null matches legacy (reasoning-only buckets get
-// marked tool-incapable so they don't 400 on tool-call requests).
 
 function buildSettingJson(tier: PricedTier): string | undefined {
   if (!tier.testDetails || tier.testDetails.length === 0) return undefined;
 
   const summarize = (
-    pick: (d: NonNullable<PricedTier["testDetails"]>[number]) => boolean | null | undefined,
+    pick: (
+      d: NonNullable<PricedTier["testDetails"]>[number],
+    ) => boolean | null | undefined,
   ): boolean | undefined => {
-    const results = tier.testDetails!
-      .map(pick)
+    const results = tier
+      .testDetails!.map(pick)
       .filter((v): v is boolean => v !== null && v !== undefined);
     return results.length > 0 ? results.every(Boolean) : undefined;
   };

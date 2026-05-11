@@ -2,19 +2,7 @@ import type { RuntimeConfig } from "@core/config";
 import type { BaselineInputs } from "@core/pricing/types";
 import type { TargetSnapshot } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
-import { t } from "@server/i18n";
-import { consola } from "consola";
 
-/**
- * Build BaselineInputs from the target snapshot. Pricing computation needs
- * these so partial-sync (--only) and sub2api's "cheapest existing group
- * ratio" lookup can see what other (non-managed) channels exist.
- *
- * Returns an empty baseline when no snapshot is provided (initial sync,
- * test mode). For partial syncs, also fetches /api/pricing on the target
- * to seed pricing-only groups + model ratios that aren't represented by
- * channels in the snapshot.
- */
 export async function buildBaseline(opts: {
   config: RuntimeConfig;
   targetSnapshot?: TargetSnapshot;
@@ -50,21 +38,17 @@ export async function buildBaseline(opts: {
   for (const ch of opts.targetSnapshot.channels) {
     if (ch.tag && opts.managedProviders.has(ch.tag)) continue;
     baseline.channels.push(ch);
-
-    if (!seededGroups.has(ch.group)) {
-      seededGroups.add(ch.group);
-      const ratio =
-        pricingGroupRatio.get(ch.group) ?? snapshotGroupRatio[ch.group] ?? 1;
-      baseline.groups.push({
-        name: ch.group,
-        ratio,
-        description: `baseline: ${ch.group}`,
-        provider: ch.tag ?? "__baseline__",
-      });
-    }
+    if (seededGroups.has(ch.group)) continue;
+    seededGroups.add(ch.group);
+    baseline.groups.push({
+      name: ch.group,
+      ratio:
+        pricingGroupRatio.get(ch.group) ?? snapshotGroupRatio[ch.group] ?? 1,
+      description: `baseline: ${ch.group}`,
+      provider: ch.tag ?? "__baseline__",
+    });
   }
 
-  // Partial sync: also add pricing-only groups and seed model ratios
   if (targetPricing) {
     for (const group of targetPricing.groups) {
       if (seededGroups.has(group.name)) continue;
@@ -76,30 +60,13 @@ export async function buildBaseline(opts: {
       });
     }
     for (const model of targetPricing.models) {
-      if (!baseline.modelRatios.has(model.name)) {
-        baseline.modelRatios.set(model.name, {
-          ratio: model.ratio,
-          completionRatio: model.completionRatio ?? 1,
-          modelPrice: model.modelPrice,
-        });
-      }
+      if (baseline.modelRatios.has(model.name)) continue;
+      baseline.modelRatios.set(model.name, {
+        ratio: model.ratio,
+        completionRatio: model.completionRatio ?? 1,
+        modelPrice: model.modelPrice,
+      });
     }
-  }
-
-  consola.debug(
-    t("CORE.PIPELINE.BASELINE_SEEDED", {
-      channels: baseline.channels.length,
-      groups: baseline.groups.length,
-    }),
-  );
-  for (const g of baseline.groups) {
-    consola.debug(
-      t("CORE.PIPELINE.BASELINE_GROUP", {
-        name: g.name,
-        ratio: g.ratio.toFixed(4),
-        provider: g.provider,
-      }),
-    );
   }
 
   return baseline;

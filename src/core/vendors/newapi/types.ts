@@ -84,12 +84,7 @@ export interface PricingResponseV2 {
     >;
     model_info: Record<
       string,
-      {
-        key: string;
-        name: string;
-        supplier?: string;
-        tags?: string[];
-      }
+      { key: string; name: string; supplier?: string; tags?: string[] }
     >;
     model_completion_ratio: Record<string, number>;
     group_special: Record<string, string[]>;

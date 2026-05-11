@@ -21,13 +21,9 @@ const TYPE_ORDER: Record<string, number> = {
   sub2api: 3,
 };
 
-/** Sorted by type for deterministic order; bounded by ConcurrencyGate. aggregatedEndpointPaths: last-write wins. */
 export async function runAllProviders(
   config: RuntimeConfig,
-  ctx: {
-    pricingSources: PricingSource[];
-    reverseMapping: Map<string, string>;
-  },
+  ctx: { pricingSources: PricingSource[]; reverseMapping: Map<string, string> },
 ): Promise<{
   reports: ProviderReport[];
   offers: UpstreamOffer[];
@@ -35,11 +31,7 @@ export async function runAllProviders(
   normalizedEndpointsByName: Map<string, string[]>;
   aggregatedEndpointPaths: Map<string, { path: string; method: string }>;
 }> {
-  // ComfyUI bypasses pricing/emit (synthesizes in pipeline/index.ts).
-  const pricingProviders = config.providers.filter(
-    (p) => p.type !== "comfyui",
-  );
-
+  const pricingProviders = config.providers.filter((p) => p.type !== "comfyui");
   const sorted = [...pricingProviders].sort(
     (a, b) => (TYPE_ORDER[a.type] ?? 2) - (TYPE_ORDER[b.type] ?? 2),
   );
@@ -47,23 +39,20 @@ export async function runAllProviders(
   const settled = await Promise.all(
     sorted.map((provider) => {
       throwIfRunAborted();
-      if (provider.type === "newapi") {
+      if (provider.type === "newapi")
         return processNewApiProvider(provider as ProviderConfig, config, ctx);
-      }
-      if (provider.type === "nvidia") {
+      if (provider.type === "nvidia")
         return processNvidiaProvider(
           provider as NvidiaProviderConfig,
           config,
           ctx,
         );
-      }
-      if (provider.type === "openrouter") {
+      if (provider.type === "openrouter")
         return processOpenRouterProvider(
           provider as OpenRouterProviderConfig,
           config,
           ctx,
         );
-      }
       return processSub2ApiProvider(
         provider as Sub2ApiProviderConfig,
         config,
@@ -84,9 +73,8 @@ export async function runAllProviders(
   for (const result of settled) {
     reports.push(result.report);
     offers.push(...result.offers);
-    for (const [k, v] of result.endpointMetadata.endpointPaths) {
+    for (const [k, v] of result.endpointMetadata.endpointPaths)
       aggregatedEndpointPaths.set(k, v);
-    }
     for (const offer of result.offers) {
       for (const m of offer.models) {
         if (m.endpoints?.length) {

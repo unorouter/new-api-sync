@@ -4,10 +4,8 @@ import { resolveEndpoint } from "./endpoint-resolver";
 import type { ChannelResult, ProbeShape } from "./store";
 
 /** Edit-only models mis-listed as image-generation: text-only probes 400 on "Missing required key: image". */
-const NAME_REQUIRES_REFS = [
-  "edit", "kontext", "i2i", "i2v", "img2img",
-  "image-to-image", "image-to-video", "redux", "remix",
-];
+// prettier-ignore
+const NAME_REQUIRES_REFS = ["edit","kontext","i2i","i2v","img2img","image-to-image","image-to-video","redux","remix"];
 
 export interface ProbeStep {
   shape: ProbeShape;

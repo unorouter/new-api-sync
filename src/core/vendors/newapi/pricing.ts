@@ -29,20 +29,14 @@ export async function fetchPricing(
     raw = body;
     break;
   }
-  if (!raw) {
-    throw new Error(t("ERROR.NEWAPI_FETCH_PRICING_FAILED"));
-  }
+  if (!raw) throw new Error(t("ERROR.NEWAPI_FETCH_PRICING_FAILED"));
 
   const supportedEndpoint = (raw.supported_endpoint ?? {}) as Record<
     string,
     { path: string; method: string }
   >;
-
-  const isV1 = Array.isArray(raw.data);
-
-  if (isV1) {
+  if (Array.isArray(raw.data))
     return parsePricingV1(ctx, raw as unknown as PricingResponse);
-  }
   const result = parsePricingV2(ctx, raw as unknown as PricingResponseV2);
   result.endpointPaths = supportedEndpoint;
   return result;
@@ -62,9 +56,8 @@ function parsePricingV1(
         groupEndpoints.set(group, new Set());
       }
       groupModels.get(group)!.add(model.model_name);
-      for (const endpoint of endpoints) {
+      for (const endpoint of endpoints)
         groupEndpoints.get(group)!.add(endpoint);
-      }
     }
   }
 
@@ -109,11 +102,7 @@ function parsePricingV1(
   }
 
   const vendorIdToName: Record<number, string> = {};
-  if (data.vendors) {
-    for (const v of data.vendors) {
-      vendorIdToName[v.id] = v.name;
-    }
-  }
+  if (data.vendors) for (const v of data.vendors) vendorIdToName[v.id] = v.name;
 
   consola.info(
     t("CORE.NEWAPI.V1_FORMAT", {
@@ -122,7 +111,6 @@ function parsePricingV1(
       models: models.length,
     }),
   );
-
   return {
     groups,
     models,
@@ -150,16 +138,13 @@ function parsePricingV2(
     .map(([name, group]) => {
       const modelNames = Object.keys(group.ModelPrice);
       groupRatios[name] = group.GroupRatio;
-
       for (const [modelName, pricing] of Object.entries(group.ModelPrice)) {
         if (pricing.price > 0) {
           const prev = modelRatios[modelName];
-          if (prev === undefined || pricing.price < prev) {
+          if (prev === undefined || pricing.price < prev)
             modelRatios[modelName] = pricing.price;
-          }
         }
       }
-
       return {
         name,
         description: group.DisplayName || name,
@@ -192,7 +177,6 @@ function parsePricingV2(
       models: models.length,
     }),
   );
-
   return {
     groups,
     models,

@@ -9,12 +9,6 @@ import type { NewApiClient } from "@core/vendors/newapi/client";
 import { peekUpstreamError } from "@core/vendors/newapi/resources";
 import { t } from "@server/i18n";
 
-/**
- * If the upstream-error buffer has an entry matching this op's key, append
- * the upstream message to the generic ApplyError fallback so the run report
- * shows the real reason ("channel cannot be empty", "name already exists",
- * etc.) instead of just "failed to create channel".
- */
 function applyErrorWithUpstream(
   phase: ApplyError["phase"],
   key: string,
@@ -38,37 +32,28 @@ async function applyEntityOps<T extends { id?: number }>(
   errors: ApplyError[],
 ): Promise<void> {
   const entity = phase.slice(0, -1);
+  const failWith = (
+    op: DiffOperation<T>,
+    key: "CREATE" | "UPDATE" | "DELETE",
+  ) =>
+    errors.push(
+      applyErrorWithUpstream(
+        phase,
+        op.key,
+        t(`CORE.APPLY.FAIL_${key}`, { entity }),
+      ),
+    );
   for (const op of ops) {
     if (op.type === "create") {
-      if (await handlers.create(op.value)) {
-        changes.created.push(op.key);
-      } else {
-        errors.push(
-          applyErrorWithUpstream(
-            phase,
-            op.key,
-            t("CORE.APPLY.FAIL_CREATE", { entity }),
-          ),
-        );
-      }
+      if (await handlers.create(op.value)) changes.created.push(op.key);
+      else failWith(op, "CREATE");
       continue;
     }
-
     if (op.type === "update") {
-      if (await handlers.update(op.value)) {
-        changes.updated.push(op.key);
-      } else {
-        errors.push(
-          applyErrorWithUpstream(
-            phase,
-            op.key,
-            t("CORE.APPLY.FAIL_UPDATE", { entity }),
-          ),
-        );
-      }
+      if (await handlers.update(op.value)) changes.updated.push(op.key);
+      else failWith(op, "UPDATE");
       continue;
     }
-
     if (!op.existing.id) {
       errors.push({
         phase,
@@ -77,18 +62,8 @@ async function applyEntityOps<T extends { id?: number }>(
       });
       continue;
     }
-
-    if (await handlers.delete(op.existing.id)) {
-      changes.deleted.push(op.key);
-    } else {
-      errors.push(
-        applyErrorWithUpstream(
-          phase,
-          op.key,
-          t("CORE.APPLY.FAIL_DELETE", { entity }),
-        ),
-      );
-    }
+    if (await handlers.delete(op.existing.id)) changes.deleted.push(op.key);
+    else failWith(op, "DELETE");
   }
 }
 

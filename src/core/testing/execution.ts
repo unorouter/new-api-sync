@@ -8,11 +8,8 @@ import type {
 } from "./types";
 
 export interface RetryPolicy<T> {
-  /** Total attempts incl. first. Default 2. */
   attempts?: number;
-  /** Wait before each retry (backoffMs[0] = before attempt 2). */
   backoffMs?: number[];
-  /** Skip retries for deterministic 4xx; default = always retry on fail. */
   shouldRetry?: (result: T) => boolean;
 }
 
@@ -24,31 +21,24 @@ export async function withRetry<T>(
   const attempts = policy?.attempts ?? 2;
   const backoffMs = policy?.backoffMs ?? [];
   const shouldRetry = policy?.shouldRetry ?? (() => true);
-
   let last: T = await fn();
   for (let i = 1; i < attempts; i++) {
-    if (isPass(last)) return last;
-    if (!shouldRetry(last)) return last;
+    if (isPass(last) || !shouldRetry(last)) return last;
     const delay = backoffMs[i - 1];
-    if (delay && delay > 0) {
-      await new Promise((r) => setTimeout(r, delay));
-    }
+    if (delay && delay > 0) await new Promise((r) => setTimeout(r, delay));
     last = await fn();
   }
   return last;
 }
 
-/** NVIDIA NIM: retry timeout/429/5xx; 4xx fails fast. */
 export const NVIDIA_RETRY_POLICY: RetryPolicy<TestExchange> = {
   attempts: 3,
   backoffMs: [2000, 4000],
-  shouldRetry: (r) => {
-    if (r.status === undefined || r.status === null) return true;
-    if (r.status === 429) return true;
-    if (r.status >= 500) return true;
-    return false;
-  },
+  shouldRetry: (r) => r.status == null || r.status === 429 || r.status >= 500,
 };
+
+const errMsg = (err: unknown) =>
+  err instanceof Error ? err.message : String(err);
 
 function headersToRecord(headers: Headers): Record<string, string> {
   const out: Record<string, string> = {};
@@ -72,21 +62,22 @@ async function rawPost(
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
-    const latencyMs = Date.now() - started;
     const responseHeaders = headersToRecord(response.headers);
     const bodyText = await response.text();
     let data: unknown = null;
     try {
       data = bodyText ? JSON.parse(bodyText) : null;
     } catch {
-      // non-JSON body, keep bodyText for diagnostics
+      /* non-JSON */
     }
     return {
       status: response.status,
       data,
       bodyText,
-      error: response.ok ? null : `HTTP ${response.status} ${response.statusText}`,
-      latencyMs,
+      error: response.ok
+        ? null
+        : `HTTP ${response.status} ${response.statusText}`,
+      latencyMs: Date.now() - started,
       responseHeaders,
     };
   } catch (err) {
@@ -94,7 +85,7 @@ async function rawPost(
       status: null,
       data: null,
       bodyText: null,
-      error: err instanceof Error ? err.message : String(err),
+      error: errMsg(err),
       latencyMs: Date.now() - started,
       responseHeaders: {},
     };
@@ -116,12 +107,18 @@ function extractErrorMessage(data: unknown): string | null {
   return null;
 }
 
-export async function testRequest(
-  config: RequestConfig,
+async function runRawTest<T extends RequestConfig | ToolCallRequestConfig>(
+  config: T,
   timeoutMs: number,
+  isOkData: (data: unknown) => boolean,
+  fallbackError: string,
 ): Promise<TestExchange> {
   const raw = await rawPost(config.url, config.headers, config.body, timeoutMs);
-  const request = { url: config.url, headers: config.headers, body: config.body };
+  const request = {
+    url: config.url,
+    headers: config.headers,
+    body: config.body,
+  };
   if (raw.data === null) {
     return {
       pass: false,
@@ -133,7 +130,7 @@ export async function testRequest(
       latencyMs: raw.latencyMs,
     };
   }
-  const pass = raw.status !== null && raw.status < 400 && config.isSuccess(raw.data);
+  const pass = raw.status !== null && raw.status < 400 && isOkData(raw.data);
   return {
     pass,
     request,
@@ -141,20 +138,53 @@ export async function testRequest(
     responseHeaders: raw.responseHeaders,
     error: pass
       ? undefined
-      : raw.error ??
-        extractErrorMessage(raw.data) ??
-        t("CORE.TESTER.ERR_BAD_RESPONSE"),
+      : (raw.error ?? extractErrorMessage(raw.data) ?? fallbackError),
     status: raw.status ?? undefined,
     latencyMs: raw.latencyMs,
   };
 }
 
+export const testRequest = (
+  config: RequestConfig,
+  timeoutMs: number,
+): Promise<TestExchange> =>
+  runRawTest(
+    config,
+    timeoutMs,
+    config.isSuccess,
+    t("CORE.TESTER.ERR_BAD_RESPONSE"),
+  );
+
+export const testToolCall = (
+  config: ToolCallRequestConfig,
+  timeoutMs: number,
+): Promise<TestExchange> =>
+  runRawTest(
+    config,
+    timeoutMs,
+    config.isToolCallSuccess,
+    t("CORE.TESTER.ERR_TOOL_CALL_MISSING"),
+  );
+
 export async function testStreamRequest(
   config: StreamRequestConfig,
   timeoutMs: number,
 ): Promise<TestExchange> {
-  const reqInfo = { url: config.url, headers: config.headers, body: config.body };
+  const reqInfo = {
+    url: config.url,
+    headers: config.headers,
+    body: config.body,
+  };
   const started = Date.now();
+  const elapsed = () => Date.now() - started;
+  const fail = (extra: Partial<TestExchange>): TestExchange => ({
+    pass: false,
+    request: reqInfo,
+    response: null,
+    responseHeaders: {},
+    latencyMs: elapsed(),
+    ...extra,
+  });
   try {
     const response = await fetch(config.url, {
       method: "POST",
@@ -162,51 +192,39 @@ export async function testStreamRequest(
       body: JSON.stringify(config.body),
       signal: AbortSignal.timeout(timeoutMs),
     });
+    const respHeaders = headersToRecord(response.headers);
     if (!response.ok || !response.body) {
       const errBody = await response.text().catch(() => "");
-      return {
-        pass: false,
-        request: reqInfo,
+      return fail({
         response: errBody || null,
-        responseHeaders: headersToRecord(response.headers),
+        responseHeaders: respHeaders,
         error: t("CORE.TESTER.ERR_HTTP_STATUS", { status: response.status }),
         status: response.status,
-        latencyMs: Date.now() - started,
-      };
+      });
     }
-
-    const respHeaders = headersToRecord(response.headers);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = "";
-    let foundMarker = false;
-
+    let buffer = "",
+      foundMarker = false;
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-
       buffer += decoder.decode(value, { stream: true });
-
       if (buffer.includes(config.completionMarker)) {
         foundMarker = true;
         reader.cancel();
         break;
       }
-
       if (buffer.startsWith("{") && buffer.includes('"error"')) {
         reader.cancel();
-        return {
-          pass: false,
-          request: reqInfo,
+        return fail({
           response: buffer.slice(0, 500),
           responseHeaders: respHeaders,
           error: t("CORE.TESTER.ERR_STREAM"),
           status: response.status,
-          latencyMs: Date.now() - started,
-        };
+        });
       }
     }
-
     return {
       pass: foundMarker,
       request: reqInfo,
@@ -214,50 +232,9 @@ export async function testStreamRequest(
       responseHeaders: respHeaders,
       error: foundMarker ? undefined : t("CORE.TESTER.ERR_STREAM_NO_MARKER"),
       status: response.status,
-      latencyMs: Date.now() - started,
+      latencyMs: elapsed(),
     };
   } catch (err) {
-    return {
-      pass: false,
-      request: reqInfo,
-      response: null,
-      responseHeaders: {},
-      error: err instanceof Error ? err.message : String(err),
-      latencyMs: Date.now() - started,
-    };
+    return fail({ error: errMsg(err) });
   }
-}
-
-export async function testToolCall(
-  config: ToolCallRequestConfig,
-  timeoutMs: number,
-): Promise<TestExchange> {
-  const raw = await rawPost(config.url, config.headers, config.body, timeoutMs);
-  const request = { url: config.url, headers: config.headers, body: config.body };
-  if (raw.data === null) {
-    return {
-      pass: false,
-      request,
-      response: raw.bodyText ?? null,
-      responseHeaders: raw.responseHeaders,
-      error: raw.error ?? t("CORE.TESTER.ERR_NO_RESPONSE"),
-      status: raw.status ?? undefined,
-      latencyMs: raw.latencyMs,
-    };
-  }
-  const pass =
-    raw.status !== null && raw.status < 400 && config.isToolCallSuccess(raw.data);
-  return {
-    pass,
-    request,
-    response: raw.data,
-    responseHeaders: raw.responseHeaders,
-    error: pass
-      ? undefined
-      : raw.error ??
-        extractErrorMessage(raw.data) ??
-        t("CORE.TESTER.ERR_TOOL_CALL_MISSING"),
-    status: raw.status ?? undefined,
-    latencyMs: raw.latencyMs,
-  };
 }

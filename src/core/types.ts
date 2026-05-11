@@ -1,4 +1,3 @@
-// Browser-safe: kept out of constants.ts so the web bundle skips micromatch.
 export const MODEL_TYPES = [
   "text",
   "image",
@@ -29,10 +28,7 @@ export const PAGINATION = {
   START_PAGE_ZERO: 0,
   START_PAGE_ONE: 1,
 } as const;
-
-export const TIMEOUTS = {
-  MODEL_TEST_MS: 20000,
-} as const;
+export const TIMEOUTS = { MODEL_TEST_MS: 20000 } as const;
 
 export interface GroupInfo {
   name: string;
@@ -73,7 +69,6 @@ export interface Channel {
   model_mapping?: string;
   setting?: string;
   workflow_templates?: string;
-  /** 0 = log failures, stay enabled. Image/task channels set 0; new-api default is 1. */
   auto_ban?: number;
 }
 
@@ -84,7 +79,6 @@ export interface ModelMeta {
   endpoints?: string;
   description?: string;
   tags?: string;
-  /** Opaque JSON of client hints; lives in models.metadata. */
   metadata?: string;
   status?: number;
   sync_official?: number;
@@ -107,10 +101,8 @@ export type PricingSourceName =
 export interface MergedModel {
   ratio: number;
   completionRatio: number;
-  /** Fixed per-request price; undefined = ratio-based. */
   modelPrice?: number;
   imageRatio?: number;
-  /** 3=flat custom, 4=grid (only set for types ≥ 2). */
   quotaType?: number;
   cacheRatio?: number;
   createCacheRatio?: number;
@@ -125,10 +117,7 @@ export interface DesiredModelSpec {
   metadata?: string;
 }
 
-/** Pricing-grid row; all non-Pricing keys are display columns. */
-export type GridPricingRow = Record<string, string | number> & {
-  Pricing: number;
-};
+type GridPricingRow = Record<string, string | number> & { Pricing: number };
 export type GridPricingInfo = GridPricingRow[];
 
 export interface ManagedOptionMaps {
@@ -144,7 +133,6 @@ export interface ManagedOptionMaps {
   modelQuotaType: Record<string, number>;
   modelGridPricing: Record<string, GridPricingInfo>;
   defaultUseAutoGroup: boolean;
-  /** chat/completions → /v1/responses targets. */
   responsesApiModels: string[];
 }
 

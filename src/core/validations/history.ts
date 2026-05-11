@@ -40,21 +40,15 @@ const RunSummarySchema = T.Object({
   failed: T.Number(),
 });
 
-/** Legacy count form accepted on read for old report files. */
 const ChangeSetSchema = T.Union([
   T.Object({
     created: T.Array(T.String()),
     updated: T.Array(T.String()),
     deleted: T.Array(T.String()),
   }),
-  T.Object({
-    created: T.Number(),
-    updated: T.Number(),
-    deleted: T.Number(),
-  }),
+  T.Object({ created: T.Number(), updated: T.Number(), deleted: T.Number() }),
 ]);
 
-/** Mirrors ProviderCostEntry in testing/types.ts. */
 const ProviderEntrySchema = T.Object({
   testCost: T.Optional(T.Number()),
   success: T.Optional(T.Boolean()),
@@ -84,11 +78,7 @@ const RunOutcomeSchema = T.Object({
   success: T.Boolean(),
   errors: T.Optional(
     T.Array(
-      T.Object({
-        phase: T.String(),
-        key: T.String(),
-        message: T.String(),
-      }),
+      T.Object({ phase: T.String(), key: T.String(), message: T.String() }),
     ),
   ),
 });
@@ -162,20 +152,15 @@ const AuthenticityEntrySchema = T.Object({
 });
 
 export const RunsListResponseSchema = successArrayResponse(RunSummarySchema);
-
 export const RunIdParamsSchema = T.Object({ id: T.String() });
-
 export const RunDetailResponsesSchema = {
   200: successResponse(RunDetailSchema),
   404: ErrorResponseSchema,
 };
-
 export const AuthenticityListResponseSchema = successArrayResponse(
   AuthenticityEntrySchema,
 );
-
 export const AuthenticityKeyParamsSchema = T.Object({ key: T.String() });
-
 export const AuthenticityDeleteResponsesSchema = {
   200: successResponse(DeletedDataSchema),
   404: ErrorResponseSchema,

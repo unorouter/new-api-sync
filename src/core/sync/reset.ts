@@ -8,13 +8,9 @@ import { MANAGED_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
 import { t } from "@server/i18n";
 
-// Built lazily so the active locale (set by the server at startup) drives
-// the Auto label written into new-api's UserUsableGroups option.
 function buildOptionResetValues(): Record<string, string> {
   return {
-    UserUsableGroups: JSON.stringify({
-      auto: t("CORE.GROUPS.AUTO_LABEL"),
-    }),
+    UserUsableGroups: JSON.stringify({ auto: t("CORE.GROUPS.AUTO_LABEL") }),
     AutoGroups: "[]",
     DefaultUseAutoGroup: "true",
     "global.chat_completions_to_responses_policy": JSON.stringify({
@@ -44,14 +40,12 @@ export async function runReset(
   opts?: RunResetOptions,
 ): Promise<ResetResult> {
   const target = new NewApiClient(config.target, "target");
-  const providerNames = new Set(
-    config.providers.map((provider) => provider.name),
-  );
+  const providerNames = new Set(config.providers.map((p) => p.name));
 
   const hasOnly = !!opts?.onlyProviders;
-  const hasModels = (config.modelFilter?.length ?? 0) > 0;
-  const hasAnyFilter = hasOnly || hasModels;
   const modelGlobs = config.modelFilter ?? [];
+  const hasModels = modelGlobs.length > 0;
+  const hasAnyFilter = hasOnly || hasModels;
 
   let channelsDeleted = 0;
   let channelsUpdated = 0;
@@ -65,30 +59,24 @@ export async function runReset(
 
     if (hasModels) {
       const models = parseModelList(channel.models ?? "");
-      const removed = models.filter((name) =>
-        matchesAnyPattern(name, modelGlobs),
-      );
+      const removed = models.filter((n) => matchesAnyPattern(n, modelGlobs));
       if (removed.length === 0) continue;
-      const kept = models.filter(
-        (name) => !matchesAnyPattern(name, modelGlobs),
-      );
+      const kept = models.filter((n) => !matchesAnyPattern(n, modelGlobs));
       if (kept.length === 0) {
         if (await target.deleteChannel(channel.id)) {
           channelsDeleted++;
           for (const name of removed) impactedModelNames.add(name);
         }
-      } else {
-        const updated = { ...channel, models: kept.join(",") };
-        if (await target.updateChannel(updated)) channelsUpdated++;
+      } else if (
+        await target.updateChannel({ ...channel, models: kept.join(",") })
+      ) {
+        channelsUpdated++;
       }
-    } else {
-      if (await target.deleteChannel(channel.id)) {
-        channelsDeleted++;
-        if (hasOnly) {
-          for (const name of parseModelList(channel.models ?? "")) {
-            impactedModelNames.add(name);
-          }
-        }
+    } else if (await target.deleteChannel(channel.id)) {
+      channelsDeleted++;
+      if (hasOnly) {
+        for (const name of parseModelList(channel.models ?? ""))
+          impactedModelNames.add(name);
       }
     }
   }
@@ -137,11 +125,9 @@ export async function runReset(
   const optionsUpdated: string[] = [];
   if (!hasAnyFilter) {
     const resetValues = buildOptionResetValues();
-    const options: Record<string, string> = Object.fromEntries(
-      MANAGED_OPTION_KEYS.map((key) => [key, resetValues[key] ?? "{}"]),
-    );
-    for (const [key, value] of Object.entries(options)) {
-      if (await target.updateOption(key, value)) optionsUpdated.push(key);
+    for (const key of MANAGED_OPTION_KEYS) {
+      if (await target.updateOption(key, resetValues[key] ?? "{}"))
+        optionsUpdated.push(key);
     }
   }
 

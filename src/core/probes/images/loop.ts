@@ -29,6 +29,28 @@ import {
 } from "./store";
 import type { ProbeTokenManager } from "./token-manager";
 
+type ProbeRunOpts = {
+  baseUrl: string;
+  apiKey: string;
+  userId: number;
+  model: string;
+  fixtures: Fixtures;
+  path?: string;
+};
+
+const PROBE_DISPATCH: Record<
+  ProbeShape,
+  (o: ProbeRunOpts) => Promise<ProbeAttempt>
+> = {
+  "sync-edits": probeSyncChannel,
+  "sync-generations": probeGenerationsChannel,
+  "openai-vendor": probeOpenAiVendorChannel,
+  task: probeTaskChannel,
+};
+
+const runProbeShape = (shape: ProbeShape, o: ProbeRunOpts) =>
+  PROBE_DISPATCH[shape](o);
+
 export async function probeOneModel(opts: {
   provider: ProviderConfig;
   candidate: Candidate;
@@ -36,16 +58,12 @@ export async function probeOneModel(opts: {
   tokens: ProbeTokenManager;
   pricing: UpstreamPricing;
   fixtures: Fixtures;
-  /** Provider-scoped: 403-dead groups shared across models. */
   deadGroups: Set<string>;
-  /** Provider-scoped: set once on first passing probe. */
   asyncBillingState: {
     get: () => "unknown" | boolean;
     set: (v: boolean) => void;
   };
-  /** Crash-resume persistence. */
   onProgress?: (partial: ModelResult) => void;
-  /** null = no quota exposed. */
   fetchBalance?: () => Promise<number | null>;
   onStepCost?: (info: {
     channelName: string;
@@ -57,9 +75,6 @@ export async function probeOneModel(opts: {
   const {
     provider,
     candidate,
-    groupMap,
-    tokens,
-    pricing,
     fixtures,
     deadGroups,
     asyncBillingState,
@@ -67,27 +82,24 @@ export async function probeOneModel(opts: {
     fetchBalance,
     onStepCost,
   } = opts;
-  const groups = (groupMap.get(candidate.modelName) ?? [])
+  const groups = (opts.groupMap.get(candidate.modelName) ?? [])
     .slice()
     .sort(compareGroupChannels);
-
-  if (groups.length === 0) {
-    return {
-      provider: provider.name,
-      model: candidate.modelName,
-      kind: candidate.kind,
-      failedChannels: [],
-      decidedAt: new Date().toISOString(),
-    };
-  }
+  const baseResult = (failedChannels: ChannelResult[]): ModelResult => ({
+    provider: provider.name,
+    model: candidate.modelName,
+    kind: candidate.kind,
+    failedChannels,
+    decidedAt: new Date().toISOString(),
+  });
+  if (groups.length === 0) return baseResult([]);
 
   const stepsToTry = probeStepsFor({
     endpointTypes: candidate.endpointTypes,
     primary: candidate.kind,
     modelName: candidate.modelName,
-    pricing,
+    pricing: opts.pricing,
   });
-
   consola.info(
     `[${provider.name}] ${candidate.modelName}: ${groups.length} group(s), cheapest-first: ${groups.map((g) => `${g.groupName}(x${g.groupRatio})`).join(", ")}`,
   );
@@ -95,23 +107,19 @@ export async function probeOneModel(opts: {
   const failed: ChannelResult[] = [];
   for (const g of groups) {
     const channelName = g.groupName;
-
     if (deadGroups.has(channelName)) {
       consola.info(
         `[${provider.name}] ${candidate.modelName} (${channelName}): skipping (auth-dead group)`,
       );
       continue;
     }
-
-    const apiKey = await tokens.getApiKey(channelName);
+    const apiKey = await opts.tokens.getApiKey(channelName);
     if (!apiKey) {
       consola.warn(
         `[${provider.name}] ${candidate.modelName} (${channelName}): could not resolve api key, skipping group`,
       );
       continue;
     }
-
-    // 10s cap on balance reads so a hung /api/user/self can't drain the settle budget.
     const fetchBalanceTimed = fetchBalance
       ? async () =>
           Promise.race([
@@ -123,7 +131,7 @@ export async function probeOneModel(opts: {
     let channelPassed: ChannelResult | undefined;
     for (const step of stepsToTry) {
       const probeShape = step.shape;
-      const mkArgs = (fx: Fixtures) => ({
+      const mkArgs = (fx: Fixtures): ProbeRunOpts => ({
         baseUrl: provider.baseUrl,
         apiKey,
         userId: provider.userId,
@@ -131,29 +139,27 @@ export async function probeOneModel(opts: {
         fixtures: fx,
         path: step.path,
       });
+      const tag = `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape})`;
       const balanceBefore = fetchBalanceTimed
         ? await fetchBalanceTimed()
         : null;
-      // 429 retry only; non-429 passes through to avoid double-billing refusals.
       let attempt = await runProbeShape(probeShape, mkArgs(fixtures));
-      let retriedRateLimit = 0;
-      while (attempt.errorClass === "ratelimit" && retriedRateLimit < 3) {
-        const wait = 5000 * 2 ** retriedRateLimit;
+      for (let r = 0; attempt.errorClass === "ratelimit" && r < 3; r++) {
+        const wait = 5000 * 2 ** r;
         consola.warn(
-          `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape}): rate-limited, retry in ${wait / 1000}s (${retriedRateLimit + 1}/3)`,
+          `${tag}: rate-limited, retry in ${wait / 1000}s (${r + 1}/3)`,
         );
-        await new Promise((r) => setTimeout(r, wait));
+        await new Promise((rs) => setTimeout(rs, wait));
         attempt = await runProbeShape(probeShape, mkArgs(fixtures));
-        retriedRateLimit++;
       }
-      // Image-count downshift: one retry with trimmed fixtures.
       if (attempt.status === "fail") {
+        const resp = attempt.exchange.response;
         const bodyText =
-          attempt.exchange.response == null
+          resp == null
             ? ""
-            : typeof attempt.exchange.response === "string"
-              ? attempt.exchange.response
-              : JSON.stringify(attempt.exchange.response);
+            : typeof resp === "string"
+              ? resp
+              : JSON.stringify(resp);
         const maxImgs = extractMaxImagesFromRejection(bodyText);
         if (
           maxImgs !== null &&
@@ -161,7 +167,7 @@ export async function probeOneModel(opts: {
           maxImgs >= 1
         ) {
           consola.warn(
-            `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape}): upstream caps refs at ${maxImgs}, retrying with ${maxImgs} images`,
+            `${tag}: upstream caps refs at ${maxImgs}, retrying with ${maxImgs} images`,
           );
           attempt = await runProbeShape(
             probeShape,
@@ -169,7 +175,7 @@ export async function probeOneModel(opts: {
           );
         }
       }
-      // Async-billing settle (yun debits ~20s after): unknown→20s autodetect, true→60s, false→skip.
+
       let balanceAfter = fetchBalanceTimed ? await fetchBalanceTimed() : null;
       let stepDelta =
         balanceBefore !== null && balanceAfter !== null
@@ -183,34 +189,21 @@ export async function probeOneModel(opts: {
         fetchBalanceTimed !== undefined;
       if (noImmediateDebit) {
         const billing = asyncBillingState.get();
-        if (billing === false) {
-          // sync provider: $0 read is truth
-        } else if (billing === true) {
-          ({ balanceAfter, stepDelta } = await pollSettle({
-            balanceBefore: balanceBefore!,
-            fetchBalance: fetchBalanceTimed!,
-            label: `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape})`,
-            budgetMs: 60_000,
-            initialAfter: balanceAfter,
-            initialDelta: stepDelta,
-          }));
-        } else {
+        if (billing !== false) {
           const probed = await pollSettle({
             balanceBefore: balanceBefore!,
             fetchBalance: fetchBalanceTimed!,
-            label: `[${provider.name}] ${candidate.modelName} (${channelName}/${probeShape})`,
-            budgetMs: 20_000,
+            budgetMs: billing === true ? 60_000 : 20_000,
             initialAfter: balanceAfter,
             initialDelta: stepDelta,
           });
           balanceAfter = probed.balanceAfter;
           stepDelta = probed.stepDelta;
-          const settled =
-            stepDelta !== undefined && Math.abs(stepDelta) >= 0.0001;
-          asyncBillingState.set(settled);
-          consola.debug(
-            `[${provider.name}] async-billing autodetect: ${settled ? "yes (will settle subsequent passes)" : "no (skip future settles)"}`,
-          );
+          if (billing === "unknown") {
+            const settled =
+              stepDelta !== undefined && Math.abs(stepDelta) >= 0.0001;
+            asyncBillingState.set(settled);
+          }
         }
       }
 
@@ -222,26 +215,22 @@ export async function probeOneModel(opts: {
         probeShape,
         redacted,
       );
-
-      // Save bytes for fail too (heuristic might miss). Non-redacted response: data: URIs survive.
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
       const savedImages = await saveResponseImages({
         response: attempt.exchange.response,
         dir: artifactDirFor(provider.name, candidate.modelName),
         basenamePrefix: `${ts}-${slug(channelName)}-${probeShape}`,
       });
-
+      const hasImgs = savedImages.length > 0;
       const cr: ChannelResult = {
         channelName,
         exchange: redacted,
         errorClass: attempt.errorClass,
         artifactPath,
-        imagePaths:
-          savedImages.length > 0 ? savedImages.map((s) => s.path) : undefined,
-        imageResolutions:
-          savedImages.length > 0
-            ? savedImages.map((s) => ({ w: s.w, h: s.h }))
-            : undefined,
+        imagePaths: hasImgs ? savedImages.map((s) => s.path) : undefined,
+        imageResolutions: hasImgs
+          ? savedImages.map((s) => ({ w: s.w, h: s.h }))
+          : undefined,
         probeKind: shapeToKind(probeShape),
         probeShape,
         hasImageInputs: shapeHasImageInputs(probeShape),
@@ -259,34 +248,20 @@ export async function probeOneModel(opts: {
           balanceAfter,
         });
       }
-
       if (attempt.status === "ok") {
         channelPassed = cr;
         break;
       }
       failed.push(cr);
-      // 403 hits every remaining model on this group.
       if (attempt.errorClass === "auth") {
         deadGroups.add(channelName);
         consola.warn(
           `[${provider.name}] ${candidate.modelName} (${channelName}): auth 403, marking group dead for rest of run`,
         );
-        onProgress?.({
-          provider: provider.name,
-          model: candidate.modelName,
-          kind: candidate.kind,
-          failedChannels: failed,
-          decidedAt: new Date().toISOString(),
-        });
+        onProgress?.(baseResult(failed));
         break;
       }
-      onProgress?.({
-        provider: provider.name,
-        model: candidate.modelName,
-        kind: candidate.kind,
-        failedChannels: failed,
-        decidedAt: new Date().toISOString(),
-      });
+      onProgress?.(baseResult(failed));
     }
 
     if (channelPassed) {
@@ -298,20 +273,13 @@ export async function probeOneModel(opts: {
         }),
       );
       const decided: ModelResult = {
-        provider: provider.name,
-        model: candidate.modelName,
-        kind: candidate.kind,
+        ...baseResult(failed),
         workingChannelName: channelName,
-        // Inline so master file stands alone (mirrors failedChannels[]).
         workingChannel: channelPassed,
-        failedChannels: failed,
-        decidedAt: new Date().toISOString(),
       };
       onProgress?.(decided);
       return decided;
     }
-
-    // Gateway routing is global; one body-translator signature = skip remaining groups.
     const channelAttempts = failed.slice(-stepsToTry.length);
     if (channelAttempts.some((a) => isGatewayBrokenSignature(a))) {
       consola.warn(
@@ -328,20 +296,12 @@ export async function probeOneModel(opts: {
       channels: failed.length,
     }),
   );
-  return {
-    provider: provider.name,
-    model: candidate.modelName,
-    kind: candidate.kind,
-    failedChannels: failed,
-    decidedAt: new Date().toISOString(),
-  };
+  return baseResult(failed);
 }
 
-/** Poll balance every 2s until a debit lands or budget runs out. */
 async function pollSettle(opts: {
   balanceBefore: number;
   fetchBalance: () => Promise<number | null>;
-  label: string;
   budgetMs: number;
   initialAfter: number | null;
   initialDelta: number | undefined;
@@ -349,35 +309,14 @@ async function pollSettle(opts: {
   let balanceAfter = opts.initialAfter;
   let stepDelta = opts.initialDelta;
   const deadline = Date.now() + opts.budgetMs;
-  let pollCount = 0;
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 2000));
-    pollCount++;
     const b = await opts.fetchBalance();
     if (b !== null && Math.abs(opts.balanceBefore - b) >= 0.0001) {
       balanceAfter = b;
       stepDelta = opts.balanceBefore - b;
-      consola.debug(`${opts.label}: debit landed after ${pollCount * 2}s`);
       break;
     }
   }
   return { balanceAfter, stepDelta };
-}
-
-function runProbeShape(
-  shape: ProbeShape,
-  opts: {
-    baseUrl: string;
-    apiKey: string;
-    userId: number;
-    model: string;
-    fixtures: Fixtures;
-    /** Override (Replicate, Tencent VOD); undefined → probe default. */
-    path?: string;
-  },
-): Promise<ProbeAttempt> {
-  if (shape === "sync-edits") return probeSyncChannel(opts);
-  if (shape === "sync-generations") return probeGenerationsChannel(opts);
-  if (shape === "openai-vendor") return probeOpenAiVendorChannel(opts);
-  return probeTaskChannel(opts);
 }

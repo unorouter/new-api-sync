@@ -3,10 +3,7 @@ import {
   inferVendorFromModelName,
 } from "@core/catalog/constants/vendor-matchers";
 import { parseModelList } from "@core/catalog/constants/patterns";
-import {
-  type BasellmEntry,
-  buildFuzzyIndex,
-} from "@core/catalog/metadata";
+import { type BasellmEntry, buildFuzzyIndex } from "@core/catalog/metadata";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import {
@@ -15,7 +12,6 @@ import {
   type SourceMetadata,
 } from "./types";
 
-/** Accept displayName + nameAliases (lowercased) per vendor. */
 function buildVendorNameSet(): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>();
   forEachVendor((vendor, matcher) => {
@@ -35,9 +31,7 @@ function isCanonical(
 ): boolean {
   const inferred = inferVendorFromModelName(modelName);
   if (!inferred) return false;
-  const canonical = canonicalSets.get(inferred);
-  if (!canonical) return false;
-  return canonical.has(vendorName.toLowerCase());
+  return canonicalSets.get(inferred)?.has(vendorName.toLowerCase()) ?? false;
 }
 
 function entryToPricing(entry: BasellmEntry): BaseModelPricing | undefined {
@@ -55,28 +49,24 @@ function entryToPricing(entry: BasellmEntry): BaseModelPricing | undefined {
 
 function entryToMetadata(entry: BasellmEntry): SourceMetadata {
   const md: SourceMetadata = {};
-  if (entry.tags) {
-    const tags = parseModelList(entry.tags);
-    md.supportsTools = tags.some((t) => /^Tools$/i.test(t));
-    md.supportsVision = tags.some((t) => /^Vision$/i.test(t));
-    md.isReasoning = tags.some((t) => /^Reasoning$/i.test(t));
-    // "128K" / "200K" / "1M"
-    for (const t of tags) {
-      const m = t.match(/^(\d+(?:\.\d+)?)([KM])$/i);
-      if (m) {
-        const n = parseFloat(m[1]!);
-        const unit = m[2]!.toUpperCase();
-        const tokens = unit === "M" ? n * 1_000_000 : n * 1_000;
-        md.contextWindow = Math.round(tokens);
-        md.maxInputTokens = Math.round(tokens);
-        break;
-      }
+  if (!entry.tags) return md;
+  const tags = parseModelList(entry.tags);
+  md.supportsTools = tags.some((t) => /^Tools$/i.test(t));
+  md.supportsVision = tags.some((t) => /^Vision$/i.test(t));
+  md.isReasoning = tags.some((t) => /^Reasoning$/i.test(t));
+  for (const t of tags) {
+    const m = t.match(/^(\d+(?:\.\d+)?)([KM])$/i);
+    if (m) {
+      const n = parseFloat(m[1]!);
+      const tokens = m[2]!.toUpperCase() === "M" ? n * 1_000_000 : n * 1_000;
+      md.contextWindow = Math.round(tokens);
+      md.maxInputTokens = Math.round(tokens);
+      break;
     }
   }
   return md;
 }
 
-/** Canonical-vendor rows only; reseller/aggregator rows dropped. */
 export function buildBasellmCanonicalSource(
   entries: BasellmEntry[],
 ): PricingSource | null {
@@ -88,18 +78,17 @@ export function buildBasellmCanonicalSource(
   const canonicalSets = buildVendorNameSet();
   const pricingMap = new Map<string, BaseModelPricing>();
   const metadataMap = new Map<string, SourceMetadata>();
-  // Lowest ratio wins when multiple canonical rows exist (Anthropic vs Azure).
+  const setMeta = (name: string, meta: SourceMetadata) => {
+    if (Object.keys(meta).length > 0 && !metadataMap.has(name))
+      metadataMap.set(name, meta);
+  };
+
   for (const entry of entries) {
     if (!entry.model_name || !entry.vendor_name) continue;
     if (!isCanonical(entry.model_name, entry.vendor_name, canonicalSets)) {
-      // Tags/descriptions are vendor-agnostic; capture from non-canonical too.
-      const meta = entryToMetadata(entry);
-      if (Object.keys(meta).length > 0 && !metadataMap.has(entry.model_name)) {
-        metadataMap.set(entry.model_name, meta);
-      }
+      setMeta(entry.model_name, entryToMetadata(entry));
       continue;
     }
-
     const pricing = entryToPricing(entry);
     if (pricing) {
       const existing = pricingMap.get(entry.model_name);
@@ -107,11 +96,7 @@ export function buildBasellmCanonicalSource(
         pricingMap.set(entry.model_name, pricing);
       }
     }
-
-    const meta = entryToMetadata(entry);
-    if (Object.keys(meta).length > 0 && !metadataMap.has(entry.model_name)) {
-      metadataMap.set(entry.model_name, meta);
-    }
+    setMeta(entry.model_name, entryToMetadata(entry));
   }
 
   consola.info(

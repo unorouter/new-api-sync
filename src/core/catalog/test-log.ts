@@ -1,6 +1,6 @@
 import { consola } from "consola";
 
-export interface StageOutcome {
+interface StageOutcome {
   pass: boolean;
   status?: number | null;
   latencyMs?: number;
@@ -8,7 +8,7 @@ export interface StageOutcome {
   body?: unknown;
 }
 
-export interface TestSummary {
+interface TestSummary {
   prefix: string;
   model: string;
   http: StageOutcome;
@@ -50,7 +50,8 @@ function totalLatency(summary: TestSummary): number {
 
 export function logTestSummary(summary: TestSummary): void {
   const h = mark(summary.http);
-  const s = summary.stream === undefined ? "" : ` ${mark(summary.stream)}Stream`;
+  const s =
+    summary.stream === undefined ? "" : ` ${mark(summary.stream)}Stream`;
   const t = summary.tool === undefined ? "" : ` ${mark(summary.tool)}Tool`;
   const type = summary.modelType ? ` | type=${summary.modelType}` : "";
   const ms = totalLatency(summary);

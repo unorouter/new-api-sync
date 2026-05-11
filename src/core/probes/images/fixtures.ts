@@ -1,15 +1,8 @@
 import { configDir } from "@core/config";
 import { join } from "path";
 
-/** 6 fixtures from images/ — 1 location + 5 character portraits, ≥384px each side. License: images/README.md. */
-export const FIXTURE_FILENAMES = [
-  "0.jpg",
-  "1.webp",
-  "2.webp",
-  "3.webp",
-  "4.webp",
-  "5.webp",
-] as const;
+// prettier-ignore
+export const FIXTURE_FILENAMES = ["0.jpg","1.webp","2.webp","3.webp","4.webp","5.webp"] as const;
 
 /** Sent verbatim by every probe shape so results stay directly comparable. */
 export const FIXTURE_PROMPT =

@@ -12,7 +12,7 @@ export function toBareName(upstreamId: string): string {
   return bare.toLowerCase();
 }
 
-export interface BareNameResolution {
+interface BareNameResolution {
   /** Gateway-facing name (bare; falls back to full ID on collision). */
   exposed: string;
   /** Original full ID, forwarded upstream. */
