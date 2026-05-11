@@ -4,7 +4,7 @@ import {
   VENDOR_MATCHERS,
 } from "@core/catalog/constants/vendor-matchers";
 import type { RuntimeConfig } from "@core/config";
-import { throwIfRunAborted } from "@core/runtime";
+import { throwIfRunAborted } from "@core/infra/abort";
 import { applySyncDiff } from "@core/sync/apply";
 import { buildSyncDiff } from "@core/sync/diff";
 import { updateGuestTokenIfConfigured } from "@core/sync/guest-token";

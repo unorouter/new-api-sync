@@ -11,7 +11,7 @@ import {
 import { computePricedPlan } from "@core/pricing/compute";
 import { emitChannels } from "@core/pricing/emit";
 import { fetchAllPricingSources } from "@core/pricing/resolver";
-import { ConcurrencyGate, setConcurrencyGate } from "@core/runtime";
+import { ConcurrencyGate, setConcurrencyGate } from "@core/infra/concurrency";
 import type { DesiredState, ProviderReport, TargetSnapshot } from "@core/types";
 import type { ComfyUiProviderConfig } from "@core/validations/config";
 import { buildComfyUiChannels } from "@core/vendors/comfyui/provider";

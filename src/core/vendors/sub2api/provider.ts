@@ -13,19 +13,13 @@ import type {
   ProviderResult,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import {
-  resolveSourceMetadata,
-  type PricingSource,
-} from "@core/pricing/resolver";
-import {
-  recordProviderCost,
-  testAndFilterModels,
-  type ModelCapabilityHint,
-} from "@core/testing/runner";
+import { type PricingSource } from "@core/pricing/resolver";
+import { recordProviderCost, testAndFilterModels } from "@core/testing/runner";
 import type { ProviderReport } from "@core/types";
 import type { Sub2ApiProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
 import { consola } from "consola";
+import { buildCapabilityMap, lowercaseExposed } from "../shared/capability-map";
 import { Sub2ApiClient } from "./client";
 
 interface ResolvedGroup {
@@ -168,34 +162,6 @@ async function resolveViaGroups(
   return resolved;
 }
 
-function buildCapabilityMap(
-  upstreamModels: string[],
-  config: RuntimeConfig,
-  ctx: {
-    pricingSources: PricingSource[];
-    reverseMapping: Map<string, string>;
-  },
-): Map<string, ModelCapabilityHint> {
-  const map = new Map<string, ModelCapabilityHint>();
-  for (const upstream of upstreamModels) {
-    const exposed = (
-      config.modelMapping?.[upstream] ?? upstream
-    ).toLowerCase();
-    const md = resolveSourceMetadata(
-      exposed,
-      ctx.pricingSources,
-      ctx.reverseMapping,
-    );
-    if (md.supportsTools !== undefined || md.isReasoning !== undefined) {
-      map.set(upstream, {
-        supportsTools: md.supportsTools,
-        isReasoning: md.isReasoning,
-      });
-    }
-  }
-  return map;
-}
-
 export async function processSub2ApiProvider(
   providerConfig: Sub2ApiProviderConfig,
   config: RuntimeConfig,
@@ -267,7 +233,11 @@ export async function processSub2ApiProvider(
       const useResponsesAPI = groupInfo.platform === "openai";
 
       const upstreamModels = [...groupInfo.models];
-      const capabilities = buildCapabilityMap(upstreamModels, config, ctx);
+      const capabilities = buildCapabilityMap(
+        upstreamModels,
+        lowercaseExposed(config),
+        ctx,
+      );
       const filterResult = await testAndFilterModels({
         allModels: upstreamModels,
         baseUrl: providerConfig.baseUrl,

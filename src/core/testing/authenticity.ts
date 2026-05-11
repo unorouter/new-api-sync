@@ -1,4 +1,4 @@
-import { fetchJson } from "@core/runtime";
+import { fetchJson } from "@core/infra/http";
 import { readJson, writeJsonAtomic } from "@core/infra/fs";
 import { logsDir } from "@core/infra/paths";
 import { t } from "@server/i18n";

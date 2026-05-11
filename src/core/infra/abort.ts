@@ -13,7 +13,3 @@ export function runWithSignal<T>(
 export function throwIfRunAborted(): void {
   abortStorage.getStore()?.throwIfAborted();
 }
-
-export function currentAbortSignal(): AbortSignal | undefined {
-  return abortStorage.getStore();
-}

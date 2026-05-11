@@ -26,7 +26,7 @@ import {
   resolveCanonicalByVote,
   type PricingVoteResult,
 } from "@core/pricing/vote";
-import { throwIfRunAborted } from "@core/runtime";
+import { throwIfRunAborted } from "@core/infra/abort";
 import {
   recordOpenRouterEndpointsForModel,
   recordPricingGate,

@@ -1,7 +1,7 @@
 import type { RuntimeConfig } from "@core/config";
 import type { UpstreamOffer } from "@core/pricing/offers";
 import type { PricingSource } from "@core/pricing/resolver";
-import { throwIfRunAborted } from "@core/runtime";
+import { throwIfRunAborted } from "@core/infra/abort";
 import type { ProviderReport } from "@core/types";
 import type {
   NvidiaProviderConfig,

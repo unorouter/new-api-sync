@@ -15,19 +15,14 @@ import type {
   ProviderResult,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import {
-  resolveSourceMetadata,
-  type PricingSource,
-} from "@core/pricing/resolver";
-import { tryFetchJson } from "@core/runtime";
-import {
-  testAndFilterModels,
-  type ModelCapabilityHint,
-} from "@core/testing/runner";
+import { type PricingSource } from "@core/pricing/resolver";
+import { tryFetchJson } from "@core/infra/http";
+import { testAndFilterModels } from "@core/testing/runner";
 import type { ProviderReport } from "@core/types";
 import type { OpenRouterProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
 import { consola } from "consola";
+import { buildCapabilityMap, lowercaseExposed } from "../shared/capability-map";
 import { withCostTracking } from "../shared/cost-tracker";
 import { partitionByVendor } from "../shared/partition";
 import { discoverOpenRouterFreeModels } from "./discovery";
@@ -54,34 +49,6 @@ async function fetchOpenRouterBalance(
     return null;
   }
   return data.data.total_credits - data.data.total_usage;
-}
-
-function buildCapabilityMap(
-  upstreamModels: string[],
-  config: RuntimeConfig,
-  ctx: {
-    pricingSources: PricingSource[];
-    reverseMapping: Map<string, string>;
-  },
-): Map<string, ModelCapabilityHint> {
-  const map = new Map<string, ModelCapabilityHint>();
-  for (const upstream of upstreamModels) {
-    const exposed = (
-      config.modelMapping?.[upstream] ?? upstream
-    ).toLowerCase();
-    const md = resolveSourceMetadata(
-      exposed,
-      ctx.pricingSources,
-      ctx.reverseMapping,
-    );
-    if (md.supportsTools !== undefined || md.isReasoning !== undefined) {
-      map.set(upstream, {
-        supportsTools: md.supportsTools,
-        isReasoning: md.isReasoning,
-      });
-    }
-  }
-  return map;
 }
 
 export async function processOpenRouterProvider(
@@ -189,7 +156,11 @@ export async function processOpenRouterProvider(
         }),
       );
 
-      const capabilities = buildCapabilityMap(filtered, config, ctx);
+      const capabilities = buildCapabilityMap(
+        filtered,
+        lowercaseExposed(config),
+        ctx,
+      );
       const filterResult = await testAndFilterModels({
         allModels: filtered,
         baseUrl: providerConfig.baseUrl,
@@ -219,8 +190,12 @@ export async function processOpenRouterProvider(
       const resolutions = resolveBareNames(working, config.modelMapping);
       const reverseMapping = buildChannelModelMapping(resolutions);
 
-      const freeResolutions = resolutions.filter((r) => freeSet.has(r.upstream));
-      const paidResolutions = resolutions.filter((r) => !freeSet.has(r.upstream));
+      const freeResolutions = resolutions.filter((r) =>
+        freeSet.has(r.upstream),
+      );
+      const paidResolutions = resolutions.filter(
+        (r) => !freeSet.has(r.upstream),
+      );
 
       const sanitizedFree = sanitizeGroupName(providerConfig.name);
       const sanitizedPaid = sanitizeGroupName(`${providerConfig.name}-paid`);

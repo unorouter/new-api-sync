@@ -1,4 +1,4 @@
-import { tryFetchJson } from "@core/runtime";
+import { tryFetchJson } from "@core/infra/http";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 

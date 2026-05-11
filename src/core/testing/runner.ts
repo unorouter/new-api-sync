@@ -4,7 +4,8 @@ import {
   isTestableModel,
 } from "@core/catalog/constants/inference";
 import { logTestSummary } from "@core/catalog/test-log";
-import { getConcurrencyGate, throwIfRunAborted } from "@core/runtime";
+import { throwIfRunAborted } from "@core/infra/abort";
+import { getConcurrencyGate } from "@core/infra/concurrency";
 import { TIMEOUTS, type ModelType } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";

@@ -3,7 +3,7 @@ import {
   parseModelList,
 } from "@core/catalog/constants/patterns";
 import type { RuntimeConfig } from "@core/config";
-import { throwIfRunAborted } from "@core/runtime";
+import { throwIfRunAborted } from "@core/infra/abort";
 import { MANAGED_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
 import { t } from "@server/i18n";

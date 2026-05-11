@@ -1,4 +1,4 @@
-import { fetchJson, tryFetchJson } from "@core/runtime";
+import { fetchJson, tryFetchJson } from "@core/infra/http";
 import type { Sub2ApiProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
 import { consola } from "consola";

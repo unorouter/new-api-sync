@@ -1,5 +1,5 @@
 import { applyModelFilter, applyOnlyProviders, loadConfig } from "@core/config";
-import { runWithSignal } from "@core/runtime";
+import { runWithSignal } from "@core/infra/abort";
 import { runReset } from "@core/sync/reset";
 import { runSync } from "@core/sync/run";
 import { CancelBody, PipelineBody } from "@core/validations/pipeline";
