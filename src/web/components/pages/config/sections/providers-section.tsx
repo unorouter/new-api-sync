@@ -50,6 +50,8 @@ const TEMPLATES: Record<ProviderType, () => Provider> = {
     type: "comfyui",
     name: "",
     apiKey: "",
+    provider: "runpod",
+    baseUrl: "https://api.runpod.ai",
     templates: {},
   }),
 };

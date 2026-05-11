@@ -10,14 +10,6 @@ import { sanitizeGroupName } from "@core/catalog/constants/patterns";
 import type { Channel, ProviderReport } from "@core/types";
 import type { ComfyUiProviderConfig } from "@core/validations/config";
 
-const DEFAULT_BASE_URL: Record<string, string> = {
-  fal: "https://queue.fal.run",
-  replicate: "https://api.replicate.com",
-  runcomfy: "",
-  runpod: "",
-  native: "",
-};
-
 export function buildComfyUiChannels(
   providerConfig: ComfyUiProviderConfig,
 ): { channels: Channel[]; report: ProviderReport } {
@@ -29,13 +21,8 @@ export function buildComfyUiChannels(
     tokens: { created: 0, existing: 0, deleted: 0 },
   };
 
-  const provider = providerConfig.provider ?? "fal";
-  const baseUrl =
-    providerConfig.baseUrl?.replace(/\/$/, "") || DEFAULT_BASE_URL[provider];
-  if (!baseUrl) {
-    report.error = `comfyui: baseUrl required for provider "${provider}"`;
-    return { channels: [], report };
-  }
+  const provider = providerConfig.provider;
+  const baseUrl = providerConfig.baseUrl.replace(/\/$/, "");
 
   const modelNames = Object.keys(providerConfig.templates);
   if (modelNames.length === 0) {

@@ -160,16 +160,14 @@ const ComfyUiProviderSchema = T.Object({
   ...ProviderCommonProps,
   /** Provider strategy id used by the new-api adapter. v1 only "fal" is
    *  wired; runcomfy/replicate/runpod/native follow the same shape. */
-  provider: T.Optional(
-    T.Union([
-      T.Literal("fal"),
-      T.Literal("replicate"),
-      T.Literal("runcomfy"),
-      T.Literal("runpod"),
-      T.Literal("native"),
-    ]),
-  ),
-  baseUrl: T.Optional(T.String({ format: "uri" })),
+  provider: T.Union([
+    T.Literal("fal"),
+    T.Literal("replicate"),
+    T.Literal("runcomfy"),
+    T.Literal("runpod"),
+    T.Literal("native"),
+  ]),
+  baseUrl: T.String({ format: "uri" }),
   apiKey: str,
   /** Provider-specific endpoint id used by the new-api adapter when
    *  building the upstream submit URL. For RunPod this is the serverless
