@@ -18,8 +18,7 @@ export interface TaskProbeOpts {
 
 const SUCCEEDED = new Set(["success", "succeeded", "completed", "complete"]);
 const FAILED = new Set(["failure", "failed", "cancelled", "canceled", "error"]);
-const errMsg = (err: unknown) =>
-  err instanceof Error ? err.message : String(err);
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const tryJson = (s: string): unknown => {
   try {
     return JSON.parse(s);
@@ -43,7 +42,6 @@ export async function probeTaskChannel(
     "Content-Type": "application/json",
     "New-Api-User": String(opts.userId),
   };
-
   const built = opts.path
     ? buildBody({ path: opts.path, model: opts.model, fixtures: opts.fixtures })
     : null;
@@ -63,7 +61,6 @@ export async function probeTaskChannel(
     () => submitCtrl.abort(),
     opts.submitTimeoutMs ?? 60_000,
   );
-
   let submitResp: Response | undefined,
     submitText = "",
     submitErr: string | undefined;
@@ -110,13 +107,12 @@ export async function probeTaskChannel(
     },
     errorClass,
   });
-  if (submitStatus === undefined || submitStatus >= 400) {
+  if (submitStatus === undefined || submitStatus >= 400)
     return failSubmit(
       submitErr,
       submitJson,
       classifyResponse(submitStatus, submitText).errorClass,
     );
-  }
 
   const taskId = extractTaskId(submitJson);
   if (!taskId)
@@ -250,7 +246,9 @@ function extractTaskStatus(pollJson: unknown): string | undefined {
         : undefined;
   if (!raw) return undefined;
   const lower = raw.toLowerCase();
-  if (SUCCEEDED.has(lower)) return "succeeded";
-  if (FAILED.has(lower)) return "failed";
-  return lower;
+  return SUCCEEDED.has(lower)
+    ? "succeeded"
+    : FAILED.has(lower)
+      ? "failed"
+      : lower;
 }

@@ -111,13 +111,7 @@ async function resolveViaAdmin(
   const resolved: ResolvedGroup[] = [];
   for (const [, info] of groupKeys) {
     const models = platformModels.get(info.platform);
-    if (models?.size)
-      resolved.push({
-        name: info.name,
-        platform: info.platform,
-        apiKey: info.apiKey,
-        models,
-      });
+    if (models?.size) resolved.push({ ...info, models });
   }
   return resolved;
 }
@@ -179,7 +173,6 @@ export async function processSub2ApiProvider(
   const client = new Sub2ApiClient(providerConfig);
   let totalStart: number | null = null;
   let groupKeysForBalance: string[] = [];
-
   const name = providerConfig.name;
   try {
     const resolvedGroups = providerConfig.adminApiKey
@@ -241,24 +234,24 @@ export async function processSub2ApiProvider(
           total: groupInfo.models.size,
         }),
       );
-
       const responsesApiEndpoints = useResponsesAPI
         ? ["openai-response"]
         : undefined;
-      const offerModels: OfferModel[] = workingModels.map((upstreamName) => ({
-        exposed: (
+      const offerModels: OfferModel[] = workingModels.map((upstreamName) => {
+        const exposed = (
           config.modelMapping?.[upstreamName] ?? upstreamName
-        ).toLowerCase(),
-        upstream: upstreamName,
-        modelType: inferModelType(
-          (config.modelMapping?.[upstreamName] ?? upstreamName).toLowerCase(),
-          responsesApiEndpoints,
-        ),
-        endpoints: responsesApiEndpoints,
-        normalizedEndpoints: responsesApiEndpoints,
-        testDetail: filterResult.details?.find((d) => d.model === upstreamName),
-      }));
-
+        ).toLowerCase();
+        return {
+          exposed,
+          upstream: upstreamName,
+          modelType: inferModelType(exposed, responsesApiEndpoints),
+          endpoints: responsesApiEndpoints,
+          normalizedEndpoints: responsesApiEndpoints,
+          testDetail: filterResult.details?.find(
+            (d) => d.model === upstreamName,
+          ),
+        };
+      });
       offers.push({
         provider: name,
         providerKind: "sub2api",
@@ -295,15 +288,15 @@ export async function processSub2ApiProvider(
       const cost = totalStart - totalEnd;
       recordProviderCost(name, cost);
       const amount = totalEnd.toFixed(4);
-      const msg =
+      consola.info(
         cost > 0
           ? t("CORE.PROVIDER.BALANCE_WITH_COST", {
               name,
               amount,
               cost: `$${cost.toFixed(4)}`,
             })
-          : t("CORE.PROVIDER.BALANCE", { name, amount });
-      consola.info(msg);
+          : t("CORE.PROVIDER.BALANCE", { name, amount }),
+      );
     }
   }
 

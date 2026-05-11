@@ -49,6 +49,10 @@ function extractRefs(response: unknown): ImageRef[] {
   const root = asObj(response);
   if (!root) return refs;
   const target = asObj(root.poll) ?? root;
+  const pushUrl = (v: unknown) => {
+    if (typeof v === "string" && v.length > 0)
+      refs.push({ kind: "url", value: v });
+  };
 
   if (Array.isArray(target.data)) {
     for (const item of target.data as unknown[]) {
@@ -60,19 +64,15 @@ function extractRefs(response: unknown): ImageRef[] {
         refs.push({ kind: "b64", value: o.b64_json });
     }
   }
-  for (const key of ["imageUrl", "image_url"] as const) {
-    const v = target[key];
-    if (typeof v === "string" && v.length > 0)
-      refs.push({ kind: "url", value: v });
-  }
+  pushUrl(target.imageUrl);
+  pushUrl(target.image_url);
   const out = target.output;
   if (typeof out === "string" && out.startsWith("http"))
     refs.push({ kind: "url", value: out });
-  else if (Array.isArray(out)) {
+  else if (Array.isArray(out))
     for (const u of out)
       if (typeof u === "string" && u.startsWith("http"))
         refs.push({ kind: "url", value: u });
-  }
   if (Array.isArray(target.candidates)) {
     for (const cand of target.candidates as unknown[]) {
       const parts = asObj(asObj(cand)?.content)?.parts;
@@ -140,9 +140,8 @@ function extractFromMarkdownOrText(text: string): ImageRef[] {
   }
   for (const m of text.matchAll(
     /https?:\/\/[^\s"'<>)]+\.(?:png|jpe?g|webp|gif)(?:\?[^\s"'<>)]*)?/gi,
-  )) {
+  ))
     out.push({ kind: "url", value: m[0] });
-  }
   return out;
 }
 
@@ -189,27 +188,13 @@ export function readImageDimensions(
   buf: Buffer,
 ): { w: number; h: number } | null {
   if (buf.length < 24) return null;
-  if (
-    buf[0] === 0x89 &&
-    buf[1] === 0x50 &&
-    buf[2] === 0x4e &&
-    buf[3] === 0x47
-  ) {
+  const sig = (off: number, hex: string) =>
+    buf.toString("hex", off, off + hex.length / 2) === hex;
+  if (sig(0, "89504e47"))
     return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
-  }
-  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) {
+  if (sig(0, "474946"))
     return { w: buf.readUInt16LE(6), h: buf.readUInt16LE(8) };
-  }
-  if (
-    buf[0] === 0x52 &&
-    buf[1] === 0x49 &&
-    buf[2] === 0x46 &&
-    buf[3] === 0x46 &&
-    buf[8] === 0x57 &&
-    buf[9] === 0x45 &&
-    buf[10] === 0x42 &&
-    buf[11] === 0x50
-  ) {
+  if (sig(0, "52494646") && sig(8, "57454250")) {
     const fourcc = buf.toString("ascii", 12, 16);
     if (fourcc === "VP8 ")
       return {
@@ -226,12 +211,11 @@ export function readImageDimensions(
         h: 1 + (((b3 & 0x0f) << 10) | (b2 << 2) | ((b1 & 0xc0) >> 6)),
       };
     }
-    if (fourcc === "VP8X") {
+    if (fourcc === "VP8X")
       return {
         w: 1 + (buf[24]! | (buf[25]! << 8) | (buf[26]! << 16)),
         h: 1 + (buf[27]! | (buf[28]! << 8) | (buf[29]! << 16)),
       };
-    }
     return null;
   }
   if (buf[0] === 0xff && buf[1] === 0xd8) {

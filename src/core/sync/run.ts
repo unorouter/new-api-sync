@@ -205,10 +205,7 @@ export function printRunSummary(result: SyncRunResult): void {
       .join(", ");
   const chLookup = (n: string) => channelProviders.get(n) ?? "";
   const mdLookup = (n: string) => modelProviders.get(n)?.join(", ") ?? "";
-  const emit = (
-    items: string[],
-    msg: string,
-  ) => {
+  const emit = (items: string[], msg: string) => {
     if (items.length > 0) consola.info(msg);
   };
   consola.info(
@@ -224,11 +221,15 @@ export function printRunSummary(result: SyncRunResult): void {
   );
   emit(
     ch.updated,
-    t("CLI.SUMMARY.CHANNELS_UPDATED", { items: annotate(ch.updated, chLookup) }),
+    t("CLI.SUMMARY.CHANNELS_UPDATED", {
+      items: annotate(ch.updated, chLookup),
+    }),
   );
   emit(
     ch.deleted,
-    t("CLI.SUMMARY.CHANNELS_DELETED", { items: annotate(ch.deleted, chLookup) }),
+    t("CLI.SUMMARY.CHANNELS_DELETED", {
+      items: annotate(ch.deleted, chLookup),
+    }),
   );
   consola.info(
     t("CLI.SUMMARY.MODELS", {

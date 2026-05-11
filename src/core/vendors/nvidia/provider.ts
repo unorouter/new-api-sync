@@ -110,7 +110,7 @@ export async function processNvidiaProvider(
       });
       workingTextModels = r.workingModels;
       textDetails = r.details ?? [];
-      if (workingTextModels.length > 0) {
+      if (workingTextModels.length > 0)
         consola.info(
           t("CORE.NVIDIA.TEXT_WORKING", {
             name,
@@ -118,7 +118,6 @@ export async function processNvidiaProvider(
             total: textModels.length,
           }),
         );
-      }
     }
     if (imageModels.length > 0)
       consola.info(
