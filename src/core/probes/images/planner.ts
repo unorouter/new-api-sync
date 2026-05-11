@@ -3,40 +3,19 @@ import type { ProbeKind } from "./candidates";
 import { resolveEndpoint } from "./endpoint-resolver";
 import type { ChannelResult, ProbeShape } from "./store";
 
-/**
- * Names that need refs regardless of advertised endpoint. Many edit-only models
- * on resellers are mis-listed under image-generation; probing text-only yields
- * "Missing required key: image" 400s. Adding edit-style shapes for these names
- * exercises the multipart + chat-multimodal paths that actually carry refs.
- */
+/** Edit-only models mis-listed as image-generation: text-only probes 400 on "Missing required key: image". */
 const NAME_REQUIRES_REFS = [
-  "edit",
-  "kontext",
-  "i2i",
-  "i2v",
-  "img2img",
-  "image-to-image",
-  "image-to-video",
-  "redux",
-  "remix",
+  "edit", "kontext", "i2i", "i2v", "img2img",
+  "image-to-image", "image-to-video", "redux", "remix",
 ];
 
 export interface ProbeStep {
   shape: ProbeShape;
-  /** Provider-declared URL path. Undefined => use probe module's default. */
+  /** Undefined = use probe module's default. */
   path?: string;
 }
 
-/**
- * One (shape, path) step per declared endpoint type, deduped by `shape|path`.
- * Multi-endpoint models get one attempt per pair; errors don't bill.
- *
- * Name-based override (NAME_REQUIRES_REFS): edit/kontext/i2i/etc models add
- * sync-edits + openai-vendor steps even when the gateway only advertises
- * text-to-image, because text-only triggers "Missing required key: image".
- * Dedup by shape prevents double-billing openai-vendor on *edit* models that
- * already declared the `openai` endpoint.
- */
+/** One step per endpoint type, deduped by `shape|path`. NAME_REQUIRES_REFS adds sync-edits+openai-vendor for edit-style names. */
 export function probeStepsFor(opts: {
   endpointTypes: string[];
   primary: ProbeKind;
@@ -76,14 +55,7 @@ export function probeStepsFor(opts: {
   return steps;
 }
 
-/**
- * Gateway can't translate any wire shape to upstream (e.g. aigc routes Imagen
- * to Gemini/OpenAI but Imagen actually wants :predict). Both routes reject:
- * OAI->Gemini gives "contents is required"; Gemini multimodal gives
- * "Unknown name contents/instances/parts/generationConfig/safetySettings".
- * Gateway routing is global, so one signature means every group will fail
- * the same way — abort the model.
- */
+/** "contents is required" / "Unknown name contents..." = gateway can't reach this model on any group. */
 export function isGatewayBrokenSignature(attempt: ChannelResult): boolean {
   if (attempt.errorClass !== "ref_count_rejected") return false;
   const body =
@@ -106,7 +78,6 @@ export function shapeToKind(shape: ProbeShape): ProbeKind {
   return "openai-vendor";
 }
 
-/** Only sync-generations is text-to-image; the rest carry the 6 refs. */
 export function shapeHasImageInputs(shape: ProbeShape): boolean {
-  return shape !== "sync-generations";
+  return shape !== "sync-generations"; // only sync-generations is t2i
 }

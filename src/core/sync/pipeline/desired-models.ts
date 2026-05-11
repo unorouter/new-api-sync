@@ -21,28 +21,19 @@ import type { Channel, DesiredModelSpec } from "@core/types";
 
 export function buildDesiredModels(opts: {
   channels: Channel[];
-  /** Original upstream endpoint type strings, keyed by both `exposed` and
-   *  `upstream` for each OfferModel. Replaces SyncState.modelOriginalEndpoints. */
+  /** Keyed by both exposed and upstream for each OfferModel. */
   originalEndpointsByName: Map<string, string[]>;
-  /** Normalized endpoint type strings, keyed by both `exposed` and `upstream`.
-   *  Replaces SyncState.modelEndpoints. */
+  /** Keyed by both exposed and upstream. */
   normalizedEndpointsByName: Map<string, string[]>;
-  /** Endpoint type -> {path, method} aggregated across all providers.
-   *  Replaces SyncState.endpointPaths. */
+  /** Aggregated across providers. */
   endpointPaths: Map<string, { path: string; method: string }>;
   reverseMapping: Map<string, string>;
   basellmEntries: BasellmEntry[];
   openRouterDescriptions: Map<string, string>;
   modelMapping: Record<string, string>;
-  /**
-   * Per-model metadata overrides collected from each provider's
-   * `enabledModels`. Keyed by the UPSTREAM model id (e.g.
-   * "z-ai/glm4.7"). Applied after the bare-name resolution so the
-   * metadata lands on whichever exposed name the sync actually pushes.
-   */
+  /** Keyed by upstream id; applied after bare-name resolution. */
   metadataByUpstream: Record<string, Record<string, unknown>>;
-  /** Pricing sources used to auto-populate model metadata (max tokens,
-   *  capabilities, modalities). Override from enabledModels still wins. */
+  /** Auto-populate metadata; enabledModels override still wins. */
   pricingSources: PricingSource[];
 }): Map<string, DesiredModelSpec> {
   const models = new Map<string, DesiredModelSpec>();
@@ -67,7 +58,7 @@ export function buildDesiredModels(opts: {
         }
         if (Object.keys(epMap).length > 0) endpoints = JSON.stringify(epMap);
       } else {
-        // No upstream endpoint data: infer from model type
+        // Infer from model type.
         const modelType = inferModelType(modelName);
         const canonicalEp = MODEL_TYPE_CANONICAL_ENDPOINT[modelType];
         if (canonicalEp) {
@@ -83,7 +74,6 @@ export function buildDesiredModels(opts: {
     }
   }
 
-  // Enrich models with descriptions (OpenRouter) and tags (basellm)
   const metadataMap = buildMetadataMap({
     modelNames: models.keys(),
     basellmEntries: opts.basellmEntries,
@@ -98,19 +88,8 @@ export function buildDesiredModels(opts: {
     }
   }
 
-  // Add model type tag (and a `Task` tag for async task models) and deduplicate.
-  // The `Task` tag lets downstream consumers (unorouter) tell async task models
-  // apart from regular streaming models without re-encoding the override list.
-  // Gate `Task` on the upstream actually exposing `openai-video`; a name like
-  // `grok-imagine-video` can also be resold as chat-completions, in which case
-  // it is not a task model for this channel.
-  //
-  // Tags are merged from three sources, in order of precedence:
-  // 1. Type prefix (Text/Image/Video/Audio + optional Task)
-  // 2. basellm tags (already in spec.tags from buildMetadataMap)
-  // 3. Capability tags derived from LiteLLM/OpenRouter metadata
-  //    (Reasoning, Tools, Vision, Audio, Files, Cache, WebSearch, ComputerUse,
-  //    + context-window tag like "200K", "1M")
+  // Tags merge: type prefix (+ optional Task) → basellm → capability tags.
+  // Task gated on upstream actually exposing openai-video (grok-imagine-video may resell as chat-completions).
   for (const [modelName, spec] of models) {
     const originalName = opts.reverseMapping.get(modelName) ?? modelName;
     const eps =
@@ -149,13 +128,7 @@ export function buildDesiredModels(opts: {
         : deduped;
   }
 
-  // Apply per-model metadata. Layered: source-derived (LiteLLM > OpenRouter
-  // > basellm) provides defaults, then per-model `enabledModels[].metadata`
-  // overrides win. Config keys are the upstream id (`z-ai/glm4.7`); desired
-  // models are keyed by the exposed bare name (`glm4.7`). Build exposed ->
-  // upstream from each channel's model_mapping since that's the real source
-  // of bare-name resolution (global reverseMapping only covers
-  // config.modelMapping renames).
+  // Source-derived defaults < enabledModels[].metadata override. Build exposed→upstream from each channel's model_mapping (global reverseMapping only covers modelMapping renames).
   const exposedToUpstream = new Map<string, string>();
   for (const ch of opts.channels) {
     if (!ch.model_mapping) continue;
@@ -165,7 +138,7 @@ export function buildDesiredModels(opts: {
         exposedToUpstream.set(exposed, upstream);
       }
     } catch {
-      // malformed model_mapping — skip
+      /* malformed */
     }
   }
   for (const [modelName, spec] of models) {

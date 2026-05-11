@@ -1,10 +1,6 @@
 import type { ProbeErrorClass } from "./store";
 
-/**
- * Refusal phrases observed in upstream provider responses when they reject
- * a multi-reference image edit. Compared case-insensitively against body
- * text. Order doesn't matter — any match wins.
- */
+/** Multi-ref rejection phrases. */
 const REFUSAL_PHRASES = [
   /too many (?:reference )?images?/i,
   /maximum.*(?:reference )?images?/i,
@@ -14,10 +10,7 @@ const REFUSAL_PHRASES = [
   /image.*limit.*exceeded/i,
 ];
 
-/**
- * Phrases the upstream emits when the model itself refuses (content moderation
- * etc.) rather than rejecting the ref-count specifically.
- */
+/** Content-moderation refusals (distinct from ref-count). */
 const CONTENT_REFUSAL_PHRASES = [
   /i cannot|i can.?t|cannot help|unable to help|policy/i,
 ];
@@ -32,21 +25,9 @@ export function classifyResponse(
     return { errorClass: "auth", errorSnippet: snippet };
   }
   if (status === 429) {
-    // new-api gateways frequently return HTTP 429 as a generic "deny"
-    // code instead of a real rate-limit. The body distinguishes:
-    //
-    //   - "Model disabled" / "无可用渠道" / "model not found"
-    //       -> deterministic: model + group combo unavailable.
-    //   - "Missing required key: image" / "missing field"
-    //       -> request shape is wrong (e.g. probed sync-generations on
-    //          an edit-only model). Retrying with same body is pointless.
-    //   - "上游负载已饱和" (upstream saturated)
-    //       -> upstream-side capacity, not OUR rate limit. Some gateways
-    //          bill per attempt regardless of this outcome, so retrying
-    //          can drain quota for nothing.
-    //
-    // Surface all of these as `no_channel` / `refusal` so the retry
-    // loop skips them and we don't hammer the upstream.
+    // 429 is overloaded by new-api gateways: rate limit, model disabled,
+    // bad body shape, upstream saturated. Surface non-rate-limit cases so
+    // the retry loop skips them.
     if (
       /model disabled|model not found|no available channel|无可用渠道|模型已禁用|上游负载已饱和|upstream.*saturat/i.test(
         snippet,
@@ -61,25 +42,15 @@ export function classifyResponse(
     ) {
       return { errorClass: "ref_count_rejected", errorSnippet: snippet };
     }
-    // Replicate-style "model or version is required": we hit a bare
-    // /predictions path without supplying the model version UUID.
-    // Deterministic body-shape error, not a rate limit.
+    // bare /replicate/v1/predictions without a model version UUID
     if (/model or version is required|invalid_request/i.test(snippet)) {
       return { errorClass: "ref_count_rejected", errorSnippet: snippet };
     }
-    // Upstream relay failure: yun wraps Replicate 5xx as 429 with body
-    // `{code: "do_response_failed", message: "API request failed with
-    // status: 503"}`. Real upstream-side outage, not our rate limit -
-    // retrying just hammers a downed Replicate. Treat as transient
-    // upstream failure (no_channel) so the retry loop skips and we move
-    // to the next group/model.
+    // yun wraps Replicate 5xx as 429 — upstream outage, not our limit.
     if (/do_response_failed|API request failed with status/i.test(snippet)) {
       return { errorClass: "no_channel", errorSnippet: snippet };
     }
-    // Body-shape impedance mismatch (e.g. Imagen on aigc declares the
-    // gemini endpoint but the model itself wants :predict shape).
-    // Wrapped as 429 by aigc; treat as ref_count_rejected so the loop
-    // skips (no point retrying with the same wrong body).
+    // Imagen on aigc: gateway can't translate to :predict (returns 429).
     if (
       /contents is required|Unknown name "(?:contents|instances|parts|generationConfig|safetySettings)"/i.test(
         snippet,
@@ -93,23 +64,13 @@ export function classifyResponse(
     return { errorClass: "endpoint_404", errorSnippet: snippet };
   }
   if (status !== undefined && status >= 500) {
-    // new-api gateways short-circuit with 503 + a "no available channel"
-    // message when the model is listed in pricing but has no backend
-    // wired up. Surface this distinctly so the user can prune their
-    // enabledModels list - the model isn't broken, the upstream just
-    // doesn't actually serve it.
+    // Pricing listed but no backend wired.
     if (
       /无可用渠道|no available channel|distributor|无可用通道/i.test(snippet)
     ) {
       return { errorClass: "no_channel", errorSnippet: snippet };
     }
-    // Gateway misconfiguration: Imagen-style models advertised under
-    // `gemini` endpoint type but the gateway translation expects Gemini
-    // multimodal body shape. Imagen rejects with "contents is required"
-    // (when hit on /v1/images/generations) or "Unknown name 'contents'"
-    // / "Unknown name 'instances'" (when hit on :generateContent vs
-    // :predict mismatch). Either way it's a body-shape impedance
-    // mismatch we can't resolve without per-model wire knowledge.
+    // Imagen :predict mismatch (see 429 case above).
     if (
       /contents is required|Unknown name "(?:contents|instances|parts|generationConfig|safetySettings)"/i.test(
         snippet,
@@ -120,11 +81,6 @@ export function classifyResponse(
     return { errorClass: "timeout", errorSnippet: snippet };
   }
   if (status === 400 || status === 422) {
-    // Model unavailability surfaced as 400. New-api forks return these
-    // shapes when the model isn't priced, isn't routable, or the upstream
-    // SKU rejected the API surface. None of these are ref-count caps -
-    // misclassifying them pollutes the master file and hides the real
-    // reason the probe failed.
     if (
       /Model not found|Model does not exist|model.*not.*priced|model_price_error|does not support this api/i.test(
         snippet,
@@ -139,9 +95,7 @@ export function classifyResponse(
     ) {
       return { errorClass: "no_channel", errorSnippet: snippet };
     }
-    // Explicit ref-count or missing-image rejections trigger the downshift
-    // / wire-shape retry. Includes "Missing required key: image" which
-    // some forks return as 400 (others wrap it as 429).
+    // Triggers downshift / wire-shape retry. "Missing required key: image" appears here on some forks, 429 on others.
     if (
       REFUSAL_PHRASES.some((re) => re.test(snippet)) ||
       /missing required (?:key|field|parameter)|required.*image|image.*required/i.test(
@@ -161,19 +115,7 @@ export function classifyResponse(
   return { errorClass: "unknown", errorSnippet: snippet };
 }
 
-/**
- * Pull the upstream-declared max image-count from a "too many images"
- * rejection body. Returns null when the body doesn't carry a clear ceiling,
- * so the orchestrator skips the downshift retry and records the original
- * failure. Examples we handle:
- *   - "must contain 1~3 image content items. Got 6 image items." → 3
- *   - "supports 0~3 image content items. Got 6" → 3
- *   - "images list length must be between 1 and 3" → 3
- *   - "Maximum 4 reference images supported" → 4
- *   - "only up to 2 images are supported" → 2
- * Numbers <1 are returned as 1 (the probe still attaches a fixture per
- * model so we can verify the wire shape; 0 would mean a t2i probe).
- */
+/** Extract max image count from rejection: "must contain 1~3 image items. Got 6", "Maximum 4 reference images", "only up to 2 images", etc. */
 export function extractMaxImagesFromRejection(
   bodyText: string | undefined,
 ): number | null {
@@ -196,26 +138,8 @@ export function extractMaxImagesFromRejection(
   return null;
 }
 
-/**
- * For 200 responses on the openai-vendor path: text-only assistant content
- * is a refusal (model refused to generate or just talked at the user). An
- * image URL or base64 in the response means it actually produced an image.
- */
+/** 200 with no image = the model talked at us; treat as refusal upstream. Matches OAI data[], chat image_url, markdown ![](), data: URIs, Gemini inlineData. */
 export function looksLikeImageResponse(bodyText: string): boolean {
-  // Common shapes:
-  //   1. JSON with data[].url or b64_json (OAI image-edit)
-  //   2. Chat-completions assistant message containing image_url part
-  //   3. Markdown with ![](https://...png) or data: URI
-  //   4. Bare URL in plain text
-  //   5. Gemini-native: candidates[].content.parts[].inlineData.{mimeType,data}.
-  //      The base64 sits in a bare `data` field with a sibling `mimeType`
-  //      (or `mime_type`) - no `data:` prefix. We match the inlineData
-  //      wrapper since the field names are stable and unique to Gemini.
-  //   6. Markdown ![alt](https://.../file_download/<uuid>) - extension-less
-  //      URL inside markdown image syntax. The markdown wrapper itself is
-  //      the signal; some grok-* gateways emit signed download URLs without
-  //      an extension. We accept these only when wrapped in `![...](...)` so
-  //      we don't false-positive on bare text URLs.
   return (
     /\bb64_json\b/.test(bodyText) ||
     /\bimage_url\b/.test(bodyText) ||

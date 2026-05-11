@@ -15,11 +15,7 @@ import {
   type SourceMetadata,
 } from "./types";
 
-/**
- * Build the set of canonical vendor_name strings (lowercased) for each
- * inferred vendor key. basellm's vendor_name field uses display names like
- * "DeepSeek", "Anthropic". We accept both displayName and nameAliases.
- */
+/** Accept displayName + nameAliases (lowercased) per vendor. */
 function buildVendorNameSet(): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>();
   forEachVendor((vendor, matcher) => {
@@ -64,7 +60,7 @@ function entryToMetadata(entry: BasellmEntry): SourceMetadata {
     md.supportsTools = tags.some((t) => /^Tools$/i.test(t));
     md.supportsVision = tags.some((t) => /^Vision$/i.test(t));
     md.isReasoning = tags.some((t) => /^Reasoning$/i.test(t));
-    // Context window tag like "128K", "200K", "1M"
+    // "128K" / "200K" / "1M"
     for (const t of tags) {
       const m = t.match(/^(\d+(?:\.\d+)?)([KM])$/i);
       if (m) {
@@ -80,15 +76,7 @@ function entryToMetadata(entry: BasellmEntry): SourceMetadata {
   return md;
 }
 
-/**
- * Build a basellm pricing source filtered to canonical-vendor rows only.
- * For each model_name, prefer the row whose vendor_name matches the
- * inferred canonical vendor (e.g. DeepSeek for "deepseek-*", Anthropic for
- * "claude-*"). Drop reseller/aggregator rows entirely.
- *
- * Takes pre-fetched basellm entries to avoid double-fetching when the
- * pipeline already pulls them for description/tags via fetchBasellmEntries.
- */
+/** Canonical-vendor rows only; reseller/aggregator rows dropped. */
 export function buildBasellmCanonicalSource(
   entries: BasellmEntry[],
 ): PricingSource | null {
@@ -100,14 +88,11 @@ export function buildBasellmCanonicalSource(
   const canonicalSets = buildVendorNameSet();
   const pricingMap = new Map<string, BaseModelPricing>();
   const metadataMap = new Map<string, SourceMetadata>();
-  // Track best (lowest) ratio for canonical entries when multiple canonical
-  // rows exist (e.g. an Anthropic model listed by both "Anthropic" and
-  // "Azure" — we prefer Anthropic only).
+  // Lowest ratio wins when multiple canonical rows exist (Anthropic vs Azure).
   for (const entry of entries) {
     if (!entry.model_name || !entry.vendor_name) continue;
     if (!isCanonical(entry.model_name, entry.vendor_name, canonicalSets)) {
-      // Still capture metadata even from non-canonical rows when we don't
-      // have anything yet (descriptions/tags are vendor-agnostic).
+      // Tags/descriptions are vendor-agnostic; capture from non-canonical too.
       const meta = entryToMetadata(entry);
       if (Object.keys(meta).length > 0 && !metadataMap.has(entry.model_name)) {
         metadataMap.set(entry.model_name, meta);

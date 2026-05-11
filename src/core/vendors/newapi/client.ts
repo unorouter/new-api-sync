@@ -2,98 +2,66 @@ import { tryFetchJson } from "@core/infra/http";
 import type { Channel, GroupInfo, ModelMeta, Vendor } from "@core/types";
 import { t } from "@server/i18n";
 import type { ClientContext } from "./context";
-import { fetchPricing as _fetchPricing } from "./pricing";
+import { fetchPricing } from "./pricing";
 import {
-  cleanupOrphanedModels as _cleanupOrphanedModels,
-  createChannel as _createChannel,
-  createModel as _createModel,
-  createVendor as _createVendor,
-  deleteChannel as _deleteChannel,
-  deleteModel as _deleteModel,
-  listChannels as _listChannels,
-  listModels as _listModels,
-  listVendors as _listVendors,
-  updateChannel as _updateChannel,
-  updateModel as _updateModel,
-  updateVendor as _updateVendor,
+  cleanupOrphanedModels,
+  createChannel,
+  createModel,
+  createVendor,
+  deleteChannel,
+  deleteModel,
+  listChannels,
+  listModels,
+  listVendors,
+  updateChannel,
+  updateModel,
+  updateVendor,
 } from "./resources";
 import {
-  createToken as _createToken,
-  deleteToken as _deleteToken,
-  ensureTokens as _ensureTokens,
-  findTokenByKey as _findTokenByKey,
-  getTokenFullKey as _getTokenFullKey,
-  listTokens as _listTokens,
-  updateTokenModelLimits as _updateTokenModelLimits,
+  createToken,
+  deleteToken,
+  ensureTokens,
+  findTokenByKey,
+  getTokenFullKey,
+  listTokens,
+  updateTokenModelLimits,
 } from "./tokens";
 import type { NewApiConfig, UpstreamPricing, UpstreamToken } from "./types";
 
 export class NewApiClient {
-  private config: NewApiConfig;
-  private _name?: string;
+  readonly ctx: ClientContext;
+  private baseUrl: string;
+  private headers: Record<string, string>;
 
   constructor(config: NewApiConfig, name?: string) {
-    this.config = {
-      baseUrl: config.baseUrl.replace(/\/$/, ""),
-      systemAccessToken: config.systemAccessToken,
-      userId: config.userId,
-    };
-    this._name = name;
-  }
-
-  get ctx(): ClientContext {
-    return {
-      baseUrl: this.config.baseUrl,
-      headers: this.headers,
-      name: this._name ?? "target",
-    };
-  }
-
-  private get headers(): Record<string, string> {
-    const userId = String(this.config.userId);
-    return {
-      Authorization: `Bearer ${this.config.systemAccessToken}`,
+    this.baseUrl = config.baseUrl.replace(/\/$/, "");
+    const userId = String(config.userId);
+    this.headers = {
+      Authorization: `Bearer ${config.systemAccessToken}`,
       "New-Api-User": userId,
       "X-Api-User": userId,
       "Content-Type": "application/json",
     };
+    this.ctx = { baseUrl: this.baseUrl, headers: this.headers, name: name ?? "target" };
   }
 
-  private get baseUrl(): string {
-    return this.config.baseUrl;
-  }
-
-  private get name(): string {
-    return this._name ?? "target";
-  }
-
-  async healthCheck(): Promise<{
-    ok: boolean;
-    balance?: string;
-    error?: string;
-  }> {
+  async healthCheck(): Promise<{ ok: boolean; balance?: string; error?: string }> {
     const data = await tryFetchJson<{
       success: boolean;
       message?: string;
-      data?: { quota?: number; used_quota?: number };
+      data?: { quota?: number };
     }>(`${this.baseUrl}/api/user/self`, { headers: this.headers });
     if (!data) return { ok: false, error: t("CORE.ERROR.API_UNREACHABLE") };
-    if (!data.success)
-      return {
-        ok: false,
-        error: data.message ?? "API returned success: false",
-      };
+    if (!data.success) return { ok: false, error: data.message ?? "API returned success: false" };
     const quota = data.data?.quota;
-    const balance =
-      quota !== undefined ? `$${(quota / 500000).toFixed(2)}` : undefined;
-    return { ok: true, balance };
+    return { ok: true, balance: quota !== undefined ? `$${(quota / 500000).toFixed(2)}` : undefined };
   }
 
   async fetchBalance(): Promise<number | null> {
-    const data = await tryFetchJson<{
-      success: boolean;
-      data?: { quota?: number };
-    }>(`${this.baseUrl}/api/user/self`, { headers: this.headers });
+    const data = await tryFetchJson<{ success: boolean; data?: { quota?: number } }>(
+      `${this.baseUrl}/api/user/self`,
+      { headers: this.headers },
+    );
     if (!data?.success || data.data?.quota === undefined) return null;
     return data.data.quota / 500000;
   }
@@ -107,116 +75,52 @@ export class NewApiClient {
   }
 
   async getOptions(keys: string[]): Promise<Record<string, string>> {
-    const data = await tryFetchJson<{
-      data?: Array<{ key: string; value: string }>;
-    }>(`${this.baseUrl}/api/option/`, { headers: this.headers });
+    const data = await tryFetchJson<{ data?: Array<{ key: string; value: string }> }>(
+      `${this.baseUrl}/api/option/`,
+      { headers: this.headers },
+    );
     if (!data) return {};
     const keySet = new Set(keys);
     const result: Record<string, string> = {};
-    for (const opt of data.data ?? []) {
-      if (keySet.has(opt.key)) {
-        result[opt.key] = opt.value;
-      }
-    }
+    for (const opt of data.data ?? []) if (keySet.has(opt.key)) result[opt.key] = opt.value;
     return result;
   }
 
   async updateOption(key: string, value: string): Promise<boolean> {
-    const data = await tryFetchJson<{ success: boolean }>(
-      `${this.baseUrl}/api/option/`,
-      { method: "PUT", headers: this.headers, body: { key, value } },
-    );
+    const data = await tryFetchJson<{ success: boolean }>(`${this.baseUrl}/api/option/`, {
+      method: "PUT",
+      headers: this.headers,
+      body: { key, value },
+    });
     return data?.success ?? false;
   }
 
-  // Pricing
-  fetchPricing(): Promise<UpstreamPricing> {
-    return _fetchPricing(this.ctx);
+  fetchPricing(): Promise<UpstreamPricing> { return fetchPricing(this.ctx); }
+  listTokens(): Promise<UpstreamToken[]> { return listTokens(this.ctx); }
+  createToken(name: string, group: string): Promise<boolean> { return createToken(this.ctx, name, group); }
+  getTokenFullKey(id: number): Promise<string | null> { return getTokenFullKey(this.ctx, id); }
+  deleteToken(id: number): Promise<boolean> { return deleteToken(this.ctx, id); }
+  ensureTokens(groups: GroupInfo[], prefix: string, options?: { skipCleanup?: boolean }) {
+    return ensureTokens(this.ctx, groups, prefix, options);
   }
-
-  // Tokens
-  listTokens(): Promise<UpstreamToken[]> {
-    return _listTokens(this.ctx);
+  findTokenByKey(fullKey: string): Promise<UpstreamToken | null> { return findTokenByKey(this.ctx, fullKey); }
+  updateTokenModelLimits(token: UpstreamToken, modelLimits: string): Promise<boolean> {
+    return updateTokenModelLimits(this.ctx, token, modelLimits);
   }
-  createToken(name: string, group: string): Promise<boolean> {
-    return _createToken(this.ctx, name, group);
+  listChannels(): Promise<Channel[]> { return listChannels(this.ctx); }
+  createChannel(channel: Omit<Channel, "id">): Promise<number | null> { return createChannel(this.ctx, channel); }
+  updateChannel(channel: Channel): Promise<boolean> { return updateChannel(this.ctx, channel); }
+  deleteChannel(id: number): Promise<boolean> { return deleteChannel(this.ctx, id); }
+  listModels(): Promise<ModelMeta[]> { return listModels(this.ctx); }
+  createModel(model: Omit<ModelMeta, "id">): Promise<boolean> { return createModel(this.ctx, model); }
+  updateModel(model: ModelMeta): Promise<boolean> { return updateModel(this.ctx, model); }
+  deleteModel(id: number): Promise<boolean> { return deleteModel(this.ctx, id); }
+  listVendors(): Promise<Vendor[]> { return listVendors(this.ctx); }
+  createVendor(vendor: { name: string; icon?: string }): Promise<Vendor | null> {
+    return createVendor(this.ctx, vendor);
   }
-  getTokenFullKey(id: number): Promise<string | null> {
-    return _getTokenFullKey(this.ctx, id);
+  updateVendor(vendor: { id: number; name: string; icon?: string }): Promise<boolean> {
+    return updateVendor(this.ctx, vendor);
   }
-  deleteToken(id: number): Promise<boolean> {
-    return _deleteToken(this.ctx, id);
-  }
-  ensureTokens(
-    groups: GroupInfo[],
-    prefix: string,
-    options?: { skipCleanup?: boolean },
-  ): Promise<{
-    tokens: Record<string, string>;
-    created: number;
-    existing: number;
-    deleted: number;
-  }> {
-    return _ensureTokens(this.ctx, groups, prefix, options);
-  }
-  findTokenByKey(fullKey: string): Promise<UpstreamToken | null> {
-    return _findTokenByKey(this.ctx, fullKey);
-  }
-  updateTokenModelLimits(
-    token: UpstreamToken,
-    modelLimits: string,
-  ): Promise<boolean> {
-    return _updateTokenModelLimits(this.ctx, token, modelLimits);
-  }
-
-  // Channels
-  listChannels(): Promise<Channel[]> {
-    return _listChannels(this.ctx);
-  }
-  createChannel(channel: Omit<Channel, "id">): Promise<number | null> {
-    return _createChannel(this.ctx, channel);
-  }
-  updateChannel(channel: Channel): Promise<boolean> {
-    return _updateChannel(this.ctx, channel);
-  }
-  deleteChannel(id: number): Promise<boolean> {
-    return _deleteChannel(this.ctx, id);
-  }
-
-  // Models
-  listModels(): Promise<ModelMeta[]> {
-    return _listModels(this.ctx);
-  }
-  createModel(model: Omit<ModelMeta, "id">): Promise<boolean> {
-    return _createModel(this.ctx, model);
-  }
-  updateModel(model: ModelMeta): Promise<boolean> {
-    return _updateModel(this.ctx, model);
-  }
-  deleteModel(id: number): Promise<boolean> {
-    return _deleteModel(this.ctx, id);
-  }
-
-  // Vendors
-  listVendors(): Promise<Vendor[]> {
-    return _listVendors(this.ctx);
-  }
-  createVendor(vendor: {
-    name: string;
-    icon?: string;
-  }): Promise<Vendor | null> {
-    return _createVendor(this.ctx, vendor);
-  }
-  updateVendor(vendor: {
-    id: number;
-    name: string;
-    icon?: string;
-  }): Promise<boolean> {
-    return _updateVendor(this.ctx, vendor);
-  }
-
-  // Cleanup
-  cleanupOrphanedModels(): Promise<number> {
-    return _cleanupOrphanedModels(this.ctx);
-  }
+  cleanupOrphanedModels(): Promise<number> { return cleanupOrphanedModels(this.ctx); }
 }

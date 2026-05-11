@@ -15,12 +15,7 @@ const SKIPPED: GuestTokenUpdateResult = {
   freeModelCount: 0,
 };
 
-/**
- * If `GUEST_API_KEY` is set in the environment, refresh the matching token's
- * `model_limits` so it only exposes models that are zero-priced in *every*
- * group they appear in. Silent no-op when the env var is unset or the token
- * isn't found upstream.
- */
+/** GUEST_API_KEY: refresh token's model_limits to only-truly-free models. No-op when unset. */
 export async function updateGuestTokenIfConfigured(
   target: NewApiClient,
   pricing: UpstreamPricing,
@@ -45,12 +40,7 @@ export async function updateGuestTokenIfConfigured(
   return { configured: true, updated: true, freeModelCount: freeModels.length };
 }
 
-/**
- * A model is "truly free" only if every group it appears in has a zero
- * upstream price. A model whose price is 0 in one group but >0 in another
- * is reachable cheaply via cross-group fallback but is not unconditionally
- * free, so it is excluded.
- */
+/** Zero-priced in EVERY group. Cross-group cheap-but-not-free is excluded. */
 function collectTrulyFreeModels(pricing: UpstreamPricing): string[] {
   const free: string[] = [];
   for (const model of pricing.models) {
@@ -67,10 +57,7 @@ function isGroupPriceZero(
   model: { name: string; ratio: number; modelPrice?: number; quotaType?: number },
   groupName: string,
 ): boolean {
-  // Per-call pricing: model.modelPrice is only set by parsePricingV1 when the
-  // upstream price is > 0, so any defined value here means the model charges
-  // a flat per-call fee regardless of group ratio. Group ratio still scales
-  // the cost, but a non-zero base * any group ratio > 0 is still non-free.
+  // Any per-call price > 0 is not free regardless of group ratio.
   if (model.modelPrice !== undefined && model.modelPrice > 0) return false;
 
   const groupRatio = pricing.groupRatios[groupName] ?? 1;

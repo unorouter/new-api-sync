@@ -180,9 +180,7 @@ export async function processSub2ApiProvider(
   const offers: UpstreamOffer[] = [];
   const endpointMetadata = { endpointPaths: new Map() };
   const client = new Sub2ApiClient(providerConfig);
-  // Lifted out of the try block so the post-loop cost calculation can read
-  // them. groupKeysForBalance is the set of API keys we measured at start;
-  // the end-of-run balance fetch reuses the same keys.
+  // Lifted out of try so post-loop cost can read them.
   let totalStart: number | null = null;
   let groupKeysForBalance: string[] = [];
 
@@ -196,9 +194,7 @@ export async function processSub2ApiProvider(
       return { report, offers, endpointMetadata };
     }
 
-    // Capture start balance per group key so we can compute the total test
-    // cost as sum(start_i - end_i) across all groups. sub2api's balance is
-    // per-user, so summing gives one number for the whole provider entry.
+    // Total cost = Σ(start - end) across groups; sub2api balance is per-user.
     groupKeysForBalance = resolvedGroups.map((g) => g.apiKey);
     const startBalances = await Promise.all(
       groupKeysForBalance.map((k) => client.fetchBalance(k)),
@@ -216,10 +212,7 @@ export async function processSub2ApiProvider(
       );
     }
 
-    // sub2api semantics: each group tests its own models, and the resulting
-    // offer is "no upstream ratio" so compute() finds the cheapest existing
-    // group ratio for each model across baseline + other tiers and applies
-    // the per-provider adjustment.
+    // Offers carry no upstream ratio; compute() picks cheapest existing group ratio across baseline + other tiers.
     const defaultAdjustment = -0.1;
     let totalModels = 0;
     let groupsProcessed = 0;

@@ -40,8 +40,7 @@ const RunSummarySchema = T.Object({
   failed: T.Number(),
 });
 
-/** Tri-bucket of entity keys (created/updated/deleted). Accepts the legacy
- *  count form on read so old report files still validate. */
+/** Legacy count form accepted on read for old report files. */
 const ChangeSetSchema = T.Union([
   T.Object({
     created: T.Array(T.String()),
@@ -55,8 +54,7 @@ const ChangeSetSchema = T.Union([
   }),
 ]);
 
-/** Per-provider counters as written by `recordRunSummary`. Mirrors
- *  `ProviderCostEntry` in `core/testing/types.ts`. */
+/** Mirrors ProviderCostEntry in testing/types.ts. */
 const ProviderEntrySchema = T.Object({
   testCost: T.Optional(T.Number()),
   success: T.Optional(T.Boolean()),
@@ -73,7 +71,6 @@ const ProviderEntrySchema = T.Object({
   ),
 });
 
-/** Run-level summary block (mirrors the stdout summary). */
 const RunOutcomeSchema = T.Object({
   providers: T.Object({ passed: T.Number(), total: T.Number() }),
   channels: ChangeSetSchema,
@@ -96,7 +93,6 @@ const RunOutcomeSchema = T.Object({
   ),
 });
 
-/** Per-model pricing-vote trace, one entry per unique exposed model name. */
 const PricingGateSchema = T.Object({
   exposed: T.String(),
   vote: T.Object({
@@ -124,7 +120,6 @@ const PricingGateSchema = T.Object({
   }),
 });
 
-/** Per-OpenRouter-model /endpoints raw rows + the picked canonical row. */
 const OpenRouterEndpointsSchema = T.Object({
   id: T.String(),
   endpoints: T.Array(
@@ -151,9 +146,7 @@ const RunDetailSchema = T.Object({
   id: T.String(),
   timestamp: T.String(),
   results: T.Array(ResultSchema),
-  /** Run-level outcome block (apply counts, elapsed). */
   summary: T.Optional(RunOutcomeSchema),
-  /** Per-provider counters keyed by provider name. */
   providers: T.Optional(T.Record(T.String(), ProviderEntrySchema)),
   pricingGate: T.Optional(T.Array(PricingGateSchema)),
   openrouterEndpoints: T.Optional(T.Array(OpenRouterEndpointsSchema)),

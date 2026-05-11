@@ -177,20 +177,10 @@ const ENDPOINT_HINTS = new Set([
   "openai-image",
 ]);
 
-/**
- * Endpoint values that ALWAYS exclude a model regardless of name match.
- * Anything self-tagging as a video endpoint is a video model.
- *
- * NOT excluded: `dall-e-3`. Even though that wire format is text-to-image
- * only (with optional 1 mask image), we still probe it with all 6 refs
- * and let the upstream reject. The negative ground truth ("this gateway's
- * gpt-image-2-all reverse-eng variant rejects 6-ref multipart") is more
- * valuable than skipping silently - some reverse-eng SKUs are the cheapest
- * access path to a vendor and you may want to know exactly how they fail.
- */
+/** dall-e-3 deliberately kept: probing with 6 refs surfaces useful negative ground truth. */
 const ENDPOINT_EXCLUSIONS = new Set([
-  "openai-video", // standard new-api video task surface
-  "omni-video", // yun-style alternate video endpoint
+  "openai-video", // standard
+  "omni-video", // yun
 ]);
 
 // ─── Discovery ────────────────────────────────────────────────────────────
@@ -207,9 +197,7 @@ interface DiscoverOpts {
   modelNameFilter?: string[];
 }
 
-// Image-OUTPUT signals. `图像`/`图片` alone are deliberately excluded — they leak
-// vision-only chat models (gpt-4-all has 图像分析 = "image analysis") which 200
-// with text-only refusals that still bill tokens.
+// 图像/图片 deliberately excluded (leak vision-only chat models with 图像分析).
 const IMAGE_OUTPUT_TAG_RE =
   /(?:绘画|生图|扩图|修图|画图|出图|文生图|图生图|dall-?e|paint(?:ing)?|draw(?:ing)?|image[- ]?gen|image[- ]?edit|text[- ]?to[- ]?image)/i;
 const VISION_INPUT_TAG_RE =
@@ -238,8 +226,7 @@ export function discoverCandidates(opts: DiscoverOpts): DiscoveryReport {
       continue;
     }
 
-    // Endpoint exclusion: video/dall-e-3 shapes — unless the model ALSO advertises
-    // a real image-edit endpoint, in which case we'll route there instead.
+    // Skip exclusion if a real image-edit endpoint is also advertised.
     const eps = m.supportedEndpoints ?? [];
     const epExclusion = eps.find((e) => ENDPOINT_EXCLUSIONS.has(e));
     const hasUsableEdit = eps.some((e) => ENDPOINT_HINTS.has(e));
@@ -398,32 +385,18 @@ function matchesAnyFilter(lowerName: string, filters: string[]): boolean {
   return false;
 }
 
-/** Name-pattern fallback when endpoints are empty/`openai`-only. Adding a vendor: also add to NAME_ALLOWLIST_PATTERNS. */
+/** Fallback when endpoints are empty/openai-only. Adding a vendor: also add to NAME_ALLOWLIST_PATTERNS. */
+const SYNC_PATTERNS = [
+  "gpt-image", "chatgpt-image", "imagen", "recraft", "ideogram",
+  "stable-diffusion", "sd-3", "sd3", "mai-image", "firefly", "krea",
+  "flux-1.1", "flux-2", "flux-pro", "flux-schnell", "flux-dev",
+];
+const TASK_PATTERNS = [
+  "runway", "runwayml", "ray-2", "luma_video", "luma-video", "photon",
+];
 const KIND_BY_NAME_PATTERN: ReadonlyArray<readonly [string, ProbeKind]> = [
-  // Sync (/v1/images/edits direct).
-  ["gpt-image", "sync"],
-  ["chatgpt-image", "sync"],
-  ["imagen", "sync"],
-  ["recraft", "sync"],
-  ["ideogram", "sync"],
-  ["stable-diffusion", "sync"],
-  ["sd-3", "sync"],
-  ["sd3", "sync"],
-  ["mai-image", "sync"],
-  ["firefly", "sync"],
-  ["krea", "sync"],
-  ["flux-1.1", "sync"],
-  ["flux-2", "sync"],
-  ["flux-pro", "sync"],
-  ["flux-schnell", "sync"],
-  ["flux-dev", "sync"],
-  // Task (submit + poll) — for video models that escape the exclusion list.
-  ["runway", "task"],
-  ["runwayml", "task"],
-  ["ray-2", "task"],
-  ["luma_video", "task"],
-  ["luma-video", "task"],
-  ["photon", "task"],
+  ...SYNC_PATTERNS.map((p) => [p, "sync"] as const),
+  ...TASK_PATTERNS.map((p) => [p, "task"] as const),
 ];
 
 function pickKind(

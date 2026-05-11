@@ -13,23 +13,9 @@ import { Value } from "@sinclair/typebox/value";
 import { basename, dirname, join } from "node:path";
 import YAML from "yaml";
 
-// ============ Paths ============
+// ─── Paths ─────────────────────────────────────────────────────────────────
 
-/**
- * Resolve the directory where `config.yml`, `config.global.yml`, and named
- * `config.<name>.yml` files live.
- *
- * Dev mode (`bun run`): use `process.cwd()` so configs stay next to the source
- * tree the developer is editing.
- *
- * Compiled single-file binary: use the directory of the binary itself so the
- * UI writes configs next to the executable, regardless of where it was
- * launched from (double-click, PATH, different cwd, etc.).
- *
- * `@core/config` is imported by the browser bundle (for `customValidateConfig`)
- * which has no `process`. Guard every `process` access so calling this from
- * the browser returns a harmless empty string instead of throwing.
- */
+/** Dev: process.cwd(). Compiled binary: dirname(execPath). Returns "" in browser bundle. */
 export function configDir(): string {
   if (typeof process === "undefined") return "";
   const exe = process.execPath;
@@ -39,12 +25,7 @@ export function configDir(): string {
   return dirname(exe);
 }
 
-/**
- * Substitute `${VAR}` and `${VAR:-default}` references with `process.env[VAR]`.
- * Lets secrets stay out of checked-in YAML. Unresolved `${VAR}` (no env, no
- * default) is left intact so typebox validation surfaces a clear failure
- * instead of silently passing an empty string.
- */
+/** ${VAR} / ${VAR:-default} → process.env[VAR]. Unresolved left intact. */
 function expandEnvVars(text: string): string {
   if (typeof process === "undefined") return text;
   return text.replace(
@@ -58,13 +39,8 @@ function expandEnvVars(text: string): string {
   );
 }
 
-// ============ Global config (config.global.yml) ============
-
-/**
- * Loader/writer for `config.global.yml` — the cross-config file that holds
- * `locale`, `theme`, and the shared `blacklist` / `modelMapping` that merge
- * into every per-config on load. See `loadConfig()` below.
- */
+// ─── Global config (config.global.yml) ────────────────────────────────────
+// Cross-config: locale, theme, shared blacklist/modelMapping merged into every per-config.
 export const GLOBAL_CONFIG_PATH = join(configDir(), "config.global.yml");
 
 export async function loadGlobalConfig(): Promise<GlobalConfigType> {
@@ -82,7 +58,6 @@ export async function loadGlobalConfig(): Promise<GlobalConfigType> {
       }),
     );
   }
-  // Treat an empty document (null) as "no settings".
   if (parsedRaw === null || parsedRaw === undefined) return {};
   if (!Value.Check(GlobalConfigSchema, parsedRaw)) {
     const errors = [...Value.Errors(GlobalConfigSchema, parsedRaw)]
@@ -103,7 +78,7 @@ export async function writeGlobalConfig(next: GlobalConfigType): Promise<void> {
   await Bun.write(GLOBAL_CONFIG_PATH, yaml);
 }
 
-// ============ enabledModels accessors ============
+// ─── enabledModels accessors ───────────────────────────────────────────────
 
 const NON_TEXT_TYPES: Set<string> = new Set(
   MODEL_TYPES.filter((t) => t !== "text"),
@@ -154,14 +129,7 @@ export const CONFIG_DEFAULTS = {
   perUpstreamConcurrency: 5,
 } as const;
 
-/**
- * Hardcoded blacklist merged into every sync regardless of user config.
- * Substring-matched against bare model names (see `matchBlacklistEntry`),
- * so e.g. `arctic-embed-l` catches `nvidia/arctic-embed-l`. Use this for
- * upstream IDs that are uniformly broken, mistyped (embed/audio/video
- * models served as `text`), or otherwise never useful to expose - things
- * the user shouldn't have to repeat in every config.
- */
+/** Always-blacklist (broken upstreams, mis-served embed/audio/video). Substring against bare names. */
 const BUILTIN_BLACKLIST: readonly string[] = [
   "ai-synthetic-video-detector",
   "arctic-embed-l",
@@ -210,16 +178,12 @@ export interface RuntimeConfig extends Omit<
   isTestMode?: boolean;
 }
 
-// ============ Validation helpers ============
+// ─── Validation helpers ────────────────────────────────────────────────────
 
-/**
- * Custom cross-field rules that TypeBox's schema cannot express directly.
- * Returns an array of error messages (empty = valid).
- */
+/** Cross-field rules TypeBox can't express. Empty array = valid. */
 export function customValidateConfig(config: ConfigSchemaType): string[] {
   const errors: string[] = [];
 
-  // Duplicate provider names
   const seen = new Set<string>();
   for (const [i, p] of config.providers.entries()) {
     if (seen.has(p.name)) {
@@ -230,7 +194,6 @@ export function customValidateConfig(config: ConfigSchemaType): string[] {
     seen.add(p.name);
   }
 
-  // priceAdjustment object rules (applies to both top-level and per-provider)
   const checkAdjustment = (path: string, adj: unknown): void => {
     if (adj === undefined || typeof adj !== "object" || adj === null) return;
     if (!("default" in adj)) {
@@ -238,7 +201,7 @@ export function customValidateConfig(config: ConfigSchemaType): string[] {
     }
     for (const [key, val] of Object.entries(adj)) {
       if (typeof val !== "number") continue;
-      // Text-type keys (vendors + default) must stay below 1
+      // Text-type keys (vendors + default) must stay below 1.
       if (!NON_TEXT_TYPES.has(key) && val >= 1) {
         errors.push(
           t("ERROR.CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT", { path, key }),
@@ -251,7 +214,6 @@ export function customValidateConfig(config: ConfigSchemaType): string[] {
     checkAdjustment(`providers.${i}.priceAdjustment`, p.priceAdjustment);
   }
 
-  // sub2api must have adminApiKey or groups
   for (const [i, p] of config.providers.entries()) {
     if (
       p.type === "sub2api" &&
@@ -265,7 +227,7 @@ export function customValidateConfig(config: ConfigSchemaType): string[] {
   return errors;
 }
 
-// ============ Loader ============
+// ─── Loader ────────────────────────────────────────────────────────────────
 
 const CONFIG_CANDIDATES = [
   join(configDir(), "config.yml"),
@@ -331,7 +293,6 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
     );
   }
 
-  // Apply provider-level defaults that Zod's .default() used to handle
   const providers = typed.providers.map((p) => {
     if (p.type === "nvidia") {
       return {
@@ -351,10 +312,7 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
     return p;
   });
 
-  // Merge in cross-config settings from `config.global.yml`. Missing file is
-  // treated as empty. For `blacklist` we union+dedupe (built-in + global +
-  // per-config); for `modelMapping` we let global win on key collisions
-  // (per user's "global wins" directive).
+  // blacklist: union (builtin + global + typed). modelMapping: global wins on collision (user directive).
   const global = await loadGlobalConfig();
   const mergedBlacklist = [
     ...new Set([
@@ -363,14 +321,7 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
       ...(typed.blacklist ?? []),
     ]),
   ];
-  // modelMapping values become user-facing exposed names. `toBareName`
-  // produces lowercase bare names, so we lowercase the values here to keep
-  // the catalogue consistent regardless of how the user wrote them (e.g.
-  // `Claude-Opus-4-5` -> `claude-opus-4-5`). Keys without a `/` are matched
-  // against bare names (now always lowercase) and are lowercased too so a
-  // user-written `MiniMax-M2.5: foo` still hits. Keys with a `/` are full
-  // upstream IDs which may legitimately be mixed-case (newapi returns
-  // CamelCase IDs verbatim), so those are left alone.
+  // Values lowercase (toBareName produces lowercase). Keys without `/` lowercased too. Keys with `/` are upstream IDs left as-is.
   const mergedMapping: Record<string, string> = {};
   for (const [k, v] of [
     ...Object.entries(typed.modelMapping ?? {}),

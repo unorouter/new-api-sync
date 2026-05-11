@@ -27,36 +27,14 @@ import { join } from "node:path";
 import { embeddedConfigExample } from "../../embedded-assets";
 import { stringifyWithComments } from "./yaml-sync";
 
-/**
- * Config routes.
- *
- * Multiple named configs live in the project root as `config.yml` (the main /
- * default one) and `config.<name>.yml` (named variants). The frontend picks one
- * by `name`:
- *   - `""` or omitted → `config.yml`
- *   - `"debug"`       → `config.debug.yml`
- *
- * Endpoints:
- *   GET    /api/config/files          list all configs
- *   POST   /api/config/files          create a new named config (body: {name, fromName?})
- *   DELETE /api/config/files/:name    delete a named config (main is locked)
- *   GET    /api/config?name=<name>    parsed JSON for one config
- *   PUT    /api/config?name=<name>    overwrite with JSON; validates + rolls back on failure
- *
- * YAML comments in the source file are not preserved through PUT.
- */
-
-// Main file name — `.yaml` is also accepted if present on disk.
+// config.yml (default) + config.<name>.yml variants. Picked by ?name=.
 const mainCandidates = () => [
   join(configDir(), "config.yml"),
   join(configDir(), "config.yaml"),
 ];
 const NAMED_RE = /^config\.([a-zA-Z0-9_-]+)\.ya?ml$/;
 
-/**
- * Pick the path for a given `name`. Empty string / undefined → main config.
- * Returns the *canonical* path we'd create (may not exist yet for POST).
- */
+/** Empty/undefined → main. Returns canonical path even if not yet created. */
 export function configPath(name: string | undefined): string {
   const trimmed = (name ?? "").trim();
   if (!trimmed) {
@@ -77,14 +55,12 @@ interface ConfigFileInfo {
 export function listConfigs(): ConfigFileInfo[] {
   const files: ConfigFileInfo[] = [];
   const dir = configDir();
-  // Main config — first existing candidate.
   for (const candidate of mainCandidates()) {
     if (Bun.file(candidate).size > 0) {
       files.push({ name: "", path: candidate, size: Bun.file(candidate).size });
       break;
     }
   }
-  // Named configs.
   let entries: string[] = [];
   try {
     entries = readdirSync(dir);
@@ -95,12 +71,11 @@ export function listConfigs(): ConfigFileInfo[] {
     const match = NAMED_RE.exec(entry);
     if (!match) continue;
     const name = match[1]!;
-    // Skip reserved files that are not user-selectable runtime configs.
-    if (name === "example" || name === "global") continue;
+    if (name === "example" || name === "global") continue; // reserved
     const path = join(dir, entry);
     files.push({ name, path, size: Bun.file(path).size });
   }
-  // Main first, named alphabetically.
+  // main first, then alpha
   files.sort((a, b) => {
     if (a.name === "") return -1;
     if (b.name === "") return 1;
@@ -199,11 +174,7 @@ export const configRoute = new Elysia({ prefix: "/config" })
       const name = query.name ?? "";
       const path = configPath(name);
       if (!(Bun.file(path).size > 0)) {
-        // Main config missing: seed it from config.example.yml so the UI has
-        // something to render on a fresh checkout. Dev mode reads the file
-        // from disk; the compiled binary uses the string inlined at build
-        // time (src/build.ts). Named configs still 404 — the user must create
-        // them explicitly via POST /files.
+        // Main missing: seed from config.example.yml (on-disk or embedded).
         if (!name) {
           const onDisk = Bun.file(join(configDir(), "config.example.yml"));
           const example =
@@ -241,16 +212,15 @@ export const configRoute = new Elysia({ prefix: "/config" })
       }
       const previous = await Bun.file(path).text();
 
-      // Preserve comments on unchanged nodes by diffing into the existing
-      // YAML Document rather than re-emitting from scratch.
+      // Diff into existing Document so comments on unchanged nodes survive.
       const yaml = stringifyWithComments(previous, body.config);
       await Bun.write(path, yaml);
 
       try {
         await loadConfig(path);
       } catch (error) {
-        // Validation failed — restore the previous file and surface the error.
-        await Bun.write(path, previous);
+        await Bun.write(path, previous); // rollback
+
         set.status = 400;
         return {
           success: false as const,

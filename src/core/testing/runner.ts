@@ -77,9 +77,7 @@ function redactedReport(): TestReport {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Test report accumulator (module-level state)
-// ---------------------------------------------------------------------------
+// ─── Test report accumulator (module state) ────────────────────────────────
 
 const testReport: TestReport = {
   timestamp: new Date().toISOString(),
@@ -87,9 +85,7 @@ const testReport: TestReport = {
   modelTests: [],
 };
 
-// Index of passing entries for O(1) "have we already tested this model?"
-// lookups during testModels. Without this index the test loop scans the
-// entire modelTests array per model — O(N²) on large syncs.
+// O(1) "already-tested" lookups; without this testModels is O(N²) on large syncs.
 const passingByKey = new Map<string, ModelTestLog>();
 
 function passKey(provider: string, model: string): string {
@@ -112,20 +108,12 @@ function ensureProviderEntry(provider: string): ProviderCostEntry {
   return entry;
 }
 
-/**
- * Record a per-provider total test cost (start_balance - end_balance).
- * Called once per provider after all its tests complete. Subsequent calls
- * for the same provider overwrite the previous value (last-writer wins).
- */
+/** Last-writer wins. */
 export function recordProviderCost(provider: string, testCost: number): void {
   ensureProviderEntry(provider).testCost = testCost;
 }
 
-/**
- * Capture run-level outcome (apply counts, per-provider deltas, elapsed)
- * into the test report so the JSON on disk mirrors what `printRunSummary`
- * writes to stdout. Must be called before `writeTestReport`.
- */
+/** Mirrors what printRunSummary writes to stdout; call before writeTestReport. */
 export function recordRunSummary(input: {
   providerReports: ProviderReport[];
   apply: ApplyReport;
@@ -142,8 +130,7 @@ export function recordRunSummary(input: {
     entry.tokens = report.tokens;
   }
 
-  // Bucket applied channel changes by their `tag` (the provider name) so
-  // per-provider channel deltas match the global lists when concatenated.
+  // Bucket by tag so per-provider deltas concat back to the global lists.
   const channelTagByName = new Map<string, string>();
   for (const op of input.diff.channels) {
     const channel = op.type === "delete" ? op.existing : op.value;
@@ -181,25 +168,14 @@ export function recordRunSummary(input: {
   };
 }
 
-/**
- * Record one model's vote result. Deduplicated by exposed name — the same
- * model evaluated across multiple (provider, group, vendor) buckets only
- * gets logged once, since the vote is a global property of the model.
- */
+/** Deduped by exposed name — the vote is a global model property. */
 export function recordPricingGate(entry: PricingGateLog): void {
   if (!testReport.pricingGate) testReport.pricingGate = [];
   if (testReport.pricingGate.some((e) => e.exposed === entry.exposed)) return;
   testReport.pricingGate.push(entry);
 }
 
-/**
- * Append one OpenRouter /endpoints snapshot for a model we actually tested.
- *
- * Called from the pre-test gate only when the openrouter source contributed
- * a candidate price for the model — we want the audit trail for *tested*
- * models, not all 370 in the prefetch. Deduplicated by `id` so we don't
- * record the same row twice when multiple buckets test the same model.
- */
+/** Audit trail for actually-tested models, not all 370 in the prefetch. Deduped by id. */
 export function recordOpenRouterEndpointsForModel(
   entry: OpenRouterEndpointsLog,
 ): void {
@@ -208,13 +184,7 @@ export function recordOpenRouterEndpointsForModel(
   testReport.openrouterEndpoints.push(entry);
 }
 
-// Per-model cost tracking removed: providers now log only total balance
-// delta (start - end). Total-only tracking unblocks future multi-threaded
-// model testing where balance reads cannot be serialised against tests.
-
-// ---------------------------------------------------------------------------
-// Test report I/O
-// ---------------------------------------------------------------------------
+// ─── Test report I/O ───────────────────────────────────────────────────────
 
 export function writeTestReport(): void {
   saveAuthenticityBlacklist();
@@ -227,20 +197,9 @@ export function writeTestReport(): void {
   consola.info(t("CORE.TESTER.REPORT_WRITTEN", { path }));
 }
 
-// ---------------------------------------------------------------------------
-// Tool-call error classification
-// ---------------------------------------------------------------------------
+// ─── Tool-call error classification ────────────────────────────────────────
 
-/**
- * Detect upstream error responses that indicate the model doesn't accept the
- * tool-call test's payload (typically `tool_choice: required`) rather than
- * the model being broken. Reasoning-only models like deepseek-reasoner and
- * various `*-thinking` aliases reject tool_choice with a 400/4xx, but they
- * still pass HTTP+Stream tests and should be treated as working.
- *
- * Detection is by error-message substring rather than model-name pattern so
- * the rule generalizes to future reasoning models without code changes.
- */
+/** Reasoning-only models reject tool_choice but still pass HTTP+Stream. Detect by message (generalises to future models). */
 function isToolChoiceUnsupportedError(result: TestExchange): boolean {
   const status = result.status;
   if (status !== undefined && status < 400) return false;
@@ -259,9 +218,7 @@ function isToolChoiceUnsupportedError(result: TestExchange): boolean {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
+// ─── Public API ────────────────────────────────────────────────────────────
 
 export interface ModelCapabilityHint {
   supportsTools?: boolean;
@@ -278,17 +235,9 @@ export async function testModels(opts: {
   timeoutMs?: number;
   logPrefix?: string;
   modelEndpoints?: Map<string, string[]>;
-  /**
-   * Retry policy for flaky upstreams. Default: 2 attempts, retry any failure
-   * (preserves legacy behavior). NVIDIA passes NVIDIA_RETRY_POLICY so transient
-   * 504/429 failures don't misclassify a usable model as broken.
-   */
+  /** Default 2 attempts, retry-any. NVIDIA passes NVIDIA_RETRY_POLICY. */
   retryPolicy?: RetryPolicy<TestExchange>;
-  /**
-   * If true, models that returned HTTP 429 are kept in workingModels. Used by
-   * OpenRouter free-tier where 429 means daily quota exhausted, not broken
-   * model — retrying within a sync run won't recover it.
-   */
+  /** Keep 429 models (OpenRouter free-tier: daily quota exhausted ≠ broken). */
   acceptRateLimited?: boolean;
   /**
    * Per-model capability hints from external pricing metadata
@@ -377,11 +326,7 @@ export async function testModels(opts: {
         const modelType = inferModelType(model, undefined, opts.modelEndpoints);
         const isNonTextModel = modelType !== "text";
 
-        // For text models, fire HTTP / stream / tool in parallel. They are
-        // independent calls to the same model, and the pass rate is high
-        // enough that the speedup outweighs spending the cost of stream/tool
-        // probes on models that fail HTTP. For non-text models only the HTTP
-        // probe runs.
+        // Text: HTTP/stream/tool fire in parallel. Non-text: HTTP only.
         const httpConfigByType = {
           image: getImageTestConfig,
           video: getVideoTestConfig,
@@ -421,12 +366,7 @@ export async function testModels(opts: {
         ]);
         const success = httpResult.pass;
         const streamSuccess = streamResult?.pass ?? null;
-        // If the upstream rejects the request with a tool_choice-related
-        // error (e.g. reasoning-only models like deepseek-reasoner or
-        // *-thinking variants that aliased to one), the model isn't broken,
-        // it just doesn't accept the tool sub-test's payload. Mark
-        // toolCallSuccess as null (n/a) instead of false (failed) so the
-        // model is still considered working on its HTTP+Stream results.
+        // tool_choice rejection: mark null (n/a) so the model isn't failed on HTTP+Stream.
         const toolCallSuccess: boolean | null = (() => {
           if (toolResult === null) return null;
           if (toolResult.pass) return true;

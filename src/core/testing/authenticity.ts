@@ -6,9 +6,7 @@ import { consola } from "consola";
 import { join } from "path";
 import type { AuthenticityProbeLog } from "./types";
 
-// ---------------------------------------------------------------------------
-// Authenticity probe accumulator (module-level state)
-// ---------------------------------------------------------------------------
+// ─── Probe accumulator (module state) ──────────────────────────────────────
 
 export const authenticityProbeAccumulator = new Map<
   string,
@@ -21,20 +19,14 @@ function addAuthenticityProbe(key: string, entry: AuthenticityProbeLog): void {
   authenticityProbeAccumulator.get(key)!.push(entry);
 }
 
-// ---------------------------------------------------------------------------
-// Authenticity blacklist: persistent across runs, skips retesting known-fake providers
-// ---------------------------------------------------------------------------
+// ─── Blacklist: persistent across runs ─────────────────────────────────────
 
 interface AuthenticityBlacklistEntry {
   since: string;
   reason: string;
 }
 
-/**
- * Bump when probe rules change in a way that should invalidate old verdicts.
- * Entries persisted under a lower version are dropped on load so they can be
- * re-evaluated against the current rules.
- */
+/** Bump to invalidate old verdicts. */
 const AUTHENTICITY_RULES_VERSION = 1;
 
 interface PersistedBlacklist {
@@ -102,17 +94,9 @@ export function isAuthenticityBlacklisted(key: string): boolean {
   return authenticityBlacklist.has(key);
 }
 
-// ---------------------------------------------------------------------------
-// Coding-tool model-substitution detection for Anthropic channels
-// ---------------------------------------------------------------------------
-
-// These patterns mark text as a coding-tool persona refusing a non-coding
-// task. Generic refusals like "I can't discuss that" or "I can't help with
-// that" are NOT included — real Anthropic Claude uses those for various
-// legitimate reasons (e.g. declining to disclose model name) and they
-// would false-positive as kiro/codeium refusals. Keep patterns specific
-// to coding-assistant personas: phrases that explicitly redirect the user
-// to coding/development tasks.
+// ─── Coding-tool substitution detection for Claude ─────────────────────────
+// Only coding-assistant persona refusals; generic "I can't help" is excluded
+// (real Claude legitimately uses it for model-name disclosure declines).
 const CODING_TOOL_REFUSAL_PATTERNS = [
   "assist with development",
   "here to assist with development tasks",
@@ -163,10 +147,7 @@ function hasScamPage(text: string): boolean {
   return SCAM_PAGE_PATTERNS.some((p) => text.includes(p));
 }
 
-// Hard foreign-vendor signals: these names mean the response is from a
-// non-Anthropic *model* with no licensing relationship to Anthropic.
-// Anything matching here on identity OR model-name probes is a real
-// substitution and should blacklist immediately.
+// Hard foreign-vendor signals: real substitution, blacklist immediately.
 const FOREIGN_VENDOR_PATTERNS = [
   "deepmind",
   "gemini",
@@ -189,14 +170,8 @@ const FOREIGN_VENDOR_PATTERNS = [
   "xai",
 ];
 
-// Cloud-host signals: these names appear when Claude is legitimately
-// served via AWS Bedrock, Google Vertex AI, or Azure AI Foundry. Real
-// licensed Claude on those platforms often answers "amazon" / "google"
-// / "microsoft" to the identity probe because of injected system
-// prompts. Treat these as a soft signal: only fail when paired with a
-// model-name probe that *also* says it's a foreign model (e.g.
-// "i'm amazon q" — that's Kiro, an actual model substitution, not
-// Bedrock-hosted Claude).
+// Bedrock/Vertex/Foundry — real Claude there says "amazon"/"google" to
+// identity due to system-prompt injection. Soft signal on identity only.
 const CLOUD_HOST_PATTERNS = [
   "amazon",
   "aws",
@@ -208,9 +183,7 @@ const CLOUD_HOST_PATTERNS = [
   "foundry",
 ];
 
-// "Amazon Q" is Kiro's coding-assistant model. If model-name comes back
-// with "amazon q" (or similar AWS-coding-product names), that's a real
-// substitution despite "amazon" also appearing in cloud-host names.
+// AWS coding products (Amazon Q, Q Developer, Kiro) — real substitutions even though "amazon" is a cloud-host hit.
 const FOREIGN_MODEL_NAME_FROM_CLOUD = ["amazon q", "q developer", "kiro"];
 
 function hasForeignVendor(text: string): boolean {
@@ -225,10 +198,6 @@ function hasForeignModelFromCloud(text: string): boolean {
   return FOREIGN_MODEL_NAME_FROM_CLOUD.some((p) => text.includes(p));
 }
 
-// Used by probe evaluators. The identity/model-name probes call this to
-// decide if the response identifies as a non-Anthropic model. For
-// model-name we also catch coding-product names that happen to share
-// substrings with cloud hosts (Amazon Q / Kiro / Q Developer).
 function hasForeignIdentity(
   text: string,
   probe: "identity" | "model-name",
@@ -238,16 +207,9 @@ function hasForeignIdentity(
   return false;
 }
 
-// Known-fake response signatures observed in the wild. When multiple
-// upstreams return identical, unusually-formatted model-name responses,
-// it's a fingerprint of a shared substitution backend being resold by
-// different resellers. Real Claude responses vary stylistically across
-// providers; exact-string-match across providers means a single fake
-// backend.
+// Cross-reseller identical responses = shared fake backend fingerprint.
 const FAKE_RESPONSE_SIGNATURES = [
-  // Seen across yun/特价 Claude Code, yun/逆向, pol/Claude-code稳定,
-  // pol/中转低价, v3/claude_kiro on opus channels. The unusual `(4.0)`
-  // parenthesized format is the giveaway.
+  // Seen on yun, pol, v3 opus channels; the `(4.0)` format is the tell.
   "claude sonnet (4.0)",
 ];
 
@@ -277,17 +239,11 @@ type ProbeResult = {
   pass: boolean;
   authenticityRefusal: boolean;
   signal: ProbeSignal;
-  /** True when every retry attempt got back a response with a wrong nonce —
-   *  the upstream proxy is mixing concurrent responses (an unsafe-proxy
-   *  signal). Distinct from `pass: false` for content reasons. */
+  /** Every retry returned a wrong-nonce response — unsafe-proxy mux signal. */
   muxFailure?: boolean;
 };
 
-// Probe label is passed in so identity/model-name can apply different
-// rules: identity treats cloud-host names as a soft signal (real Bedrock
-// Claude often says "amazon"), model-name treats them as hard fails
-// (real Claude on Bedrock still says "claude" when asked the model name;
-// "amazon q" or similar means it's actually Kiro, not Claude).
+// identity = soft on cloud-host (Bedrock Claude says "amazon"); model-name = hard.
 function detectSignal(text: string, probeLabel: string): ProbeSignal {
   if (text.length === 0) return "blank";
   if (hasCodingToolRefusal(text)) return "coding-tool";
@@ -300,12 +256,7 @@ function detectSignal(text: string, probeLabel: string): ProbeSignal {
   return null;
 }
 
-/** Max sequential retries on nonce mismatch (= total attempts of 1 + this).
- *  Cheap reseller proxies that mux concurrent /v1/messages calls return
- *  responses paired with the wrong prompt under parallel load. The fix
- *  isn't on our side — we can't make their proxy correct — but a sequential
- *  retry with a fresh nonce after a short delay almost always succeeds
- *  because the proxy has only one inflight request from us at that moment. */
+/** Mux-mitigation: cheap proxies pair responses with wrong prompts under parallel load. Sequential retry with fresh nonce usually succeeds. */
 const NONCE_MISMATCH_RETRIES = 2;
 const NONCE_MISMATCH_BACKOFF_MS = 500;
 
@@ -425,10 +376,7 @@ async function runAnthropicProbe(opts: {
     if (result.kind === "fail") return result.result;
 
     if (result.kind === "nonce-mismatch") {
-      // Log every individual mismatch attempt so the trace shows the full
-      // retry sequence (each entry includes attempt number). Without this
-      // we'd lose visibility into which retries hit the muxed response and
-      // which finally got the right one.
+      // Log every attempt so the trace shows the full retry sequence.
       addAuthenticityProbe(opts.logKey, {
         probe: opts.label,
         pass: false,
@@ -460,12 +408,7 @@ async function runAnthropicProbe(opts: {
     return { pass: passed, authenticityRefusal: refusal, signal };
   }
 
-  // All attempts returned mismatched nonce. Per-attempt entries already
-  // logged above; flag this probe as a mux failure so the caller can
-  // surface a dedicated "unsafe-proxy" reason instead of a generic
-  // `failed:` blacklist entry. Mux is an upstream defect (response-mixing
-  // proxy), not evidence of model substitution — but it's still unsafe to
-  // expose to users since their parallel requests would hit the same race.
+  // Every attempt mismatched: response-mixing proxy. Not substitution, but unsafe under parallel load.
   void lastMismatch;
   return {
     pass: false,
@@ -488,12 +431,7 @@ export async function testAnthropicAuthenticity(opts: {
   timeoutMs: number;
   logKey: string;
 }): Promise<boolean> {
-  // Probes run in parallel. Some reseller proxies mux concurrent requests
-  // through a shared connection and return responses paired with the wrong
-  // prompt. We guard against that by embedding a unique nonce per probe
-  // and requiring it back in the response. On mismatch runAnthropicProbe
-  // retries sequentially with a fresh nonce — single inflight at a time
-  // sidesteps the proxy's mux race window.
+  // Per-probe nonce guards against response-mixing proxies under parallel load.
   const nonceTag = (n: string) =>
     `Begin your reply with the tag [${n}] then a space, then your answer.`;
 
@@ -549,8 +487,7 @@ export async function testAnthropicAuthenticity(opts: {
         if (hasForeignIdentity(text, "model-name")) return false;
         if (!text.includes("claude") && !text.includes("anthropic"))
           return false;
-        // Strip the nonce tag before checking fake-signature blocklist so a
-        // tag prefix doesn't break exact-match.
+        // Strip nonce prefix so exact-match works on the blocklist.
         const stripped = text.replace(/^\s*\[[a-z0-9]{4,8}\]\s*/i, "").trim();
         if (FAKE_RESPONSE_SIGNATURES.includes(stripped)) return false;
         return true;
@@ -600,12 +537,7 @@ export async function testAnthropicAuthenticity(opts: {
     return false;
   }
 
-  // Mux failure: 2+ probes exhausted retries with wrong-paired responses.
-  // The upstream proxy is mixing concurrent /v1/messages calls, so any
-  // user firing parallel requests would hit the same race and could
-  // receive someone else's response. Blacklist as unsafe-proxy — it's not
-  // model substitution but it IS a correctness/privacy bug we shouldn't
-  // expose to users.
+  // ≥2 mux failures = unsafe proxy (not substitution, but a correctness/privacy bug).
   const muxLabels = results.filter((r) => r.muxFailure).map((r) => r.label);
   if (muxLabels.length >= 2) {
     consola.warn(
@@ -622,14 +554,7 @@ export async function testAnthropicAuthenticity(opts: {
     return false;
   }
 
-  // Foreign identity is only a hard fail when the model-name probe
-  // *also* claims a non-Anthropic identity. Real Claude served via AWS
-  // Bedrock often answers "amazon" to "what company created you?" while
-  // still correctly identifying as "claude" on the model-name probe;
-  // similarly for Google Vertex AI hosting Claude. Those are routing
-  // hosts, not fake models. Only flag as foreign when the model-name
-  // probe itself says it's a foreign model (e.g. "i'm gemini", "i'm
-  // amazon q") — that's an actual model substitution.
+  // Hard-foreign only when model-name probe ALSO claims a foreign identity. Bedrock-hosted Claude says "amazon" on identity but "claude" on model-name.
   const r4ModelName = results.find((r) => r.label === "model-name");
   const modelNameSaysClaude = r4ModelName?.pass === true;
   const foreignOnModelName = results.some(
@@ -654,12 +579,7 @@ export async function testAnthropicAuthenticity(opts: {
     return false;
   }
 
-  // Pass with 3/4 probes when no positive signal triggered. The 4th probe
-  // is allowed to be blank/short/transient-error without dooming the
-  // channel — real upstreams occasionally return short responses or hit a
-  // transient timeout, and one such hiccup shouldn't blacklist them
-  // permanently. Positive signals (foreign-identity, scam, coding-tool)
-  // are still hard failures and are caught above.
+  // 3/4 pass tolerated — one transient blank/short response shouldn't blacklist permanently.
   const passed = results.filter((r) => r.pass).length;
   const failed = results.filter((r) => !r.pass);
   const passing = passed >= 3;
@@ -681,10 +601,7 @@ export async function testAnthropicAuthenticity(opts: {
       if (blankCount === failed.length) {
         reason = `blank-response: ${failedLabels}`;
       } else if (muxCount > 0) {
-        // Even one mux probe contributing to a sub-3/4 pass count is enough
-        // to flag unsafe-proxy: the proxy demonstrably wrong-paired at least
-        // one response. Prefer this over generic `failed:` so the operator
-        // can tell upstream-defect from real model substitution at a glance.
+        // Even one mux probe is enough to distinguish upstream defect from model substitution.
         const muxFailedLabels = failed
           .filter((r) => r.muxFailure)
           .map((r) => r.label)

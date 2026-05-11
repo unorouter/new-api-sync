@@ -36,18 +36,17 @@ export async function probeOneModel(opts: {
   tokens: ProbeTokenManager;
   pricing: UpstreamPricing;
   fixtures: Fixtures;
-  /** Cross-model 403-dead-group cache; share + persist across the provider's models. */
+  /** Provider-scoped: 403-dead groups shared across models. */
   deadGroups: Set<string>;
-  /** Async-billing classification state (provider-scoped). Read every step, set once on first passing probe. */
+  /** Provider-scoped: set once on first passing probe. */
   asyncBillingState: {
     get: () => "unknown" | boolean;
     set: (v: boolean) => void;
   };
-  /** Persist partial result after every channel attempt (crash-resume). */
+  /** Crash-resume persistence. */
   onProgress?: (partial: ModelResult) => void;
-  /** Balance bracket per (group × shape); null when upstream exposes no quota. */
+  /** null = no quota exposed. */
   fetchBalance?: () => Promise<number | null>;
-  /** Emitted per step so the orchestrator can log running total + balance movement. */
   onStepCost?: (info: {
     channelName: string;
     probeShape: ProbeShape;
@@ -82,8 +81,6 @@ export async function probeOneModel(opts: {
     };
   }
 
-  // One (shape, path) per declared endpoint type via pricing.endpointPaths;
-  // multi-endpoint models get one attempt per pair. Errors don't bill.
   const stepsToTry = probeStepsFor({
     endpointTypes: candidate.endpointTypes,
     primary: candidate.kind,
@@ -123,7 +120,6 @@ export async function probeOneModel(opts: {
           ])
       : undefined;
 
-    // Stop the (group, shape) inner loop on first PASS.
     let channelPassed: ChannelResult | undefined;
     for (const step of stepsToTry) {
       const probeShape = step.shape;
@@ -138,7 +134,7 @@ export async function probeOneModel(opts: {
       const balanceBefore = fetchBalanceTimed
         ? await fetchBalanceTimed()
         : null;
-      // 429 retry (3 attempts, 5/10/20s). Non-429 errors pass through to avoid double-billing real refusals.
+      // 429 retry only; non-429 passes through to avoid double-billing refusals.
       let attempt = await runProbeShape(probeShape, mkArgs(fixtures));
       let retriedRateLimit = 0;
       while (attempt.errorClass === "ratelimit" && retriedRateLimit < 3) {
@@ -150,8 +146,7 @@ export async function probeOneModel(opts: {
         attempt = await runProbeShape(probeShape, mkArgs(fixtures));
         retriedRateLimit++;
       }
-      // Image-count downshift (e.g. "supports 0~3 image content items. Got 6").
-      // One retry only — if the trimmed payload also fails, that's the verdict.
+      // Image-count downshift: one retry with trimmed fixtures.
       if (attempt.status === "fail") {
         const bodyText =
           attempt.exchange.response == null
@@ -174,9 +169,7 @@ export async function probeOneModel(opts: {
           );
         }
       }
-      // Async-billing settle: yun-style providers debit ~20s after response.
-      // unknown -> probe 20s, classify provider; true -> full 60s settle;
-      // false -> skip (immediate read is truth). Failures don't trigger settle.
+      // Async-billing settle (yun debits ~20s after): unknown→20s autodetect, true→60s, false→skip.
       let balanceAfter = fetchBalanceTimed ? await fetchBalanceTimed() : null;
       let stepDelta =
         balanceBefore !== null && balanceAfter !== null
@@ -230,8 +223,7 @@ export async function probeOneModel(opts: {
         redacted,
       );
 
-      // Save image bytes (run for fail too — heuristic might miss an image).
-      // Pass the original (non-redacted) response so data: URIs survive intact.
+      // Save bytes for fail too (heuristic might miss). Non-redacted response: data: URIs survive.
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
       const savedImages = await saveResponseImages({
         response: attempt.exchange.response,
@@ -273,7 +265,7 @@ export async function probeOneModel(opts: {
         break;
       }
       failed.push(cr);
-      // 403 here will hit every remaining model on this group — mark dead.
+      // 403 hits every remaining model on this group.
       if (attempt.errorClass === "auth") {
         deadGroups.add(channelName);
         consola.warn(
@@ -288,7 +280,6 @@ export async function probeOneModel(opts: {
         });
         break;
       }
-      // Persist after every shape attempt so a crash keeps prior work.
       onProgress?.({
         provider: provider.name,
         model: candidate.modelName,
@@ -311,10 +302,7 @@ export async function probeOneModel(opts: {
         model: candidate.modelName,
         kind: candidate.kind,
         workingChannelName: channelName,
-        // Inline the winning channel's full exchange so the master file
-        // carries request/response/headers/status/latency without having
-        // to open the per-attempt artifact json. Mirrors what we already
-        // store in failedChannels[] for failed attempts.
+        // Inline so master file stands alone (mirrors failedChannels[]).
         workingChannel: channelPassed,
         failedChannels: failed,
         decidedAt: new Date().toISOString(),
@@ -323,9 +311,7 @@ export async function probeOneModel(opts: {
       return decided;
     }
 
-    // Gateway-broken model abort: gateway routing is global, not per-group.
-    // One body-translator signature ("contents is required" etc.) means every
-    // other group will hit the same error — skip remaining groups.
+    // Gateway routing is global; one body-translator signature = skip remaining groups.
     const channelAttempts = failed.slice(-stepsToTry.length);
     if (channelAttempts.some((a) => isGatewayBrokenSignature(a))) {
       consola.warn(
@@ -386,7 +372,7 @@ function runProbeShape(
     userId: number;
     model: string;
     fixtures: Fixtures;
-    /** Provider-declared URL override (Replicate, Tencent VOD, etc); undefined → probe default. */
+    /** Override (Replicate, Tencent VOD); undefined → probe default. */
     path?: string;
   },
 ): Promise<ProbeAttempt> {

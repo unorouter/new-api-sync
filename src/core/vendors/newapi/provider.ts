@@ -40,6 +40,10 @@ import type { ProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { colorize } from "consola/utils";
+import {
+  buildCapabilityMap,
+  lowercaseExposed,
+} from "../shared/capability-map";
 import { partitionByVendor } from "../shared/partition";
 import { NewApiClient } from "./client";
 import { probeChannelType } from "./probe-channel-type";
@@ -48,103 +52,31 @@ function filterGroupModels(
   models: string[],
   config: RuntimeConfig,
   providerConfig: ProviderConfig,
-  groupName: string,
 ): string[] {
-  let result = models.filter(
-    (m) => !matchesBlacklist(m, config.blacklist, providerConfig.name),
-  );
-
+  let result = models.filter((m) => !matchesBlacklist(m, config.blacklist, providerConfig.name));
   if (providerConfig.enabledVendors?.length) {
-    const vendorSet = new Set(
-      providerConfig.enabledVendors.map((v) => v.toLowerCase()),
-    );
+    const vendorSet = new Set(providerConfig.enabledVendors.map((v) => v.toLowerCase()));
     result = result.filter((m) => {
       const vendor = inferVendorFromModelName(m);
       return vendor && vendorSet.has(vendor);
     });
   }
-
   const enabledGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
-  if (enabledGlobs?.length) {
-    result = result.filter((m) => matchesAnyPattern(m, enabledGlobs));
-  }
-
-  if (config.modelFilter?.length) {
-    result = result.filter((m) => matchesAnyPattern(m, config.modelFilter!));
-  }
-
-  void groupName;
+  if (enabledGlobs?.length) result = result.filter((m) => matchesAnyPattern(m, enabledGlobs));
+  if (config.modelFilter?.length) result = result.filter((m) => matchesAnyPattern(m, config.modelFilter!));
   return result;
 }
 
-/**
- * Build a per-test-model capability hint map (keyed by upstream name, since
- * that's what the test runner sees). For each model, resolve metadata from
- * the external pricing sources using the *exposed* name so model_mapping is
- * applied. Only `supportsTools` and `isReasoning` are forwarded; the runner
- * uses these to skip the tool-call sub-test for reasoning-only models.
- */
-function buildCapabilityMap(
-  upstreamModels: string[],
-  config: RuntimeConfig,
-  ctx: {
-    pricingSources: PricingSource[];
-    reverseMapping: Map<string, string>;
-  },
-): Map<string, ModelCapabilityHint> {
-  const map = new Map<string, ModelCapabilityHint>();
-  for (const upstream of upstreamModels) {
-    const exposed = (
-      config.modelMapping?.[upstream] ?? upstream
-    ).toLowerCase();
-    const md = resolveSourceMetadata(
-      exposed,
-      ctx.pricingSources,
-      ctx.reverseMapping,
-    );
-    if (md.supportsTools !== undefined || md.isReasoning !== undefined) {
-      map.set(upstream, {
-        supportsTools: md.supportsTools,
-        isReasoning: md.isReasoning,
-      });
-    }
-  }
-  return map;
-}
-
-/**
- * Sanity ceiling for the "all buckets above 1x → keep cheapest" rule.
- * If even the cheapest bucket charges more than this multiple of canonical,
- * we drop the model entirely instead of shipping at the inflated price.
- *
- * Catches upstreams that inflate `model_ratio` for thinking variants
- * (saw 30x for sonnet-thinking, 20x for opus-thinking in real data).
- * Real markups in production data top out around 2x; 3x is a comfortable
- * margin that catches the broken cases without false positives.
- */
+/** Sanity ceiling for "all buckets above 1x → keep cheapest"; caught real 20-30x thinking-variant markups. */
 const CHEAPEST_FALLBACK_MAX = 3;
 
-/**
- * Per-bucket pre-test decision keyed by `groupName|vendor|upstreamModelName`.
- * The planner builds this once for the whole provider before any HTTP tests
- * fire, then each (group, vendor) bucket consults it to filter its models.
- */
+/** keyed by `groupName|vendor|upstreamModelName`. Built once per provider, consumed per (group, vendor). */
 type GateDecisionMap = Map<string, "keep" | "drop">;
 
 const decisionKey = (group: string, vendor: string, upstream: string) =>
   `${group}|${vendor}|${upstream}`;
 
-/**
- * Soft-canonical for the planner gate when voting returned no majority but
- * at least one source matched. Used only for keep/drop decisions, never
- * written to UI. Falls back to the median ratio across all matched sources
- * (with one match, that's just the single hit). Returns undefined when no
- * source matched at all — gate then falls through to "keep all".
- *
- * Why median: with one source we trust it, with multiple disagreeing we
- * pick the dominant cluster's representative without being skewed by an
- * outlier promo or stale list price.
- */
+/** Gate-only median (never UI-canonical). Returns undefined → "keep all". */
 function softCanonical(vote: PricingVoteResult): number | undefined {
   const ratios = vote.candidates
     .map((c) => c.modelRatio)
@@ -155,27 +87,8 @@ function softCanonical(vote: PricingVoteResult): number | undefined {
 }
 
 /**
- * Build the per-(group, vendor, model) keep/drop decision map for a whole
- * newapi provider in one pass.
- *
- * Decision policy (per exposed model name across all of this provider's
- * (group, vendor) buckets):
- *
- *   1. Resolve a gate canonical: voted cluster first (>= 2 sources agree),
- *      else the median single-source ratio when only one source matched.
- *      Compute predicted charge for every bucket:
- *      charge = canonical * groupRatio * (1 + adjustment) * (upstreamRatio / canonical).
- *
- *   2. If any bucket has charge <= canonical → drop only the buckets above
- *      canonical, keep the at-or-below ones. This is the "normal" case.
- *
- *   3. If every bucket charges above canonical → keep ONLY the cheapest one.
- *      We have no choice but to sell above 1x; pick the least bad option.
- *      (User-visible price will show the actual upstream rate; new-api's
- *      "original price" still surfaces canonical for comparison.)
- *
- *   4. When no source matched at all → keep all buckets (we can't judge),
- *      let normal testing decide.
+ * Per-(group, vendor, exposed) keep/drop. charge = canonical * groupRatio * (1+adj) * (upstreamRatio/canonical).
+ * Any bucket ≤ canonical → drop above-canonical only. All above → keep cheapest. No source match → keep all.
  */
 function planPreTestDecisions(opts: {
   prepared: Array<{
@@ -189,8 +102,6 @@ function planPreTestDecisions(opts: {
   reverseMapping: Map<string, string>;
   localNormalizedEndpoints: Map<string, string[]>;
 }): GateDecisionMap {
-  // For each exposed model, collect candidate buckets with their predicted
-  // charge so the policy step can decide keep/drop globally.
   interface BucketCandidate {
     key: string;
     group: string;
@@ -201,29 +112,18 @@ function planPreTestDecisions(opts: {
     groupRatio: number;
     adjustment: number;
     vote: PricingVoteResult;
-    /** undefined when no canonical → keep automatically. */
+    /** Undefined → keep automatically. */
     charge?: number;
-    /** undefined when no canonical. */
     canonical?: number;
   }
   const byExposed = new Map<string, BucketCandidate[]>();
 
   for (const p of opts.prepared) {
-    const vendorBuckets = partitionByVendor(
-      p.candidateModels,
-      (m) => m,
-      "unknown",
-    );
+    const vendorBuckets = partitionByVendor(p.candidateModels, (m) => m, "unknown");
     for (const [vendor, vendorModels] of vendorBuckets) {
       for (const upstreamName of vendorModels) {
-        const exposed = (
-          opts.config.modelMapping?.[upstreamName] ?? upstreamName
-        ).toLowerCase();
-        const modelType = inferModelType(
-          exposed,
-          undefined,
-          opts.localNormalizedEndpoints,
-        );
+        const exposed = (opts.config.modelMapping?.[upstreamName] ?? upstreamName).toLowerCase();
+        const modelType = inferModelType(exposed, undefined, opts.localNormalizedEndpoints);
         const adjustment = resolvePriceAdjustment({
           adj: opts.providerConfig.priceAdjustment,
           model: exposed,
@@ -233,34 +133,13 @@ function planPreTestDecisions(opts: {
           modelMapping: opts.config.modelMapping,
         });
         const upstreamRatio = opts.upstreamPricing.get(upstreamName) ?? 1;
-        const vote = resolveCanonicalByVote(
-          exposed,
-          opts.pricingSources,
-          opts.reverseMapping,
-        );
-        // Voted canonical (>= 2 sources agree) is the strong signal. When
-        // voting yields no majority but at least one source matched, fall
-        // back to the median single-source ratio for gate decisions only.
-        // This catches models present in only one source — e.g.
-        // minimax-m2.7-highspeed which basellm carries at $0.6/M but the
-        // other 3 sources don't list at all. Without this, the planner
-        // can't gate aigc's $9.45/M bucket because vote.cluster is null.
-        // Never written to UI as canonical — resolveCanonicalRetail still
-        // requires a voted cluster.
+        const vote = resolveCanonicalByVote(exposed, opts.pricingSources, opts.reverseMapping);
+        // Vote cluster strong; softCanonical for single-source matches.
         const canonical = vote.cluster?.modelRatio ?? softCanonical(vote);
-        // Mirrors processStandardOffer's math:
-        //   writtenRatio = canonical (when present)
-        //   rescale      = upstreamRatio / writtenRatio
-        //   effective    = groupRatio * (1 + adjustment) * rescale
-        //   charge       = writtenRatio * effective
-        // When canonical is missing we leave charge undefined → "keep".
         let charge: number | undefined;
         if (canonical !== undefined && canonical > 0) {
-          const rescale = upstreamRatio / canonical;
-          const effective = p.group.ratio * (1 + adjustment) * rescale;
-          charge = canonical * effective;
+          charge = canonical * (p.group.ratio * (1 + adjustment) * (upstreamRatio / canonical));
         }
-
         const cand: BucketCandidate = {
           key: decisionKey(p.group.name, vendor, upstreamName),
           group: p.group.name,
@@ -287,14 +166,12 @@ function planPreTestDecisions(opts: {
   const decisions: GateDecisionMap = new Map();
 
   for (const [exposed, candidates] of byExposed) {
-    // Record the vote once per exposed model (deduped by recorder).
     const firstWithVote = candidates[0]!;
     recordPricingGate({
       exposed,
       vote: {
         candidates: firstWithVote.vote.candidates.map((c) => {
-          const inputUsdPerM =
-            c.modelRatio !== undefined ? c.modelRatio * 2 : undefined;
+          const inputUsdPerM = c.modelRatio !== undefined ? c.modelRatio * 2 : undefined;
           const outputUsdPerM =
             inputUsdPerM !== undefined && c.completionRatio !== undefined
               ? inputUsdPerM * c.completionRatio
@@ -305,10 +182,7 @@ function planPreTestDecisions(opts: {
           ? {
               ...firstWithVote.vote.cluster,
               inputUsdPerM: firstWithVote.vote.cluster.modelRatio * 2,
-              outputUsdPerM:
-                firstWithVote.vote.cluster.modelRatio *
-                2 *
-                firstWithVote.vote.cluster.completionRatio,
+              outputUsdPerM: firstWithVote.vote.cluster.modelRatio * 2 * firstWithVote.vote.cluster.completionRatio,
             }
           : null,
         decision: firstWithVote.vote.decision,
@@ -329,29 +203,23 @@ function planPreTestDecisions(opts: {
       continue;
     }
 
-    const canonical = candidates.find((c) => c.canonical !== undefined)!
-      .canonical!;
-    const atOrBelow = candidates.filter(
-      (c) => c.charge !== undefined && c.charge <= canonical,
-    );
+    const canonical = candidates.find((c) => c.canonical !== undefined)!.canonical!;
+    const atOrBelow = candidates.filter((c) => c.charge !== undefined && c.charge <= canonical);
 
     if (atOrBelow.length > 0) {
-      // Normal case: drop only above-canonical buckets.
       for (const c of candidates) {
         if (c.charge !== undefined && c.charge > canonical) {
           decisions.set(c.key, "drop");
-          consola.info(
-            t("CORE.PRICING.PRE_TEST_DROP", {
-              model: exposed,
-              provider: opts.providerConfig.name,
-              group: c.group,
-              vendor: c.vendor,
-              charge: c.charge.toFixed(3),
-              ceiling: canonical.toFixed(3),
-              members: c.vote.cluster?.members.join(",") ?? "",
-              upstream: c.upstreamRatio.toFixed(3),
-            }),
-          );
+          consola.info(t("CORE.PRICING.PRE_TEST_DROP", {
+            model: exposed,
+            provider: opts.providerConfig.name,
+            group: c.group,
+            vendor: c.vendor,
+            charge: c.charge.toFixed(3),
+            ceiling: canonical.toFixed(3),
+            members: c.vote.cluster?.members.join(",") ?? "",
+            upstream: c.upstreamRatio.toFixed(3),
+          }));
         } else {
           decisions.set(c.key, "keep");
         }
@@ -359,58 +227,42 @@ function planPreTestDecisions(opts: {
       continue;
     }
 
-    // All buckets charge above canonical → keep only the cheapest. We have
-    // no source at-or-below 1x, so selling above is the only option; pick
-    // the least bad and let new-api show the canonical strikethrough.
-    //
-    // Hard ceiling: even the cheapest must stay within CHEAPEST_FALLBACK_MAX
-    // of canonical, otherwise the upstream is almost certainly broken (e.g.
-    // thinking variants where upstream inflates model_ratio 20-30x to
-    // capture reasoning-output cost). We refuse to ship those — better no
-    // channel than a $90/M Sonnet channel.
-    const cheapest = candidates.reduce((min, c) =>
-      (c.charge ?? Infinity) < (min.charge ?? Infinity) ? c : min,
-    );
+    // All above canonical → cheapest only, subject to CHEAPEST_FALLBACK_MAX ceiling.
+    const cheapest = candidates.reduce((min, c) => (c.charge ?? Infinity) < (min.charge ?? Infinity) ? c : min);
     const maxCheapestRatio = cheapest.charge! / canonical;
     if (maxCheapestRatio > CHEAPEST_FALLBACK_MAX) {
-      consola.warn(
-        t("CORE.PRICING.ALL_BUCKETS_BROKEN", {
-          model: exposed,
-          provider: opts.providerConfig.name,
-          limit: CHEAPEST_FALLBACK_MAX,
-          cheapest: cheapest.charge!.toFixed(3),
-          canonical: canonical.toFixed(3),
-          ratio: maxCheapestRatio.toFixed(1),
-        }),
-      );
+      consola.warn(t("CORE.PRICING.ALL_BUCKETS_BROKEN", {
+        model: exposed,
+        provider: opts.providerConfig.name,
+        limit: CHEAPEST_FALLBACK_MAX,
+        cheapest: cheapest.charge!.toFixed(3),
+        canonical: canonical.toFixed(3),
+        ratio: maxCheapestRatio.toFixed(1),
+      }));
       for (const c of candidates) decisions.set(c.key, "drop");
       continue;
     }
-    consola.info(
-      t("CORE.PRICING.ALL_BUCKETS_ABOVE_KEEP_CHEAPEST", {
-        model: exposed,
-        provider: opts.providerConfig.name,
-        group: cheapest.group,
-        vendor: cheapest.vendor,
-        charge: cheapest.charge!.toFixed(3),
-        canonical: canonical.toFixed(3),
-      }),
-    );
+    consola.info(t("CORE.PRICING.ALL_BUCKETS_ABOVE_KEEP_CHEAPEST", {
+      model: exposed,
+      provider: opts.providerConfig.name,
+      group: cheapest.group,
+      vendor: cheapest.vendor,
+      charge: cheapest.charge!.toFixed(3),
+      canonical: canonical.toFixed(3),
+    }));
     for (const c of candidates) {
       if (c.key === cheapest.key) {
         decisions.set(c.key, "keep");
       } else {
         decisions.set(c.key, "drop");
-        consola.info(
-          t("CORE.PRICING.PRE_TEST_DROP_NOT_CHEAPEST", {
-            model: exposed,
-            provider: opts.providerConfig.name,
-            group: c.group,
-            vendor: c.vendor,
-            charge: c.charge!.toFixed(3),
-            cheapest: cheapest.charge!.toFixed(3),
-          }),
-        );
+        consola.info(t("CORE.PRICING.PRE_TEST_DROP_NOT_CHEAPEST", {
+          model: exposed,
+          provider: opts.providerConfig.name,
+          group: c.group,
+          vendor: c.vendor,
+          charge: c.charge!.toFixed(3),
+          cheapest: cheapest.charge!.toFixed(3),
+        }));
       }
     }
   }
@@ -452,9 +304,7 @@ export async function processNewApiProvider(
   };
   const offers: UpstreamOffer[] = [];
   const endpointPaths = new Map<string, EndpointPathInfo>();
-  // Per-upstream-name endpoint maps, scoped to this provider only. Compute and
-  // emit consume the per-OfferModel `endpoints` / `normalizedEndpoints` fields
-  // directly, but inferModelType still wants a Map<string,string[]>.
+  // inferModelType still expects Map<string,string[]>; offers/compute use the per-model fields.
   const localNormalizedEndpoints = new Map<string, string[]>();
 
   try {
@@ -477,48 +327,29 @@ export async function processNewApiProvider(
     let groups: GroupInfo[] = pricing.groups;
 
     if (providerConfig.enabledVendors?.length) {
-      const vendorSet = new Set(
-        providerConfig.enabledVendors.map((v) => v.toLowerCase()),
-      );
-      groups = groups.filter((g) =>
-        g.models.some((m) => {
-          const vendor = inferVendorFromModelName(m);
-          return vendor && vendorSet.has(vendor);
-        }),
-      );
+      const vendorSet = new Set(providerConfig.enabledVendors.map((v) => v.toLowerCase()));
+      groups = groups.filter((g) => g.models.some((m) => {
+        const vendor = inferVendorFromModelName(m);
+        return vendor && vendorSet.has(vendor);
+      }));
     }
 
     const enabledGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
     if (enabledGlobs?.length) {
-      groups = groups.filter((g) =>
-        g.models.some((m) => matchesAnyPattern(m, enabledGlobs)),
-      );
+      groups = groups.filter((g) => g.models.some((m) => matchesAnyPattern(m, enabledGlobs)));
     }
 
-    // Apply global blacklist to groups (by name or description). Text models
-    // matching the blacklist are removed; non-text models are unaffected.
+    // Global blacklist applies to text only.
     if (config.blacklist?.length) {
       for (const g of groups) {
-        const nameHit = matchesBlacklist(
-          g.name,
-          config.blacklist,
-          providerConfig.name,
-        );
-        const descHit = matchesBlacklist(
-          g.description,
-          config.blacklist,
-          providerConfig.name,
-        );
-        if (nameHit || descHit) {
-          g.models = g.models.filter((m) => inferModelType(m) !== "text");
-        }
+        const nameHit = matchesBlacklist(g.name, config.blacklist, providerConfig.name);
+        const descHit = matchesBlacklist(g.description, config.blacklist, providerConfig.name);
+        if (nameHit || descHit) g.models = g.models.filter((m) => inferModelType(m) !== "text");
       }
       groups = groups.filter((g) => g.models.length > 0);
     }
 
-    // Build a flat upstream-name → ratio map from the pricing payload so the
-    // pre-test gate can compute charge = writtenRatio * effective without
-    // iterating pricing.models on every model.
+    // upstream-name → ratio for the pre-test gate.
     const upstreamPricing = new Map<string, number>();
     for (const m of pricing.models) {
       if (typeof m.ratio === "number") upstreamPricing.set(m.name, m.ratio);
@@ -526,34 +357,22 @@ export async function processNewApiProvider(
 
     const tokenPrefix = config.target.targetPrefix ?? providerConfig.name;
     const partialSync = (config.modelFilter?.length ?? 0) > 0;
-    const tokenResult = await upstream.ensureTokens(groups, tokenPrefix, {
-      skipCleanup: partialSync,
-    });
+    const tokenResult = await upstream.ensureTokens(groups, tokenPrefix, { skipCleanup: partialSync });
     report.tokens = {
       created: tokenResult.created,
       existing: tokenResult.existing,
       deleted: tokenResult.deleted,
     };
 
-    // Track total provider-level cost (start - end balance). Per-model cost
-    // tracking has been removed in favor of total-only to unblock multi-
-    // threaded testing in the future.
     const startBalance = await upstream.fetchBalance();
     if (startBalance !== null) {
-      consola.info(
-        t("CORE.PROVIDER.BALANCE", {
-          name: providerConfig.name,
-          amount: startBalance.toFixed(4),
-        }),
-      );
+      consola.info(t("CORE.PROVIDER.BALANCE", { name: providerConfig.name, amount: startBalance.toFixed(4) }));
     }
 
     const groupsWithNoWorkingModels: string[] = [];
     const usedSanitizedNames = new Map<string, number>();
 
-    // Pre-pass: assign deterministic sanitized names per group (sequential
-    // because the disambiguator depends on group order). Filter out empty
-    // groups here too. Test work below runs in parallel.
+    // Sequential pre-pass (disambiguator depends on group order). Tests below run in parallel.
     type Prepared = {
       group: (typeof groups)[number];
       originalName: string;
@@ -567,30 +386,14 @@ export async function processNewApiProvider(
       let sanitizedName = sanitizeGroupName(originalName);
       const count = usedSanitizedNames.get(sanitizedName) ?? 0;
       usedSanitizedNames.set(sanitizedName, count + 1);
-      if (count > 0) {
-        sanitizedName = `${sanitizedName}-${count + 1}`;
-      }
-      const candidateModels = filterGroupModels(
-        group.models,
-        config,
-        providerConfig,
-        group.name,
-      );
+      if (count > 0) sanitizedName = `${sanitizedName}-${count + 1}`;
+      const candidateModels = filterGroupModels(group.models, config, providerConfig);
       if (candidateModels.length === 0) continue;
       const apiKey = tokenResult.tokens[group.name] ?? "";
-      prepared.push({
-        group,
-        originalName,
-        sanitizedName,
-        candidateModels,
-        apiKey,
-      });
+      prepared.push({ group, originalName, sanitizedName, candidateModels, apiKey });
     }
 
-    // Plan pre-test decisions globally across all (group, vendor) buckets
-    // *before* the parallel test loop. This lets the policy reason about
-    // every offering of a given model — needed for the "all above 1x → keep
-    // cheapest only" rule which can't be decided from a single bucket.
+    // Global pre-test decisions before the parallel loop (the "all above 1x → cheapest" rule needs cross-bucket vision).
     const gateDecisions = config.skipUnprofitableText
       ? planPreTestDecisions({
           prepared,
@@ -603,18 +406,11 @@ export async function processNewApiProvider(
         })
       : null;
 
-    // Fan out: every (group, vendor-bucket) becomes a parallel task. The
-    // shared concurrency gate (keyed on baseUrl) ensures we don't exceed
-    // perUpstreamConcurrency simultaneous requests against this newapi
-    // instance, so opening up the structural loop is safe.
+    // ConcurrencyGate (keyed on baseUrl) enforces perUpstreamConcurrency.
     const groupResults = await Promise.all(
       prepared.map(async (p) => {
         throwIfRunAborted();
-        const vendorBuckets = partitionByVendor(
-          p.candidateModels,
-          (m) => m,
-          "unknown",
-        );
+        const vendorBuckets = partitionByVendor(p.candidateModels, (m) => m, "unknown");
         const probeLabel = `${providerConfig.name}/${p.group.name}`;
 
         const bucketResults = await Promise.all(
@@ -629,45 +425,22 @@ export async function processNewApiProvider(
               logPrefix: probeLabel,
             });
             if (!probe) {
-              consola.warn(
-                t("CORE.PROVIDER.PROBE_FAILED_SKIP", {
-                  label: probeLabel,
-                  vendor,
-                  count: vendorModels.length,
-                }),
-              );
-              return {
-                tested: 0,
-                working: 0,
-                offer: null as null | UpstreamOffer,
-              };
+              consola.warn(t("CORE.PROVIDER.PROBE_FAILED_SKIP", {
+                label: probeLabel,
+                vendor,
+                count: vendorModels.length,
+              }));
+              return { tested: 0, working: 0, offer: null as null | UpstreamOffer };
             }
 
-            // Pre-test gate: filter using the precomputed cross-bucket
-            // decision map. The planner already logged the why and
-            // dedup-recorded the vote; here we just consult the map.
             const gatedModels = gateDecisions
-              ? vendorModels.filter(
-                  (m) =>
-                    gateDecisions.get(decisionKey(p.group.name, vendor, m)) !==
-                    "drop",
-                )
+              ? vendorModels.filter((m) => gateDecisions.get(decisionKey(p.group.name, vendor, m)) !== "drop")
               : vendorModels;
-
             if (gatedModels.length === 0) {
-              return {
-                tested: 0,
-                working: 0,
-                offer: null as null | UpstreamOffer,
-              };
+              return { tested: 0, working: 0, offer: null as null | UpstreamOffer };
             }
 
-            const capabilities = buildCapabilityMap(
-              gatedModels,
-              config,
-              ctx,
-            );
-
+            const capabilities = buildCapabilityMap(gatedModels, lowercaseExposed(config), ctx);
             const filterResult = await testAndFilterModels({
               allModels: gatedModels,
               baseUrl: providerConfig.baseUrl,
@@ -681,50 +454,33 @@ export async function processNewApiProvider(
 
             const workingUpstream = filterResult.workingModels;
             if (workingUpstream.length === 0) {
-              return {
-                tested: filterResult.testedCount,
-                working: 0,
-                offer: null,
-              };
+              return { tested: filterResult.testedCount, working: 0, offer: null };
             }
 
-            const offerModels: OfferModel[] = workingUpstream.map(
-              (upstreamName) => {
-                // Exposed names are always lowercase. Other providers reach
-                // this via `resolveBareNames` -> `toBareName` which already
-                // lowercases; newapi keeps the upstream's group/name model
-                // as-is, so we lowercase explicitly here. The original
-                // upstream casing is preserved on `upstream` for the
-                // channel's model_mapping (newapi expects e.g. CamelCase
-                // `MiniMax-M2.5` on outbound requests).
-                const exposed = (
-                  config.modelMapping?.[upstreamName] ?? upstreamName
-                ).toLowerCase();
-                const detail = filterResult.details?.find(
-                  (d) => d.model === upstreamName,
-                );
-                const normalized = localNormalizedEndpoints.get(upstreamName);
-                const mt = inferModelType(exposed, normalized);
-                const m = pricing.models.find((pm) => pm.name === upstreamName);
-                return {
-                  exposed,
-                  upstream: upstreamName,
-                  modelType: mt,
-                  upstreamRatio: m?.ratio,
-                  upstreamCompletionRatio: m?.completionRatio,
-                  cacheRatio: m?.cacheRatio,
-                  createCacheRatio: m?.createCacheRatio,
-                  modelPrice: m?.modelPrice,
-                  quotaType: m?.quotaType,
-                  endpoints: m?.supportedEndpoints,
-                  normalizedEndpoints: normalized,
-                  testDetail: detail,
-                };
-              },
-            );
+            const offerModels: OfferModel[] = workingUpstream.map((upstreamName) => {
+              // Lowercase exposed; upstream preserves casing (newapi expects CamelCase outbound).
+              const exposed = (config.modelMapping?.[upstreamName] ?? upstreamName).toLowerCase();
+              const detail = filterResult.details?.find((d) => d.model === upstreamName);
+              const normalized = localNormalizedEndpoints.get(upstreamName);
+              const mt = inferModelType(exposed, normalized);
+              const m = pricing.models.find((pm) => pm.name === upstreamName);
+              return {
+                exposed,
+                upstream: upstreamName,
+                modelType: mt,
+                upstreamRatio: m?.ratio,
+                upstreamCompletionRatio: m?.completionRatio,
+                cacheRatio: m?.cacheRatio,
+                createCacheRatio: m?.createCacheRatio,
+                modelPrice: m?.modelPrice,
+                quotaType: m?.quotaType,
+                endpoints: m?.supportedEndpoints,
+                normalizedEndpoints: normalized,
+                testDetail: detail,
+              };
+            });
 
-            // Deduplicate by exposed (model_mapping can collapse two
-            // upstreams into the same exposed; first occurrence wins).
+            // Dedup by exposed (model_mapping can collapse multiple upstreams; first wins).
             const seen = new Set<string>();
             const dedupedOfferModels: OfferModel[] = [];
             for (const om of offerModels) {
@@ -748,60 +504,35 @@ export async function processNewApiProvider(
               priceAdjustment: providerConfig.priceAdjustment,
               defaultAdjustment: 0,
             };
-            return {
-              tested: filterResult.testedCount,
-              working: workingUpstream.length,
-              offer,
-            };
+            return { tested: filterResult.testedCount, working: workingUpstream.length, offer };
           }),
         );
 
-        const groupTotalTested = bucketResults.reduce(
-          (a, b) => a + b.tested,
-          0,
-        );
-        const groupTotalWorking = bucketResults.reduce(
-          (a, b) => a + b.working,
-          0,
-        );
-        const groupOffers = bucketResults
-          .map((b) => b.offer)
-          .filter((o): o is UpstreamOffer => o !== null);
+        const groupTotalTested = bucketResults.reduce((a, b) => a + b.tested, 0);
+        const groupTotalWorking = bucketResults.reduce((a, b) => a + b.working, 0);
+        const groupOffers = bucketResults.map((b) => b.offer).filter((o): o is UpstreamOffer => o !== null);
 
         if (groupTotalTested > 0) {
-          consola.info(
-            t("CORE.PROVIDER.WORKING_ACROSS_VENDORS", {
-              provider: providerConfig.name,
-              group: p.group.name,
-              working: groupTotalWorking,
-              total: groupTotalTested,
-              vendors: vendorBuckets.size,
-            }),
-          );
+          consola.info(t("CORE.PROVIDER.WORKING_ACROSS_VENDORS", {
+            provider: providerConfig.name,
+            group: p.group.name,
+            working: groupTotalWorking,
+            total: groupTotalTested,
+            vendors: vendorBuckets.size,
+          }));
         }
 
-        return {
-          group: p.group,
-          offers: groupOffers,
-          hadAnyOffer: groupOffers.length > 0,
-        };
+        return { group: p.group, offers: groupOffers, hadAnyOffer: groupOffers.length > 0 };
       }),
     );
 
     for (const gr of groupResults) {
       offers.push(...gr.offers);
-      if (!gr.hadAnyOffer) {
-        groupsWithNoWorkingModels.push(gr.group.name);
-      }
+      if (!gr.hadAnyOffer) groupsWithNoWorkingModels.push(gr.group.name);
     }
 
     if (!config.isTestMode) {
-      await cleanupEmptyGroupTokens(
-        upstream,
-        groupsWithNoWorkingModels,
-        tokenPrefix,
-        report,
-      );
+      await cleanupEmptyGroupTokens(upstream, groupsWithNoWorkingModels, tokenPrefix, report);
     }
 
     if (startBalance !== null) {
@@ -809,18 +540,13 @@ export async function processNewApiProvider(
       if (finalBalance !== null) {
         const cost = startBalance - finalBalance;
         recordProviderCost(providerConfig.name, cost);
-        consola.info(
-          cost > 0
-            ? t("CORE.PROVIDER.BALANCE_WITH_COST", {
-                name: providerConfig.name,
-                amount: finalBalance.toFixed(4),
-                cost: colorize("yellow", `$${cost.toFixed(4)}`),
-              })
-            : t("CORE.PROVIDER.BALANCE", {
-                name: providerConfig.name,
-                amount: finalBalance.toFixed(4),
-              }),
-        );
+        consola.info(cost > 0
+          ? t("CORE.PROVIDER.BALANCE_WITH_COST", {
+              name: providerConfig.name,
+              amount: finalBalance.toFixed(4),
+              cost: colorize("yellow", `$${cost.toFixed(4)}`),
+            })
+          : t("CORE.PROVIDER.BALANCE", { name: providerConfig.name, amount: finalBalance.toFixed(4) }));
       }
     }
 

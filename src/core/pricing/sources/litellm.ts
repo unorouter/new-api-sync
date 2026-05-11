@@ -130,19 +130,13 @@ function toMetadata(entry: LiteLLMEntry): SourceMetadata {
   if (entry.mode) md.mode = entry.mode;
   if (entry.deprecation_date) md.deprecationDate = entry.deprecation_date;
 
-  // Reasoning effort granularity. LiteLLM publishes flags for the off-baseline
-  // levels (none, minimal, max, xhigh, low). When `low` is supported we infer
-  // the OpenAI baseline of {low, medium, high} since they're a single tier in
-  // OAI's API. Only emit the array when at least one effort level is known.
+  // `low` implies {low,medium,high} (OAI single-tier); xhigh→max for unified UI.
   const efforts: NonNullable<SourceMetadata["reasoningEfforts"]> = [];
   if (entry.supports_none_reasoning_effort) efforts.push("none");
   if (entry.supports_minimal_reasoning_effort) efforts.push("minimal");
-  if (entry.supports_low_reasoning_effort) {
-    efforts.push("low", "medium", "high");
-  }
+  if (entry.supports_low_reasoning_effort) efforts.push("low", "medium", "high");
   if (entry.supports_max_reasoning_effort) efforts.push("max");
   if (entry.supports_xhigh_reasoning_effort && !efforts.includes("max")) {
-    // xhigh is anthropic-flavored "extreme"; keep as max for the unified UI.
     efforts.push("max");
   }
   if (efforts.length > 0) {
@@ -155,7 +149,6 @@ function isLiteLLMEntry(v: unknown): v is LiteLLMEntry {
   return typeof v === "object" && v !== null;
 }
 
-/** Fetch + parse LiteLLM model price catalog. */
 export async function fetchLiteLLMSource(): Promise<PricingSource | null> {
   const raw = await tryFetchJson<LiteLLMResponse>(LITELLM_URL, {
     timeoutMs: 15_000,

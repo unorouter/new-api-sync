@@ -1,18 +1,7 @@
 import { matchesAnyPattern } from "@core/catalog/constants/patterns";
 import type { AnyProviderConfig } from "@core/validations/config";
 
-/**
- * Resolve the priceAdjustment value for a specific model.
- *
- * Lookup order (first match wins):
- * 1. Model name match (any key that glob-matches the model name)
- * 2. Vendor key (e.g. "anthropic", "openai")
- * 3. Model type key (e.g. "image", "video")
- * 4. "default" key
- *
- * When `modelMapping` is provided, both the mapped name and any original
- * (pre-mapping) name are checked against model-name keys.
- */
+/** First-match: glob → vendor → modelType → "default". With modelMapping, original (pre-mapping) names also checked. */
 export function resolvePriceAdjustment(opts: {
   adj: AnyProviderConfig["priceAdjustment"];
   model: string;
@@ -27,11 +16,9 @@ export function resolvePriceAdjustment(opts: {
   const adj = opts.adj;
   const keys = Object.keys(adj);
 
-  // 1. Try every key as a glob pattern against the model name
   const match = keys.find((k) => matchesAnyPattern(opts.model, [k]));
   if (match) return adj[match]!;
 
-  // Also check original (pre-mapping) names
   if (opts.modelMapping) {
     for (const [original, mapped] of Object.entries(opts.modelMapping)) {
       if (mapped === opts.model) {
@@ -41,14 +28,10 @@ export function resolvePriceAdjustment(opts: {
     }
   }
 
-  // 2. Vendor key
-  const vendorVal = adj[opts.vendor.toLowerCase()];
-  if (vendorVal !== undefined) return vendorVal;
-
-  // 3. Model type key
-  const typeVal = adj[opts.modelType];
-  if (typeVal !== undefined) return typeVal;
-
-  // 4. Default
-  return adj["default"] ?? opts.fallback;
+  return (
+    adj[opts.vendor.toLowerCase()] ??
+    adj[opts.modelType] ??
+    adj["default"] ??
+    opts.fallback
+  );
 }

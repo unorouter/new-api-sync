@@ -1,48 +1,12 @@
-// computePricedPlan: pure function. All pricing math lives here.
-//
-// Given a flat list of UpstreamOffer (across all providers) plus canonical
-// retail ratios, baseline channels/groups, and model mapping, produce a
-// PricedPlan: priced tiers ready to emit, the global model_ratios map, and
-// any per-(model, channel) drops.
-//
-// No I/O, no SyncState mutation. Ordering of offers in the input list does
-// not affect the output (other than which "cheapest" wins when offers tie
-// on a deterministic key).
-//
-// The math (single source of truth):
-//
-//   adjustment = resolvePriceAdjustment(offer.priceAdjustment, model, vendor, type, defaultAdjustment, modelMapping)
-//
-//   written_ratio = canonical[model] if canonical resolves
-//                   else cheapest upstream_ratio across offers serving model
-//                   else 1 (fallback for sub2api with no canonical)
-//
-//   For each (offer, model):
-//     if model.isFree:
-//         tier_group_ratio = 0; skip cap; skip rescale.
-//     elif model.modelPrice > 0 or model.quotaType >= 1:
-//         tier_group_ratio = offer.groupRatio * (1 + adjustment); written_ratio
-//         carries modelPrice/quotaType through unchanged.
-//     elif model.upstreamRatio is defined:
-//         rescale = model.upstreamRatio / written_ratio
-//         tier_group_ratio = offer.groupRatio * (1 + adjustment) * rescale
-//     else:  # sub2api
-//         tier_group_ratio = cheapest_existing_group_ratio_for(model) * (1 + adjustment)
-//
-//     # Cap (only if tier_group_ratio > 1)
-//     charge = written_ratio * tier_group_ratio
-//     ceiling = (canonical[model] ?? written_ratio) * cap
-//     if charge > ceiling: drop (model, offer)
-//
-// Paid OpenRouter offers (paidTier=true) bypass the per-model rescale: the
-// loop instead picks one shared group_ratio per (offer.provider, vendor)
-// from candidates [1, 0.5, 0.25, 0.1, 0.05, 0.01] such that every model
-// fits under cap. Models that don't fit at any candidate are dropped.
-//
-// Channel naming inside compute (so emit can stay dumb):
-//   sanitizedBase + "-" + vendor                (single tier, no override)
-//   sanitizedBase + "-" + vendor + "-tN"        (multiple tiers)
-//   sanitizedBase + "-" + vendor + "-tNa"       (multiple sub-tiers from task overrides)
+// Pricing math (pure):
+//   written_ratio = canonical[model] ?? cheapest upstreamRatio ?? 1
+//   isFree              → group_ratio = 0
+//   modelPrice / quota  → group_ratio = offer.groupRatio * (1+adj)
+//   upstreamRatio       → group_ratio = offer.groupRatio * (1+adj) * (upstream/written)
+//   sub2api (no upstream) → group_ratio = cheapest_existing * (1+adj)
+//   Cap (if > 1): drop when written * group_ratio > canonical * cap
+// Paid OpenRouter picks one ratio per (provider, vendor) from PAID_GROUP_RATIO_CANDIDATES.
+// Channel names: sanitizedBase-vendor[-tN][-tNa].
 
 import { getTaskModelOverride } from "@core/catalog/constants/channel-types";
 import {
@@ -59,11 +23,9 @@ import type { BaselineInputs, PricedDrop, PricedPlan, PricedTier } from "./types
 export interface ComputeArgs {
   offers: UpstreamOffer[];
   baseline: BaselineInputs;
-  /** Pre-resolved canonical retail ratios (LiteLLM > OpenRouter > basellm).
-   *  Keys are the exposed model names. */
+  /** Voted canonical retail ratios, keyed by exposed name. */
   canonical: Map<string, number>;
-  /** Pricing sources kept available to backfill completion / cache ratios
-   *  for canonical-overridden models. */
+  /** Used to backfill completion/cache for canonical-overridden models. */
   pricingSources: PricingSource[];
   reverseMapping: Map<string, string>;
   modelMapping: Record<string, string>;

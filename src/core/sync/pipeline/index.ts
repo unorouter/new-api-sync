@@ -26,18 +26,12 @@ import {
 import { buildOptionMaps } from "./option-maps";
 import { runAllProviders } from "./providers";
 
-// Pricing math (canonical override, rescale, cap drops, free clobber-skip,
-// OpenRouter paid bucketing, sub2api cheapest-existing lookup) lives
-// in src/core/pricing/compute.ts. The orchestration below collects offers
-// from each provider, resolves canonical retail ratios up front, then calls
-// computePricedPlan + emitChannels to produce the final state.
+// Math lives in pricing/compute.ts. Orchestration: collect offers, resolve canonical, compute+emit.
 export async function runProviderPipeline(
   config: RuntimeConfig,
   targetSnapshot?: TargetSnapshot,
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
-  // Initialise the shared concurrency gate. Per-upstream overrides are keyed
-  // by baseUrl so testModels / probe code can look them up without knowing
-  // the provider name.
+  // Per-upstream overrides keyed by baseUrl (probe code looks up sans provider name).
   const overrides = new Map<string, number>();
   for (const p of config.providers) {
     if ("baseUrl" in p && p.baseUrl && p.perUpstreamConcurrency) {
@@ -59,8 +53,7 @@ export async function runProviderPipeline(
     managedProviders,
   });
 
-  // Fetch metadata + pricing sources up front. Used for canonical retail
-  // resolution AND for description/tags enrichment in buildDesiredModels.
+  // Sources feed canonical + description/tags enrichment.
   const [basellmEntries, openRouterDescriptions] = await Promise.all([
     fetchBasellmEntries(),
     fetchOpenRouterDescriptions(),
@@ -83,7 +76,6 @@ export async function runProviderPipeline(
     reverseMapping,
   });
 
-  // Compute the priced plan and emit it as concrete state.
   const plan = computePricedPlan({
     offers: allOffers,
     baseline,
@@ -109,13 +101,7 @@ export async function runProviderPipeline(
   const mergedModels = emitted.mergedModels;
   const channels = emitted.channels;
 
-  // Append ComfyUI channels: hand-defined, no upstream discovery, no pricing
-  // pipeline. Each comfyui provider yields exactly one channel that carries
-  // the workflow_templates JSON the new-api adapter parses at request time.
-  // We also register the channel's group in mergedGroups so option-maps adds
-  // it to UserUsableGroups/AutoGroups/GroupRatio — without this, the comfyui
-  // models exist in the DB but the pricing UI filters them out (every model
-  // is gated by enable_groups intersecting the user's usable groups).
+  // ComfyUI: hand-defined; register group in mergedGroups so pricing UI shows it.
   for (const provider of config.providers) {
     if (provider.type !== "comfyui") continue;
     const result = buildComfyUiChannels(provider as ComfyUiProviderConfig);
@@ -137,14 +123,14 @@ export async function runProviderPipeline(
     }
   }
 
-  // Collect pricing grid data from all providers' enabledModels
   const allPricingGrids: Record<string, Record<string, string | number>[]> = {};
   for (const provider of config.providers) {
-    const grids = getPricingGridFromEnabledModels(provider.enabledModels);
-    Object.assign(allPricingGrids, grids);
+    Object.assign(
+      allPricingGrids,
+      getPricingGridFromEnabledModels(provider.enabledModels),
+    );
   }
 
-  // Collect per-model metadata overrides from all providers' enabledModels.
   const allMetadata: Record<string, Record<string, unknown>> = {};
   for (const provider of config.providers) {
     const metadata = getMetadataFromEnabledModels(provider.enabledModels);
@@ -158,10 +144,7 @@ export async function runProviderPipeline(
     allPricingGrids,
   );
 
-  // Push per-template ComfyUI prices into the ModelPrice option map. ComfyUI
-  // bypasses the pricing pipeline (no upstream catalog), so the operator
-  // declares per-call USD prices in config.yml under each template's `price`
-  // field. quotaType=1 marks them as per-request billing.
+  // ComfyUI per-template prices → ModelPrice (quotaType=1).
   for (const provider of config.providers) {
     if (provider.type !== "comfyui") continue;
     const cfg = provider as ComfyUiProviderConfig;
@@ -204,9 +187,7 @@ export async function runProviderPipeline(
       },
       managedProviders: new Set([
         ...config.providers.map((provider) => provider.name),
-        // During full syncs, also claim ownership of channels tagged by
-        // providers that were previously synced but are no longer in config,
-        // so their channels/models get cleaned up.
+        // Full sync: claim orphan-tag channels so they get cleaned up.
         ...(targetSnapshot && !config.onlyProviders
           ? targetSnapshot.channels.filter((ch) => ch.tag).map((ch) => ch.tag!)
           : []),

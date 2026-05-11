@@ -21,22 +21,7 @@ const TYPE_ORDER: Record<string, number> = {
   sub2api: 3,
 };
 
-/**
- * Run every provider in the config concurrently and aggregate their results.
- *
- * Providers are sorted by type before dispatch so the returned reports stay
- * in deterministic order regardless of completion order. Per-upstream
- * concurrency is bounded by the shared ConcurrencyGate (initialised by the
- * orchestrator), so opening up the structural Promise.all is safe.
- *
- * Returns:
- * - reports / offers — one per provider
- * - originalEndpointsByName / normalizedEndpointsByName — exposed AND
- *   upstream model names mapped to their endpoint hints (used by
- *   buildDesiredModels and collectResponsesApiModels)
- * - aggregatedEndpointPaths — endpoint type -> {path, method}, last-write
- *   wins on collision (matches pre-refactor behaviour)
- */
+/** Sorted by type for deterministic order; bounded by ConcurrencyGate. aggregatedEndpointPaths: last-write wins. */
 export async function runAllProviders(
   config: RuntimeConfig,
   ctx: {
@@ -50,10 +35,7 @@ export async function runAllProviders(
   normalizedEndpointsByName: Map<string, string[]>;
   aggregatedEndpointPaths: Map<string, { path: string; method: string }>;
 }> {
-  // ComfyUI providers don't go through pricing/emit — they synthesize a
-  // single channel directly in pipeline/index.ts. Filter them out here so
-  // the rest of the pricing pipeline stays focused on upstream-discovery
-  // providers.
+  // ComfyUI bypasses pricing/emit (synthesizes in pipeline/index.ts).
   const pricingProviders = config.providers.filter(
     (p) => p.type !== "comfyui",
   );

@@ -1,7 +1,4 @@
-// ============ Model Types ============
-
-// Browser-safe model-type constants. Kept in core/types.ts so the web bundle
-// doesn't transitively pull in micromatch (Node-only) through constants.ts.
+// Browser-safe: kept out of constants.ts so the web bundle skips micromatch.
 export const MODEL_TYPES = [
   "text",
   "image",
@@ -10,8 +7,6 @@ export const MODEL_TYPES = [
   "embedding",
 ] as const;
 export type ModelType = (typeof MODEL_TYPES)[number];
-
-// ============ Misc constants ============
 
 export const MANAGED_OPTION_KEYS = [
   "GroupRatio",
@@ -39,8 +34,6 @@ export const TIMEOUTS = {
   MODEL_TEST_MS: 20000,
 } as const;
 
-// ============ Upstream Pricing ============
-
 export interface GroupInfo {
   name: string;
   description: string;
@@ -55,8 +48,6 @@ export interface Vendor {
   icon?: string;
 }
 
-// ============ Reports ============
-
 export interface ProviderReport {
   name: string;
   success: boolean;
@@ -65,8 +56,6 @@ export interface ProviderReport {
   tokens: { created: number; existing: number; deleted: number };
   error?: string;
 }
-
-// ============ Channels & Models ============
 
 export interface Channel {
   id?: number;
@@ -84,10 +73,7 @@ export interface Channel {
   model_mapping?: string;
   setting?: string;
   workflow_templates?: string;
-  // 0 = log failures but stay enabled; 1 = auto-disable on failure (new-api default).
-  // Image/task channels should set 0 because cold starts and one-off NSFW filter
-  // trips look like failures and otherwise self-disable. Leave undefined to keep
-  // new-api's default behavior on existing rows.
+  /** 0 = log failures, stay enabled. Image/task channels set 0; new-api default is 1. */
   auto_ban?: number;
 }
 
@@ -98,8 +84,7 @@ export interface ModelMeta {
   endpoints?: string;
   description?: string;
   tags?: string;
-  /** Opaque JSON string of client hints (maxOutputTokens, isReasoning, ...).
-   *  Lives in new-api's models.metadata column and is surfaced by /api/pricing. */
+  /** Opaque JSON of client hints; lives in models.metadata. */
   metadata?: string;
   status?: number;
   sync_official?: number;
@@ -122,19 +107,14 @@ export type PricingSourceName =
 export interface MergedModel {
   ratio: number;
   completionRatio: number;
-  /** Fixed price per request (quota_type 1). Undefined means ratio-based. */
+  /** Fixed per-request price; undefined = ratio-based. */
   modelPrice?: number;
-  /** Image ratio multiplier for image generation tokens. */
   imageRatio?: number;
-  /** Custom billing type override (3=flat custom, 4=grid pricing). Only set for types >= 2. */
+  /** 3=flat custom, 4=grid (only set for types ≥ 2). */
   quotaType?: number;
-  /** Cache-read ratio (multiplier vs input ratio). */
   cacheRatio?: number;
-  /** Cache-write ratio (multiplier vs input ratio). */
   createCacheRatio?: number;
 }
-
-// ============ Sync Core Types ============
 
 export interface DesiredModelSpec {
   model_name: string;
@@ -145,12 +125,10 @@ export interface DesiredModelSpec {
   metadata?: string;
 }
 
-/** A single row in a pricing grid. All keys except "Pricing" become display columns. "Pricing" is the price value. */
+/** Pricing-grid row; all non-Pricing keys are display columns. */
 export type GridPricingRow = Record<string, string | number> & {
   Pricing: number;
 };
-
-/** Pricing grid: array of rows with arbitrary columns + required Pricing value. */
 export type GridPricingInfo = GridPricingRow[];
 
 export interface ManagedOptionMaps {
@@ -166,7 +144,7 @@ export interface ManagedOptionMaps {
   modelQuotaType: Record<string, number>;
   modelGridPricing: Record<string, GridPricingInfo>;
   defaultUseAutoGroup: boolean;
-  /** Models that require chat/completions → /v1/responses conversion */
+  /** chat/completions → /v1/responses targets. */
   responsesApiModels: string[];
 }
 

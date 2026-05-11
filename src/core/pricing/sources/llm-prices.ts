@@ -15,11 +15,9 @@ interface LlmPricesEntry {
   id: string;
   vendor: string;
   name: string;
-  /** USD per million input tokens. */
+  /** USD/M tokens. */
   input: number;
-  /** USD per million output tokens. */
   output: number;
-  /** USD per million cached input tokens, or null. */
   input_cached: number | null;
 }
 
@@ -33,7 +31,7 @@ function toPricing(
   entry: LlmPricesEntry,
 ): BaseModelPricing | undefined {
   if (entry.input == null || entry.input <= 0) return undefined;
-  // simonw stores USD per *million* tokens directly. new-api ratio = USD/M ÷ 2.
+  // USD/M ÷ 2 = new-api ratio.
   const modelRatio = entry.input / 2;
   const completionRatio =
     entry.output != null && entry.output > 0 ? entry.output / entry.input : 1;
@@ -50,18 +48,10 @@ function toPricing(
 }
 
 function toMetadata(_entry: LlmPricesEntry): SourceMetadata {
-  // simonw/llm-prices is pricing-only; no capability flags or context windows.
-  return {};
+  return {}; // pricing-only
 }
 
-/**
- * Fetch + parse simonw/llm-prices catalog.
- *
- * This source is the only one that consistently carries *undiscounted* list
- * prices for promo'd models like DeepSeek V4 Pro. Used as the highest-priority
- * source in the canonical-by-vote resolver so the pre-test cap gate compares
- * upstream ratios against real list price, not promo'd OpenRouter values.
- */
+/** Undiscounted list prices (promos elsewhere distort); highest-priority canonical source. */
 export async function fetchLlmPricesSource(): Promise<PricingSource | null> {
   const raw = await tryFetchJson<LlmPricesResponse>(LLM_PRICES_URL, {
     timeoutMs: 15_000,
@@ -71,9 +61,7 @@ export async function fetchLlmPricesSource(): Promise<PricingSource | null> {
     return null;
   }
 
-  // simonw uses bare ids ("deepseek-v4-pro", "claude-sonnet-4.5") with vendor
-  // as a separate field. Index by both bare id and vendor/id (matches the
-  // dual-key convention in build.ts).
+  // bare ids; build.ts dual-keys by id and vendor/id.
   const validEntries: [string, LlmPricesEntry][] = [];
   for (const entry of raw.prices) {
     if (!entry.id) continue;

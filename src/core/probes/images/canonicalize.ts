@@ -1,21 +1,16 @@
 /**
- * Slug-collapse for cross-variant dedup within one provider. Conservative:
- * only suffixes that address the SAME upstream backend get stripped. Tiered
- * suffixes (-all, -vip, -c, -codex, -pro, -mini, ...) stay — they hit
- * different code paths and deserve independent probe results.
- *
- *   recraftv3                            -> recraft-v3
- *   recraft-ai/recraft-v3                -> recraft-v3
- *   ideogram_generate_V_3_QUALITY        -> ideogram-v3-quality
- *   fal-ai/luma-dream-machine/ray-2      -> luma-ray-2
- *   gpt-image-2-2026-04-21               -> gpt-image-2
- *   wan2.6-r2v-flash_1080P_true          -> wan2.6-r2v-flash
- *   Pro/black-forest-labs/FLUX.1-schnell -> flux-schnell
+ * Slug-collapse within one provider. Tiered suffixes (-all, -vip, -c, -codex,
+ * -pro, -mini) stay — different code paths deserve independent results.
+ *   recraftv3                            → recraft-v3
+ *   ideogram_generate_V_3_QUALITY        → ideogram-v3-quality
+ *   fal-ai/luma-dream-machine/ray-2      → luma-ray-2
+ *   gpt-image-2-2026-04-21               → gpt-image-2
+ *   Pro/black-forest-labs/FLUX.1-schnell → flux-schnell
  */
 export function canonicalize(rawName: string): string {
   let s = rawName.toLowerCase().trim();
 
-  // Org/vendor prefixes that namespace the same upstream.
+  // Org prefixes that namespace the same upstream.
   s = s.replace(/^pro\//, "");
   s = s.replace(/^fal-ai\//, "");
   s = s.replace(/^recraft-ai\//, "");
@@ -32,7 +27,7 @@ export function canonicalize(rawName: string): string {
   s = s.replace(/^minimaxai\//, "");
   s = s.replace(/^pruna\//, "");
 
-  // fal-ai paths are <vendor>/<model>/<task>; trailing task is just submission mode.
+  // fal-ai: drop trailing task (submission mode, not identity).
   s = s.replace(
     /\/(text-to-image|image-to-image|image-to-video|text-to-video|reference-to-video|image-to-3d)$/i,
     "",
@@ -40,10 +35,10 @@ export function canonicalize(rawName: string): string {
 
   s = s.replace(/[\/_]/g, "-");
 
-  // Drop duplicated vendor prefix (recraft-ai-recraft-v3 -> recraft-v3).
+  // recraft-ai-recraft-v3 → recraft-v3
   s = s.replace(/^([a-z]+)-ai-\1-/, "$1-");
 
-  // Ideogram: collapse verb tokens (generate/remix/edit/...) and -v-N- -> -vN-.
+  // Ideogram: collapse verb tokens + -v-N- → -vN-.
   if (s.startsWith("ideogram-")) {
     s = s
       .replace(
@@ -54,16 +49,14 @@ export function canonicalize(rawName: string): string {
       .replace(/-+/g, "-");
   }
 
-  // recraftv3 -> recraft-v3
+  // recraftv3 → recraft-v3
   s = s.replace(/^([a-z]+)(v\d+(?:\.\d+)?)/, "$1-$2");
 
-  // Date stamps anywhere.
   s = s.replace(/-\d{4}-\d{2}-\d{2}\b/g, "");
   s = s.replace(/-\d{8}\b/g, "");
   s = s.replace(/-\d{6}\b/g, "");
 
-  // Cosmetic suffixes — strip iteratively (e.g. -1080p-true is two passes).
-  // Whitelist only; tiered suffixes deliberately stay.
+  // Iterative — -1080p-true takes two passes. Whitelist only; tiered suffixes stay.
   const COSMETIC_SUFFIX = /-preview$/g;
   const DIM_RES = [
     /-(\d+)p-?(true|false)?$/g,
@@ -85,17 +78,16 @@ export function canonicalize(rawName: string): string {
     for (const re of DIM_RES) s = s.replace(re, "");
   }
 
-  // Version separator: `3-5` -> `3.5`; `flux.1` -> `flux-1` at word start.
+  // 3-5 ↔ 3.5; flux.1 ↔ flux-1.
   s = s.replace(/(\d)-(\d)(?=-|$)/g, "$1.$2");
   s = s.replace(/^([a-z]+)\.(\d)/, "$1-$2");
 
-  // luma-dream-machine-* collapses to luma-*.
   s = s.replace(/^luma-dream-machine-/, "luma-");
 
   return s.replace(/-+/g, "-").replace(/^-|-$/g, "");
 }
 
-/** Shortest name wins (kills date-stamped / -all / -vip variants when the bare name is also present). */
+/** Shortest name wins. */
 export function pickRepresentative<T extends { modelName: string }>(
   entries: T[],
 ): T {

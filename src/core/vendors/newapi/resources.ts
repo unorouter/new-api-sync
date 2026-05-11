@@ -6,23 +6,14 @@ import { consola } from "consola";
 import type { ClientContext } from "./context";
 import type { ApiResponse } from "./types";
 
-// Pagination loops over flaky upstreams need higher tolerance than one-shot
-// requests. Default ofetch retry is 1; a single missed page truncates the
-// result, which then makes the diff phase delete live entities as "stale".
+/** Paginated retries — missed page → diff phase deletes live entities as stale. */
 const PAGINATED_FETCH_OPTS = {
   timeoutMs: 15_000,
   retry: 2,
   retryDelayMs: 2000,
 } as const;
 
-/**
- * Module-scoped buffer of the most recent upstream error per (operation, key).
- * Resource functions write into it on failure; apply.ts drains it when
- * recording an `ApplyError` so the upstream's actual reason ("channel cannot
- * be empty", "name already exists", "key invalid") survives instead of being
- * collapsed into the generic "FAIL_CREATE" i18n string. Dump separately so
- * `writeApplyErrors()` can serialize the trail to logs/{ts}-apply-errors.json.
- */
+/** Module-scoped buffer; drained by apply.ts to enrich generic ApplyErrors with the upstream's actual reason. */
 export interface UpstreamErrorEntry {
   op: "createChannel" | "updateChannel" | "deleteChannel" | "createModel" | "updateModel" | "deleteModel" | "createVendor" | "updateVendor";
   key: string;
@@ -40,10 +31,7 @@ export function drainUpstreamErrors(): UpstreamErrorEntry[] {
   upstreamErrors.length = 0;
   return out;
 }
-/** Read-only lookup by key. apply.ts uses this to enrich generic ApplyErrors
- *  with the upstream's real message without removing the entry from the
- *  buffer (the buffer is later drained by writeApplyErrorsLog).
- *  Returns the LAST entry for the key, since a retry could record twice. */
+/** Returns the LAST entry for the key (retries may record twice). */
 export function peekUpstreamError(key: string): UpstreamErrorEntry | undefined {
   for (let i = upstreamErrors.length - 1; i >= 0; i--) {
     if (upstreamErrors[i]!.key === key) return upstreamErrors[i];
@@ -51,9 +39,7 @@ export function peekUpstreamError(key: string): UpstreamErrorEntry | undefined {
   return undefined;
 }
 
-// ---------------------------------------------------------------------------
-// Channel CRUD
-// ---------------------------------------------------------------------------
+// ─── Channel CRUD ──────────────────────────────────────────────────────────
 
 export async function listChannels(ctx: ClientContext): Promise<Channel[]> {
   const all: Channel[] = [];
@@ -159,9 +145,7 @@ export async function deleteChannel(
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// Model CRUD
-// ---------------------------------------------------------------------------
+// ─── Model CRUD ────────────────────────────────────────────────────────────
 
 export async function listModels(ctx: ClientContext): Promise<ModelMeta[]> {
   const endpoints = [
@@ -265,9 +249,7 @@ export async function deleteModel(
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// Vendor CRUD
-// ---------------------------------------------------------------------------
+// ─── Vendor CRUD ───────────────────────────────────────────────────────────
 
 export async function listVendors(ctx: ClientContext): Promise<Vendor[]> {
   const all: Vendor[] = [];
@@ -328,9 +310,7 @@ export async function updateVendor(
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// Cleanup
-// ---------------------------------------------------------------------------
+// ─── Cleanup ───────────────────────────────────────────────────────────────
 
 export async function cleanupOrphanedModels(
   ctx: ClientContext,

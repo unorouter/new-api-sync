@@ -8,7 +8,7 @@ const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
 const BASELLM_MODELS_URL =
   "https://basellm.github.io/llm-metadata/api/newapi/models.json";
 
-// Template description pattern from basellm (auto-generated, not useful)
+/** Auto-generated basellm description, not useful. */
 const TEMPLATE_DESCRIPTION_RE = /^.+ is an AI model provided by .+\.$/;
 
 function stripMarkdown(text: string): string {
@@ -17,17 +17,16 @@ function stripMarkdown(text: string): string {
     .trim();
 }
 
-// ---- Raw API response types ----
-
 interface OpenRouterModel {
-  id: string; // "anthropic/claude-opus-4.5"
+  id: string;
   description: string;
 }
 
 export interface BasellmEntry {
   model_name: string;
   description?: string;
-  tags?: string; // "Reasoning,Tools,Files,Vision,128K"
+  /** "Reasoning,Tools,Files,Vision,128K" */
+  tags?: string;
   ratio_model: number;
   ratio_completion: number;
   ratio_cache?: number;
@@ -48,9 +47,9 @@ export interface ModelMetadata {
   tags?: string;
 }
 
-// ---- Fetchers ----
+// ─── Fetchers ────────────────────────────────────────────────────────────
 
-/** Fetch OpenRouter models and return a map of bare model name → description. */
+/** bare model name → description. */
 export async function fetchOpenRouterDescriptions(): Promise<
   Map<string, string>
 > {
@@ -75,7 +74,7 @@ export async function fetchOpenRouterDescriptions(): Promise<
   return map;
 }
 
-/** Fetch basellm model entries (reused for both ratios and metadata). */
+/** Reused for both ratios and metadata. */
 export async function fetchBasellmEntries(): Promise<BasellmEntry[]> {
   const raw = await tryFetchJson<BasellmResponse>(BASELLM_MODELS_URL, {
     timeoutMs: 15_000,
@@ -90,7 +89,7 @@ export async function fetchBasellmEntries(): Promise<BasellmEntry[]> {
   return entries;
 }
 
-// ---- Fuzzy matching ----
+// ─── Fuzzy matching ──────────────────────────────────────────────────────
 
 const STRIPPABLE_SUFFIXES = [
   "-latest",
@@ -105,20 +104,7 @@ const STRIPPABLE_SUFFIXES = [
   "-experimental",
 ];
 
-/**
- * Suffixes that denote a *different priced tier* of the same model family
- * (faster routing, larger context, paid version, etc.). These MUST NOT be
- * collapsed when fuzzy-matching: the highspeed/fast/pro/air/flash variant
- * has its own price separate from the bare model.
- *
- * Concrete bug this prevents: looking up `minimax-m2.5-highspeed` against
- * an index that only has `minimax-m2.5` used to fuzzy-match at score 0.84
- * (above the 0.75 threshold) via the token-shrink fallback, returning the
- * bare model's half-price ratio for a tier that costs twice as much.
- *
- * If the query has one of these and the candidate doesn't (or vice versa),
- * the match is rejected even if scores otherwise pass.
- */
+/** Different-priced tiers — never collapse (would fuzzy-match parents at 0.84). */
 const TIER_SUFFIXES = [
   "-highspeed",
   "-fast",
@@ -149,11 +135,6 @@ const DATE_SUFFIX_PATTERNS = [
   /-\d{4}-\d{2}$/, // -2025-03
 ];
 
-/**
- * Return the tier suffix on a normalized name, or null. Compares against
- * the normalized form (lowercased, dotted versions dashed, etc.) so the
- * matcher catches both `MiniMax-M2.5-highspeed` and `minimax-m-2-5-highspeed`.
- */
 function getTierSuffix(normalized: string): string | null {
   for (const s of TIER_SUFFIXES) {
     if (normalized.endsWith(s)) return s;
@@ -161,11 +142,6 @@ function getTierSuffix(normalized: string): string | null {
   return null;
 }
 
-/**
- * True when one name has a tier suffix and the other doesn't, OR when both
- * have tier suffixes but they differ. This is the "would the resolver land
- * on a wrong-priced row" check.
- */
 function tierSuffixMismatch(a: string, b: string): boolean {
   const sa = getTierSuffix(a);
   const sb = getTierSuffix(b);
@@ -173,14 +149,7 @@ function tierSuffixMismatch(a: string, b: string): boolean {
   return sa !== sb;
 }
 
-/**
- * Normalize a model name for matching:
- * - lowercase
- * - insert dash at letter-digit boundaries (qwen2 -> qwen-2)
- * - version dots to dashes (2.5 -> 2-5)
- * - strip all date suffix formats
- * - collapse multiple dashes
- */
+/** Lowercase, qwen2→qwen-2, 2.5→2-5, strip dates, collapse dashes. */
 function normalize(name: string): string {
   return name
     .toLowerCase()
@@ -260,13 +229,7 @@ export function buildFuzzyIndex<T>(candidates: Map<string, T>): FuzzyIndex<T> {
   return { candidates, normalized };
 }
 
-/**
- * Find the best matching candidate for a model name.
- * Chain: normalized exact -> stripped query -> stripped candidates -> prefix containment.
- * All non-exact matches verified with similarity >= threshold AND must have
- * matching tier suffix (so `minimax-m2.5-highspeed` never matches the bare
- * `minimax-m2.5` — different price, different identity).
- */
+/** Chain: normalized exact → stripped query → stripped candidates → prefix. Non-exact matches must pass threshold AND tier-suffix check. */
 function fuzzyLookup<T>(
   name: string,
   index: FuzzyIndex<T>,
@@ -282,20 +245,16 @@ function fuzzyLookup<T>(
     return { key: k, value: v };
   };
 
-  // Normalized exact match — exact equality short-circuits the tier check
-  // (can't mismatch with itself).
+  // Exact normalized match short-circuits the tier check.
   const exact = index.normalized.get(norm);
   if (exact) {
     const r = resolve(exact);
     if (r) return { ...r, score: 1.0 };
   }
 
-  // Reject any non-exact match where the tier suffix differs between query
-  // and candidate. Centralizes the check so each fallback branch can call it.
   const tierOk = (candidateKey: string): boolean =>
     !tierSuffixMismatch(norm, normalize(candidateKey));
 
-  // Stripped variants of query
   for (const variant of strippedVariants(norm)) {
     const hit = index.normalized.get(variant);
     if (hit) {
@@ -307,7 +266,6 @@ function fuzzyLookup<T>(
     }
   }
 
-  // Stripped variants of candidates
   let best: { key: string; value: T; score: number } | undefined;
   for (const [cNorm, originalKeys] of index.normalized) {
     for (const variant of strippedVariants(cNorm)) {
@@ -325,7 +283,6 @@ function fuzzyLookup<T>(
   }
   if (best) return best;
 
-  // Prefix containment
   for (const [cNorm, originalKeys] of index.normalized) {
     if (cNorm.startsWith(norm + "-") || norm.startsWith(cNorm + "-")) {
       const r = resolve(originalKeys);
@@ -341,10 +298,7 @@ function fuzzyLookup<T>(
   return best;
 }
 
-/**
- * Lookup a value from a fuzzy index, trying the model name and optionally
- * the original (reverse-mapped) name.
- */
+/** Tries the model name first, then the reverse-mapped original. */
 export function lookup<T>(
   modelName: string,
   index: FuzzyIndex<T>,
@@ -357,13 +311,8 @@ export function lookup<T>(
   return undefined;
 }
 
-// ---- Main builder ----
-
-/**
- * Build a unified metadata map for all desired models.
- * - Description: OpenRouter preferred, basellm fallback (if not template)
- * - Tags: basellm only
- */
+// ─── Main builder ────────────────────────────────────────────────────────
+// Description: OpenRouter preferred, basellm fallback (skip template). Tags: basellm only.
 export function buildMetadataMap(opts: {
   modelNames: Iterable<string>;
   basellmEntries: BasellmEntry[];
@@ -407,7 +356,6 @@ export function buildMetadataMap(opts: {
 
   const reverseMapping = buildReverseMapping(modelMapping);
 
-  // Build fuzzy indices once
   const orIndex = buildFuzzyIndex(openRouterDescriptions);
   const blmIndex = buildFuzzyIndex(basellmMap);
 
@@ -420,7 +368,6 @@ export function buildMetadataMap(opts: {
   for (const modelName of modelNames) {
     const meta: ModelMetadata = {};
 
-    // Description: OpenRouter first, basellm fallback
     const orResult = lookup(modelName, orIndex, reverseMapping);
     if (orResult) {
       meta.description = orResult.value;
@@ -456,7 +403,6 @@ export function buildMetadataMap(opts: {
       }
     }
 
-    // Tags: always from basellm
     const blmResult = lookup(modelName, blmIndex, reverseMapping);
     if (blmResult?.value.tags) {
       if (blmResult.score < 1.0) {

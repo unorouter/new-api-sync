@@ -5,6 +5,8 @@ import {
 } from "@core/catalog/constants/vendor-matchers";
 import type { RuntimeConfig } from "@core/config";
 import { throwIfRunAborted } from "@core/infra/abort";
+import { writeJsonAtomic } from "@core/infra/fs";
+import { logsDir } from "@core/infra/paths";
 import { applySyncDiff } from "@core/sync/apply";
 import { buildSyncDiff } from "@core/sync/diff";
 import { updateGuestTokenIfConfigured } from "@core/sync/guest-token";
@@ -18,20 +20,14 @@ import { NewApiClient } from "@core/vendors/newapi/client";
 import { drainUpstreamErrors } from "@core/vendors/newapi/resources";
 import { t } from "@server/i18n";
 import { consola } from "consola";
-import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 
-async function ensureVendors(
-  client: NewApiClient,
-  desired: DesiredState,
-  snap: TargetSnapshot,
-): Promise<number> {
+async function ensureVendors(client: NewApiClient, desired: DesiredState, snap: TargetSnapshot): Promise<number> {
   const neededVendors = new Set<string>();
   for (const model of desired.models.values()) {
     if (model.vendor) neededVendors.add(model.vendor.toLowerCase());
   }
 
-  // Build a lookup: canonical vendor name → existing vendor (by name or alias)
   const existingByCanonical = new Map<string, (typeof snap.vendors)[0]>();
   forEachVendor((canonical) => {
     const found = findVendorByAlias(snap.vendors, canonical);
@@ -41,43 +37,24 @@ async function ensureVendors(
   let changed = 0;
   for (const vendor of neededVendors) {
     const matcher = VENDOR_MATCHERS[vendor];
-    const displayName =
-      matcher?.displayName ?? vendor.charAt(0).toUpperCase() + vendor.slice(1);
+    const displayName = matcher?.displayName ?? vendor.charAt(0).toUpperCase() + vendor.slice(1);
     const icon = matcher?.icon;
+    const iconLabel = icon ?? t("CORE.SYNC.ICON_NONE");
 
     const existing = existingByCanonical.get(vendor);
     if (existing) {
-      // Upsert: update if icon or name changed
       if (existing.icon !== icon || existing.name !== displayName) {
-        const ok = await client.updateVendor({
-          id: existing.id,
-          name: displayName,
-          icon,
-        });
-        if (ok) {
-          consola.info(
-            t("CORE.SYNC.VENDOR_UPDATED", {
-              name: displayName,
-              id: existing.id,
-              icon: icon ?? t("CORE.SYNC.ICON_NONE"),
-            }),
-          );
+        if (await client.updateVendor({ id: existing.id, name: displayName, icon })) {
+          consola.info(t("CORE.SYNC.VENDOR_UPDATED", { name: displayName, id: existing.id, icon: iconLabel }));
           changed++;
         }
       }
       continue;
     }
 
-    // Create new vendor
     const result = await client.createVendor({ name: displayName, icon });
     if (result) {
-      consola.info(
-        t("CORE.SYNC.VENDOR_CREATED", {
-          name: displayName,
-          id: result.id,
-          icon: icon ?? t("CORE.SYNC.ICON_NONE"),
-        }),
-      );
+      consola.info(t("CORE.SYNC.VENDOR_CREATED", { name: displayName, id: result.id, icon: iconLabel }));
       changed++;
     } else {
       consola.warn(t("CORE.SYNC.VENDOR_CREATE_FAILED", { name: displayName }));
@@ -103,11 +80,7 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
 
   const health = await target.healthCheck();
   if (!health.ok) {
-    throw new Error(
-      t("ERROR.TARGET_HEALTH_CHECK_FAILED", {
-        detail: health.error ?? "unknown",
-      }),
-    );
+    throw new Error(t("ERROR.TARGET_HEALTH_CHECK_FAILED", { detail: health.error ?? "unknown" }));
   }
 
   throwIfRunAborted();
@@ -117,27 +90,20 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
 
   throwIfRunAborted();
   const vendorsCreated = await ensureVendors(target, desired, snap);
-  if (vendorsCreated > 0) {
-    snap = { ...snap, vendors: await target.listVendors() };
-  }
+  if (vendorsCreated > 0) snap = { ...snap, vendors: await target.listVendors() };
 
   throwIfRunAborted();
   const diff = buildSyncDiff(config, desired, snap);
   const apply = await applySyncDiff(target, diff);
 
-  if (apply.options.updated.length > 0) {
-    await target.updateCache();
-  }
+  if (apply.options.updated.length > 0) await target.updateCache();
 
   throwIfRunAborted();
   const postApplyPricing = await target.fetchPricing();
   await updateGuestTokenIfConfigured(target, postApplyPricing);
 
-  const successfulProviders = providerReports.filter(
-    (provider) => provider.success,
-  ).length;
-  const hasProviderSuccess =
-    successfulProviders > 0 || config.providers.length === 0;
+  const successfulProviders = providerReports.filter((p) => p.success).length;
+  const hasProviderSuccess = successfulProviders > 0 || config.providers.length === 0;
   const elapsedMs = Date.now() - start;
   const success = hasProviderSuccess && apply.errors.length === 0;
 
@@ -145,45 +111,16 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
   writeTestReport();
   writeApplyErrorsLog(apply.errors);
 
-  return {
-    success,
-    providerReports,
-    desired,
-    diff,
-    apply,
-    elapsedMs,
-  };
+  return { success, providerReports, desired, diff, apply, elapsedMs };
 }
 
-/**
- * Drain the upstream-error buffer and dump everything that failed during the
- * apply phase to `logs/{ts}-apply-errors.json`. Pairs each ApplyError with
- * the upstream's actual reason so post-mortem doesn't require re-running with
- * verbose flags. Mirrors the writeTestReport pattern (tests already log their
- * own JSON; this is the apply-side equivalent).
- *
- * No-ops when the run had no apply errors AND the buffer is empty.
- */
+/** logs/{ts}-apply-errors.json with each ApplyError paired to the upstream reason. */
 function writeApplyErrorsLog(applyErrors: SyncRunResult["apply"]["errors"]): void {
   const upstream = drainUpstreamErrors();
   if (applyErrors.length === 0 && upstream.length === 0) return;
-  const logsDir = join(process.cwd(), "logs");
-  mkdirSync(logsDir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  const path = join(logsDir, `${ts}-apply-errors.json`);
-  writeFileSync(
-    path,
-    JSON.stringify(
-      {
-        version: 1,
-        generatedAt: new Date().toISOString(),
-        applyErrors,
-        upstream,
-      },
-      null,
-      2,
-    ),
-  );
+  const path = join(logsDir(), `${ts}-apply-errors.json`);
+  writeJsonAtomic(path, { version: 1, generatedAt: new Date().toISOString(), applyErrors, upstream });
   consola.info(`Apply errors written to ${path}`);
 }
 
@@ -232,13 +169,12 @@ function annotate(items: string[], lookup: (key: string) => string): string[] {
 
 export function printRunSummary(result: SyncRunResult): void {
   const elapsed = (result.elapsedMs / 1000).toFixed(2);
-  consola.info(
-    t("CLI.SUMMARY.PROVIDERS", {
-      passed: result.providerReports.filter((provider) => provider.success)
-        .length,
-      total: result.providerReports.length,
-    }),
-  );
+  const ch = result.apply.channels;
+  const md = result.apply.models;
+  consola.info(t("CLI.SUMMARY.PROVIDERS", {
+    passed: result.providerReports.filter((p) => p.success).length,
+    total: result.providerReports.length,
+  }));
   const channelProviders = buildChannelProviderMap(result);
   const modelProviders = buildModelProviderMap(result);
   const channelLookup = (name: string) => channelProviders.get(name) ?? "";
@@ -246,107 +182,49 @@ export function printRunSummary(result: SyncRunResult): void {
     const tags = modelProviders.get(name);
     return tags && tags.length > 0 ? tags.join(", ") : "";
   };
-
-  consola.info(
-    t("CLI.SUMMARY.CHANNELS", {
-      created: result.apply.channels.created.length,
-      updated: result.apply.channels.updated.length,
-      deleted: result.apply.channels.deleted.length,
-    }),
-  );
-  const channelsAdded = annotate(result.apply.channels.created, channelLookup);
-  if (channelsAdded.length > 0) {
-    consola.info(
-      t("CLI.SUMMARY.CHANNELS_ADDED", { items: channelsAdded.join(", ") }),
-    );
-  }
-  const channelsUpdated = annotate(result.apply.channels.updated, channelLookup);
-  if (channelsUpdated.length > 0) {
-    consola.info(
-      t("CLI.SUMMARY.CHANNELS_UPDATED", { items: channelsUpdated.join(", ") }),
-    );
-  }
-  const channelsDeleted = annotate(result.apply.channels.deleted, channelLookup);
-  if (channelsDeleted.length > 0) {
-    consola.info(
-      t("CLI.SUMMARY.CHANNELS_DELETED", { items: channelsDeleted.join(", ") }),
-    );
-  }
-  consola.info(
-    t("CLI.SUMMARY.MODELS", {
-      created: result.apply.models.created.length,
-      updated: result.apply.models.updated.length,
-      deleted: result.apply.models.deleted.length,
-      orphans: result.apply.models.orphansDeleted,
-    }),
-  );
-  const modelsAdded = annotate(result.apply.models.created, modelLookup);
-  if (modelsAdded.length > 0) {
-    consola.info(
-      t("CLI.SUMMARY.MODELS_ADDED", { items: modelsAdded.join(", ") }),
-    );
-  }
-  const modelsUpdated = annotate(result.apply.models.updated, modelLookup);
-  if (modelsUpdated.length > 0) {
-    consola.info(
-      t("CLI.SUMMARY.MODELS_UPDATED", { items: modelsUpdated.join(", ") }),
-    );
-  }
-  const modelsDeleted = annotate(result.apply.models.deleted, modelLookup);
-  if (modelsDeleted.length > 0) {
-    consola.info(
-      t("CLI.SUMMARY.MODELS_DELETED", { items: modelsDeleted.join(", ") }),
-    );
-  }
-  consola.info(
-    t("CLI.SUMMARY.OPTIONS_UPDATED", {
-      count: result.apply.options.updated.length,
-    }),
-  );
+  consola.info(t("CLI.SUMMARY.CHANNELS", { created: ch.created.length, updated: ch.updated.length, deleted: ch.deleted.length }));
+  const chAdded = annotate(ch.created, channelLookup);
+  if (chAdded.length > 0) consola.info(t("CLI.SUMMARY.CHANNELS_ADDED", { items: chAdded.join(", ") }));
+  const chUpdated = annotate(ch.updated, channelLookup);
+  if (chUpdated.length > 0) consola.info(t("CLI.SUMMARY.CHANNELS_UPDATED", { items: chUpdated.join(", ") }));
+  const chDeleted = annotate(ch.deleted, channelLookup);
+  if (chDeleted.length > 0) consola.info(t("CLI.SUMMARY.CHANNELS_DELETED", { items: chDeleted.join(", ") }));
+  consola.info(t("CLI.SUMMARY.MODELS", {
+    created: md.created.length,
+    updated: md.updated.length,
+    deleted: md.deleted.length,
+    orphans: md.orphansDeleted,
+  }));
+  const mdAdded = annotate(md.created, modelLookup);
+  if (mdAdded.length > 0) consola.info(t("CLI.SUMMARY.MODELS_ADDED", { items: mdAdded.join(", ") }));
+  const mdUpdated = annotate(md.updated, modelLookup);
+  if (mdUpdated.length > 0) consola.info(t("CLI.SUMMARY.MODELS_UPDATED", { items: mdUpdated.join(", ") }));
+  const mdDeleted = annotate(md.deleted, modelLookup);
+  if (mdDeleted.length > 0) consola.info(t("CLI.SUMMARY.MODELS_DELETED", { items: mdDeleted.join(", ") }));
+  consola.info(t("CLI.SUMMARY.OPTIONS_UPDATED", { count: result.apply.options.updated.length }));
   if (result.apply.options.updated.length > 0) {
-    consola.info(
-      t("CLI.SUMMARY.OPTIONS_UPDATED_LIST", {
-        items: result.apply.options.updated.join(", "),
-      }),
-    );
+    consola.info(t("CLI.SUMMARY.OPTIONS_UPDATED_LIST", { items: result.apply.options.updated.join(", ") }));
   }
 
   for (const provider of result.providerReports) {
     if (provider.success) continue;
-    consola.warn(
-      t("CLI.SUMMARY.PROVIDER_ERROR", {
-        name: provider.name,
-        error: provider.error ?? t("CLI.ERROR.UNKNOWN_SHORT"),
-      }),
-    );
+    consola.warn(t("CLI.SUMMARY.PROVIDER_ERROR", { name: provider.name, error: provider.error ?? t("CLI.ERROR.UNKNOWN_SHORT") }));
   }
-
   for (const error of result.apply.errors) {
-    consola.error(
-      t("CLI.SUMMARY.APPLY_ERROR", {
-        phase: error.phase,
-        key: error.key,
-        message: error.message,
-      }),
-    );
+    consola.error(t("CLI.SUMMARY.APPLY_ERROR", { phase: error.phase, key: error.key, message: error.message }));
   }
 
-  if (result.success) {
-    consola.success(t("CLI.SUMMARY.COMPLETED", { elapsed }));
-  } else {
-    consola.error(t("CLI.SUMMARY.COMPLETED_WITH_ERRORS", { elapsed }));
-  }
+  if (result.success) consola.success(t("CLI.SUMMARY.COMPLETED", { elapsed }));
+  else consola.error(t("CLI.SUMMARY.COMPLETED_WITH_ERRORS", { elapsed }));
 }
 
 export function printResetSummary(result: ResetResult): void {
-  consola.info(
-    t("CLI.SUMMARY.RESET_COMPLETE", {
-      channels: result.channelsDeleted,
-      channelsUpdated: result.channelsUpdated,
-      models: result.modelsDeleted,
-      orphans: result.orphanModelsDeleted,
-      tokens: result.tokensDeleted,
-      options: result.optionsUpdated.length,
-    }),
-  );
+  consola.info(t("CLI.SUMMARY.RESET_COMPLETE", {
+    channels: result.channelsDeleted,
+    channelsUpdated: result.channelsUpdated,
+    models: result.modelsDeleted,
+    orphans: result.orphanModelsDeleted,
+    tokens: result.tokensDeleted,
+    options: result.optionsUpdated.length,
+  }));
 }
