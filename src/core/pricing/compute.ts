@@ -26,6 +26,31 @@ interface ComputeArgs {
 
 const PAID_GROUP_RATIO_CANDIDATES = [1, 0.5, 0.25, 0.1, 0.05, 0.01] as const;
 
+const CLAUDE_CONTEXT_1M_SUFFIX = "[1m]";
+const CLAUDE_CONTEXT_1M_PATTERN = /^claude-/i;
+
+function isAnthropicNativeOffer(offer: UpstreamOffer): boolean {
+  return offer.vendor === "anthropic";
+}
+
+function shouldAddContext1mAlias(modelName: string): boolean {
+  return (
+    CLAUDE_CONTEXT_1M_PATTERN.test(modelName) &&
+    !modelName.endsWith(CLAUDE_CONTEXT_1M_SUFFIX)
+  );
+}
+
+function mirrorAliasRatio(
+  modelRatios: Map<string, MergedModel>,
+  baseName: string,
+  aliasName: string,
+): void {
+  if (modelRatios.has(aliasName)) return;
+  const base = modelRatios.get(baseName);
+  if (!base) return;
+  modelRatios.set(aliasName, { ...base });
+}
+
 const bucketKey = (r: number) => Math.round(r * 1e6) / 1e6;
 const channelOf = (o: UpstreamOffer) => `${o.sanitizedBase}-${o.vendor}`;
 const isFixed = (w: { modelPrice?: number; quotaType?: number }) =>
@@ -205,7 +230,7 @@ function processStandardOffer(
     }
     addToBucket(buckets, bucketKey(groupRatio), m);
   }
-  if (buckets.size > 0) pushBucketsAsTiers(offer, buckets, tiers);
+  if (buckets.size > 0) pushBucketsAsTiers(offer, buckets, tiers, modelRatios);
 }
 
 function processPaidOffer(
@@ -250,7 +275,12 @@ function processPaidOffer(
         effectiveRatio: chosen.ratio,
         detail: `at chosen group_ratio=${chosen.ratio}`,
       });
-  pushBucketsAsTiers(offer, new Map([[chosen.ratio, chosen.kept]]), tiers);
+  pushBucketsAsTiers(
+    offer,
+    new Map([[chosen.ratio, chosen.kept]]),
+    tiers,
+    modelRatios,
+  );
 }
 
 function processNoUpstreamOffer(
@@ -283,13 +313,14 @@ function processNoUpstreamOffer(
     }
     addToBucket(buckets, bucketKey(groupRatio), m);
   }
-  if (buckets.size > 0) pushBucketsAsTiers(offer, buckets, tiers);
+  if (buckets.size > 0) pushBucketsAsTiers(offer, buckets, tiers, modelRatios);
 }
 
 function pushBucketsAsTiers(
   offer: UpstreamOffer,
   buckets: Map<number, OfferModel[]>,
   tiers: PricedTier[],
+  modelRatios: Map<string, MergedModel>,
 ): void {
   type Sub = {
     models: OfferModel[];
@@ -325,6 +356,18 @@ function pushBucketsAsTiers(
         if (m.exposed !== m.upstream) tierModelMapping[m.exposed] = m.upstream;
         if (m.testDetail) tierDetails.push(m.testDetail);
       }
+
+      const tierModels = sub.models.map((m) => m.exposed);
+      if (isAnthropicNativeOffer(offer)) {
+        for (const m of sub.models) {
+          if (!shouldAddContext1mAlias(m.exposed)) continue;
+          const alias = `${m.exposed}${CLAUDE_CONTEXT_1M_SUFFIX}`;
+          tierModels.push(alias);
+          tierModelMapping[alias] = m.upstream;
+          mirrorAliasRatio(modelRatios, m.exposed, alias);
+        }
+      }
+
       tiers.push({
         channelName: `${offer.sanitizedBase}-${offer.vendor}${tierSuffix}`,
         vendor: offer.vendor,
@@ -335,7 +378,7 @@ function pushBucketsAsTiers(
         channelRemark: offer.channelRemark,
         groupRatio,
         groupDescription: groupDesc,
-        models: sub.models.map((m) => m.exposed),
+        models: tierModels,
         modelMapping: Object.keys(tierModelMapping).length
           ? tierModelMapping
           : undefined,

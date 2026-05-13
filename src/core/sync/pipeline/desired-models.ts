@@ -30,11 +30,26 @@ export function buildDesiredModels(opts: {
 }): Map<string, DesiredModelSpec> {
   const models = new Map<string, DesiredModelSpec>();
 
+  const channelModelUpstream = new Map<string, string>();
+  for (const ch of opts.channels) {
+    if (!ch.model_mapping) continue;
+    try {
+      const mm = JSON.parse(ch.model_mapping) as Record<string, string>;
+      for (const [exposed, upstream] of Object.entries(mm))
+        if (!channelModelUpstream.has(exposed))
+          channelModelUpstream.set(exposed, upstream);
+    } catch {}
+  }
+
   for (const channel of opts.channels) {
     for (const modelName of parseModelList(channel.models)) {
       const vendor = inferVendorFromModelName(modelName);
+      const upstreamFromChannel = channelModelUpstream.get(modelName);
       const originalEps =
         opts.originalEndpointsByName.get(modelName) ??
+        (upstreamFromChannel
+          ? opts.originalEndpointsByName.get(upstreamFromChannel)
+          : undefined) ??
         opts.originalEndpointsByName.get(
           opts.reverseMapping.get(modelName) ?? "",
         );
@@ -76,9 +91,13 @@ export function buildDesiredModels(opts: {
   }
 
   for (const [modelName, spec] of models) {
+    const upstreamFromChannel = channelModelUpstream.get(modelName);
     const originalName = opts.reverseMapping.get(modelName) ?? modelName;
     const eps =
       opts.normalizedEndpointsByName.get(modelName) ??
+      (upstreamFromChannel
+        ? opts.normalizedEndpointsByName.get(upstreamFromChannel)
+        : undefined) ??
       opts.normalizedEndpointsByName.get(originalName);
     const modelType = inferModelType(modelName, eps);
     const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
