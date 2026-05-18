@@ -70,6 +70,7 @@ export interface Channel {
   setting?: string;
   workflow_templates?: string;
   auto_ban?: number;
+  param_override?: string;
 }
 
 export interface ModelMeta {

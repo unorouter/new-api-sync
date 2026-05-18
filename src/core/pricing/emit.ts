@@ -65,6 +65,7 @@ export function emitChannels(args: EmitArgs): EmitResult {
           ? JSON.stringify(tier.modelMapping)
           : undefined,
       setting: buildSettingJson(tier),
+      param_override: tier.paramOverride,
     });
   }
 

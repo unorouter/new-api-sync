@@ -83,7 +83,17 @@ function normalizeChannel(c: Channel): Omit<Channel, "id"> {
     setting: normalizeCapabilities(c.setting),
     workflow_templates: normalizeWorkflowTemplates(c.workflow_templates),
     auto_ban: c.auto_ban,
+    param_override: normalizeParamOverride(c.param_override),
   };
+}
+
+function normalizeParamOverride(po?: string): string | undefined {
+  if (!po) return undefined;
+  try {
+    return stringify(JSON.parse(po)) ?? undefined;
+  } catch {
+    return po;
+  }
 }
 
 function mergeProtected<T>(

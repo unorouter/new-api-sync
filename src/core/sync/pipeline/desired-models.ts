@@ -16,6 +16,12 @@ import {
 } from "@core/pricing/resolver";
 import type { Channel, DesiredModelSpec } from "@core/types";
 
+const CLAUDE_CONTEXT_1M_SUFFIX = "[1m]";
+
+function isRoutingOnlyAlias(modelName: string): boolean {
+  return modelName.endsWith(CLAUDE_CONTEXT_1M_SUFFIX);
+}
+
 export function buildDesiredModels(opts: {
   channels: Channel[];
   originalEndpointsByName: Map<string, string[]>;
@@ -43,6 +49,7 @@ export function buildDesiredModels(opts: {
 
   for (const channel of opts.channels) {
     for (const modelName of parseModelList(channel.models)) {
+      if (isRoutingOnlyAlias(modelName)) continue;
       const vendor = inferVendorFromModelName(modelName);
       const upstreamFromChannel = channelModelUpstream.get(modelName);
       const originalEps =

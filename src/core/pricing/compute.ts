@@ -28,6 +28,24 @@ const PAID_GROUP_RATIO_CANDIDATES = [1, 0.5, 0.25, 0.1, 0.05, 0.01] as const;
 
 const CLAUDE_CONTEXT_1M_SUFFIX = "[1m]";
 const CLAUDE_CONTEXT_1M_PATTERN = /^claude-/i;
+const CLAUDE_CONTEXT_1M_BETA = "context-1m-2025-08-07";
+
+const CLAUDE_CONTEXT_1M_PARAM_OVERRIDE = JSON.stringify({
+  operations: [
+    {
+      mode: "set_header",
+      path: "anthropic-beta",
+      value: { $append: [CLAUDE_CONTEXT_1M_BETA] },
+      conditions: [
+        {
+          path: "original_model",
+          mode: "suffix",
+          value: CLAUDE_CONTEXT_1M_SUFFIX,
+        },
+      ],
+    },
+  ],
+});
 
 function isAnthropicNativeOffer(offer: UpstreamOffer): boolean {
   return offer.vendor === "anthropic";
@@ -358,6 +376,7 @@ function pushBucketsAsTiers(
       }
 
       const tierModels = sub.models.map((m) => m.exposed);
+      let hasContext1mAlias = false;
       if (isAnthropicNativeOffer(offer)) {
         for (const m of sub.models) {
           if (!shouldAddContext1mAlias(m.exposed)) continue;
@@ -365,6 +384,7 @@ function pushBucketsAsTiers(
           tierModels.push(alias);
           tierModelMapping[alias] = m.upstream;
           mirrorAliasRatio(modelRatios, m.exposed, alias);
+          hasContext1mAlias = true;
         }
       }
 
@@ -383,6 +403,9 @@ function pushBucketsAsTiers(
           ? tierModelMapping
           : undefined,
         testDetails: tierDetails.length ? tierDetails : undefined,
+        paramOverride: hasContext1mAlias
+          ? CLAUDE_CONTEXT_1M_PARAM_OVERRIDE
+          : undefined,
       });
       subIdx++;
     }

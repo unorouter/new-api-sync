@@ -32,6 +32,9 @@ export interface PricedTier {
   /** Test details pre-filtered to this tier's models. emit() reads these to
    *  build the capabilities JSON for channel.setting. */
   testDetails?: ModelTestDetail[];
+  /** Optional channel-scoped param_override JSON. Used for header injection
+   *  on conditional model-name suffixes (e.g. Claude `[1m]` context beta). */
+  paramOverride?: string;
 }
 
 type PricedDropReason = "cap-exceeded" | "no-fit" | "collision";
