@@ -276,6 +276,9 @@ export function buildSyncDiff(
   }
 
   const modelFilter = config.modelFilter;
+  const isPartialSync =
+    config.onlyProviders !== undefined ||
+    (modelFilter?.length ?? 0) > 0;
   const inScope = (channel: Channel): boolean =>
     !modelFilter ||
     modelFilter.length === 0 ||
@@ -283,10 +286,12 @@ export function buildSyncDiff(
       matchesAnyPattern(m, modelFilter),
     );
 
-  for (const existing of snapshot.channels) {
-    if (!existing.tag || !managedProviders.has(existing.tag)) continue;
-    if (desiredByName.has(existing.name) || !inScope(existing)) continue;
-    channelOps.push({ type: "delete", key: existing.name, existing });
+  if (!isPartialSync) {
+    for (const existing of snapshot.channels) {
+      if (!existing.tag || !managedProviders.has(existing.tag)) continue;
+      if (desiredByName.has(existing.name) || !inScope(existing)) continue;
+      channelOps.push({ type: "delete", key: existing.name, existing });
+    }
   }
 
   const vendorNameToId = buildVendorIdMap(snapshot.vendors);
@@ -378,7 +383,7 @@ export function buildSyncDiff(
   const desiredOptionValues = buildManagedOptionValues(
     desired,
     snapshot,
-    config.onlyProviders !== undefined,
+    isPartialSync,
   );
   const optionOps: DiffOperation<string>[] = [];
   for (const [key, value] of Object.entries(desiredOptionValues)) {
@@ -392,6 +397,6 @@ export function buildSyncDiff(
     channels: channelOps,
     models: modelOps,
     options: optionOps,
-    cleanupOrphans: config.onlyProviders === undefined,
+    cleanupOrphans: !isPartialSync,
   };
 }

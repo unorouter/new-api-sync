@@ -68,7 +68,12 @@ export async function getTokenFullKey(
 ): Promise<string | null> {
   const data = await tryFetchJson<{ success: boolean; data?: { key: string } }>(
     `${ctx.baseUrl}/api/token/${id}/key`,
-    { method: "POST", headers: ctx.headers },
+    {
+      method: "POST",
+      headers: ctx.headers,
+      retry: 5,
+      retryDelayMs: 2000,
+    },
   );
   return data?.success && data.data?.key ? data.data.key : null;
 }
@@ -233,22 +238,21 @@ export async function ensureTokens(
     const refreshedByName = new Map(
       (await listTokens(ctx)).map((tk) => [tk.name, tk]),
     );
-    await Promise.all(
-      successfulCreates.map(async (entry) => {
-        const newToken = refreshedByName.get(entry.tokenName);
-        const ctxParams = { name: ctx.name, token: entry.tokenName };
-        if (!newToken) {
-          consola.warn(t("CORE.NEWAPI.TOKEN_CREATED_NOT_FOUND", ctxParams));
-          return;
-        }
-        const fullKey = await resolveFullKey(ctx, newToken);
-        if (!fullKey) {
-          consola.warn(t("CORE.NEWAPI.TOKEN_NEW_KEY_UNAVAILABLE", ctxParams));
-          return;
-        }
-        result[entry.group.name] = normalizeKey(fullKey);
-      }),
-    );
+    for (const entry of successfulCreates) {
+      throwIfRunAborted();
+      const newToken = refreshedByName.get(entry.tokenName);
+      const ctxParams = { name: ctx.name, token: entry.tokenName };
+      if (!newToken) {
+        consola.warn(t("CORE.NEWAPI.TOKEN_CREATED_NOT_FOUND", ctxParams));
+        continue;
+      }
+      const fullKey = await resolveFullKey(ctx, newToken);
+      if (!fullKey) {
+        consola.warn(t("CORE.NEWAPI.TOKEN_NEW_KEY_UNAVAILABLE", ctxParams));
+        continue;
+      }
+      result[entry.group.name] = normalizeKey(fullKey);
+    }
   }
 
   return { tokens: result, created, existing, deleted };
