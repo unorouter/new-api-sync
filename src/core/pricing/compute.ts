@@ -69,6 +69,38 @@ function mirrorAliasRatio(
   modelRatios.set(aliasName, { ...base });
 }
 
+interface BillingFields {
+  billingMode?: string;
+  billingExpr?: string;
+  audioRatio?: number;
+  audioCompletionRatio?: number;
+  pricingVersion?: string;
+}
+
+function pickBillingFields(
+  occurrences: { model: OfferModel }[],
+): BillingFields {
+  const exprWinner = occurrences.find((o) => o.model.billingExpr);
+  if (exprWinner) {
+    return {
+      billingMode: exprWinner.model.billingMode ?? "tiered_expr",
+      billingExpr: exprWinner.model.billingExpr,
+      audioRatio: exprWinner.model.audioRatio,
+      audioCompletionRatio: exprWinner.model.audioCompletionRatio,
+      pricingVersion: exprWinner.model.pricingVersion,
+    };
+  }
+  return {
+    audioRatio: occurrences.find((o) => o.model.audioRatio !== undefined)
+      ?.model.audioRatio,
+    audioCompletionRatio: occurrences.find(
+      (o) => o.model.audioCompletionRatio !== undefined,
+    )?.model.audioCompletionRatio,
+    pricingVersion: occurrences.find((o) => o.model.pricingVersion)?.model
+      .pricingVersion,
+  };
+}
+
 const bucketKey = (r: number) => Math.round(r * 1e6) / 1e6;
 const channelOf = (o: UpstreamOffer) => `${o.sanitizedBase}-${o.vendor}`;
 const isFixed = (w: { modelPrice?: number; quotaType?: number }) =>
@@ -118,6 +150,7 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
 
   for (const [model, occurrences] of offersByModel) {
     const existing = modelRatios.get(model);
+    const billing = pickBillingFields(occurrences);
     const fm = occurrences.find((o) => isFixed(o.model))?.model;
     if (fm) {
       modelRatios.set(model, {
@@ -128,6 +161,12 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
         cacheRatio: existing?.cacheRatio ?? fm.cacheRatio,
         createCacheRatio: existing?.createCacheRatio ?? fm.createCacheRatio,
         imageRatio: existing?.imageRatio,
+        audioRatio: existing?.audioRatio ?? billing.audioRatio,
+        audioCompletionRatio:
+          existing?.audioCompletionRatio ?? billing.audioCompletionRatio,
+        billingMode: existing?.billingMode ?? billing.billingMode,
+        billingExpr: existing?.billingExpr ?? billing.billingExpr,
+        pricingVersion: billing.pricingVersion,
       });
       continue;
     }
@@ -180,6 +219,12 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       modelPrice: existing?.modelPrice,
       quotaType: existing?.quotaType,
       imageRatio: existing?.imageRatio,
+      audioRatio: existing?.audioRatio ?? billing.audioRatio,
+      audioCompletionRatio:
+        existing?.audioCompletionRatio ?? billing.audioCompletionRatio,
+      billingMode: existing?.billingMode ?? billing.billingMode,
+      billingExpr: existing?.billingExpr ?? billing.billingExpr,
+      pricingVersion: billing.pricingVersion,
     });
   }
 

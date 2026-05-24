@@ -17,6 +17,11 @@ export interface ModelInfo {
   supportedEndpoints?: string[];
   modelPrice?: number;
   quotaType?: number;
+  audioRatio?: number;
+  audioCompletionRatio?: number;
+  billingMode?: string;
+  billingExpr?: string;
+  pricingVersion?: string;
 }
 
 export interface UpstreamPricing {
@@ -27,6 +32,11 @@ export interface UpstreamPricing {
   completionRatios: Record<string, number>;
   vendorIdToName: Record<number, string>;
   endpointPaths: Record<string, EndpointInfo>;
+  audioRatios: Record<string, number>;
+  audioCompletionRatios: Record<string, number>;
+  billingModes: Record<string, string>;
+  billingExprs: Record<string, string>;
+  pricingVersions: Record<string, string>;
 }
 
 export interface UpstreamToken {
@@ -60,9 +70,14 @@ export interface PricingResponse {
     completion_ratio: number;
     cache_ratio?: number;
     create_cache_ratio?: number;
+    audio_ratio?: number | null;
+    audio_completion_ratio?: number | null;
     enable_groups: string[];
     supported_endpoint_types?: string[];
     endpoints?: string[];
+    billing_mode?: string;
+    billing_expr?: string;
+    pricing_version?: string;
   }>;
   group_ratio: Record<string, number>;
   usable_group?: Record<string, string>;

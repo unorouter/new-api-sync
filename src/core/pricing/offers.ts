@@ -29,6 +29,14 @@ export interface OfferModel {
   endpoints?: string[];
   /** Normalized via normalizeEndpointTypes; feeds inferModelType + responses-api detection. */
   normalizedEndpoints?: string[];
+  audioRatio?: number;
+  audioCompletionRatio?: number;
+  /** "tiered_expr" when billingExpr is set; otherwise "ratio" or undefined. */
+  billingMode?: string;
+  /** expr-lang expression; presence forces tiered_expr billing, ratios are ignored. */
+  billingExpr?: string;
+  /** Per-model upstream hash; used only for snapshot/drift, never written to target. */
+  pricingVersion?: string;
 }
 
 export interface UpstreamOffer {

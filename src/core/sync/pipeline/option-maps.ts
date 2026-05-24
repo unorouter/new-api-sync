@@ -33,18 +33,23 @@ export function buildOptionMaps(
   const imageRatio: Record<string, number> = {};
   const cacheRatio: Record<string, number> = {};
   const createCacheRatio: Record<string, number> = {};
+  const audioRatio: Record<string, number> = {};
+  const audioCompletionRatio: Record<string, number> = {};
   const modelQuotaType: Record<string, number> = {};
+  const billingMode: Record<string, string> = {};
+  const billingExpr: Record<string, string> = {};
 
   for (const [name, ratios] of mergedModels) {
     const mappedName = modelMapping?.[name] ?? name;
     const isPerRequest =
       ratios.quotaType !== undefined && ratios.quotaType >= 1;
+    const isTiered = Boolean(ratios.billingExpr);
     if (
       (ratios.modelPrice !== undefined && ratios.modelPrice > 0) ||
       isPerRequest
     ) {
       modelPrice[mappedName] = r4(ratios.modelPrice ?? 0);
-    } else {
+    } else if (!isTiered) {
       modelRatio[mappedName] = r4(ratios.ratio);
       completionRatio[mappedName] = r4(ratios.completionRatio);
     }
@@ -54,8 +59,19 @@ export function buildOptionMaps(
       cacheRatio[mappedName] = r4(ratios.cacheRatio);
     if (ratios.createCacheRatio !== undefined && ratios.createCacheRatio >= 0)
       createCacheRatio[mappedName] = r4(ratios.createCacheRatio);
+    if (ratios.audioRatio !== undefined && ratios.audioRatio > 0)
+      audioRatio[mappedName] = r4(ratios.audioRatio);
+    if (
+      ratios.audioCompletionRatio !== undefined &&
+      ratios.audioCompletionRatio > 0
+    )
+      audioCompletionRatio[mappedName] = r4(ratios.audioCompletionRatio);
     if (ratios.quotaType !== undefined && ratios.quotaType >= 1)
       modelQuotaType[mappedName] = ratios.quotaType;
+    if (isTiered) {
+      billingExpr[mappedName] = ratios.billingExpr!;
+      billingMode[mappedName] = ratios.billingMode ?? "tiered_expr";
+    }
   }
 
   const modelGridPricing: Record<string, GridPricingInfo> = {};
@@ -79,7 +95,11 @@ export function buildOptionMaps(
     imageRatio,
     cacheRatio,
     createCacheRatio,
+    audioRatio,
+    audioCompletionRatio,
     modelQuotaType,
     modelGridPricing,
+    billingMode,
+    billingExpr,
   };
 }

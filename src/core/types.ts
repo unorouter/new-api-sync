@@ -18,8 +18,12 @@ export const MANAGED_OPTION_KEYS = [
   "ImageRatio",
   "CacheRatio",
   "CreateCacheRatio",
+  "AudioRatio",
+  "AudioCompletionRatio",
   "ModelQuotaType",
   "ModelGridPricing",
+  "billing_setting.billing_mode",
+  "billing_setting.billing_expr",
   "global.chat_completions_to_responses_policy",
 ] as const;
 
@@ -107,6 +111,11 @@ export interface MergedModel {
   quotaType?: number;
   cacheRatio?: number;
   createCacheRatio?: number;
+  audioRatio?: number;
+  audioCompletionRatio?: number;
+  billingMode?: string;
+  billingExpr?: string;
+  pricingVersion?: string;
 }
 
 export interface DesiredModelSpec {
@@ -131,8 +140,12 @@ export interface ManagedOptionMaps {
   imageRatio: Record<string, number>;
   cacheRatio: Record<string, number>;
   createCacheRatio: Record<string, number>;
+  audioRatio: Record<string, number>;
+  audioCompletionRatio: Record<string, number>;
   modelQuotaType: Record<string, number>;
   modelGridPricing: Record<string, GridPricingInfo>;
+  billingMode: Record<string, string>;
+  billingExpr: Record<string, string>;
   defaultUseAutoGroup: boolean;
   responsesApiModels: string[];
 }

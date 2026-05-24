@@ -475,6 +475,11 @@ export async function processNewApiProvider(
                 quotaType: m?.quotaType,
                 endpoints: m?.supportedEndpoints,
                 normalizedEndpoints: normalized,
+                audioRatio: m?.audioRatio,
+                audioCompletionRatio: m?.audioCompletionRatio,
+                billingMode: m?.billingMode,
+                billingExpr: m?.billingExpr,
+                pricingVersion: m?.pricingVersion,
                 testDetail: filterResult.details?.find(
                   (d) => d.model === upstreamName,
                 ),

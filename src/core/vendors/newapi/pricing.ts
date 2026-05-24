@@ -91,14 +91,35 @@ function parsePricingV1(
     modelPrice:
       m.quota_type !== 0 && m.model_price > 0 ? m.model_price : undefined,
     quotaType: m.quota_type >= 2 ? m.quota_type : undefined,
+    audioRatio:
+      m.audio_ratio != null && m.audio_ratio > 0 ? m.audio_ratio : undefined,
+    audioCompletionRatio:
+      m.audio_completion_ratio != null && m.audio_completion_ratio > 0
+        ? m.audio_completion_ratio
+        : undefined,
+    billingMode: m.billing_mode || undefined,
+    billingExpr: m.billing_expr || undefined,
+    pricingVersion: m.pricing_version || undefined,
   }));
 
   const modelRatios: Record<string, number> = {};
   const completionRatios: Record<string, number> = {};
+  const audioRatios: Record<string, number> = {};
+  const audioCompletionRatios: Record<string, number> = {};
+  const billingModes: Record<string, string> = {};
+  const billingExprs: Record<string, string> = {};
+  const pricingVersions: Record<string, string> = {};
   for (const m of data.data) {
     if (m.model_ratio > 0) modelRatios[m.model_name] = m.model_ratio;
     if (m.completion_ratio > 0)
       completionRatios[m.model_name] = m.completion_ratio;
+    if (m.audio_ratio != null && m.audio_ratio > 0)
+      audioRatios[m.model_name] = m.audio_ratio;
+    if (m.audio_completion_ratio != null && m.audio_completion_ratio > 0)
+      audioCompletionRatios[m.model_name] = m.audio_completion_ratio;
+    if (m.billing_mode) billingModes[m.model_name] = m.billing_mode;
+    if (m.billing_expr) billingExprs[m.model_name] = m.billing_expr;
+    if (m.pricing_version) pricingVersions[m.model_name] = m.pricing_version;
   }
 
   const vendorIdToName: Record<number, string> = {};
@@ -119,6 +140,11 @@ function parsePricingV1(
     completionRatios,
     vendorIdToName,
     endpointPaths: data.supported_endpoint ?? {},
+    audioRatios,
+    audioCompletionRatios,
+    billingModes,
+    billingExprs,
+    pricingVersions,
   };
 }
 
@@ -185,5 +211,10 @@ function parsePricingV2(
     completionRatios,
     vendorIdToName: {},
     endpointPaths: {},
+    audioRatios: {},
+    audioCompletionRatios: {},
+    billingModes: {},
+    billingExprs: {},
+    pricingVersions: {},
   };
 }
