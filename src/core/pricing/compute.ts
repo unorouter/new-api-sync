@@ -77,20 +77,35 @@ interface BillingFields {
   pricingVersion?: string;
 }
 
+/**
+ * Pick the billing fields written to the merged model.
+ *
+ * Expression-mode adoption rule: only adopt a billing_expr when every paid
+ * non-fixed occurrence is tiered. Mixed mode (one flat upstream, one tiered)
+ * would mis-bill the flat upstream's requests at the tiered rate because
+ * billing_setting.billing_expr is global per model, not per channel.
+ *
+ * audio_ratio / audio_completion_ratio / pricing_version are upstream-agnostic
+ * metadata; first non-undefined wins.
+ */
 function pickBillingFields(
   occurrences: { model: OfferModel }[],
 ): BillingFields {
-  const exprWinner = occurrences.find((o) => o.model.billingExpr);
-  if (exprWinner) {
-    return {
-      billingMode: exprWinner.model.billingMode ?? "tiered_expr",
-      billingExpr: exprWinner.model.billingExpr,
-      audioRatio: exprWinner.model.audioRatio,
-      audioCompletionRatio: exprWinner.model.audioCompletionRatio,
-      pricingVersion: exprWinner.model.pricingVersion,
-    };
-  }
+  const paidOccurrences = occurrences.filter(
+    (o) =>
+      !o.model.isFree &&
+      !(o.model.modelPrice !== undefined && o.model.modelPrice > 0) &&
+      !(o.model.quotaType !== undefined && o.model.quotaType >= 1),
+  );
+  const allTiered =
+    paidOccurrences.length > 0 &&
+    paidOccurrences.every((o) => Boolean(o.model.billingExpr));
+  const exprWinner = allTiered
+    ? paidOccurrences.find((o) => o.model.billingExpr)
+    : undefined;
   return {
+    billingMode: exprWinner?.model.billingMode ?? (exprWinner ? "tiered_expr" : undefined),
+    billingExpr: exprWinner?.model.billingExpr,
     audioRatio: occurrences.find((o) => o.model.audioRatio !== undefined)
       ?.model.audioRatio,
     audioCompletionRatio: occurrences.find(

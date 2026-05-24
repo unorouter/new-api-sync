@@ -6,6 +6,7 @@ import { t } from "@server/i18n";
 import { consola } from "consola";
 import type { ClientContext } from "./context";
 import type { TokenListResponse, UpstreamToken } from "./types";
+import pLimit from "p-limit";
 
 const PS = PAGINATION.DEFAULT_PAGE_SIZE;
 const extractTokens = (data: TokenListResponse): UpstreamToken[] =>
@@ -45,9 +46,16 @@ export async function createToken(
     unlimited_quota: true,
     model_limits_enabled: false,
   };
+  // New-api rate-limits token writes too. Retry on 429.
   const data = await tryFetchJson<{ success: boolean; message?: string }>(
     `${ctx.baseUrl}/api/token/`,
-    { method: "POST", headers: ctx.headers, body },
+    {
+      method: "POST",
+      headers: ctx.headers,
+      body,
+      retry: 8,
+      retryDelayMs: 4000,
+    },
   );
   if (!data?.success) {
     consola.warn(
@@ -66,22 +74,51 @@ export async function getTokenFullKey(
   ctx: ClientContext,
   id: number,
 ): Promise<string | null> {
+  // Per-token endpoint is rate-limited; prefer getTokenFullKeysBatch.
   const data = await tryFetchJson<{ success: boolean; data?: { key: string } }>(
     `${ctx.baseUrl}/api/token/${id}/key`,
     {
       method: "POST",
       headers: ctx.headers,
-      retry: 5,
-      retryDelayMs: 2000,
+      retry: 8,
+      retryDelayMs: 4000,
     },
   );
   return data?.success && data.data?.key ? data.data.key : null;
 }
 
-const resolveFullKey = (ctx: ClientContext, token: UpstreamToken) =>
-  token.key.includes("**")
-    ? getTokenFullKey(ctx, token.id)
-    : Promise.resolve(token.key);
+const TOKEN_BATCH_MAX = 100;
+
+/**
+ * Bulk-reveal full keys for up to 100 tokens per call via /api/token/batch/keys.
+ * Avoids the per-token rate-limit on /api/token/{id}/key.
+ */
+export async function getTokenFullKeysBatch(
+  ctx: ClientContext,
+  ids: number[],
+): Promise<Map<number, string>> {
+  const result = new Map<number, string>();
+  for (let i = 0; i < ids.length; i += TOKEN_BATCH_MAX) {
+    const batch = ids.slice(i, i + TOKEN_BATCH_MAX);
+    const data = await tryFetchJson<{
+      success: boolean;
+      data?: { keys?: Record<string, string> };
+    }>(`${ctx.baseUrl}/api/token/batch/keys`, {
+      method: "POST",
+      headers: ctx.headers,
+      body: { ids: batch },
+      retry: 5,
+      retryDelayMs: 2000,
+    });
+    const keys = data?.success ? data.data?.keys : undefined;
+    if (!keys) continue;
+    for (const [k, v] of Object.entries(keys)) {
+      const id = Number(k);
+      if (Number.isFinite(id) && v) result.set(id, v);
+    }
+  }
+  return result;
+}
 
 export async function findTokenByKey(
   ctx: ClientContext,
@@ -199,6 +236,7 @@ export async function ensureTokens(
   }
 
   const groupsAwaitingCreate: { group: GroupInfo; tokenName: string }[] = [];
+  const existingNeedingReveal: { group: GroupInfo; token: UpstreamToken }[] = [];
   for (const group of groups) {
     throwIfRunAborted();
     const tokenName = tokenNameForGroup(group.name);
@@ -207,28 +245,46 @@ export async function ensureTokens(
       groupsAwaitingCreate.push({ group, tokenName });
       continue;
     }
-    const fullKey = await resolveFullKey(ctx, existingToken);
-    if (!fullKey) {
-      consola.warn(
-        t("CORE.NEWAPI.TOKEN_EXISTING_KEY_UNAVAILABLE", {
-          name: ctx.name,
-          token: tokenName,
-        }),
-      );
-      continue;
+    if (existingToken.key.includes("**")) {
+      existingNeedingReveal.push({ group, token: existingToken });
+    } else {
+      result[group.name] = normalizeKey(existingToken.key);
+      existing++;
     }
-    result[group.name] = normalizeKey(fullKey);
-    existing++;
+  }
+
+  // Batch-reveal all masked existing keys in one call.
+  if (existingNeedingReveal.length > 0) {
+    const ids = existingNeedingReveal.map((e) => e.token.id);
+    const batchKeys = await getTokenFullKeysBatch(ctx, ids);
+    for (const entry of existingNeedingReveal) {
+      const fullKey = batchKeys.get(entry.token.id);
+      if (!fullKey) {
+        consola.warn(
+          t("CORE.NEWAPI.TOKEN_EXISTING_KEY_UNAVAILABLE", {
+            name: ctx.name,
+            token: entry.token.name,
+          }),
+        );
+        continue;
+      }
+      result[entry.group.name] = normalizeKey(fullKey);
+      existing++;
+    }
   }
 
   if (groupsAwaitingCreate.length === 0)
     return { tokens: result, created, existing, deleted };
 
+  // Token creation throttled to 2 concurrent; new-api rate-limits writes too.
+  const createLimit = pLimit(2);
   const createResults = await Promise.all(
-    groupsAwaitingCreate.map(async (entry) => ({
-      ...entry,
-      ok: await createToken(ctx, entry.tokenName, entry.group.name),
-    })),
+    groupsAwaitingCreate.map((entry) =>
+      createLimit(async () => ({
+        ...entry,
+        ok: await createToken(ctx, entry.tokenName, entry.group.name),
+      })),
+    ),
   );
   const successfulCreates = createResults.filter((r) => r.ok);
   created += successfulCreates.length;
@@ -238,20 +294,32 @@ export async function ensureTokens(
     const refreshedByName = new Map(
       (await listTokens(ctx)).map((tk) => [tk.name, tk]),
     );
+    const newTokensNeedingReveal: { entry: typeof successfulCreates[number]; token: UpstreamToken }[] = [];
     for (const entry of successfulCreates) {
-      throwIfRunAborted();
       const newToken = refreshedByName.get(entry.tokenName);
       const ctxParams = { name: ctx.name, token: entry.tokenName };
       if (!newToken) {
         consola.warn(t("CORE.NEWAPI.TOKEN_CREATED_NOT_FOUND", ctxParams));
         continue;
       }
-      const fullKey = await resolveFullKey(ctx, newToken);
-      if (!fullKey) {
-        consola.warn(t("CORE.NEWAPI.TOKEN_NEW_KEY_UNAVAILABLE", ctxParams));
-        continue;
+      if (newToken.key.includes("**")) {
+        newTokensNeedingReveal.push({ entry, token: newToken });
+      } else {
+        result[entry.group.name] = normalizeKey(newToken.key);
       }
-      result[entry.group.name] = normalizeKey(fullKey);
+    }
+    if (newTokensNeedingReveal.length > 0) {
+      const ids = newTokensNeedingReveal.map((e) => e.token.id);
+      const batchKeys = await getTokenFullKeysBatch(ctx, ids);
+      for (const item of newTokensNeedingReveal) {
+        const fullKey = batchKeys.get(item.token.id);
+        const ctxParams = { name: ctx.name, token: item.entry.tokenName };
+        if (!fullKey) {
+          consola.warn(t("CORE.NEWAPI.TOKEN_NEW_KEY_UNAVAILABLE", ctxParams));
+          continue;
+        }
+        result[item.entry.group.name] = normalizeKey(fullKey);
+      }
     }
   }
 

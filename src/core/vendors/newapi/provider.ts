@@ -19,6 +19,7 @@ import type {
   UpstreamOffer,
 } from "@core/pricing/offers";
 import { type PricingSource } from "@core/pricing/resolver";
+import { effectiveRatioFromBillingExpr } from "@core/pricing/tiered-expr";
 import {
   resolveCanonicalByVote,
   type PricingVoteResult,
@@ -324,8 +325,21 @@ export async function processNewApiProvider(
       groups = groups.filter((g) => g.models.length > 0);
     }
     const upstreamPricing = new Map<string, number>();
-    for (const m of pricing.models)
-      if (typeof m.ratio === "number") upstreamPricing.set(m.name, m.ratio);
+    for (const m of pricing.models) {
+      // Tiered models ship a placeholder model_ratio (often 37.5) that would
+      // trip the canonical cap. Derive the effective input ratio from the
+      // cheapest tier's `p` coefficient (same units as model_ratio).
+      // Cheapest, not most-expensive: canonical sources (litellm/openrouter)
+      // list a model's standard/lowest rate, so cheapest tier compares
+      // apples-to-apples. Using long-context premium would reject ~every
+      // multi-tier model.
+      const effective = m.billingExpr
+        ? effectiveRatioFromBillingExpr(m.billingExpr)
+        : undefined;
+      if (effective !== undefined)
+        upstreamPricing.set(m.name, effective.modelRatio);
+      else if (typeof m.ratio === "number") upstreamPricing.set(m.name, m.ratio);
+    }
     const tokenPrefix = config.target.targetPrefix ?? pName;
     const partialSync = (config.modelFilter?.length ?? 0) > 0;
     const tokenResult = await upstream.ensureTokens(groups, tokenPrefix, {
@@ -463,14 +477,22 @@ export async function processNewApiProvider(
               seen.add(exposed);
               const normalized = localNormalizedEndpoints.get(upstreamName);
               const m = pricingByName.get(upstreamName);
+              // Replace placeholder ratios with effective values from the
+              // billing expression so downstream cap/canonical checks compare
+              // in the same units.
+              const tieredEff = m?.billingExpr
+                ? effectiveRatioFromBillingExpr(m.billingExpr)
+                : undefined;
               dedupedOfferModels.push({
                 exposed,
                 upstream: upstreamName,
                 modelType: inferModelType(exposed, normalized),
-                upstreamRatio: m?.ratio,
-                upstreamCompletionRatio: m?.completionRatio,
-                cacheRatio: m?.cacheRatio,
-                createCacheRatio: m?.createCacheRatio,
+                upstreamRatio: tieredEff?.modelRatio ?? m?.ratio,
+                upstreamCompletionRatio:
+                  tieredEff?.completionRatio ?? m?.completionRatio,
+                cacheRatio: tieredEff?.cacheRatio ?? m?.cacheRatio,
+                createCacheRatio:
+                  tieredEff?.createCacheRatio ?? m?.createCacheRatio,
                 modelPrice: m?.modelPrice,
                 quotaType: m?.quotaType,
                 endpoints: m?.supportedEndpoints,
