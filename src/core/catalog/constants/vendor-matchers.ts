@@ -36,6 +36,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   yi: { modelPatterns: ["yi-"], displayName: "Yi", icon: "Yi.Color" },
   ai360: { modelPatterns: ["360gpt"], displayName: "360 AI", icon: "Ai360" },
   xiaomi: { modelPatterns: ["mimo-"], nameAliases: ["xiaomi","小米"], displayName: "Xiaomi", icon: "Xiaomi" },
+  arcee: { modelPatterns: ["arcee","trinity","afm-","virtuoso-","maestro-","caller-","blitz","spotlight","coder-large"], nameAliases: ["arcee","arcee ai"], displayName: "Arcee AI", icon: "Arcee.Color" },
 };
 
 export function inferVendorFromModelName(name: string): string | undefined {
