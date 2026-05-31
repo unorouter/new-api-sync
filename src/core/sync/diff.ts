@@ -116,8 +116,14 @@ function buildManagedOptionValues(
   desired: DesiredState,
   snapshot: TargetSnapshot,
   isPartialSync: boolean,
+  modelFilter?: string[],
 ): Record<string, string> {
   const opts = desired.options;
+  // In a partial (--models) sync, a model on a managed channel is only "in
+  // scope" if it matches the filter. Managed-channel models outside the filter
+  // must keep their existing options, else their ratios get wiped.
+  const inFilterScope = (m: string) =>
+    !modelFilter?.length || matchesAnyPattern(m, modelFilter);
   const isManaged = (ch: Channel) =>
     ch.tag && desired.managedProviders.has(ch.tag);
   const unmanagedChannels = snapshot.channels.filter((ch) => !isManaged(ch));
@@ -149,7 +155,10 @@ function buildManagedOptionValues(
   ) => mergeProtected(parse<Record<string, T>>(key, {}), guard, d);
 
   const managedGroups = new Set(
-    snapshot.channels.filter(isManaged).map((ch) => ch.group),
+    snapshot.channels
+      .filter(isManaged)
+      .filter((ch) => parseModelList(ch.models).some(inFilterScope))
+      .map((ch) => ch.group),
   );
   const partialKeys = (k: string) =>
     Object.keys(parse<Record<string, unknown>>(k, {}));
@@ -163,7 +172,8 @@ function buildManagedOptionValues(
   const managedModels = new Set<string>();
   for (const ch of snapshot.channels)
     if (isManaged(ch))
-      for (const m of parseModelList(ch.models)) managedModels.add(m);
+      for (const m of parseModelList(ch.models))
+        if (inFilterScope(m)) managedModels.add(m);
   for (const ch of desired.channels)
     for (const m of parseModelList(ch.models)) managedModels.add(m);
 
@@ -384,6 +394,7 @@ export function buildSyncDiff(
     desired,
     snapshot,
     isPartialSync,
+    modelFilter,
   );
   const optionOps: DiffOperation<string>[] = [];
   for (const [key, value] of Object.entries(desiredOptionValues)) {
