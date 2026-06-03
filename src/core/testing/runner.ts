@@ -366,6 +366,63 @@ async function testModels(opts: {
   };
 }
 
+// Authenticity-screen Claude models the pricing gate dropped without testing.
+// The kiro detector only runs inside testModels, so a fake-Claude upstream that
+// loses the cheapest-bucket vote ships unchecked. Probe identity only (no
+// http/stream/tool, no offer) so a kiro group is blacklisted regardless of
+// price rank. Returns models that failed the screen.
+export async function screenDroppedClaudeAuthenticity(opts: {
+  baseUrl: string;
+  apiKey: string;
+  models: string[];
+  channelType: number;
+  prefix: string;
+  timeoutMs?: number;
+}): Promise<string[]> {
+  if (opts.channelType !== CHANNEL_TYPES.ANTHROPIC || !opts.apiKey) return [];
+  const claude = opts.models.filter((m) => m.startsWith("claude-"));
+  if (claude.length === 0) return [];
+  const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
+  const gate = getConcurrencyGate();
+  const failed = await Promise.all(
+    claude.map((model) =>
+      gate.run(opts.baseUrl, async (): Promise<string | null> => {
+        throwIfRunAborted();
+        const key = passKey(opts.prefix, model);
+        if (passingByKey.has(key)) return null;
+        const blacklistKey = `${opts.prefix}|${model}`;
+        if (isAuthenticityBlacklisted(blacklistKey)) return model;
+        const authentic = await testAnthropicAuthenticity({
+          baseUrl: opts.baseUrl,
+          apiKey: opts.apiKey,
+          model,
+          timeoutMs,
+          logKey: blacklistKey,
+        });
+        if (authentic) return null;
+        const http: TestExchange = {
+          pass: false,
+          request: { url: "", headers: {}, body: null },
+          response: null,
+          responseHeaders: {},
+          error: t("CORE.TESTER.ERR_AUTHENTICITY_BLACKLISTED"),
+        };
+        addTestResult({
+          provider: opts.prefix,
+          model,
+          cost: null,
+          http,
+          stream: null,
+          toolCall: null,
+          authentic: false,
+        });
+        return model;
+      }),
+    ),
+  );
+  return failed.filter((m): m is string => m !== null);
+}
+
 export async function testAndFilterModels(opts: {
   allModels: string[];
   baseUrl: string;

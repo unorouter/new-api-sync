@@ -29,6 +29,7 @@ import {
   recordOpenRouterEndpointsForModel,
   recordPricingGate,
   recordProviderCost,
+  screenDroppedClaudeAuthenticity,
   testAndFilterModels,
 } from "@core/testing/runner";
 import { getOpenRouterEndpointsTrace } from "@core/pricing/sources/openrouter";
@@ -440,6 +441,21 @@ export async function processNewApiProvider(
                     "drop",
                 )
               : vendorModels;
+            const droppedModels = gateDecisions
+              ? vendorModels.filter(
+                  (m) =>
+                    gateDecisions.get(`${p.group.name}|${vendor}|${m}`) ===
+                    "drop",
+                )
+              : [];
+            if (droppedModels.length > 0)
+              await screenDroppedClaudeAuthenticity({
+                baseUrl,
+                apiKey: p.apiKey,
+                models: droppedModels,
+                channelType: probe.channelType,
+                prefix: `${probeLabel}/${vendor}`,
+              });
             if (gatedModels.length === 0)
               return {
                 tested: 0,
