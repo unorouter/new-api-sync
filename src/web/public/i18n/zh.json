@@ -219,6 +219,7 @@
   },
   "SERVER": {
     "RUN_NOT_FOUND": "未找到运行记录",
+    "RUN_MALFORMED": "运行日志格式错误",
     "ENTRY_NOT_FOUND": "未找到条目",
     "RESERVED_NAME": "名称“example”是保留字",
     "CONFIG_EXISTS": "配置“{name}”已存在",

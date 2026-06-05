@@ -14,6 +14,7 @@ import { join } from "path";
 import {
   authenticityProbeAccumulator,
   isAuthenticityBlacklisted,
+  resetAuthenticityProbes,
   saveAuthenticityBlacklist,
   testAnthropicAuthenticity,
 } from "./authenticity";
@@ -45,13 +46,24 @@ import type {
 import type { ApplyReport, ProviderReport, SyncDiff } from "@core/types";
 import { redactExchange, redactUrl } from "./redact";
 
-const testReport: TestReport = {
+let testReport: TestReport = {
   timestamp: new Date().toISOString(),
   providers: {},
   modelTests: [],
 };
 const passingByKey = new Map<string, ModelTestLog>();
 const passKey = (provider: string, model: string) => `${provider}|${model}`;
+
+// Reset module-level state per run so the server doesn't leak run N's cache into N+1.
+export function resetTestState(): void {
+  testReport = {
+    timestamp: new Date().toISOString(),
+    providers: {},
+    modelTests: [],
+  };
+  passingByKey.clear();
+  resetAuthenticityProbes();
+}
 
 function redactedReport(): TestReport {
   const pg = testReport.pricingGate;

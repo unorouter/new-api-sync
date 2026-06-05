@@ -219,6 +219,7 @@
   },
   "SERVER": {
     "RUN_NOT_FOUND": "run not found",
+    "RUN_MALFORMED": "run log is malformed",
     "ENTRY_NOT_FOUND": "entry not found",
     "RESERVED_NAME": "name 'example' is reserved",
     "CONFIG_EXISTS": "config '{name}' already exists",

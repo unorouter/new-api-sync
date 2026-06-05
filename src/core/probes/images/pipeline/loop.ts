@@ -1,3 +1,4 @@
+import { throwIfRunAborted } from "@core/infra/abort";
 import { redactExchange } from "@core/testing/redact";
 import type { ProviderConfig } from "@core/validations/config";
 import type { UpstreamPricing } from "@core/vendors/newapi/types";
@@ -300,6 +301,7 @@ async function pollSettle(opts: {
   let stepDelta = opts.initialDelta;
   const deadline = Date.now() + opts.budgetMs;
   while (Date.now() < deadline) {
+    throwIfRunAborted();
     await new Promise((r) => setTimeout(r, 2000));
     const b = await opts.fetchBalance();
     if (b !== null && Math.abs(opts.balanceBefore - b) >= 0.0001) {

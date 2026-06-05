@@ -13,7 +13,11 @@ import { updateGuestTokenIfConfigured } from "@core/sync/guest-token";
 import { runProviderPipeline } from "@core/sync/pipeline";
 import type { ResetResult } from "@core/sync/reset";
 import { loadAuthenticityBlacklist } from "@core/testing/authenticity";
-import { recordRunSummary, writeTestReport } from "@core/testing/runner";
+import {
+  recordRunSummary,
+  resetTestState,
+  writeTestReport,
+} from "@core/testing/runner";
 import type { DesiredState, SyncRunResult, TargetSnapshot } from "@core/types";
 import { MANAGED_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
@@ -93,46 +97,55 @@ async function snapshot(client: NewApiClient): Promise<TargetSnapshot> {
 export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
   const start = Date.now();
   const target = new NewApiClient(config.target, "target");
+  resetTestState();
   loadAuthenticityBlacklist();
 
-  const health = await target.healthCheck();
-  if (!health.ok)
-    throw new Error(
-      t("ERROR.TARGET_HEALTH_CHECK_FAILED", {
-        detail: health.error ?? "unknown",
-      }),
+  // Logs written in finally so a crash/abort still flushes buffered errors.
+  let applyErrors: SyncRunResult["apply"]["errors"] = [];
+  try {
+    const health = await target.healthCheck();
+    if (!health.ok)
+      throw new Error(
+        t("ERROR.TARGET_HEALTH_CHECK_FAILED", {
+          detail: health.error ?? "unknown",
+        }),
+      );
+
+    throwIfRunAborted();
+    let snap = await snapshot(target);
+    throwIfRunAborted();
+    const { desired, providerReports } = await runProviderPipeline(
+      config,
+      snap,
     );
 
-  throwIfRunAborted();
-  let snap = await snapshot(target);
-  throwIfRunAborted();
-  const { desired, providerReports } = await runProviderPipeline(config, snap);
+    throwIfRunAborted();
+    const vendorsCreated = await ensureVendors(target, desired, snap);
+    if (vendorsCreated > 0)
+      snap = { ...snap, vendors: await target.listVendors() };
 
-  throwIfRunAborted();
-  const vendorsCreated = await ensureVendors(target, desired, snap);
-  if (vendorsCreated > 0)
-    snap = { ...snap, vendors: await target.listVendors() };
+    throwIfRunAborted();
+    const diff = buildSyncDiff(config, desired, snap);
+    const apply = await applySyncDiff(target, diff);
+    applyErrors = apply.errors;
+    if (apply.options.updated.length > 0) await target.updateCache();
 
-  throwIfRunAborted();
-  const diff = buildSyncDiff(config, desired, snap);
-  const apply = await applySyncDiff(target, diff);
-  if (apply.options.updated.length > 0) await target.updateCache();
+    throwIfRunAborted();
+    const postApplyPricing = await target.fetchPricing();
+    await updateGuestTokenIfConfigured(target, postApplyPricing);
 
-  throwIfRunAborted();
-  const postApplyPricing = await target.fetchPricing();
-  await updateGuestTokenIfConfigured(target, postApplyPricing);
+    const successfulProviders = providerReports.filter((p) => p.success).length;
+    const hasProviderSuccess =
+      successfulProviders > 0 || config.providers.length === 0;
+    const elapsedMs = Date.now() - start;
+    const success = hasProviderSuccess && apply.errors.length === 0;
 
-  const successfulProviders = providerReports.filter((p) => p.success).length;
-  const hasProviderSuccess =
-    successfulProviders > 0 || config.providers.length === 0;
-  const elapsedMs = Date.now() - start;
-  const success = hasProviderSuccess && apply.errors.length === 0;
-
-  recordRunSummary({ providerReports, apply, diff, elapsedMs, success });
-  writeTestReport();
-  writeApplyErrorsLog(apply.errors);
-
-  return { success, providerReports, desired, diff, apply, elapsedMs };
+    recordRunSummary({ providerReports, apply, diff, elapsedMs, success });
+    return { success, providerReports, desired, diff, apply, elapsedMs };
+  } finally {
+    writeTestReport();
+    writeApplyErrorsLog(applyErrors);
+  }
 }
 
 function writeApplyErrorsLog(

@@ -67,20 +67,24 @@ export class ProbeTokenManager {
     return normalized;
   }
 
-  async cleanup(): Promise<void> {
-    if (this.createdByThisRun.size === 0) return;
+  /** Returns the count of probe tokens that could not be deleted (leaked). */
+  async cleanup(): Promise<number> {
+    if (this.createdByThisRun.size === 0) return 0;
     consola.info(
       `[${this.providerName}] deleting ${this.createdByThisRun.size} probe tokens`,
     );
+    let failed = 0;
     for (const id of this.createdByThisRun) {
       try {
-        await retryOn429(() => deleteToken(this.ctx, id));
+        if (!(await retryOn429(() => deleteToken(this.ctx, id)))) failed++;
       } catch (err) {
+        failed++;
         consola.warn(
           `[${this.providerName}] failed to delete probe token ${id}: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }
+    return failed;
   }
 
   private tokenNameFor(groupName: string): string {

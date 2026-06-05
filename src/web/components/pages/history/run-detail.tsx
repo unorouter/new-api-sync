@@ -471,8 +471,8 @@ function ResultsTable(props: {
 
   return (
     <div className="space-y-1">
-      {filtered.map((r, i) => (
-        <ResultRow key={i} result={r} />
+      {filtered.map((r) => (
+        <ResultRow key={`${r.provider}|${r.model}`} result={r} />
       ))}
     </div>
   );
@@ -785,8 +785,8 @@ function PricingGateView(props: { entries: PricingGate[] }) {
         </p>
       ) : (
         <div className="space-y-1">
-          {filtered.map((entry, i) => (
-            <PricingGateRow key={i} entry={entry} />
+          {filtered.map((entry) => (
+            <PricingGateRow key={entry.exposed} entry={entry} />
           ))}
         </div>
       )}
@@ -973,8 +973,8 @@ function EndpointsView(props: { entries: EndpointsLog[] }) {
         </p>
       ) : (
         <div className="space-y-1">
-          {filtered.map((entry, i) => (
-            <EndpointsRow key={i} entry={entry} />
+          {filtered.map((entry) => (
+            <EndpointsRow key={entry.id} entry={entry} />
           ))}
         </div>
       )}

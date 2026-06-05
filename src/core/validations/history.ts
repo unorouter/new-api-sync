@@ -72,6 +72,9 @@ const OpenRouterEndpointsSchema = T.Object({
 // prettier-ignore
 const RunDetailSchema = T.Object({ id: T.String(), timestamp: T.String(), results: T.Array(ResultSchema), summary: T.Optional(RunOutcomeSchema), providers: T.Optional(T.Record(T.String(), ProviderEntrySchema)), pricingGate: T.Optional(T.Array(PricingGateSchema)), openrouterEndpoints: T.Optional(T.Array(OpenRouterEndpointsSchema)) });
 
+// Exported so the route can runtime-validate disk-read log data before responding.
+export const RunDetailDataSchema = RunDetailSchema;
+
 // prettier-ignore
 const AuthenticityEntrySchema = T.Object({ key: T.String(), provider: T.String(), group: T.String(), model: T.String(), since: T.String(), reason: T.String() });
 
@@ -80,6 +83,7 @@ export const RunIdParamsSchema = T.Object({ id: T.String() });
 export const RunDetailResponsesSchema = {
   200: successResponse(RunDetailSchema),
   404: ErrorResponseSchema,
+  422: ErrorResponseSchema,
 };
 export const AuthenticityListResponseSchema = successArrayResponse(
   AuthenticityEntrySchema,

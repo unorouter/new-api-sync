@@ -1,5 +1,6 @@
 import { fetchJson, tryFetchJson } from "@core/infra/http";
 import { throwIfRunAborted } from "@core/infra/abort";
+import { getConcurrencyGate } from "@core/infra/concurrency";
 import type { GroupInfo } from "@core/types";
 import { PAGINATION } from "@core/types";
 import { t } from "@server/i18n";
@@ -236,7 +237,8 @@ export async function ensureTokens(
   }
 
   const groupsAwaitingCreate: { group: GroupInfo; tokenName: string }[] = [];
-  const existingNeedingReveal: { group: GroupInfo; token: UpstreamToken }[] = [];
+  const existingNeedingReveal: { group: GroupInfo; token: UpstreamToken }[] =
+    [];
   for (const group of groups) {
     throwIfRunAborted();
     const tokenName = tokenNameForGroup(group.name);
@@ -276,14 +278,17 @@ export async function ensureTokens(
   if (groupsAwaitingCreate.length === 0)
     return { tokens: result, created, existing, deleted };
 
-  // Token creation throttled to 2 concurrent; new-api rate-limits writes too.
+  // Throttle creates to 2; gate.run so they count toward the global cap, not bypass it.
   const createLimit = pLimit(2);
+  const gate = getConcurrencyGate();
   const createResults = await Promise.all(
     groupsAwaitingCreate.map((entry) =>
-      createLimit(async () => ({
-        ...entry,
-        ok: await createToken(ctx, entry.tokenName, entry.group.name),
-      })),
+      createLimit(() =>
+        gate.run(ctx.baseUrl, async () => ({
+          ...entry,
+          ok: await createToken(ctx, entry.tokenName, entry.group.name),
+        })),
+      ),
     ),
   );
   const successfulCreates = createResults.filter((r) => r.ok);
@@ -294,7 +299,10 @@ export async function ensureTokens(
     const refreshedByName = new Map(
       (await listTokens(ctx)).map((tk) => [tk.name, tk]),
     );
-    const newTokensNeedingReveal: { entry: typeof successfulCreates[number]; token: UpstreamToken }[] = [];
+    const newTokensNeedingReveal: {
+      entry: (typeof successfulCreates)[number];
+      token: UpstreamToken;
+    }[] = [];
     for (const entry of successfulCreates) {
       const newToken = refreshedByName.get(entry.tokenName);
       const ctxParams = { name: ctx.name, token: entry.tokenName };

@@ -226,17 +226,30 @@ export async function fetchOpenRouterPricingSource(): Promise<PricingSource | nu
   const t0 = performance.now();
   const limit = pLimit(ENDPOINTS_CONCURRENCY);
   const validEntries: [string, OpenRouterSummaryModel][] = [];
+  const failedIds: string[] = [];
   await Promise.all(
     ids.map((id) =>
       limit(async () => {
         const trace = await fetchEndpointsForModel(id);
-        if (!trace) return;
+        if (!trace) {
+          failedIds.push(id);
+          return;
+        }
         endpointTraces.set(id, trace);
         const model = summaryById.get(id);
         if (model) validEntries.push([id, model]);
       }),
     ),
   );
+  if (failedIds.length > 0) {
+    // Surface which models dropped: "no endpoints" vs "fetch failed" are otherwise indistinguishable.
+    const shown = failedIds.slice(0, 15);
+    const more =
+      failedIds.length > 15 ? ` (+${failedIds.length - 15} more)` : "";
+    consola.warn(
+      `OpenRouter endpoint prefetch failed for ${failedIds.length}/${ids.length}: ${shown.join(", ")}${more}`,
+    );
+  }
   consola.info(
     t("CORE.PRICING.OPENROUTER_PREFETCH_DONE", {
       with: validEntries.length,

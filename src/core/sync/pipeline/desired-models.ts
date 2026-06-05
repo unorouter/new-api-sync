@@ -15,8 +15,27 @@ import {
   resolveSourceMetadata,
 } from "@core/pricing/resolver";
 import type { Channel, DesiredModelSpec } from "@core/types";
+import { consola } from "consola";
 
 const CLAUDE_CONTEXT_1M_SUFFIX = "[1m]";
+
+// exposed -> upstream from every channel's model_mapping. First-wins for determinism.
+function buildChannelModelUpstream(channels: Channel[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const ch of channels) {
+    if (!ch.model_mapping) continue;
+    try {
+      const mm = JSON.parse(ch.model_mapping) as Record<string, string>;
+      for (const [exposed, upstream] of Object.entries(mm))
+        if (!map.has(exposed)) map.set(exposed, upstream);
+    } catch (err) {
+      consola.warn(
+        `Channel "${ch.name}" has unparseable model_mapping: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+  return map;
+}
 
 function isRoutingOnlyAlias(modelName: string): boolean {
   return modelName.endsWith(CLAUDE_CONTEXT_1M_SUFFIX);
@@ -36,16 +55,7 @@ export function buildDesiredModels(opts: {
 }): Map<string, DesiredModelSpec> {
   const models = new Map<string, DesiredModelSpec>();
 
-  const channelModelUpstream = new Map<string, string>();
-  for (const ch of opts.channels) {
-    if (!ch.model_mapping) continue;
-    try {
-      const mm = JSON.parse(ch.model_mapping) as Record<string, string>;
-      for (const [exposed, upstream] of Object.entries(mm))
-        if (!channelModelUpstream.has(exposed))
-          channelModelUpstream.set(exposed, upstream);
-    } catch {}
-  }
+  const channelModelUpstream = buildChannelModelUpstream(opts.channels);
 
   for (const channel of opts.channels) {
     for (const modelName of parseModelList(channel.models)) {
@@ -134,17 +144,8 @@ export function buildDesiredModels(opts: {
         : deduped;
   }
 
-  const exposedToUpstream = new Map<string, string>();
-  for (const ch of opts.channels) {
-    if (!ch.model_mapping) continue;
-    try {
-      const mm = JSON.parse(ch.model_mapping) as Record<string, string>;
-      for (const [exposed, upstream] of Object.entries(mm))
-        exposedToUpstream.set(exposed, upstream);
-    } catch {}
-  }
   for (const [modelName, spec] of models) {
-    const upstream = exposedToUpstream.get(modelName) ?? modelName;
+    const upstream = channelModelUpstream.get(modelName) ?? modelName;
     const override =
       opts.metadataByUpstream[upstream] ?? opts.metadataByUpstream[modelName];
     const merged = buildModelMetadata({

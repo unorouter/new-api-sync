@@ -1,3 +1,4 @@
+import { getRunContext } from "@core/infra/abort";
 import { fetchJson, tryFetchJson } from "@core/infra/http";
 import type { Channel, ModelMeta, Vendor } from "@core/types";
 import { PAGINATION } from "@core/types";
@@ -18,20 +19,25 @@ export interface UpstreamErrorEntry {
   payloadSnippet?: unknown;
   at: string;
 }
-const upstreamErrors: UpstreamErrorEntry[] = [];
+// Per-run buffer (isolates concurrent server syncs); module fallback for the CLI.
+const fallbackErrors: UpstreamErrorEntry[] = [];
+const errorBuffer = (): UpstreamErrorEntry[] =>
+  (getRunContext()?.upstreamErrors as UpstreamErrorEntry[]) ?? fallbackErrors;
 export const recordUpstreamError = (
   e: Omit<UpstreamErrorEntry, "at">,
 ): void => {
-  upstreamErrors.push({ ...e, at: new Date().toISOString() });
+  errorBuffer().push({ ...e, at: new Date().toISOString() });
 };
 export function drainUpstreamErrors(): UpstreamErrorEntry[] {
-  const out = upstreamErrors.slice();
-  upstreamErrors.length = 0;
+  const buf = errorBuffer();
+  const out = buf.slice();
+  buf.length = 0;
   return out;
 }
 export function peekUpstreamError(key: string): UpstreamErrorEntry | undefined {
-  for (let i = upstreamErrors.length - 1; i >= 0; i--)
-    if (upstreamErrors[i]!.key === key) return upstreamErrors[i];
+  const buf = errorBuffer();
+  for (let i = buf.length - 1; i >= 0; i--)
+    if (buf[i]!.key === key) return buf[i];
   return undefined;
 }
 

@@ -37,7 +37,9 @@ export async function readLocaleFromGlobal(): Promise<Locale> {
     const text = await file.text();
     const parsed = Bun.YAML.parse(text) as { locale?: Locale } | null;
     const locale = parsed?.locale;
-    return locale!;
+    return locale && (LOCALES as readonly string[]).includes(locale)
+      ? locale
+      : LOCALES[0];
   } catch {
     return LOCALES[0];
   }

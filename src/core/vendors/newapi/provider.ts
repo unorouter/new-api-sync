@@ -43,6 +43,19 @@ import { partitionByVendor } from "../shared/partition";
 import { NewApiClient } from "./client";
 import { probeChannelType } from "./probe-channel-type";
 
+// Parse failure -> placeholder ratio -> silent "no-fit" drop. Warn once/model so it's diagnosable.
+const warnedBadBillingExpr = new Set<string>();
+function effectiveTieredOrWarn(billingExpr: string, modelName: string) {
+  const effective = effectiveRatioFromBillingExpr(billingExpr);
+  if (effective === undefined && !warnedBadBillingExpr.has(modelName)) {
+    warnedBadBillingExpr.add(modelName);
+    consola.warn(
+      `Unparseable billing_expr for "${modelName}", likely dropped: ${billingExpr}`,
+    );
+  }
+  return effective;
+}
+
 function vendorFilter(enabledVendors: string[] | undefined) {
   if (!enabledVendors?.length) return null;
   const set = new Set(enabledVendors.map((v) => v.toLowerCase()));
@@ -335,11 +348,12 @@ export async function processNewApiProvider(
       // apples-to-apples. Using long-context premium would reject ~every
       // multi-tier model.
       const effective = m.billingExpr
-        ? effectiveRatioFromBillingExpr(m.billingExpr)
+        ? effectiveTieredOrWarn(m.billingExpr, m.name)
         : undefined;
       if (effective !== undefined)
         upstreamPricing.set(m.name, effective.modelRatio);
-      else if (typeof m.ratio === "number") upstreamPricing.set(m.name, m.ratio);
+      else if (typeof m.ratio === "number")
+        upstreamPricing.set(m.name, m.ratio);
     }
     const tokenPrefix = config.target.targetPrefix ?? pName;
     const partialSync = (config.modelFilter?.length ?? 0) > 0;
@@ -497,7 +511,7 @@ export async function processNewApiProvider(
               // billing expression so downstream cap/canonical checks compare
               // in the same units.
               const tieredEff = m?.billingExpr
-                ? effectiveRatioFromBillingExpr(m.billingExpr)
+                ? effectiveTieredOrWarn(m.billingExpr, upstreamName)
                 : undefined;
               dedupedOfferModels.push({
                 exposed,

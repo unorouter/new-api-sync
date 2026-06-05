@@ -14,6 +14,7 @@ import type {
   Vendor,
 } from "@core/types";
 import { t } from "@server/i18n";
+import { consola } from "consola";
 import { deepEqual } from "fast-equals";
 import stringify from "safe-stable-stringify";
 
@@ -45,7 +46,13 @@ function mergeSettingCapabilities(
   if (existingSetting) {
     try {
       existing = JSON.parse(existingSetting);
-    } catch {}
+    } catch (err) {
+      // Unparseable: keep verbatim instead of dropping its other fields.
+      consola.warn(
+        `Channel setting unparseable, preserving as-is: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return existingSetting;
+    }
   }
   existing.capabilities = desiredCaps;
   return JSON.stringify(existing);
@@ -287,8 +294,7 @@ export function buildSyncDiff(
 
   const modelFilter = config.modelFilter;
   const isPartialSync =
-    config.onlyProviders !== undefined ||
-    (modelFilter?.length ?? 0) > 0;
+    config.onlyProviders !== undefined || (modelFilter?.length ?? 0) > 0;
   const inScope = (channel: Channel): boolean =>
     !modelFilter ||
     modelFilter.length === 0 ||

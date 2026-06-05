@@ -2,11 +2,14 @@ import {
   AuthenticityDeleteResponsesSchema,
   AuthenticityKeyParamsSchema,
   AuthenticityListResponseSchema,
+  RunDetailDataSchema,
   RunDetailResponsesSchema,
   RunIdParamsSchema,
   RunsListResponseSchema,
 } from "@core/validations/history";
 import { t } from "@server/i18n";
+import { Value } from "@sinclair/typebox/value";
+import { consola } from "consola";
 import { Elysia } from "elysia";
 import {
   existsSync,
@@ -166,18 +169,25 @@ export const historyRoute = new Elysia({ prefix: "/history" })
         set.status = 404;
         return { success: false as const, message: t("SERVER.RUN_NOT_FOUND") };
       }
-      return {
-        success: true as const,
-        data: {
-          id: params.id,
-          timestamp: run.timestamp ?? params.id,
-          results: runResults(run) as never,
-          summary: run.summary as never,
-          providers: run.providers as never,
-          pricingGate: run.pricingGate as never,
-          openrouterEndpoints: run.openrouterEndpoints as never,
-        },
+      const data = {
+        id: params.id,
+        timestamp: run.timestamp ?? params.id,
+        results: runResults(run),
+        summary: run.summary,
+        providers: run.providers,
+        pricingGate: run.pricingGate,
+        openrouterEndpoints: run.openrouterEndpoints,
       };
+      // Disk JSON is untrusted: 422 on malformed instead of leaking bad shapes.
+      if (!Value.Check(RunDetailDataSchema, data)) {
+        const first = [...Value.Errors(RunDetailDataSchema, data)][0];
+        consola.warn(
+          `Malformed run log ${params.id}: ${first ? `${first.path} ${first.message}` : "schema mismatch"}`,
+        );
+        set.status = 422;
+        return { success: false as const, message: t("SERVER.RUN_MALFORMED") };
+      }
+      return { success: true as const, data };
     },
     {
       params: RunIdParamsSchema,

@@ -17,6 +17,10 @@ function addAuthenticityProbe(key: string, entry: AuthenticityProbeLog): void {
   else authenticityProbeAccumulator.set(key, [entry]);
 }
 
+export function resetAuthenticityProbes(): void {
+  authenticityProbeAccumulator.clear();
+}
+
 interface AuthenticityBlacklistEntry {
   since: string;
   reason: string;

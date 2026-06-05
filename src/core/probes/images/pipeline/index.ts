@@ -245,11 +245,11 @@ export async function runImageProbe(
       }
     }
   } finally {
-    for (const { tokens } of candidatesByProvider.values()) {
-      try {
-        await tokens.cleanup();
-      } catch {}
-    }
+    let leakedTokens = 0;
+    for (const { tokens } of candidatesByProvider.values())
+      leakedTokens += await tokens.cleanup();
+    if (leakedTokens > 0)
+      consola.warn(`${leakedTokens} probe token(s) leaked during this run`);
     if (totalSpent > 0)
       consola.info(
         `Total actual spend across this run: $${totalSpent.toFixed(4)}`,
