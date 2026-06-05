@@ -1,0 +1,174 @@
+# CLAUDE.md
+
+Guidance for working in **new-api-sync**. Read this before touching code.
+
+## What this is
+
+Declarative reconciliation tool that syncs AI model pricing, channels, and models from upstream
+providers into a target [new-api](https://github.com/QuantumNous/new-api) gateway. It discovers what
+each upstream serves, verifies every model with live API probes, computes profitable retail pricing
+against multi-source canonical data, then makes the target's channels/models/options exactly match a
+computed desired state (create/update/delete). Ships a Commander CLI and a bundled Elysia + React
+dashboard, all compiled into one native binary per platform.
+
+It is NOT "copy config". It is a four-way reconciler: test before exposing, price under a hard cap,
+organize into per-tier channels, and support partial syncs that never clobber out-of-scope state.
+
+## Stack
+
+- Runtime: **Bun** + TypeScript (ESNext, strict, `noUncheckedIndexedAccess`). Use `bun`, never `npm`/`node`.
+- Server: **Elysia** + Eden treaty (end-to-end typed RPC, no codegen).
+- Frontend: **React 19** + TanStack Query + Zustand + Tailwind v4 + shadcn (`base-vega`, zinc, lucide).
+- Validation: **TypeBox** schemas in `src/core/validations/`, shared server <-> web via Eden.
+- Key deps: consola (logging, bridged to SSE), p-limit (concurrency), ofetch (HTTP), micromatch
+  (globs), yaml (comment-preserving Document tree), commander.
+
+## Commands
+
+```bash
+bun install
+bun sync run                              # full sync
+bun sync run --only <p1,p2>               # sync only named providers (partial)
+bun sync run --models "claude-*,gpt-4*"   # sync only matching models (partial)
+bun sync run --verbose                    # debug logging
+bun sync reset                            # delete all synced data
+bun sync images                           # image-gen probe pipeline (--dry-run, --step)
+bun sync ui --port 3000                   # web dashboard (alias: bun ui)
+bun run dev                               # watch-mode server, serves frontend from disk
+bun run typecheck                         # tsc, run before committing
+bun run build                             # typecheck + frontend + 6 native binaries
+bun run prettier                          # format
+```
+
+Config lives in `config.yml` (gitignored, holds secrets) + optional `config.global.yml`
+(cross-config: locale/theme/shared blacklist/shared modelMapping). Named variants are
+`config.<name>.yml`. Only `config.example.yml` is committed.
+
+## Layout
+
+```
+src/
+  cli/index.ts            Commander entry, 4 commands (run|reset|images|ui)
+  build.ts                single-file-binary build, generates embedded-assets.ts
+  embedded-assets.ts      GENERATED. base64-inlined frontend. empty in dev, populated in prod build
+  core/                   provider-agnostic engine
+    config.ts             config load/merge, ENV expansion, builtin blacklist
+    sync/                 orchestration: run, diff, apply, reset, pipeline/
+    pricing/              the economic core: compute, vote, resolver, sources/, tiered-expr
+    vendors/              per-provider adapters: newapi (reference), sub2api, openrouter, nvidia, comfyui
+    testing/              model probes: runner, authenticity, request-configs, redact
+    probes/images/        image-gen discovery + probe pipeline
+    catalog/              bare-name norm, vendor-matchers, filter, metadata, constants/
+    infra/                abort, concurrency, fs, http, retry, paths
+    validations/          TypeBox schemas (shared with web via Eden)
+  server/                 Elysia app: route.ts + config/health/history/pipeline routes, sse.ts, i18n.ts
+  web/                    React app: app.tsx, lib/rpc.ts, lib/react-query/keys.ts, store/, hooks/, components/
+```
+
+Path aliases (use these, never relative cross-package imports): `@core/*`, `@server/*`, `@web/*`.
+
+## How the sync works (read before editing the pipeline)
+
+`runSync` in `src/core/sync/run.ts` is the 6-step spine:
+
+1. **Health + snapshot** current channels/models/vendors/options into a `TargetSnapshot`.
+2. **Discover + test** per provider in TYPE_ORDER (newapi, nvidia, openrouter, sub2api). Each
+   processor returns `UpstreamOffer[]`.
+3. **Canonical retail** resolved by VOTE across pricing sources (`pricing/vote.ts`).
+4. **Price + emit**: `computePricedPlan` (pricing/compute.ts) builds tiers under the cap, `emitChannels`
+   makes channels, `buildDesiredModels` + `buildOptionMaps` make the rest. Result: `DesiredState`.
+5. **Diff** desired vs snapshot into create/update/delete ops (`sync/diff.ts`).
+6. **Apply + cleanup**: options -> channels -> models -> orphan cleanup (orphan cleanup ONLY when not
+   a partial sync), then guest token, then write logs.
+
+Each upstream model flows: provider row -> `OfferModel{exposed, upstream, upstreamRatio}` -> canonical
+vote -> `MergedModel` + `PricedTier` -> `Channel` (with `model_mapping: {exposed -> upstream}`) ->
+option maps -> `DiffOperation` -> POST to new-api. `exposed` is the published name, `upstream` is what
+gets forwarded.
+
+### Invariants that MUST hold (do not break these)
+
+- **Partial syncs never clobber.** `isPartialSync = onlyProviders || modelFilter.length > 0`. In
+  partial mode, out-of-scope ratios are preserved (`mergeProtected`) and orphan cleanup is disabled
+  (`cleanupOrphans = !isPartialSync`). A `--only openrouter` run must not touch other providers'
+  pricing. Any pipeline change must keep this true.
+- **Pricing cap is hard.** No offer may charge more than 1x canonical retail. The cap is
+  `modelRatio * candidate <= (canonical ?? ratio)` in `compute.ts`. There is no user knob to relax it.
+- **priceAdjustment is schema-bounded** to `(-1, 1)` (record form `(-1, 1]`) in
+  `validations/config.ts`, so the `(1 + adjustment)` multiplier stays in `(0, 2)`. Keep the schema bound.
+- **Concurrency inversion is deliberate.** `ConcurrencyGate.run(key, fn)` acquires the per-upstream
+  limit OUTSIDE the global limit so one slow upstream cannot starve the global pool
+  (`infra/concurrency.ts`). Do not reorder.
+- **Abort is per-run** via `AsyncLocalStorage<AbortSignal>` (`infra/abort.ts`) so concurrent SSE
+  clients stay isolated. Long loops call `throwIfRunAborted()` at checkpoints; keep adding these to
+  new loops.
+
+### Known sharp edges (don't "fix" without understanding)
+
+- Canonical voting is consensus-or-nothing: needs a cluster of >= 2 agreeing sources, else no canonical
+  and the stored new-api ratio is kept (no cap, no strikethrough). Two equal-size clusters tie by
+  iteration order (no explicit tie-break yet).
+- A canonical of `0` or `undefined` neuters or inverts the cap (`canonical ?? ratio`). Watch sources
+  that can return zero/null ratios.
+- Unparseable tiered billing expressions fall back to a raw placeholder (~37.5) and silently drop the
+  model. Surface a warning rather than dropping silently if you touch `tiered-expr.ts`.
+
+## Conventions (match the existing code)
+
+- **No destructuring** of React props, variables, or hook returns (unless spreading or setting
+  defaults).
+- **No `useMemo`/`useCallback`** (React 19). The codebase has zero; keep it that way.
+- **No bloated comments.** Comment only non-obvious _why_, one terse line. No restating code, no
+  multi-line explainers. Prefer zero comments. (Module-level docblocks in `scripts/` and pipeline
+  entry files are the existing exception.)
+- **Double quotes, semicolons.** Prettier with `prettier-plugin-tailwindcss`. Run `bun run prettier`.
+- **Imports via path aliases** (`@core`/`@server`/`@web`), never relative across packages. Use
+  `import type` for type-only imports (`verbatimModuleSyntax` is on).
+- **No barrel re-export files** when splitting modules. Move the symbol, then update every importer.
+  No `index.ts` that only re-exports siblings.
+
+### Frontend specifics
+
+- **All user-facing strings go through i18n.** Use full translation keys via `t("SECTION.KEY")`.
+  When adding a key, add a real native translation to BOTH locale files in `src/web/public/i18n/`
+  (`en.json` and `zh.json`) plus the server catalogs (`src/server/i18n.ts`,
+  `src/web/lib/constants.ts`). No English placeholders in `zh.json`. Chinese strings use full-width
+  punctuation (`：`, `，`, `。`), never ASCII.
+- **React Query cache ops go through `src/web/lib/react-query/keys.ts`.** Never raw string arrays in
+  `useQuery`/`useMutation`/`setQueryData`/`invalidateQueries`.
+- The frontend talks to the server via the Eden client in `src/web/lib/rpc.ts`. Responses are typed
+  from `App = typeof app` but NOT runtime-validated client-side; a server shape change can surface as
+  a runtime undefined.
+
+## Build & release
+
+`bun run build` (`src/build.ts`): typecheck -> Tailwind frontend -> `writeAssetManifest()` base64-inlines
+every frontend file + `config.example.yml` into `embedded-assets.ts` -> JS bundle -> `bun build
+--compile` for 6 targets (linux/darwin/windows x64+arm64) -> resets the manifest to an empty stub.
+**Empty `embeddedAssets` = dev (serve from disk via `@elysiajs/static`); populated = prod (serve from
+binary).**
+
+Release is automated: bump `version` in `package.json`, merge to `main`, and
+`.github/workflows/release.yml` builds all artifacts and cuts the GitHub release. Do not build/ship
+binaries by hand.
+
+## Punctuation (code, commits, comments)
+
+ASCII keyboard punctuation only. No em/en dashes, no Unicode arrows (`->` not the glyph), no curly
+quotes, no ellipsis glyph. Inside fenced code blocks, characters stay verbatim. Chinese text uses
+full-width punctuation.
+
+## Git
+
+Never add Co-Authored-By, "Generated with Claude Code", or any Claude/AI reference to commits, PRs, or
+issues.
+
+## Gotchas
+
+- `config*.yml` is gitignored (holds secrets). Only `config.example.yml` is committed.
+- `scripts/` and `reference/` are dev-only (gitignored). `scripts/*.ts` are one-shot analysis/backfill
+  tools run with `bun scripts/<name>.ts`; `reference/` holds snapshotted pricing datasets.
+- `logs/` holds run history, redacted model-test transcripts, and `authenticity-blacklist.json`
+  (auto-maintained; manageable from the UI History tab).
+- Builtin blacklist (`config.ts`) is merged last and additively; local config can add but never remove
+  builtins.
