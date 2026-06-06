@@ -56,6 +56,14 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     apiKeyPlaceholder: "cf-... (Workers AI token)",
   },
+  {
+    kind: "github",
+    label: "GitHub",
+    // Base ends at "/inference"; discovery strips it and appends /catalog/models.
+    defaultBaseUrl: "https://models.github.ai/inference",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "github_pat_... (models:read)",
+  },
 ] as const satisfies readonly SimpleProviderMeta[];
 
 export type SimpleProviderKind = (typeof SIMPLE_PROVIDER_META)[number]["kind"];

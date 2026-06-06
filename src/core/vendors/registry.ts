@@ -17,6 +17,7 @@ import { discoverCerebrasModels } from "./cerebras/discovery";
 import { discoverSambaNovaModels } from "./sambanova/discovery";
 import { discoverMistralModels } from "./mistral/discovery";
 import { discoverCloudflareModels } from "./cloudflare/discovery";
+import { discoverGithubModels } from "./github/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -32,6 +33,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   sambanova: discoverSambaNovaModels,
   mistral: discoverMistralModels,
   cloudflare: discoverCloudflareModels,
+  github: discoverGithubModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {

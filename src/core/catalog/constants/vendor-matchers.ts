@@ -43,6 +43,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   groq: { modelPatterns: ["compound"], nameAliases: ["groq"], displayName: "Groq", icon: "Groq" },
   sdaia: { modelPatterns: ["allam"], nameAliases: ["sdaia","allam"], displayName: "SDAIA", icon: "SDAIA" },
   ibm: { modelPatterns: ["granite-"], nameAliases: ["ibm","ibm-granite"], displayName: "IBM" },
+  microsoft: { modelPatterns: ["phi-","phi4","wizardlm"], nameAliases: ["microsoft"], displayName: "Microsoft" },
 };
 
 export function inferVendorFromModelName(name: string): string | undefined {
