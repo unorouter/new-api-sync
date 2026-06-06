@@ -395,82 +395,58 @@ function processNoUpstreamOffer(
   if (buckets.size > 0) pushBucketsAsTiers(offer, buckets, tiers, modelRatios);
 }
 
+// One channel per model: each model maps to its own new-api channel so a per-model
+// rate-limit (429) or a scheduled-test failure disables only that model, never its
+// siblings. Channel name = {provider}-{model}; channelType/baseUrl come from the
+// model's task override (falling back to the offer defaults). groupRatio is carried
+// from the model's pricing bucket.
 function pushBucketsAsTiers(
   offer: UpstreamOffer,
   buckets: Map<number, OfferModel[]>,
   tiers: PricedTier[],
   modelRatios: Map<string, MergedModel>,
 ): void {
-  type Sub = {
-    models: OfferModel[];
-    channelType?: number;
-    baseUrlSuffix?: string;
-  };
   const baseUrlTrim = offer.baseUrl.replace(/\/$/, "");
-  const groupDesc = `${sanitizeGroupName(offer.group)} via ${offer.provider} (${offer.vendor})`;
-  let tierIdx = 0;
   for (const [groupRatio, bucketModels] of buckets) {
-    const subGroups = new Map<string, Sub>();
     for (const m of bucketModels) {
       const override =
         !m.endpoints || m.endpoints.includes("openai-video")
           ? getTaskModelOverride(m.exposed)
           : undefined;
-      const key = override
-        ? `${override.channelType}:${override.baseUrlSuffix ?? ""}`
-        : "default";
-      let entry = subGroups.get(key);
-      if (!entry) subGroups.set(key, (entry = { models: [], ...override }));
-      entry.models.push(m);
-    }
-    let subIdx = 0;
-    for (const [, sub] of subGroups) {
-      const tierSuffix =
-        buckets.size > 1 || subGroups.size > 1
-          ? `-t${tierIdx}${subGroups.size > 1 ? String.fromCharCode(97 + subIdx) : ""}`
-          : "";
-      const tierModelMapping: Record<string, string> = {};
-      const tierDetails: ModelTestDetail[] = [];
-      for (const m of sub.models) {
-        if (m.exposed !== m.upstream) tierModelMapping[m.exposed] = m.upstream;
-        if (m.testDetail) tierDetails.push(m.testDetail);
-      }
 
-      const tierModels = sub.models.map((m) => m.exposed);
+      const modelMapping: Record<string, string> = {};
+      if (m.exposed !== m.upstream) modelMapping[m.exposed] = m.upstream;
+
+      const models = [m.exposed];
       let hasContext1mAlias = false;
-      if (isAnthropicNativeOffer(offer)) {
-        for (const m of sub.models) {
-          if (!shouldAddContext1mAlias(m.exposed)) continue;
-          const alias = `${m.exposed}${CLAUDE_CONTEXT_1M_SUFFIX}`;
-          tierModels.push(alias);
-          tierModelMapping[alias] = m.upstream;
-          mirrorAliasRatio(modelRatios, m.exposed, alias);
-          hasContext1mAlias = true;
-        }
+      if (isAnthropicNativeOffer(offer) && shouldAddContext1mAlias(m.exposed)) {
+        const alias = `${m.exposed}${CLAUDE_CONTEXT_1M_SUFFIX}`;
+        models.push(alias);
+        modelMapping[alias] = m.upstream;
+        mirrorAliasRatio(modelRatios, m.exposed, alias);
+        hasContext1mAlias = true;
       }
 
       tiers.push({
-        channelName: `${offer.sanitizedBase}-${offer.vendor}${tierSuffix}`,
+        channelName: `${sanitizeGroupName(offer.provider)}-${sanitizeGroupName(m.exposed)}`,
         vendor: offer.vendor,
-        channelType: sub.channelType ?? offer.channelType,
-        baseUrl: baseUrlTrim + (sub.baseUrlSuffix ?? ""),
+        channelType: override?.channelType ?? offer.channelType,
+        baseUrl: baseUrlTrim + (override?.baseUrlSuffix ?? ""),
         apiKey: offer.apiKey,
         providerTag: offer.provider,
         channelRemark: offer.channelRemark,
         groupRatio,
-        groupDescription: groupDesc,
-        models: tierModels,
-        modelMapping: Object.keys(tierModelMapping).length
-          ? tierModelMapping
+        groupDescription: `${m.exposed} via ${offer.provider} (${offer.vendor})`,
+        models,
+        modelMapping: Object.keys(modelMapping).length
+          ? modelMapping
           : undefined,
-        testDetails: tierDetails.length ? tierDetails : undefined,
+        testDetails: m.testDetail ? [m.testDetail] : undefined,
         paramOverride: hasContext1mAlias
           ? CLAUDE_CONTEXT_1M_PARAM_OVERRIDE
           : undefined,
       });
-      subIdx++;
     }
-    tierIdx++;
   }
 }
 

@@ -1,7 +1,6 @@
 import type { Channel, MergedGroup, MergedModel } from "@core/types";
 import { t } from "@server/i18n";
-import type { PricedPlan, PricedTier } from "./types";
-import type { BaselineInputs } from "./types";
+import type { BaselineInputs, PricedPlan, PricedTier } from "./types";
 
 interface EmitArgs {
   plan: PricedPlan;

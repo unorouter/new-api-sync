@@ -54,20 +54,16 @@ export function buildReverseMapping(
   return reverse;
 }
 
-/** Drop CJK, dash-replace non-slug chars, collapse dashes. CJK-only \u2192 FNV-1a hash. */
+/** Slugify: drop CJK, non-slug chars -> single dash, trim. CJK-only -> FNV-1a hash. */
 export function sanitizeGroupName(name: string): string {
-  const sanitized = name
+  const slug = name
     .replace(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g, "")
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-  if (sanitized) return sanitized;
-  // FNV-1a 32-bit; 6 hex chars disambiguates the few CJK-only groups per upstream.
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+  if (slug) return slug;
   let h = 0x811c9dc5;
-  for (let i = 0; i < name.length; i++) {
-    h ^= name.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
+  for (const ch of name) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
   return `g-${(h >>> 0).toString(16).padStart(8, "0").slice(0, 6)}`;
 }
 

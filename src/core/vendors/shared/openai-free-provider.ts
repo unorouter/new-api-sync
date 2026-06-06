@@ -208,14 +208,6 @@ export async function processOpenAICompatibleFreeProvider(
       }),
     );
 
-    consola.info(
-      t("CORE.NVIDIA.TEXT_VENDOR_CHANNELS", {
-        name,
-        count: resolutions.length,
-        vendors: offers.length,
-      }),
-    );
-
     report.groups = offers.length;
     report.models = workingTextModels.length;
     report.success = true;
