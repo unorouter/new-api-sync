@@ -18,8 +18,8 @@ const FREE_TIERS = new Set(["low", "high"]);
  * Discover GitHub Models text models from the REST catalog. The catalog lives at
  * ".../catalog/models" (NOT under "/inference"), so it is derived by stripping
  * "/inference" off the OpenAI-compat base. Model ids ("publisher/model") are used
- * verbatim on the chat surface. Filtered to free tiers + text output; premium
- * (custom-tier) and embedding models are dropped.
+ * verbatim on the chat surface. Keeps free-tier text models + embedding models
+ * (text-embedding-3-*, free); premium chat (custom-tier) is dropped.
  */
 export async function discoverGithubModels(
   baseUrl: string,
@@ -42,8 +42,12 @@ export async function discoverGithubModels(
   const maxOutputByModel = new Map<string, number>();
   for (const m of data ?? []) {
     if (!m.id) continue;
-    if (!FREE_TIERS.has(m.rate_limit_tier ?? "")) continue;
-    if (!(m.supported_output_modalities ?? []).includes("text")) continue;
+    const out = m.supported_output_modalities ?? [];
+    const isEmbedding = out.includes("embeddings");
+    // Free chat (low/high tier + text out) OR any embedding model (all free).
+    const isFreeChat =
+      out.includes("text") && FREE_TIERS.has(m.rate_limit_tier ?? "");
+    if (!isEmbedding && !isFreeChat) continue;
     models.push(m.id);
     const maxOut = m.limits?.max_output_tokens ?? m.limits?.max_input_tokens;
     if (typeof maxOut === "number" && maxOut > 0)

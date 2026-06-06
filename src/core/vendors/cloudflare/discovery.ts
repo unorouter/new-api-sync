@@ -31,22 +31,29 @@ export async function discoverCloudflareModels(
   apiKey: string,
 ): Promise<OpenAIFreeDiscovery> {
   const searchBase = baseUrl.replace(/\/$/, "").replace(/\/v1$/, "");
-  const url = `${searchBase}/models/search?task=Text+Generation&per_page=100`;
-  consola.info(
-    t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Cloudflare", url }),
-  );
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+  const fetchTask = (task: string) => {
+    const url = `${searchBase}/models/search?task=${task}&per_page=100`;
+    consola.info(
+      t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Cloudflare", url }),
+    );
+    return tryFetchJson<CloudflareModelSearch>(url, {
+      headers,
+      timeoutMs: 15_000,
+    });
+  };
 
-  const data = await tryFetchJson<CloudflareModelSearch>(url, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    timeoutMs: 15_000,
-  });
+  const [textGen, embeddings] = await Promise.all([
+    fetchTask("Text+Generation"),
+    fetchTask("Text+Embeddings"),
+  ]);
 
   const models: string[] = [];
   const maxOutputByModel = new Map<string, number>();
-  for (const m of data?.result ?? []) {
+  for (const m of [...(textGen?.result ?? []), ...(embeddings?.result ?? [])]) {
     if (!m.name) continue;
     models.push(m.name);
     const ctx = m.properties?.find((p) => p.property_id === "context_window");

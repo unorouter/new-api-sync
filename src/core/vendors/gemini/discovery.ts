@@ -42,7 +42,10 @@ export async function discoverGeminiModels(
   const models: string[] = [];
   const maxOutputByModel = new Map<string, number>();
   for (const m of data?.models ?? []) {
-    if (!m.supportedGenerationMethods?.includes("generateContent")) continue;
+    const methods = m.supportedGenerationMethods ?? [];
+    const isChat = methods.includes("generateContent");
+    const isEmbedding = methods.includes("embedContent");
+    if (!isChat && !isEmbedding) continue;
     const id = m.name.replace(/^models\//, "");
     models.push(id);
     if (typeof m.outputTokenLimit === "number" && m.outputTokenLimit > 0)

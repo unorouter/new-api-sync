@@ -16,7 +16,7 @@ import type { PricingSource } from "@core/pricing/resolver";
 import { NVIDIA_RETRY_POLICY, type RetryPolicy } from "@core/testing/execution";
 import { testAndFilterModels } from "@core/testing/runner";
 import type { TestExchange } from "@core/testing/types";
-import type { ProviderReport } from "@core/types";
+import type { ModelType, ProviderReport } from "@core/types";
 import type { SimpleFreeProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -69,9 +69,14 @@ export function emitFreeTextOffers(opts: {
   channelRemark: string;
   priceAdjustment?: UpstreamOffer["priceAdjustment"];
   channelType?: number;
+  /** Defaults to "text". Set "embedding"/"image"/"audio" for non-chat modalities. */
+  modelType?: ModelType;
+  /** new-api endpoint tags carried on each OfferModel (e.g. ["embedding"]). */
+  endpoints?: string[];
 }): UpstreamOffer[] {
   const offers: UpstreamOffer[] = [];
   const channelType = opts.channelType ?? CHANNEL_TYPES.OPENAI;
+  const modelType = opts.modelType ?? "text";
   const byVendor = partitionByVendor(
     opts.resolutions,
     (x) => x.exposed,
@@ -84,9 +89,10 @@ export function emitFreeTextOffers(opts: {
       return {
         exposed: x.exposed,
         upstream,
-        modelType: "text",
+        modelType,
         isFree: true,
         testDetail: opts.details.find((d) => d.model === x.upstream),
+        ...(opts.endpoints ? { endpoints: opts.endpoints } : {}),
         ...(maxOut ? { metadata: { maxOutputTokens: maxOut } } : {}),
       };
     });
@@ -160,63 +166,81 @@ export async function processOpenAICompatibleFreeProvider(
       return { report, offers, endpointMetadata };
     }
 
-    const textModels = allModels.filter((m) => inferModelType(m) === "text");
-    if (textModels.length === 0) {
-      report.error = t("CORE.ERROR.NO_MODELS_FOUND");
-      return { report, offers, endpointMetadata };
-    }
-
     const channelType = opts.channelType ?? CHANNEL_TYPES.OPENAI;
     const mapExposed = (opts.exposedMapper ?? passthroughExposed)(config);
-    const r = await testAndFilterModels({
-      allModels: textModels,
-      baseUrl: providerConfig.baseUrl,
-      apiKey: providerConfig.apiKey,
-      channelType,
-      providerLabel: name,
-      testableModelTypes: getTestModelTypes(config, providerConfig),
-      retryPolicy: opts.retryPolicy ?? NVIDIA_RETRY_POLICY,
-      capabilities: buildCapabilityMap(textModels, mapExposed, ctx),
-    });
-    const workingTextModels = r.workingModels;
-    const textDetails = r.details ?? [];
-    if (workingTextModels.length === 0) {
+    let totalWorking = 0;
+
+    // Each modality the simple OpenAI-compat surface can serve. text uses the
+    // provider's channelType; embeddings always route through the OpenAI channel
+    // (every provider here exposes /v1/embeddings) with the "embedding" tag.
+    const modalities: {
+      modelType: ModelType;
+      channelType: number;
+      endpoints?: string[];
+    }[] = [
+      { modelType: "text", channelType },
+      {
+        modelType: "embedding",
+        channelType: CHANNEL_TYPES.OPENAI,
+        endpoints: ["embedding"],
+      },
+    ];
+
+    for (const modality of modalities) {
+      const models = allModels.filter(
+        (m) => inferModelType(m) === modality.modelType,
+      );
+      if (models.length === 0) continue;
+      // Probe each modality as itself (text -> chat, embedding -> /embeddings),
+      // not via the text-only config default, so non-chat models are verified too.
+      const r = await testAndFilterModels({
+        allModels: models,
+        baseUrl: providerConfig.baseUrl,
+        apiKey: providerConfig.apiKey,
+        channelType: modality.channelType,
+        providerLabel: name,
+        testableModelTypes: new Set([modality.modelType]),
+        retryPolicy: opts.retryPolicy ?? NVIDIA_RETRY_POLICY,
+        capabilities: buildCapabilityMap(models, mapExposed, ctx),
+      });
+      const working = r.workingModels;
+      if (working.length === 0) continue;
+      totalWorking += working.length;
+      consola.info(
+        t("CORE.NVIDIA.TEXT_WORKING", {
+          name,
+          working: working.length,
+          total: models.length,
+        }),
+      );
+      const resolutions = resolveBareNames(working, config.modelMapping);
+      offers.push(
+        ...emitFreeTextOffers({
+          resolutions,
+          rev: buildChannelModelMapping(resolutions),
+          details: r.details ?? [],
+          maxOutputByModel,
+          provider: name,
+          providerKind: opts.providerKind,
+          sanitizedBase: sanitizeGroupName(name),
+          baseUrl: providerConfig.baseUrl,
+          apiKey: providerConfig.apiKey,
+          groupRatio: providerConfig.ratio,
+          channelRemark: `${opts.channelRemarkLabel} via ${name}`,
+          priceAdjustment: providerConfig.priceAdjustment,
+          channelType: modality.channelType,
+          modelType: modality.modelType,
+          endpoints: modality.endpoints,
+        }),
+      );
+    }
+
+    if (totalWorking === 0) {
       report.error = t("CORE.ERROR.NO_WORKING_MODELS");
       return { report, offers, endpointMetadata };
     }
-    consola.info(
-      t("CORE.NVIDIA.TEXT_WORKING", {
-        name,
-        working: workingTextModels.length,
-        total: textModels.length,
-      }),
-    );
-
-    const resolutions = resolveBareNames(
-      workingTextModels,
-      config.modelMapping,
-    );
-    const rev = buildChannelModelMapping(resolutions);
-    offers.push(
-      ...emitFreeTextOffers({
-        resolutions,
-        rev,
-        details: textDetails,
-        maxOutputByModel,
-        provider: name,
-        providerKind: opts.providerKind,
-        sanitizedBase: sanitizeGroupName(name),
-        baseUrl: providerConfig.baseUrl,
-        apiKey: providerConfig.apiKey,
-        groupRatio: providerConfig.ratio,
-        channelRemark: `${opts.channelRemarkLabel} via ${name}`,
-        priceAdjustment: providerConfig.priceAdjustment,
-        channelType,
-      }),
-    );
-
     report.groups = offers.length;
-    report.models = workingTextModels.length;
+    report.models = totalWorking;
     report.success = true;
   } catch (error) {
     report.error = error instanceof Error ? error.message : String(error);
