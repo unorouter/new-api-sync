@@ -1,12 +1,7 @@
 import { Type as T, type Static } from "@sinclair/typebox";
 
-const ProviderCountsSchema = T.Object({
-  newapi: T.Number(),
-  sub2api: T.Number(),
-  nvidia: T.Number(),
-  openrouter: T.Number(),
-  total: T.Number(),
-});
+// Open record keyed by provider type (+ "total"); no per-provider edit needed.
+const ProviderCountsSchema = T.Record(T.String(), T.Number());
 
 const LastRunSchema = T.Union([
   T.Object({

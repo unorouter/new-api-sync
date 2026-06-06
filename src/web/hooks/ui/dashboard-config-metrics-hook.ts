@@ -5,14 +5,7 @@ export type ConfigMetrics = {
   blacklistCount: number;
   modelMappingCount: number;
   providersWithOverrides: number;
-  providerBreakdown: {
-    newapi: number;
-    sub2api: number;
-    nvidia: number;
-    openrouter: number;
-    comfyui: number;
-    total: number;
-  } | null;
+  providerBreakdown: Record<string, number> | null;
 };
 
 function getConfigMetrics(
@@ -23,20 +16,13 @@ function getConfigMetrics(
     ? Object.keys(configData.modelMapping ?? {}).length
     : 0;
   const providerBreakdown = configData
-    ? configData.providers.reduce(
+    ? configData.providers.reduce<Record<string, number>>(
         (counts, provider) => {
-          counts.total += 1;
-          counts[provider.type] += 1;
+          counts.total = (counts.total ?? 0) + 1;
+          counts[provider.type] = (counts[provider.type] ?? 0) + 1;
           return counts;
         },
-        {
-          newapi: 0,
-          sub2api: 0,
-          nvidia: 0,
-          openrouter: 0,
-          comfyui: 0,
-          total: 0,
-        },
+        { total: 0 },
       )
     : null;
   const providersWithOverrides = configData

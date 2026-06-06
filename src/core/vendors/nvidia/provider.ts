@@ -189,6 +189,7 @@ export async function processNvidiaProvider(
           groupRatio: providerConfig.ratio,
           channelRemark: `NVIDIA NIM ${isImage ? "image" : "text"} via ${name}`,
           models: offerModels,
+          ...(isImage ? {} : { isFreeTier: true }),
           priceAdjustment: providerConfig.priceAdjustment,
           defaultAdjustment: 0,
         });

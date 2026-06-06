@@ -117,6 +117,12 @@ export async function runProviderPipeline(
 
   const allPricingGrids: Record<string, Record<string, string | number>[]> = {};
   const allMetadata: Record<string, Record<string, unknown>> = {};
+  // Provider-supplied per-model metadata (e.g. Groq upstream max_completion_tokens).
+  // Seeded first so config enabledModels overrides win on key collision.
+  for (const offer of allOffers)
+    for (const m of offer.models)
+      if (m.metadata)
+        allMetadata[m.upstream] = { ...allMetadata[m.upstream], ...m.metadata };
   for (const provider of config.providers) {
     Object.assign(
       allPricingGrids,

@@ -5,9 +5,12 @@
 import type { ModelType } from "@core/types";
 import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
-import type { AnyProviderConfig } from "@core/validations/config";
+import type {
+  AnyProviderConfig,
+  ModelMetadata,
+} from "@core/validations/config";
 
-type ProviderKind = "newapi" | "nvidia" | "openrouter" | "sub2api";
+type ProviderKind = string;
 
 export interface OfferModel {
   exposed: string;
@@ -37,6 +40,8 @@ export interface OfferModel {
   billingExpr?: string;
   /** Per-model upstream hash; used only for snapshot/drift, never written to target. */
   pricingVersion?: string;
+  /** Provider-supplied metadata (e.g. upstream max_completion_tokens). Merged into the model's metadata column; config enabledModels overrides win. */
+  metadata?: ModelMetadata;
 }
 
 export interface UpstreamOffer {
@@ -58,6 +63,8 @@ export interface UpstreamOffer {
   defaultAdjustment: number;
   /** OpenRouter paid: cap-fitting binary search picks one group_ratio for the whole offer. */
   paidTier?: boolean;
+  /** Free-tier offer (all models $0). Routes to pricing phase A; replaces the per-providerKind whitelist. */
+  isFreeTier?: boolean;
 }
 
 /** newapi only; empty for sub2api/nvidia/openrouter. */

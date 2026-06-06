@@ -1,4 +1,5 @@
 import type { ConfigSchemaType } from "@core/validations/config";
+import { SIMPLE_PROVIDER_META } from "@core/vendors/registry-meta";
 import { ProviderCard } from "../providers/provider-card";
 import { useTranslations } from "use-intl";
 import { Button } from "@web/components/ui/button";
@@ -22,7 +23,8 @@ import { useFieldArray, useFormContext } from "react-hook-form";
 type Provider = ConfigSchemaType["providers"][number];
 type ProviderType = Provider["type"];
 
-const TEMPLATES: Record<ProviderType, () => Provider> = {
+// Bespoke provider templates; simple registry providers share the {type,name,apiKey} shape.
+const BESPOKE_TEMPLATES: Partial<Record<ProviderType, () => Provider>> = {
   newapi: () => ({
     type: "newapi",
     name: "",
@@ -30,22 +32,9 @@ const TEMPLATES: Record<ProviderType, () => Provider> = {
     systemAccessToken: "",
     userId: 1,
   }),
-  sub2api: () => ({
-    type: "sub2api",
-    name: "",
-    baseUrl: "",
-    adminApiKey: "",
-  }),
-  nvidia: () => ({
-    type: "nvidia",
-    name: "",
-    apiKey: "",
-  }),
-  openrouter: () => ({
-    type: "openrouter",
-    name: "",
-    apiKey: "",
-  }),
+  sub2api: () => ({ type: "sub2api", name: "", baseUrl: "", adminApiKey: "" }),
+  nvidia: () => ({ type: "nvidia", name: "", apiKey: "" }),
+  openrouter: () => ({ type: "openrouter", name: "", apiKey: "" }),
   comfyui: () => ({
     type: "comfyui",
     name: "",
@@ -56,13 +45,21 @@ const TEMPLATES: Record<ProviderType, () => Provider> = {
   }),
 };
 
+function templateFor(type: ProviderType): Provider {
+  const bespoke = BESPOKE_TEMPLATES[type];
+  if (bespoke) return bespoke();
+  return { type, name: "", apiKey: "" } as Provider;
+}
+
+const SIMPLE_KINDS = SIMPLE_PROVIDER_META.map((m) => m.kind);
 const TYPE_ORDER: ProviderType[] = [
   "newapi",
   "sub2api",
   "nvidia",
   "openrouter",
+  ...SIMPLE_KINDS,
   "comfyui",
-];
+] as ProviderType[];
 
 export function ProvidersSection() {
   const t = useTranslations();
@@ -74,7 +71,7 @@ export function ProvidersSection() {
   const [pickOpen, setPickOpen] = useState(false);
 
   const addProvider = (type: ProviderType) => {
-    providers.append(TEMPLATES[type]());
+    providers.append(templateFor(type));
     setPickOpen(false);
   };
 

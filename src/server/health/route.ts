@@ -69,19 +69,12 @@ function authenticityBlacklistCount(): number {
 async function configSummary() {
   const files = listConfigs();
   const path = configPath("");
-  const counts = {
-    newapi: 0,
-    sub2api: 0,
-    nvidia: 0,
-    openrouter: 0,
-    comfyui: 0,
-    total: 0,
-  };
+  const counts: Record<string, number> = { total: 0 };
   try {
     const config = applyOnlyProviders(await loadConfig(path), []);
     for (const provider of config.providers) {
-      counts[provider.type]++;
-      counts.total++;
+      counts[provider.type] = (counts[provider.type] ?? 0) + 1;
+      counts.total = (counts.total ?? 0) + 1;
     }
   } catch {
     // leave counts at zero

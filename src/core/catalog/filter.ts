@@ -5,13 +5,17 @@ import {
 import { getEnabledModelGlobs, type RuntimeConfig } from "@core/config";
 import type {
   NvidiaProviderConfig,
+  SimpleFreeProviderConfig,
   Sub2ApiProviderConfig,
 } from "@core/validations/config";
 
 export function filterModels(
   models: string[],
   config: RuntimeConfig,
-  providerConfig: NvidiaProviderConfig | Sub2ApiProviderConfig,
+  providerConfig:
+    | NvidiaProviderConfig
+    | Sub2ApiProviderConfig
+    | SimpleFreeProviderConfig,
 ): string[] {
   const modelGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
   return models.filter((id) => {

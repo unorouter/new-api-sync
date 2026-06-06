@@ -33,12 +33,10 @@ export function CurrentConfigCard(props: {
           <Row label={t("HEALTH.PROVIDERS_BREAKDOWN")}>
             <span className="text-muted-foreground text-xs">
               {props.metrics.providerBreakdown
-                ? t("HEALTH.PROVIDERS_BREAKDOWN_VALUE", {
-                    newapi: props.metrics.providerBreakdown.newapi,
-                    sub2api: props.metrics.providerBreakdown.sub2api,
-                    nvidia: props.metrics.providerBreakdown.nvidia,
-                    openrouter: props.metrics.providerBreakdown.openrouter,
-                  })
+                ? Object.entries(props.metrics.providerBreakdown)
+                    .filter((entry) => entry[0] !== "total")
+                    .map((entry) => `${entry[1]} ${entry[0]}`)
+                    .join(", ")
                 : t("HEALTH.CONFIG_LOADING")}
             </span>
           </Row>

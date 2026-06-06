@@ -6,7 +6,9 @@ import {
   type ConfigSchemaType,
   type EnabledModelEntry,
   type GlobalConfigType,
+  type SimpleFreeProviderConfig,
 } from "@core/validations/config";
+import { SIMPLE_PROVIDER_META_MAP } from "@core/vendors/registry-meta";
 import { t } from "@server/i18n";
 import { type TSchema } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
@@ -227,8 +229,17 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
         baseUrl: p.baseUrl ?? "https://openrouter.ai/api",
         ratio: p.ratio ?? 0,
       };
+    const simple = SIMPLE_PROVIDER_META_MAP[p.type];
+    if (simple) {
+      const sp = p as SimpleFreeProviderConfig;
+      return {
+        ...sp,
+        baseUrl: sp.baseUrl ?? simple.defaultBaseUrl,
+        ratio: sp.ratio ?? simple.defaultRatio,
+      };
+    }
     return p;
-  });
+  }) as AnyProviderConfig[];
 
   const global = await loadGlobalConfig();
   const mergedBlacklist = [

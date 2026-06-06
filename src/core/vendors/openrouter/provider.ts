@@ -196,6 +196,7 @@ export async function processOpenRouterProvider(
               defaultAdjustment: 0,
             };
             if (!isFree) offer.paidTier = true;
+            else offer.isFreeTier = true;
             offers.push(offer);
             totalVendors++;
           }

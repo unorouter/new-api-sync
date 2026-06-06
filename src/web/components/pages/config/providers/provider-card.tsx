@@ -3,7 +3,9 @@ import { ProviderCommonFields } from "./provider-common-fields";
 import { ProviderNewApiPanel } from "./provider-newapi-panel";
 import { ProviderNvidiaPanel } from "./provider-nvidia-panel";
 import { ProviderOpenRouterPanel } from "./provider-openrouter-panel";
+import { ProviderSimplePanel } from "./provider-simple-panel";
 import { ProviderSub2ApiPanel } from "./provider-sub2api-panel";
+import { SIMPLE_PROVIDER_META_MAP } from "@core/vendors/registry-meta";
 import { providerPath } from "./provider-path";
 import { useTranslations } from "use-intl";
 import { Badge } from "@web/components/ui/badge";
@@ -130,5 +132,7 @@ function renderTypePanel(type: string | undefined, index: number) {
   if (type === "sub2api") return <ProviderSub2ApiPanel index={index} />;
   if (type === "nvidia") return <ProviderNvidiaPanel index={index} />;
   if (type === "openrouter") return <ProviderOpenRouterPanel index={index} />;
+  if (type && type in SIMPLE_PROVIDER_META_MAP)
+    return <ProviderSimplePanel index={index} kind={type} />;
   return null;
 }

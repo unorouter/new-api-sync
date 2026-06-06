@@ -104,10 +104,11 @@ function pickBillingFields(
     ? paidOccurrences.find((o) => o.model.billingExpr)
     : undefined;
   return {
-    billingMode: exprWinner?.model.billingMode ?? (exprWinner ? "tiered_expr" : undefined),
+    billingMode:
+      exprWinner?.model.billingMode ?? (exprWinner ? "tiered_expr" : undefined),
     billingExpr: exprWinner?.model.billingExpr,
-    audioRatio: occurrences.find((o) => o.model.audioRatio !== undefined)
-      ?.model.audioRatio,
+    audioRatio: occurrences.find((o) => o.model.audioRatio !== undefined)?.model
+      .audioRatio,
     audioCompletionRatio: occurrences.find(
       (o) => o.model.audioCompletionRatio !== undefined,
     )?.model.audioCompletionRatio,
@@ -253,8 +254,8 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
   for (const offer of offers) {
     const forceA =
       offer.paidTier ||
-      offer.providerKind === "openrouter" ||
-      offer.providerKind === "nvidia";
+      offer.isFreeTier === true ||
+      offer.models.every((m) => m.isFree);
     (forceA || offer.models.some(hasAny) ? phaseAOffers : phaseBOffers).push(
       offer,
     );

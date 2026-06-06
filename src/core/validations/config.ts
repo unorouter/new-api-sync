@@ -1,4 +1,8 @@
 import { FormatRegistry, Type as T, type Static } from "@sinclair/typebox";
+import {
+  SIMPLE_PROVIDER_META,
+  type SimpleProviderKind,
+} from "@core/vendors/registry-meta";
 
 FormatRegistry.Set("uri", (value: string) => {
   try {
@@ -57,6 +61,22 @@ const Sub2ApiProviderSchema = T.Object({
 const NvidiaProviderSchema = T.Object({ type: T.Literal("nvidia"), ...ProviderCommonProps, baseUrl: Opt(uri), imageBaseUrl: Opt(uri), apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ exclusiveMinimum: 0 })) });
 // prettier-ignore
 const OpenRouterProviderSchema = T.Object({ type: T.Literal("openrouter"), ...ProviderCommonProps, baseUrl: Opt(uri), apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ minimum: 0 })) });
+// Simple OpenAI-compatible free providers (groq, gemini, cerebras, ...). One schema,
+// `type` is the union of registry kinds so a new provider needs no schema edit here.
+// T.Unsafe carries the SimpleProviderKind literal union at the type level while the
+// runtime T.Union(...) validates the actual kind strings (map() would widen each
+// literal to the whole union, so the static type comes from T.Unsafe, not the map).
+const SimpleProviderKindSchema = T.Unsafe<SimpleProviderKind>(
+  T.Union(SIMPLE_PROVIDER_META.map((m) => T.Literal(m.kind))),
+);
+const SimpleFreeProviderSchema = T.Object({
+  type: SimpleProviderKindSchema,
+  ...ProviderCommonProps,
+  baseUrl: Opt(uri),
+  apiKey: str,
+  models: Opt(T.Array(str)),
+  ratio: Opt(T.Number({ minimum: 0 })),
+});
 const ComfyUiTemplateSchema = T.Object(
   {
     description: Opt(str),
@@ -82,7 +102,7 @@ const ComfyUiProviderSchema = T.Object({
 });
 
 // prettier-ignore
-const AnyProviderSchema = T.Union([NewApiProviderSchema, Sub2ApiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, ComfyUiProviderSchema]);
+const AnyProviderSchema = T.Union([NewApiProviderSchema, Sub2ApiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, SimpleFreeProviderSchema, ComfyUiProviderSchema]);
 
 export type ProviderConfig = Static<typeof NewApiProviderSchema>;
 export type Sub2ApiProviderConfig = Static<typeof Sub2ApiProviderSchema>;
@@ -97,9 +117,16 @@ export type OpenRouterProviderConfig = Static<
   baseUrl: string;
   ratio: number;
 };
+export type SimpleFreeProviderConfig = Static<
+  typeof SimpleFreeProviderSchema
+> & {
+  type: SimpleProviderKind;
+  baseUrl: string;
+  ratio: number;
+};
 export type ComfyUiProviderConfig = Static<typeof ComfyUiProviderSchema>;
 // prettier-ignore
-export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | ComfyUiProviderConfig;
+export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | SimpleFreeProviderConfig | ComfyUiProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
 const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);

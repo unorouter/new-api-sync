@@ -7,19 +7,29 @@ import type {
   NvidiaProviderConfig,
   OpenRouterProviderConfig,
   ProviderConfig,
+  SimpleFreeProviderConfig,
   Sub2ApiProviderConfig,
 } from "@core/validations/config";
 import { processNewApiProvider } from "@core/vendors/newapi/provider";
 import { processNvidiaProvider } from "@core/vendors/nvidia/provider";
 import { processOpenRouterProvider } from "@core/vendors/openrouter/provider";
 import { processSub2ApiProvider } from "@core/vendors/sub2api/provider";
+import {
+  SIMPLE_PROVIDER_MAP,
+  processSimpleProvider,
+} from "@core/vendors/registry";
 
-const TYPE_ORDER: Record<string, number> = {
+// Bespoke providers get explicit ordering; simple registry providers slot in the
+// middle. sub2api runs last (depends on nothing but is cheapest to retry).
+const BESPOKE_ORDER: Record<string, number> = {
   newapi: 0,
   nvidia: 1,
   openrouter: 2,
-  sub2api: 3,
+  sub2api: 100,
 };
+function typeOrder(type: string): number {
+  return BESPOKE_ORDER[type] ?? 50;
+}
 
 export async function runAllProviders(
   config: RuntimeConfig,
@@ -33,7 +43,7 @@ export async function runAllProviders(
 }> {
   const pricingProviders = config.providers.filter((p) => p.type !== "comfyui");
   const sorted = [...pricingProviders].sort(
-    (a, b) => (TYPE_ORDER[a.type] ?? 2) - (TYPE_ORDER[b.type] ?? 2),
+    (a, b) => typeOrder(a.type) - typeOrder(b.type),
   );
 
   const settled = await Promise.all(
@@ -53,11 +63,21 @@ export async function runAllProviders(
           config,
           ctx,
         );
-      return processSub2ApiProvider(
-        provider as Sub2ApiProviderConfig,
-        config,
-        ctx,
-      );
+      if (provider.type === "sub2api")
+        return processSub2ApiProvider(
+          provider as Sub2ApiProviderConfig,
+          config,
+          ctx,
+        );
+      const def = SIMPLE_PROVIDER_MAP[provider.type];
+      if (def)
+        return processSimpleProvider(
+          def,
+          provider as SimpleFreeProviderConfig,
+          config,
+          ctx,
+        );
+      throw new Error(`unknown provider type: ${provider.type}`);
     }),
   );
 
