@@ -326,7 +326,11 @@ export function buildSyncDiff(
     const [keep, discard] =
       (prev.id ?? 0) >= (model.id ?? 0) ? [prev, model] : [model, prev];
     existingModelsByName.set(model.model_name, keep);
-    if (discard.id)
+    // Duplicate live rows are deleted only on a full sync. A partial sync's
+    // desired set covers a subset of providers, so its snapshot can carry the
+    // same model on several in/out-of-scope channels; treating those as dups to
+    // delete would clobber other providers' models (same rule as orphan delete).
+    if (discard.id && !isPartialSync)
       modelOps.push({
         type: "delete",
         key: `${discard.model_name} (dup #${discard.id})`,
@@ -396,7 +400,10 @@ export function buildSyncDiff(
         !matchesAnyPattern(modelName, modelFilter)
       )
         continue;
-      if (!desired.mappingSources.has(modelName) && existing.sync_official !== 1)
+      if (
+        !desired.mappingSources.has(modelName) &&
+        existing.sync_official !== 1
+      )
         continue;
       if (!existing.id) continue;
       modelOps.push({ type: "delete", key: modelName, existing });

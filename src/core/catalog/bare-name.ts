@@ -1,11 +1,14 @@
 /**
  * vendor/X:suffix → lowercase bare so cross-upstream casing collapses:
- *   "openai/gpt-oss-120b:free"  → "gpt-oss-120b"
- *   "MiniMax-M2.5"              → "minimax-m2.5"
+ *   "openai/gpt-oss-120b:free"     → "gpt-oss-120b"
+ *   "@cf/meta/llama-3.3-70b-fp8"   → "llama-3.3-70b-fp8"  (multi-segment: keep last)
+ *   "MiniMax-M2.5"                 → "minimax-m2.5"
  * Original ID lives in each channel's model_mapping so the gateway forwards it intact.
+ * Uses the LAST slash so multi-segment ids (Cloudflare "@cf/{org}/{model}") collapse to
+ * the model; single-segment vendor/model is unaffected (last slash == first).
  */
 export function toBareName(upstreamId: string): string {
-  const slash = upstreamId.indexOf("/");
+  const slash = upstreamId.lastIndexOf("/");
   const withoutVendor = slash >= 0 ? upstreamId.slice(slash + 1) : upstreamId;
   const colon = withoutVendor.indexOf(":");
   const bare = colon >= 0 ? withoutVendor.slice(0, colon) : withoutVendor;

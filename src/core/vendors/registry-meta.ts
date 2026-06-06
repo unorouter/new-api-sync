@@ -46,6 +46,16 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     apiKeyPlaceholder: "mistral key",
   },
+  {
+    kind: "cloudflare",
+    label: "Cloudflare",
+    // Per-account: replace {account_id}. Base ends at "/ai" (no /v1); the runner
+    // and new-api append /v1/chat/completions, discovery appends /models/search.
+    defaultBaseUrl:
+      "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "cf-... (Workers AI token)",
+  },
 ] as const satisfies readonly SimpleProviderMeta[];
 
 export type SimpleProviderKind = (typeof SIMPLE_PROVIDER_META)[number]["kind"];

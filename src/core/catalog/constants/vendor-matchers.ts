@@ -42,6 +42,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   arcee: { modelPatterns: ["arcee","trinity","afm-","virtuoso-","maestro-","caller-","blitz","spotlight","coder-large"], nameAliases: ["arcee","arcee ai"], displayName: "Arcee AI", icon: "Arcee.Color" },
   groq: { modelPatterns: ["compound"], nameAliases: ["groq"], displayName: "Groq", icon: "Groq" },
   sdaia: { modelPatterns: ["allam"], nameAliases: ["sdaia","allam"], displayName: "SDAIA", icon: "SDAIA" },
+  ibm: { modelPatterns: ["granite-"], nameAliases: ["ibm","ibm-granite"], displayName: "IBM" },
 };
 
 export function inferVendorFromModelName(name: string): string | undefined {
