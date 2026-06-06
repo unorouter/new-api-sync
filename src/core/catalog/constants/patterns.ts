@@ -54,6 +54,13 @@ export function buildReverseMapping(
   return reverse;
 }
 
+/** Ensure a sanitized base is unique within a provider: 2nd+ collision gets a `-N` suffix. */
+export function dedupBase(base: string, used: Map<string, number>): string {
+  const count = used.get(base) ?? 0;
+  used.set(base, count + 1);
+  return count > 0 ? `${base}-${count + 1}` : base;
+}
+
 /** Slugify: drop CJK, non-slug chars -> single dash, trim. CJK-only -> FNV-1a hash. */
 export function sanitizeGroupName(name: string): string {
   const slug = name

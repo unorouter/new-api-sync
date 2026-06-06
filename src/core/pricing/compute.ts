@@ -3,7 +3,6 @@ import {
   parseModelList,
   sanitizeGroupName,
 } from "@core/catalog/constants/patterns";
-import type { ModelTestDetail } from "@core/testing/types";
 import type { MergedModel } from "@core/types";
 import { resolvePriceAdjustment } from "./index";
 import type { OfferModel, UpstreamOffer } from "./offers";
@@ -397,9 +396,10 @@ function processNoUpstreamOffer(
 
 // One channel per model: each model maps to its own new-api channel so a per-model
 // rate-limit (429) or a scheduled-test failure disables only that model, never its
-// siblings. Channel name = {provider}-{model}; channelType/baseUrl come from the
-// model's task override (falling back to the offer defaults). groupRatio is carried
-// from the model's pricing bucket.
+// siblings. Channel name = {sanitizedBase}-{model} where sanitizedBase is the
+// per-(provider,group) base, so the same model served by two upstream groups gets
+// distinct channels. channelType/baseUrl come from the model's task override
+// (falling back to the offer defaults). groupRatio is carried from the pricing bucket.
 function pushBucketsAsTiers(
   offer: UpstreamOffer,
   buckets: Map<number, OfferModel[]>,
@@ -428,7 +428,7 @@ function pushBucketsAsTiers(
       }
 
       tiers.push({
-        channelName: `${sanitizeGroupName(offer.provider)}-${sanitizeGroupName(m.exposed)}`,
+        channelName: `${offer.sanitizedBase}-${sanitizeGroupName(m.exposed)}`,
         vendor: offer.vendor,
         channelType: override?.channelType ?? offer.channelType,
         baseUrl: baseUrlTrim + (override?.baseUrlSuffix ?? ""),

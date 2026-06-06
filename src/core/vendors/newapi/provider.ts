@@ -1,6 +1,7 @@
 import { normalizeEndpointTypes } from "@core/catalog/constants/endpoints";
 import { inferModelType } from "@core/catalog/constants/inference";
 import {
+  dedupBase,
   matchesAnyPattern,
   matchesBlacklist,
   sanitizeGroupName,
@@ -385,10 +386,10 @@ export async function processNewApiProvider(
     const prepared: Prepared[] = [];
     for (const group of groups) {
       const originalName = `${group.name}-${pName}`;
-      let sanitizedName = sanitizeGroupName(originalName);
-      const count = usedSanitizedNames.get(sanitizedName) ?? 0;
-      usedSanitizedNames.set(sanitizedName, count + 1);
-      if (count > 0) sanitizedName = `${sanitizedName}-${count + 1}`;
+      const sanitizedName = dedupBase(
+        sanitizeGroupName(originalName),
+        usedSanitizedNames,
+      );
       const candidateModels = filterGroupModels(
         group.models,
         config,

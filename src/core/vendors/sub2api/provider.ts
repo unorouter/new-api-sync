@@ -1,6 +1,7 @@
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
 import { inferModelType } from "@core/catalog/constants/inference";
 import {
+  dedupBase,
   sanitizeGroupName,
   SUB2API_PLATFORM_CHANNEL_TYPES,
   SUB2API_PLATFORM_TO_VENDOR,
@@ -192,6 +193,9 @@ export async function processSub2ApiProvider(
       );
     let totalModels = 0,
       groupsProcessed = 0;
+    // Disambiguate groups whose names sanitize to the same slug (e.g. distinct CJK
+    // names that both strip to empty -> same hash), mirroring newapi's dedup.
+    const usedBases = new Map<string, number>();
 
     for (const groupInfo of resolvedGroups) {
       const vendor =
@@ -256,7 +260,10 @@ export async function processSub2ApiProvider(
         provider: name,
         providerKind: "sub2api",
         group: groupInfo.name,
-        sanitizedBase: sanitizeGroupName(`${groupInfo.name}-${name}`),
+        sanitizedBase: dedupBase(
+          sanitizeGroupName(`${groupInfo.name}-${name}`),
+          usedBases,
+        ),
         vendor,
         channelType,
         baseUrl: providerConfig.baseUrl,
