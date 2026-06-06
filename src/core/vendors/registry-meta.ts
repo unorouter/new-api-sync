@@ -8,6 +8,8 @@ export interface SimpleProviderMeta {
   defaultBaseUrl: string;
   defaultRatio: number;
   apiKeyPlaceholder: string;
+  /** new-api channel type for test + emit. Omit for OPENAI (1). Z.ai = ZHIPU_V4 (26). */
+  channelType?: number;
 }
 
 export const SIMPLE_PROVIDER_META = [
@@ -63,6 +65,15 @@ export const SIMPLE_PROVIDER_META = [
     defaultBaseUrl: "https://models.github.ai/inference",
     defaultRatio: 0,
     apiKeyPlaceholder: "github_pat_... (models:read)",
+  },
+  {
+    kind: "zai",
+    label: "Z.ai",
+    // OpenAI-format body at the /v4 path (no /v1). channelType 26 = ZHIPU_V4.
+    defaultBaseUrl: "https://api.z.ai/api/paas/v4",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "{id}.{secret}",
+    channelType: 26,
   },
 ] as const satisfies readonly SimpleProviderMeta[];
 

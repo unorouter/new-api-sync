@@ -70,6 +70,16 @@ export function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
       },
       isSuccess: noError,
     };
+  // Zhipu v4 (Z.ai) is OpenAI-format but served at /v4/chat/completions (no /v1).
+  // Reasoning flash models can spend the whole budget on thinking and return empty
+  // content, so judge on error-presence only (max_tokens kept generous).
+  if (channelType === CHANNEL_TYPES.ZHIPU_V4)
+    return {
+      url: `${baseUrl}/chat/completions`,
+      headers: jsonBearer(apiKey),
+      body: { model, messages: userMsg(TEST_PROMPT), max_tokens: 64 },
+      isSuccess: noError,
+    };
   return {
     url: `${baseUrl}/v1/chat/completions`,
     headers: jsonBearer(apiKey),
@@ -95,13 +105,17 @@ export function getStreamRequestConfig(
       completionMarker: "message_stop",
     };
   if (channelType === CHANNEL_TYPES.GEMINI || useResponsesAPI) return null;
+  const chatUrl =
+    channelType === CHANNEL_TYPES.ZHIPU_V4
+      ? `${baseUrl}/chat/completions`
+      : `${baseUrl}/v1/chat/completions`;
   return {
-    url: `${baseUrl}/v1/chat/completions`,
+    url: chatUrl,
     headers: jsonBearer(apiKey),
     body: {
       model,
       messages: userMsg(TEST_PROMPT),
-      max_tokens: 5,
+      max_tokens: channelType === CHANNEL_TYPES.ZHIPU_V4 ? 64 : 5,
       stream: true,
     },
     completionMarker: "data: [DONE]",

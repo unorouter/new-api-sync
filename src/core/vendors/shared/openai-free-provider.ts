@@ -45,6 +45,9 @@ export interface OpenAIFreeOpts {
   discover: (baseUrl: string, apiKey: string) => Promise<OpenAIFreeDiscovery>;
   retryPolicy?: RetryPolicy<TestExchange>;
   exposedMapper?: (config: RuntimeConfig) => (upstream: string) => string;
+  /** Channel type for testing + emitted channels. Defaults to OPENAI; Z.ai uses
+   *  ZHIPU_V4 (OpenAI body at the /v4 path). */
+  channelType?: number;
 }
 
 type Resolution = ReturnType<typeof resolveBareNames>[number];
@@ -65,8 +68,10 @@ export function emitFreeTextOffers(opts: {
   groupRatio: number;
   channelRemark: string;
   priceAdjustment?: UpstreamOffer["priceAdjustment"];
+  channelType?: number;
 }): UpstreamOffer[] {
   const offers: UpstreamOffer[] = [];
+  const channelType = opts.channelType ?? CHANNEL_TYPES.OPENAI;
   const byVendor = partitionByVendor(
     opts.resolutions,
     (x) => x.exposed,
@@ -91,7 +96,7 @@ export function emitFreeTextOffers(opts: {
       group: vendor,
       sanitizedBase: opts.sanitizedBase,
       vendor,
-      channelType: CHANNEL_TYPES.OPENAI,
+      channelType,
       baseUrl: opts.baseUrl,
       apiKey: opts.apiKey,
       groupRatio: opts.groupRatio,
@@ -161,12 +166,13 @@ export async function processOpenAICompatibleFreeProvider(
       return { report, offers, endpointMetadata };
     }
 
+    const channelType = opts.channelType ?? CHANNEL_TYPES.OPENAI;
     const mapExposed = (opts.exposedMapper ?? passthroughExposed)(config);
     const r = await testAndFilterModels({
       allModels: textModels,
       baseUrl: providerConfig.baseUrl,
       apiKey: providerConfig.apiKey,
-      channelType: CHANNEL_TYPES.OPENAI,
+      channelType,
       providerLabel: name,
       testableModelTypes: getTestModelTypes(config, providerConfig),
       retryPolicy: opts.retryPolicy ?? NVIDIA_RETRY_POLICY,
@@ -205,6 +211,7 @@ export async function processOpenAICompatibleFreeProvider(
         groupRatio: providerConfig.ratio,
         channelRemark: `${opts.channelRemarkLabel} via ${name}`,
         priceAdjustment: providerConfig.priceAdjustment,
+        channelType,
       }),
     );
 

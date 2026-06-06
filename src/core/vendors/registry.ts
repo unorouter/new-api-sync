@@ -18,6 +18,7 @@ import { discoverSambaNovaModels } from "./sambanova/discovery";
 import { discoverMistralModels } from "./mistral/discovery";
 import { discoverCloudflareModels } from "./cloudflare/discovery";
 import { discoverGithubModels } from "./github/discovery";
+import { discoverZaiModels } from "./zai/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -34,6 +35,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   mistral: discoverMistralModels,
   cloudflare: discoverCloudflareModels,
   github: discoverGithubModels,
+  zai: discoverZaiModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {
@@ -65,5 +67,6 @@ export function processSimpleProvider(
     providerKind: def.kind,
     channelRemarkLabel: def.label,
     discover: def.discover,
+    channelType: def.channelType,
   });
 }
