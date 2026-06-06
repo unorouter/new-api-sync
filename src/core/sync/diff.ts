@@ -380,21 +380,27 @@ export function buildSyncDiff(
       });
   }
 
-  for (const existing of snapshot.models) {
-    const modelName = existing.model_name;
-    if (desired.models.has(modelName) || protectedModels.has(modelName))
-      continue;
-    if (
-      modelFilter &&
-      modelFilter.length > 0 &&
-      !matchesAnyPattern(modelName, modelFilter)
-    )
-      continue;
-    if (!desired.mappingSources.has(modelName) && existing.sync_official !== 1)
-      continue;
-    if (!existing.id) continue;
-    modelOps.push({ type: "delete", key: modelName, existing });
-  }
+  // A provider-scoped partial sync (--only) must never delete models: its desired
+  // set only covers the targeted providers, so every other provider's model would
+  // look orphaned and get wrongly deleted. Model deletion is left to full syncs and
+  // --models filter syncs (which scope deletes to the matched names below).
+  const skipModelDeletes = config.onlyProviders !== undefined;
+  if (!skipModelDeletes)
+    for (const existing of snapshot.models) {
+      const modelName = existing.model_name;
+      if (desired.models.has(modelName) || protectedModels.has(modelName))
+        continue;
+      if (
+        modelFilter &&
+        modelFilter.length > 0 &&
+        !matchesAnyPattern(modelName, modelFilter)
+      )
+        continue;
+      if (!desired.mappingSources.has(modelName) && existing.sync_official !== 1)
+        continue;
+      if (!existing.id) continue;
+      modelOps.push({ type: "delete", key: modelName, existing });
+    }
 
   const desiredOptionValues = buildManagedOptionValues(
     desired,

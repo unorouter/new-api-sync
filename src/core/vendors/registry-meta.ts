@@ -32,6 +32,20 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     apiKeyPlaceholder: "csk-…",
   },
+  {
+    kind: "sambanova",
+    label: "SambaNova",
+    defaultBaseUrl: "https://api.sambanova.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "uuid key",
+  },
+  {
+    kind: "mistral",
+    label: "Mistral",
+    defaultBaseUrl: "https://api.mistral.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "mistral key",
+  },
 ] as const satisfies readonly SimpleProviderMeta[];
 
 export type SimpleProviderKind = (typeof SIMPLE_PROVIDER_META)[number]["kind"];

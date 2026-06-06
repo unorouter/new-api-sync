@@ -14,6 +14,8 @@ import {
 import { discoverGroqModels } from "./groq/discovery";
 import { discoverGeminiModels } from "./gemini/discovery";
 import { discoverCerebrasModels } from "./cerebras/discovery";
+import { discoverSambaNovaModels } from "./sambanova/discovery";
+import { discoverMistralModels } from "./mistral/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -26,6 +28,8 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   groq: discoverGroqModels,
   gemini: discoverGeminiModels,
   cerebras: discoverCerebrasModels,
+  sambanova: discoverSambaNovaModels,
+  mistral: discoverMistralModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {
