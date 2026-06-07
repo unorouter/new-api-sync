@@ -274,7 +274,8 @@ export const getImageTestConfig = (opts: ModelRequestOpts): RequestConfig => {
     model: opts.model,
     prompt: "a tiny red circle",
     n: 1,
-    size: "256x256",
+    // 1024x1024 is the universally-accepted SDXL size; OVH rejects anything else.
+    size: "1024x1024",
   });
 };
 

@@ -89,12 +89,9 @@ export const SIMPLE_PROVIDER_META = [
     // image/audio route through the OPENAI channel type (1).
     defaultBaseUrl: "https://oai.endpoints.kepler.ai.cloud.ovh.net",
     defaultRatio: 0,
-    apiKeyPlaceholder: "anon (no key needed)",
+    apiKeyPlaceholder: "IAM JWT PAT",
     imageChannelType: 1,
     audioChannelType: 1,
-    // 2 req/min per IP per model: the probe burns the cap fast, so keep a model
-    // that 429s as working (capacity, not breakage) instead of dropping it.
-    acceptRateLimited: true,
   },
   {
     kind: "zai",
