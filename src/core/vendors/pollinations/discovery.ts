@@ -13,15 +13,14 @@ interface PollinationsModelList {
   data: PollinationsModel[];
 }
 
-// Models that cost Pollen credits (premium) rather than running on the free Seed
-// tier. The probe also drops PAYMENT_REQUIRED models, but excluding them up front
-// avoids wasted test calls. Set drifts in beta; the probe is the backstop.
-const PAID_MODELS = new Set([
-  "gpt-5.5",
-  "openai-audio-large",
-  "midijourney-large",
-  "perplexity-reasoning",
-  "kimi-k2.6",
+// Allowlist of genuinely-free models. Pollinations is per-token Pollen-metered on
+// gen.pollinations.ai; only the anonymous/Seed-tier open models cost ~0 and run on
+// the free daily grant. The legacy /models tier field currently confirms only
+// openai-fast (gpt-oss-20b) as anonymous-tier free; the rest (gpt-5, grok, glm,
+// image) drain the grant and 402. Keep this tight to avoid 402-prone channels;
+// add a model here only after confirming it costs ~0/token.
+const FREE_MODELS = new Set([
+  "openai-fast", // gpt-oss-20b, anonymous tier
 ]);
 
 /**
@@ -51,7 +50,7 @@ export async function discoverPollinationsModels(
   const models: string[] = [];
   const maxOutputByModel = new Map<string, number>();
   for (const m of data?.data ?? []) {
-    if (!m.id || PAID_MODELS.has(m.id)) continue;
+    if (!m.id || !FREE_MODELS.has(m.id)) continue;
     models.push(m.id);
     if (typeof m.context_length === "number" && m.context_length > 0)
       maxOutputByModel.set(m.id, m.context_length);
