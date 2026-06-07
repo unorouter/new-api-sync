@@ -44,6 +44,11 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   sdaia: { modelPatterns: ["allam"], nameAliases: ["sdaia","allam"], displayName: "SDAIA", icon: "SDAIA" },
   ibm: { modelPatterns: ["granite-"], nameAliases: ["ibm","ibm-granite"], displayName: "IBM" },
   microsoft: { modelPatterns: ["phi-","phi4","wizardlm"], nameAliases: ["microsoft"], displayName: "Microsoft" },
+  deepgram: { modelPatterns: ["aura-","nova-"], nameAliases: ["deepgram"], displayName: "Deepgram" },
+  leonardo: { modelPatterns: ["phoenix-","lucid-"], nameAliases: ["leonardo"], displayName: "Leonardo AI" },
+  myshell: { modelPatterns: ["melotts"], nameAliases: ["myshell"], displayName: "MyShell" },
+  pfnet: { modelPatterns: ["plamo"], nameAliases: ["pfnet","preferred networks"], displayName: "Preferred Networks" },
+  lykon: { modelPatterns: ["dreamshaper"], nameAliases: ["lykon"], displayName: "Lykon" },
 };
 
 export function inferVendorFromModelName(name: string): string | undefined {
