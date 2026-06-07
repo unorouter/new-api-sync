@@ -94,6 +94,16 @@ export const SIMPLE_PROVIDER_META = [
     audioChannelType: 1,
   },
   {
+    kind: "aihorde",
+    label: "AI Horde",
+    // Anonymous key (0000000000), lowest queue priority. OpenAI-compat text-only
+    // proxy; base is the host, runner appends /v1. Volunteer-hosted -> slow +
+    // intermittent; the only pooling-legal source. Curated RP models in discovery.
+    defaultBaseUrl: "https://oai.aihorde.net",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "0000000000 (anon)",
+  },
+  {
     kind: "pollinations",
     label: "Pollinations",
     // Unified OpenAI-compatible endpoint (gen.pollinations.ai); base is the host,

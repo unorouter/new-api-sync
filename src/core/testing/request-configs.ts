@@ -87,7 +87,9 @@ export function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
   return {
     url: `${baseUrl}/v1/chat/completions`,
     headers: jsonBearer(apiKey),
-    body: { model, messages: userMsg(TEST_PROMPT), max_tokens: 3 },
+    // 16 is the floor some backends accept (AI Horde rejects max_tokens < 16);
+    // still tiny for a liveness probe.
+    body: { model, messages: userMsg(TEST_PROMPT), max_tokens: 16 },
     isSuccess: noError,
   };
 }
@@ -119,7 +121,7 @@ export function getStreamRequestConfig(
     body: {
       model,
       messages: userMsg(TEST_PROMPT),
-      max_tokens: channelType === CHANNEL_TYPES.ZHIPU_V4 ? 64 : 5,
+      max_tokens: channelType === CHANNEL_TYPES.ZHIPU_V4 ? 64 : 16,
       stream: true,
     },
     completionMarker: "data: [DONE]",

@@ -51,6 +51,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   lykon: { modelPatterns: ["dreamshaper"], nameAliases: ["lykon"], displayName: "Lykon" },
   amazon: { modelPatterns: ["nova","polly","titan-"], nameAliases: ["amazon","aws"], displayName: "Amazon" },
   pollinations: { modelPatterns: ["midijourney"], nameAliases: ["pollinations"], displayName: "Pollinations" },
+  thedrummer: { modelPatterns: ["cydonia","skyfall","behemoth","rocinante","magidonia","tiger-gemma"], nameAliases: ["thedrummer","drummer"], displayName: "TheDrummer" },
 };
 
 export function inferVendorFromModelName(name: string): string | undefined {
