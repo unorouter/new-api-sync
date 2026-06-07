@@ -57,6 +57,9 @@ export interface OpenAIFreeOpts {
   /** If set, audio models (STT/TTS) are emitted with this channel type. Omit to
    *  skip audio. Groq = OPENAI, Cloudflare = CLOUDFLARE. */
   audioChannelType?: number;
+  /** Keep 429-failing models as working (Cloudflare neuron-cap: 429 = free model,
+   *  budget spent, not broken). Only where 429 means capacity. */
+  acceptRateLimited?: boolean;
 }
 
 type Resolution = ReturnType<typeof resolveBareNames>[number];
@@ -230,6 +233,7 @@ export async function processOpenAICompatibleFreeProvider(
         testableModelTypes: new Set([modality.modelType]),
         retryPolicy: opts.retryPolicy ?? NVIDIA_RETRY_POLICY,
         modelEndpoints,
+        acceptRateLimited: opts.acceptRateLimited,
         capabilities: buildCapabilityMap(models, mapExposed, ctx),
       });
       const working = r.workingModels;

@@ -16,6 +16,10 @@ export interface SimpleProviderMeta {
   /** If set, audio models (STT/TTS) are emitted with this channel type. Omit to
    *  skip audio. Groq = OPENAI (1), Cloudflare = CLOUDFLARE (39). */
   audioChannelType?: number;
+  /** Keep models that probe-fail with a 429 (Cloudflare: the shared 10k-neuron/day
+   *  cap 429s every model once spent, but they are valid free models, so a sync
+   *  while exhausted must not drop them). Only safe where 429 = capacity, not breakage. */
+  acceptRateLimited?: boolean;
 }
 
 export const SIMPLE_PROVIDER_META = [
@@ -66,6 +70,7 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "cf-... (Workers AI token)",
     imageChannelType: 39,
     audioChannelType: 39,
+    acceptRateLimited: true,
   },
   {
     kind: "github",

@@ -70,5 +70,6 @@ export function processSimpleProvider(
     channelType: def.channelType,
     imageChannelType: def.imageChannelType,
     audioChannelType: def.audioChannelType,
+    acceptRateLimited: def.acceptRateLimited,
   });
 }
