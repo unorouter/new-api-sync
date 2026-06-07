@@ -68,5 +68,7 @@ export function processSimpleProvider(
     channelRemarkLabel: def.label,
     discover: def.discover,
     channelType: def.channelType,
+    imageChannelType: def.imageChannelType,
+    audioChannelType: def.audioChannelType,
   });
 }

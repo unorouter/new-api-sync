@@ -56,21 +56,38 @@ async function rawPost(
 ): Promise<RawResult> {
   const started = Date.now();
   try {
+    // FormData (STT multipart) and ArrayBuffer (Cloudflare STT raw audio) must
+    // not be JSON-stringified; fetch sets the multipart boundary itself, so drop
+    // any json content-type header for FormData.
+    const isForm = body instanceof FormData;
+    const isBinary = body instanceof ArrayBuffer;
+    const sendHeaders = isForm
+      ? Object.fromEntries(
+          Object.entries(headers).filter(
+            ([k]) => k.toLowerCase() !== "content-type",
+          ),
+        )
+      : headers;
     const response = await fetch(url, {
       method: "POST",
-      headers,
-      body: JSON.stringify(body),
+      headers: sendHeaders,
+      body:
+        isForm || isBinary
+          ? (body as FormData | ArrayBuffer)
+          : JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
     const responseHeaders = headersToRecord(response.headers);
     const contentType = response.headers.get("content-type") ?? "";
-    // Image-gen endpoints (Cloudflare flux/SDXL) stream raw PNG/JPEG, not JSON.
-    // Surface a sentinel so isSuccess can accept a binary 2xx instead of failing
-    // the JSON parse (which would null the response and read as no-response).
-    const isBinaryImage = contentType.startsWith("image/");
-    const bodyText = isBinaryImage ? "" : await response.text();
-    let data: unknown = isBinaryImage ? { __binaryImage: true } : null;
-    if (!isBinaryImage)
+    // Image-gen / TTS endpoints (Cloudflare flux/SDXL, melotts/aura) stream raw
+    // PNG/JPEG/audio, not JSON. Surface a sentinel so isSuccess can accept a
+    // binary 2xx instead of failing the JSON parse (which would null the response
+    // and read as no-response).
+    const isBinaryMedia =
+      contentType.startsWith("image/") || contentType.startsWith("audio/");
+    const bodyText = isBinaryMedia ? "" : await response.text();
+    let data: unknown = isBinaryMedia ? { __binaryMedia: true } : null;
+    if (!isBinaryMedia)
       try {
         data = bodyText ? JSON.parse(bodyText) : null;
       } catch {

@@ -32,6 +32,7 @@ export const ENDPOINT_TO_MODEL_TYPE: Record<string, ModelType> = {
   rerank: "embedding",
   "jina-rerank": "embedding",
   geminitts: "audio",
+  audio: "audio",
 };
 
 // prettier-ignore

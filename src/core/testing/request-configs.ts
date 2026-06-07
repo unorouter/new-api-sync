@@ -1,4 +1,7 @@
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
+import { configDir } from "@core/config";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type {
   AnthropicResponse,
   ErrorEnvelope,
@@ -256,11 +259,11 @@ export const getImageTestConfig = (opts: ModelRequestOpts): RequestConfig => {
         const d = data as {
           success?: boolean;
           result?: { image?: string };
-          __binaryImage?: boolean;
+          __binaryMedia?: boolean;
         };
         // Either a JSON {result.image} (flux-schnell) or a raw PNG/JPEG body.
         return (
-          d.__binaryImage === true ||
+          d.__binaryMedia === true ||
           d.success === true ||
           typeof d.result?.image === "string"
         );
@@ -291,9 +294,70 @@ export const getEmbeddingTestConfig = (opts: ModelRequestOpts): RequestConfig =>
     },
   );
 
-export const getAudioTestConfig = (opts: ModelRequestOpts): RequestConfig =>
-  bearerBody(opts, "/v1/audio/speech", {
+// Speech-to-text models are recognized by name; everything else audio is TTS.
+const isSttModel = (model: string) =>
+  /whisper|transcrib|asr|speech-to-text|stt|nova-|\bflux\b/i.test(model);
+
+let cachedProbeWav: ArrayBuffer | null = null;
+function probeWavBytes(): ArrayBuffer {
+  if (!cachedProbeWav) {
+    const buf = readFileSync(join(configDir(), "audio", "probe.wav"));
+    cachedProbeWav = buf.buffer.slice(
+      buf.byteOffset,
+      buf.byteOffset + buf.byteLength,
+    ) as ArrayBuffer;
+  }
+  return cachedProbeWav;
+}
+function probeWavForm(model: string): FormData {
+  const form = new FormData();
+  form.append(
+    "file",
+    new Blob([probeWavBytes()], { type: "audio/wav" }),
+    "probe.wav",
+  );
+  form.append("model", model);
+  return form;
+}
+
+export const getAudioTestConfig = (opts: ModelRequestOpts): RequestConfig => {
+  // Cloudflare: native /ai/run/{model}. STT takes raw audio bytes; TTS takes JSON.
+  if (opts.channelType === CHANNEL_TYPES.CLOUDFLARE) {
+    if (isSttModel(opts.model))
+      return {
+        url: `${opts.baseUrl}/run/${opts.model}`,
+        headers: { Authorization: `Bearer ${opts.apiKey}` },
+        body: probeWavBytes(),
+        isSuccess: (data) => {
+          const d = data as {
+            success?: boolean;
+            __binaryMedia?: boolean;
+            result?: unknown;
+          };
+          return d.success === true || d.result !== undefined;
+        },
+      };
+    return {
+      url: `${opts.baseUrl}/run/${opts.model}`,
+      headers: jsonBearer(opts.apiKey),
+      body: { prompt: "hello world", lang: "en" },
+      isSuccess: (data) => {
+        const d = data as { success?: boolean; __binaryMedia?: boolean };
+        return d.__binaryMedia === true || d.success === true;
+      },
+    };
+  }
+  // OpenAI-compatible (groq): STT = multipart /audio/transcriptions, TTS = /audio/speech.
+  if (isSttModel(opts.model))
+    return {
+      url: `${opts.baseUrl}/v1/audio/transcriptions`,
+      headers: { Authorization: `Bearer ${opts.apiKey}` },
+      body: probeWavForm(opts.model),
+      isSuccess: (data) => typeof (data as { text?: string }).text === "string",
+    };
+  return bearerBody(opts, "/v1/audio/speech", {
     model: opts.model,
     input: "test",
     voice: "alloy",
   });
+};

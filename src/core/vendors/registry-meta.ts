@@ -10,6 +10,12 @@ export interface SimpleProviderMeta {
   apiKeyPlaceholder: string;
   /** new-api channel type for test + emit. Omit for OPENAI (1). Z.ai = ZHIPU_V4 (26). */
   channelType?: number;
+  /** If set, the provider's image models are emitted with this channel type
+   *  (native image surface). Omit to skip image models. Cloudflare = CLOUDFLARE (39). */
+  imageChannelType?: number;
+  /** If set, audio models (STT/TTS) are emitted with this channel type. Omit to
+   *  skip audio. Groq = OPENAI (1), Cloudflare = CLOUDFLARE (39). */
+  audioChannelType?: number;
 }
 
 export const SIMPLE_PROVIDER_META = [
@@ -19,6 +25,7 @@ export const SIMPLE_PROVIDER_META = [
     defaultBaseUrl: "https://api.groq.com/openai",
     defaultRatio: 0,
     apiKeyPlaceholder: "gsk_…",
+    audioChannelType: 1,
   },
   {
     kind: "gemini",
@@ -57,6 +64,8 @@ export const SIMPLE_PROVIDER_META = [
       "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai",
     defaultRatio: 0,
     apiKeyPlaceholder: "cf-... (Workers AI token)",
+    imageChannelType: 39,
+    audioChannelType: 39,
   },
   {
     kind: "github",

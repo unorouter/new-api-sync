@@ -47,10 +47,12 @@ export async function discoverCloudflareModels(
     });
   };
 
-  const [textGen, embeddings, image] = await Promise.all([
+  const [textGen, embeddings, image, asr, tts] = await Promise.all([
     fetchTask("Text+Generation"),
     fetchTask("Text+Embeddings"),
     fetchTask("Text-to-Image"),
+    fetchTask("Automatic+Speech+Recognition"),
+    fetchTask("Text-to-Speech"),
   ]);
 
   const models: string[] = [];
@@ -81,6 +83,8 @@ export async function discoverCloudflareModels(
   add(textGen?.result, null); // null -> name-based inference (chat vs other)
   add(embeddings?.result, "embedding");
   add(image?.result, "image");
+  add(asr?.result, "audio");
+  add(tts?.result, "audio");
 
   return { models, maxOutputByModel, modelTypeHints };
 }

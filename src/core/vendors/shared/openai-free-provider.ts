@@ -54,6 +54,9 @@ export interface OpenAIFreeOpts {
   /** If set, image models are emitted with this channel type (native image
    *  surface). Omit to skip image models entirely. Cloudflare = CLOUDFLARE. */
   imageChannelType?: number;
+  /** If set, audio models (STT/TTS) are emitted with this channel type. Omit to
+   *  skip audio. Groq = OPENAI, Cloudflare = CLOUDFLARE. */
+  audioChannelType?: number;
 }
 
 type Resolution = ReturnType<typeof resolveBareNames>[number];
@@ -200,6 +203,12 @@ export async function processOpenAICompatibleFreeProvider(
         modelType: "image",
         channelType: opts.imageChannelType,
         endpoints: ["image-generation"],
+      });
+    if (opts.audioChannelType !== undefined)
+      modalities.push({
+        modelType: "audio",
+        channelType: opts.audioChannelType,
+        endpoints: ["audio"],
       });
 
     for (const modality of modalities) {
