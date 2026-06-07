@@ -37,9 +37,10 @@ export async function discoverMistralModels(
   const maxOutputByModel = new Map<string, number>();
   for (const m of data?.data ?? []) {
     const caps = m.capabilities;
-    // Keep chat or embedding models; drop OCR/audio/FIM/moderation.
-    if (caps && caps.completion_chat === false && caps.embeddings !== true)
-      continue;
+    // Mistral has no "embeddings" capability flag; embed models report all caps
+    // false, so detect them by id. Keep chat OR embed; drop OCR/audio/FIM/moderation.
+    const isEmbed = /embed/i.test(m.id);
+    if (caps && caps.completion_chat === false && !isEmbed) continue;
     models.push(m.id);
     if (typeof m.max_context_length === "number" && m.max_context_length > 0)
       maxOutputByModel.set(m.id, m.max_context_length);
