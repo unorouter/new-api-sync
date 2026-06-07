@@ -83,8 +83,10 @@ export const SIMPLE_PROVIDER_META = [
   {
     kind: "zai",
     label: "Z.ai",
-    // OpenAI-format body at the /v4 path (no /v1). channelType 26 = ZHIPU_V4.
-    defaultBaseUrl: "https://api.z.ai/api/paas/v4",
+    // Host only: new-api's ZHIPU_V4 (26) adapter appends /api/paas/v4/chat/completions
+    // itself, and the sync probe mirrors that path. A base with /api/paas/v4 would
+    // double the path and 404.
+    defaultBaseUrl: "https://api.z.ai",
     defaultRatio: 0,
     apiKeyPlaceholder: "{id}.{secret}",
     channelType: 26,
