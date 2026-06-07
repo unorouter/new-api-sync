@@ -94,6 +94,18 @@ export const SIMPLE_PROVIDER_META = [
     audioChannelType: 1,
   },
   {
+    kind: "pollinations",
+    label: "Pollinations",
+    // Unified OpenAI-compatible endpoint (gen.pollinations.ai); base is the host,
+    // runner + discovery append /v1. Free Seed-tier models only (premium Pollen
+    // models filtered in discovery). Image/audio are OpenAI-shaped -> OPENAI type.
+    defaultBaseUrl: "https://gen.pollinations.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk_...",
+    imageChannelType: 1,
+    audioChannelType: 1,
+  },
+  {
     kind: "zai",
     label: "Z.ai",
     // Host only: new-api's ZHIPU_V4 (26) adapter appends /api/paas/v4/chat/completions

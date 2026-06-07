@@ -9,7 +9,7 @@ interface VendorMatcher {
 export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   anthropic: { modelPatterns: ["claude"], displayName: "Anthropic", icon: "Claude.Color" },
   google: { modelPatterns: ["gemini","palm","veo","gemma","lyria","imagen","embedding-001","embedding-gecko","text-embedding-004"], displayName: "Google", icon: "Gemini.Color" },
-  openai: { modelPatterns: ["gpt","o1-","o3-","o4-","chatgpt","sora","text-embedding-3","text-embedding-ada","whisper"], displayName: "OpenAI", icon: "OpenAI" },
+  openai: { modelPatterns: ["gpt","o1-","o3-","o4-","chatgpt","sora","text-embedding-3","text-embedding-ada","whisper","openai"], displayName: "OpenAI", icon: "OpenAI" },
   kling: { modelPatterns: ["kling"], nameAliases: ["kling","可灵"], displayName: "Kling", icon: "Kling.Color" },
   deepseek: { modelPatterns: ["deepseek"], displayName: "DeepSeek", icon: "DeepSeek.Color" },
   xai: { modelPatterns: ["grok"], displayName: "xAI", icon: "XAI" },
@@ -25,8 +25,8 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   venice: { modelPatterns: ["venice"], nameAliases: ["venice"], displayName: "Venice AI", icon: "Venice.Color" },
   alibaba: { modelPatterns: ["qwen","qwq-","text-embedding-v"], nameAliases: ["阿里","通义","qwen","阿里巴巴"], displayName: "Alibaba", icon: "AlibabaCloud.Color" },
   bailian: { modelPatterns: ["wan2","z-image"], nameAliases: ["bailian","阿里云百炼"], displayName: "Bailian", icon: "AlibabaCloud.Color" },
-  flux: { modelPatterns: ["flux-","flux."], nameAliases: ["flux"], displayName: "Flux", icon: "Flux" },
-  cohere: { modelPatterns: ["command-","c4ai-"], displayName: "Cohere", icon: "Cohere.Color" },
+  flux: { modelPatterns: ["flux-","flux.","flux"], nameAliases: ["flux"], displayName: "Flux", icon: "Flux" },
+  cohere: { modelPatterns: ["command-","c4ai-","cohere"], displayName: "Cohere", icon: "Cohere.Color" },
   minimax: { modelPatterns: ["abab","minimax-"], displayName: "MiniMax", icon: "Minimax.Color" },
   moonshot: { modelPatterns: ["moonshot-","kimi-"], nameAliases: ["月之暗面","kimi"], displayName: "Moonshot", icon: "Moonshot" },
   zhipu: { modelPatterns: ["glm-","glm4","glm5","glm6","chatglm"], nameAliases: ["智谱","zhipu ai","chatglm","z.ai","z-ai","zai"], displayName: "Zhipu", icon: "Zhipu.Color" },
@@ -44,11 +44,13 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   sdaia: { modelPatterns: ["allam"], nameAliases: ["sdaia","allam"], displayName: "SDAIA", icon: "SDAIA" },
   ibm: { modelPatterns: ["granite-"], nameAliases: ["ibm","ibm-granite"], displayName: "IBM" },
   microsoft: { modelPatterns: ["phi-","phi4","wizardlm"], nameAliases: ["microsoft"], displayName: "Microsoft" },
-  deepgram: { modelPatterns: ["aura-","nova-"], nameAliases: ["deepgram"], displayName: "Deepgram" },
+  deepgram: { modelPatterns: ["aura-","nova-3","nova-2"], nameAliases: ["deepgram"], displayName: "Deepgram" },
   leonardo: { modelPatterns: ["phoenix-","lucid-"], nameAliases: ["leonardo"], displayName: "Leonardo AI" },
   myshell: { modelPatterns: ["melotts"], nameAliases: ["myshell"], displayName: "MyShell" },
   pfnet: { modelPatterns: ["plamo"], nameAliases: ["pfnet","preferred networks"], displayName: "Preferred Networks" },
   lykon: { modelPatterns: ["dreamshaper"], nameAliases: ["lykon"], displayName: "Lykon" },
+  amazon: { modelPatterns: ["nova","polly","titan-"], nameAliases: ["amazon","aws"], displayName: "Amazon" },
+  pollinations: { modelPatterns: ["midijourney"], nameAliases: ["pollinations"], displayName: "Pollinations" },
 };
 
 export function inferVendorFromModelName(name: string): string | undefined {
