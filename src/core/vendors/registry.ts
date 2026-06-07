@@ -19,6 +19,7 @@ import { discoverMistralModels } from "./mistral/discovery";
 import { discoverCloudflareModels } from "./cloudflare/discovery";
 import { discoverGithubModels } from "./github/discovery";
 import { discoverZaiModels } from "./zai/discovery";
+import { discoverOvhModels } from "./ovh/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -36,6 +37,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   cloudflare: discoverCloudflareModels,
   github: discoverGithubModels,
   zai: discoverZaiModels,
+  ovh: discoverOvhModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {

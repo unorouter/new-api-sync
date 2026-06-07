@@ -81,6 +81,22 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "github_pat_... (models:read)",
   },
   {
+    kind: "ovh",
+    label: "OVHcloud",
+    // Anonymous OpenAI-compatible endpoint (no key needed; placeholder sent).
+    // Base is the host; runner + discovery append /v1. All modalities are
+    // OpenAI-shaped (image /v1/images/generations, audio /v1/audio/*), so
+    // image/audio route through the OPENAI channel type (1).
+    defaultBaseUrl: "https://oai.endpoints.kepler.ai.cloud.ovh.net",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "anon (no key needed)",
+    imageChannelType: 1,
+    audioChannelType: 1,
+    // 2 req/min per IP per model: the probe burns the cap fast, so keep a model
+    // that 429s as working (capacity, not breakage) instead of dropping it.
+    acceptRateLimited: true,
+  },
+  {
     kind: "zai",
     label: "Z.ai",
     // Host only: new-api's ZHIPU_V4 (26) adapter appends /api/paas/v4/chat/completions
