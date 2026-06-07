@@ -76,6 +76,9 @@ const SimpleFreeProviderSchema = T.Object({
   apiKey: str,
   models: Opt(T.Array(str)),
   ratio: Opt(T.Number({ minimum: 0 })),
+  // Models (glob patterns) priced instead of forced-free: each is billed at
+  // canonical retail * (1 + priceAdjustment[model]). Everything else stays $0.
+  paidModels: Opt(T.Array(str)),
 });
 const ComfyUiTemplateSchema = T.Object(
   {

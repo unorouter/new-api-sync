@@ -4,7 +4,10 @@ import {
 } from "@core/catalog/bare-name";
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
 import { inferModelType } from "@core/catalog/constants/inference";
-import { sanitizeGroupName } from "@core/catalog/constants/patterns";
+import {
+  matchesAnyPattern,
+  sanitizeGroupName,
+} from "@core/catalog/constants/patterns";
 import { filterModels } from "@core/catalog/filter";
 import { getTestModelTypes, type RuntimeConfig } from "@core/config";
 import type {
@@ -85,45 +88,64 @@ export function emitFreeTextOffers(opts: {
   modelType?: ModelType;
   /** new-api endpoint tags carried on each OfferModel (e.g. ["embedding"]). */
   endpoints?: string[];
+  /** Glob patterns for models that are priced (canonical * (1+adjustment)) instead
+   *  of forced-free. Their OfferModel.isFree is false so the pricing phase prices them. */
+  paidModels?: string[];
 }): UpstreamOffer[] {
   const offers: UpstreamOffer[] = [];
   const channelType = opts.channelType ?? CHANNEL_TYPES.OPENAI;
   const modelType = opts.modelType ?? "text";
+  const paidModels = opts.paidModels ?? [];
+  const isPaid = (exposed: string) =>
+    paidModels.length > 0 && matchesAnyPattern(exposed, paidModels);
   const byVendor = partitionByVendor(
     opts.resolutions,
     (x) => x.exposed,
     "other",
   );
+  const toOfferModel = (x: Resolution): OfferModel => {
+    const upstream = opts.rev[x.exposed] ?? x.upstream;
+    const maxOut = opts.maxOutputByModel.get(upstream);
+    return {
+      exposed: x.exposed,
+      upstream,
+      modelType,
+      isFree: !isPaid(x.exposed),
+      testDetail: opts.details.find((d) => d.model === x.upstream),
+      ...(opts.endpoints ? { endpoints: opts.endpoints } : {}),
+      ...(maxOut ? { metadata: { maxOutputTokens: maxOut } } : {}),
+    };
+  };
+  const buildOffer = (
+    vendor: string,
+    models: OfferModel[],
+    freeTier: boolean,
+  ): UpstreamOffer => ({
+    provider: opts.provider,
+    providerKind: opts.providerKind,
+    group: vendor,
+    sanitizedBase: opts.sanitizedBase,
+    vendor,
+    channelType,
+    baseUrl: opts.baseUrl,
+    apiKey: opts.apiKey,
+    groupRatio: opts.groupRatio,
+    channelRemark: opts.channelRemark,
+    models,
+    isFreeTier: freeTier,
+    priceAdjustment: opts.priceAdjustment,
+    defaultAdjustment: 0,
+  });
   for (const [vendor, vendorResolutions] of byVendor) {
-    const offerModels: OfferModel[] = vendorResolutions.map((x) => {
-      const upstream = opts.rev[x.exposed] ?? x.upstream;
-      const maxOut = opts.maxOutputByModel.get(upstream);
-      return {
-        exposed: x.exposed,
-        upstream,
-        modelType,
-        isFree: true,
-        testDetail: opts.details.find((d) => d.model === x.upstream),
-        ...(opts.endpoints ? { endpoints: opts.endpoints } : {}),
-        ...(maxOut ? { metadata: { maxOutputTokens: maxOut } } : {}),
-      };
-    });
-    offers.push({
-      provider: opts.provider,
-      providerKind: opts.providerKind,
-      group: vendor,
-      sanitizedBase: opts.sanitizedBase,
-      vendor,
-      channelType,
-      baseUrl: opts.baseUrl,
-      apiKey: opts.apiKey,
-      groupRatio: opts.groupRatio,
-      channelRemark: opts.channelRemark,
-      models: offerModels,
-      isFreeTier: true,
-      priceAdjustment: opts.priceAdjustment,
-      defaultAdjustment: 0,
-    });
+    const all = vendorResolutions.map(toOfferModel);
+    // Free + paid models are emitted as SEPARATE offers: a free offer routes to
+    // phase-A $0; a paid offer (no free siblings) routes to phase-B canonical
+    // pricing. Mixing them in one offer would pull the paid model into phase-A via
+    // its free siblings' hasAny, pricing it at groupRatio*adj = 0.
+    const free = all.filter((m) => m.isFree);
+    const paid = all.filter((m) => !m.isFree);
+    if (free.length > 0) offers.push(buildOffer(vendor, free, true));
+    if (paid.length > 0) offers.push(buildOffer(vendor, paid, false));
   }
   return offers;
 }
@@ -264,6 +286,7 @@ export async function processOpenAICompatibleFreeProvider(
           channelType: modality.channelType,
           modelType: modality.modelType,
           endpoints: modality.endpoints,
+          paidModels: providerConfig.paidModels,
         }),
       );
     }

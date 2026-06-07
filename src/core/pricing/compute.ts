@@ -374,8 +374,13 @@ function processNoUpstreamOffer(
   const channel = channelOf(offer);
   for (const m of offer.models) {
     const adj = adjustmentFor(offer, m, args);
-    const cheapest = cheapestForModel.get(m.exposed) ?? offer.groupRatio;
-    const groupRatio = cheapest * (1 + adj);
+    // Base group ratio = an existing positive cheapest ratio, else 1.0 (full retail:
+    // the per-token price already lives in ModelRatio, so the group multiplier starts
+    // at 1 for a freshly-priced model, e.g. a paid override in an otherwise-free
+    // provider whose own groupRatio is 0). Then apply the adjustment.
+    const cheap = cheapestForModel.get(m.exposed);
+    const base = cheap && cheap > 0 ? cheap : offer.groupRatio || 1;
+    const groupRatio = base * (1 + adj);
     if (groupRatio > 1) {
       const written = modelRatios.get(m.exposed)?.ratio ?? 1;
       const ceiling = canonical.get(m.exposed) ?? written;
