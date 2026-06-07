@@ -26,7 +26,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   alibaba: { modelPatterns: ["qwen","qwq-","text-embedding-v"], nameAliases: ["阿里","通义","qwen","阿里巴巴"], displayName: "Alibaba", icon: "AlibabaCloud.Color" },
   bailian: { modelPatterns: ["wan2","z-image"], nameAliases: ["bailian","阿里云百炼"], displayName: "Bailian", icon: "AlibabaCloud.Color" },
   flux: { modelPatterns: ["flux-","flux.","flux"], nameAliases: ["flux"], displayName: "Flux", icon: "Flux" },
-  cohere: { modelPatterns: ["command-","c4ai-","cohere","aya-","tiny-aya"], displayName: "Cohere", icon: "Cohere.Color" },
+  cohere: { modelPatterns: ["command-","c4ai-","cohere","aya-","tiny-aya","embed-english-","embed-multilingual-","embed-v4"], displayName: "Cohere", icon: "Cohere.Color" },
   minimax: { modelPatterns: ["abab","minimax-"], displayName: "MiniMax", icon: "Minimax.Color" },
   moonshot: { modelPatterns: ["moonshot-","kimi-"], nameAliases: ["月之暗面","kimi"], displayName: "Moonshot", icon: "Moonshot" },
   zhipu: { modelPatterns: ["glm-","glm4","glm5","glm6","chatglm"], nameAliases: ["智谱","zhipu ai","chatglm","z.ai","z-ai","zai"], displayName: "Zhipu", icon: "Zhipu.Color" },
