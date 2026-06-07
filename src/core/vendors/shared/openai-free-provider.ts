@@ -27,6 +27,9 @@ export interface OpenAIFreeDiscovery {
   models: string[];
   /** upstream model id -> documented max output tokens. */
   maxOutputByModel: Map<string, number>;
+  /** Authoritative modality per model when the provider catalog declares it
+   *  (e.g. Cloudflare's task). Overrides name-based inferModelType. */
+  modelTypeHints?: Map<string, ModelType>;
 }
 
 interface Ctx {
@@ -48,6 +51,9 @@ export interface OpenAIFreeOpts {
   /** Channel type for testing + emitted channels. Defaults to OPENAI; Z.ai uses
    *  ZHIPU_V4 (OpenAI body at the /v4 path). */
   channelType?: number;
+  /** If set, image models are emitted with this channel type (native image
+   *  surface). Omit to skip image models entirely. Cloudflare = CLOUDFLARE. */
+  imageChannelType?: number;
 }
 
 type Resolution = ReturnType<typeof resolveBareNames>[number];
@@ -137,6 +143,7 @@ export async function processOpenAICompatibleFreeProvider(
   try {
     let allModels: string[];
     let maxOutputByModel = new Map<string, number>();
+    let typeHints: Map<string, ModelType> | undefined;
     if (providerConfig.models?.length) {
       allModels = providerConfig.models;
       consola.info(
@@ -152,10 +159,13 @@ export async function processOpenAICompatibleFreeProvider(
       );
       allModels = discovered.models;
       maxOutputByModel = discovered.maxOutputByModel;
+      typeHints = discovered.modelTypeHints;
       consola.info(
         t("CORE.PROVIDER.DISCOVERED_MODELS", { name, count: allModels.length }),
       );
     }
+    const typeOf = (m: string): ModelType =>
+      typeHints?.get(m) ?? inferModelType(m);
     if (allModels.length === 0) {
       report.error = t("CORE.ERROR.NO_MODELS_FOUND");
       return { report, offers, endpointMetadata };
@@ -185,14 +195,23 @@ export async function processOpenAICompatibleFreeProvider(
         endpoints: ["embedding"],
       },
     ];
+    if (opts.imageChannelType !== undefined)
+      modalities.push({
+        modelType: "image",
+        channelType: opts.imageChannelType,
+        endpoints: ["image-generation"],
+      });
 
     for (const modality of modalities) {
-      const models = allModels.filter(
-        (m) => inferModelType(m) === modality.modelType,
-      );
+      const models = allModels.filter((m) => typeOf(m) === modality.modelType);
       if (models.length === 0) continue;
       // Probe each modality as itself (text -> chat, embedding -> /embeddings),
       // not via the text-only config default, so non-chat models are verified too.
+      // modelEndpoints carries the modality's endpoint tag so the runner's own
+      // inferModelType agrees (CF image models aren't image-named).
+      const modelEndpoints = modality.endpoints
+        ? new Map(models.map((m) => [m, modality.endpoints!]))
+        : undefined;
       const r = await testAndFilterModels({
         allModels: models,
         baseUrl: providerConfig.baseUrl,
@@ -201,6 +220,7 @@ export async function processOpenAICompatibleFreeProvider(
         providerLabel: name,
         testableModelTypes: new Set([modality.modelType]),
         retryPolicy: opts.retryPolicy ?? NVIDIA_RETRY_POLICY,
+        modelEndpoints,
         capabilities: buildCapabilityMap(models, mapExposed, ctx),
       });
       const working = r.workingModels;

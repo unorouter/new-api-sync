@@ -1,5 +1,6 @@
 import { tryFetchJson } from "@core/infra/http";
 import type { OpenAIFreeDiscovery } from "@core/vendors/shared/openai-free-provider";
+import type { ModelType } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 
@@ -46,25 +47,40 @@ export async function discoverCloudflareModels(
     });
   };
 
-  const [textGen, embeddings] = await Promise.all([
+  const [textGen, embeddings, image] = await Promise.all([
     fetchTask("Text+Generation"),
     fetchTask("Text+Embeddings"),
+    fetchTask("Text-to-Image"),
   ]);
 
   const models: string[] = [];
   const maxOutputByModel = new Map<string, number>();
-  for (const m of [...(textGen?.result ?? []), ...(embeddings?.result ?? [])]) {
-    if (!m.name) continue;
-    models.push(m.name);
-    const ctx = m.properties?.find((p) => p.property_id === "context_window");
-    const ctxValue =
-      typeof ctx?.value === "string"
-        ? Number.parseInt(ctx.value, 10)
-        : typeof ctx?.value === "number"
-          ? ctx.value
-          : Number.NaN;
-    if (Number.isFinite(ctxValue) && ctxValue > 0)
-      maxOutputByModel.set(m.name, ctxValue);
-  }
-  return { models, maxOutputByModel };
+  const modelTypeHints = new Map<string, ModelType>();
+  // img2img / inpainting / flux-2 (klein + dev) variants want a multipart image
+  // input, not a bare prompt, so the text-to-image probe can't drive them; drop.
+  const needsImageInput = (name: string) =>
+    /img2img|inpainting|flux-2|edit/i.test(name);
+
+  const add = (rows: CloudflareModel[] | undefined, type: ModelType | null) => {
+    for (const m of rows ?? []) {
+      if (!m.name) continue;
+      if (type === "image" && needsImageInput(m.name)) continue;
+      models.push(m.name);
+      if (type) modelTypeHints.set(m.name, type);
+      const ctx = m.properties?.find((p) => p.property_id === "context_window");
+      const ctxValue =
+        typeof ctx?.value === "string"
+          ? Number.parseInt(ctx.value, 10)
+          : typeof ctx?.value === "number"
+            ? ctx.value
+            : Number.NaN;
+      if (Number.isFinite(ctxValue) && ctxValue > 0)
+        maxOutputByModel.set(m.name, ctxValue);
+    }
+  };
+  add(textGen?.result, null); // null -> name-based inference (chat vs other)
+  add(embeddings?.result, "embedding");
+  add(image?.result, "image");
+
+  return { models, maxOutputByModel, modelTypeHints };
 }

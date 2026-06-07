@@ -245,13 +245,34 @@ const bearerBody = (
   isSuccess,
 });
 
-export const getImageTestConfig = (opts: ModelRequestOpts): RequestConfig =>
-  bearerBody(opts, "/v1/images/generations", {
+export const getImageTestConfig = (opts: ModelRequestOpts): RequestConfig => {
+  // Cloudflare Workers AI: native /ai/run/{model}, base64 in result.image.
+  if (opts.channelType === CHANNEL_TYPES.CLOUDFLARE)
+    return {
+      url: `${opts.baseUrl}/run/${opts.model}`,
+      headers: jsonBearer(opts.apiKey),
+      body: { prompt: "a tiny red circle" },
+      isSuccess: (data) => {
+        const d = data as {
+          success?: boolean;
+          result?: { image?: string };
+          __binaryImage?: boolean;
+        };
+        // Either a JSON {result.image} (flux-schnell) or a raw PNG/JPEG body.
+        return (
+          d.__binaryImage === true ||
+          d.success === true ||
+          typeof d.result?.image === "string"
+        );
+      },
+    };
+  return bearerBody(opts, "/v1/images/generations", {
     model: opts.model,
     prompt: "a tiny red circle",
     n: 1,
     size: "256x256",
   });
+};
 
 export const getVideoTestConfig = (opts: ModelRequestOpts): RequestConfig =>
   bearerBody(opts, "/v1/videos", {

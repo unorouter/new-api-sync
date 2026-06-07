@@ -63,13 +63,19 @@ async function rawPost(
       signal: AbortSignal.timeout(timeoutMs),
     });
     const responseHeaders = headersToRecord(response.headers);
-    const bodyText = await response.text();
-    let data: unknown = null;
-    try {
-      data = bodyText ? JSON.parse(bodyText) : null;
-    } catch {
-      /* non-JSON */
-    }
+    const contentType = response.headers.get("content-type") ?? "";
+    // Image-gen endpoints (Cloudflare flux/SDXL) stream raw PNG/JPEG, not JSON.
+    // Surface a sentinel so isSuccess can accept a binary 2xx instead of failing
+    // the JSON parse (which would null the response and read as no-response).
+    const isBinaryImage = contentType.startsWith("image/");
+    const bodyText = isBinaryImage ? "" : await response.text();
+    let data: unknown = isBinaryImage ? { __binaryImage: true } : null;
+    if (!isBinaryImage)
+      try {
+        data = bodyText ? JSON.parse(bodyText) : null;
+      } catch {
+        /* non-JSON */
+      }
     return {
       status: response.status,
       data,
