@@ -22,6 +22,8 @@ import { discoverZaiModels } from "./zai/discovery";
 import { discoverOvhModels } from "./ovh/discovery";
 import { discoverPollinationsModels } from "./pollinations/discovery";
 import { discoverAiHordeModels } from "./aihorde/discovery";
+import { discoverJinaModels } from "./jina/discovery";
+import { discoverCohereModels } from "./cohere/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -42,6 +44,8 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   ovh: discoverOvhModels,
   pollinations: discoverPollinationsModels,
   aihorde: discoverAiHordeModels,
+  jina: discoverJinaModels,
+  cohere: discoverCohereModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {

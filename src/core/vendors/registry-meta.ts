@@ -116,6 +116,24 @@ export const SIMPLE_PROVIDER_META = [
     audioChannelType: 1,
   },
   {
+    kind: "cohere",
+    label: "Cohere",
+    // OpenAI-compatibility layer; base ends at "/compatibility", runner + discovery
+    // append /v1. Trial key serves chat + embeddings free (rate-limited, 1000/mo).
+    defaultBaseUrl: "https://api.cohere.ai/compatibility",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "cohere trial key",
+  },
+  {
+    kind: "jina",
+    label: "Jina AI",
+    // Host only; runner + discovery append /v1. Embedding-only provider: the
+    // helper's embedding modality probes /v1/embeddings. 10M free tokens per key.
+    defaultBaseUrl: "https://api.jina.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "jina_...",
+  },
+  {
     kind: "zai",
     label: "Z.ai",
     // Host only: new-api's ZHIPU_V4 (26) adapter appends /api/paas/v4/chat/completions
