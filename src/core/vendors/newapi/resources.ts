@@ -101,6 +101,7 @@ export async function createChannel(
       method: "POST",
       headers: ctx.headers,
       body,
+      ...FETCH_OPTS,
     });
   let data = await post({ mode: "single", channel });
   if (!data) data = await post(channel);
@@ -131,6 +132,7 @@ export async function updateChannel(
     method: "PUT",
     headers: ctx.headers,
     body: channel,
+    ...FETCH_OPTS,
   });
   return recordIfFailed(
     data,
@@ -145,7 +147,7 @@ export async function deleteChannel(
 ): Promise<boolean> {
   const data = await tryFetchJson<ApiResponse>(
     `${ctx.baseUrl}/api/channel/${id}`,
-    { method: "DELETE", headers: ctx.headers },
+    { method: "DELETE", headers: ctx.headers, ...FETCH_OPTS },
   );
   return recordIfFailed(data, "deleteChannel", `id=${id}`);
 }
