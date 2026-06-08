@@ -80,6 +80,7 @@ export function AuthenticityTable() {
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-medium">
+              <th>{t("HISTORY.AUTHENTICITY.COL_VERDICT")}</th>
               <th>{t("HISTORY.AUTHENTICITY.COL_PROVIDER")}</th>
               <th>{t("HISTORY.AUTHENTICITY.COL_GROUP")}</th>
               <th>{t("HISTORY.AUTHENTICITY.COL_MODEL")}</th>
@@ -91,6 +92,19 @@ export function AuthenticityTable() {
           <tbody>
             {filtered.map((entry) => (
               <tr key={entry.key} className="border-t [&>td]:px-3 [&>td]:py-2">
+                <td>
+                  <span
+                    className={
+                      entry.verdict === "pass"
+                        ? "rounded bg-emerald-500/15 px-1.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+                        : "rounded bg-destructive/15 text-destructive px-1.5 py-0.5 text-xs font-medium"
+                    }
+                  >
+                    {entry.verdict === "pass"
+                      ? t("HISTORY.AUTHENTICITY.VERDICT_PASS")
+                      : t("HISTORY.AUTHENTICITY.VERDICT_FAIL")}
+                  </span>
+                </td>
                 <td className="font-mono text-xs">{entry.provider}</td>
                 <td className="font-mono text-xs">{entry.group}</td>
                 <td className="font-mono text-xs">{entry.model}</td>

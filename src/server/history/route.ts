@@ -31,13 +31,17 @@ import { join } from "node:path";
  *                                       openrouterEndpoints? }`. Old reports
  *                                       used `results` instead of `modelTests`;
  *                                       the route accepts both.
- *   - `authenticity-blacklist.json`   — persistent map of
- *                                       "<provider>/<group>|<model>" → { since, reason }
+ *   - `authenticity-cache.json`       — flat array of
+ *                                       { key: "<provider>/<group>|<model>",
+ *                                       verdict: "pass"|"fail", since, reason }.
+ *                                       Reads the legacy `authenticity-blacklist.json`
+ *                                       map (fail-only) as a fallback.
  */
 
 const LOGS_DIR = "logs";
 const TEST_FILE_RE = /^(.+)-model-tests\.json$/;
-const AUTHENTICITY_FILE = "authenticity-blacklist.json";
+const AUTHENTICITY_FILE = "authenticity-cache.json";
+const LEGACY_AUTHENTICITY_FILE = "authenticity-blacklist.json";
 
 interface RawResult {
   provider: string;
@@ -117,20 +121,61 @@ function authenticityPath(): string {
   return join(LOGS_DIR, AUTHENTICITY_FILE);
 }
 
-type AuthenticityMap = Record<string, { since: string; reason: string }>;
+type Verdict = "pass" | "fail";
+interface AuthenticityCacheEntry {
+  key: string;
+  verdict: Verdict;
+  since: string;
+  reason: string;
+}
+type LegacyEntry = { since: string; reason: string };
+type LegacyBlacklist =
+  | { entries: Record<string, LegacyEntry> }
+  | Record<string, LegacyEntry>;
 
-function readAuthenticity(): AuthenticityMap {
-  const path = authenticityPath();
-  if (!existsSync(path)) return {};
+function readLegacyAuthenticity(): AuthenticityCacheEntry[] {
+  const path = join(LOGS_DIR, LEGACY_AUTHENTICITY_FILE);
+  if (!existsSync(path)) return [];
   try {
-    return JSON.parse(readFileSync(path, "utf8")) as AuthenticityMap;
+    const raw = JSON.parse(readFileSync(path, "utf8")) as LegacyBlacklist;
+    const entries =
+      "entries" in raw && typeof raw.entries === "object"
+        ? raw.entries
+        : (raw as Record<string, LegacyEntry>);
+    return Object.entries(entries)
+      .filter(([, v]) => v && typeof v.since === "string")
+      .map(([key, v]) => ({
+        key,
+        verdict: "fail" as const,
+        since: v.since,
+        reason: v.reason ?? "",
+      }));
   } catch {
-    return {};
+    return [];
   }
 }
 
-function writeAuthenticity(map: AuthenticityMap): void {
-  writeFileSync(authenticityPath(), JSON.stringify(map, null, 2));
+function readAuthenticity(): AuthenticityCacheEntry[] {
+  const path = authenticityPath();
+  if (!existsSync(path)) return readLegacyAuthenticity();
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8")) as unknown;
+    if (!Array.isArray(raw)) return readLegacyAuthenticity();
+    return (raw as AuthenticityCacheEntry[])
+      .filter((e) => e && typeof e.key === "string")
+      .map((e) => ({
+        key: e.key,
+        verdict: e.verdict === "pass" ? "pass" : "fail",
+        since: e.since ?? "",
+        reason: e.reason ?? "",
+      }));
+  } catch {
+    return readLegacyAuthenticity();
+  }
+}
+
+function writeAuthenticity(entries: AuthenticityCacheEntry[]): void {
+  writeFileSync(authenticityPath(), JSON.stringify(entries, null, 2));
 }
 
 /** Split "<provider>/<group>|<model>" into its parts. */
@@ -197,12 +242,14 @@ export const historyRoute = new Elysia({ prefix: "/history" })
   .get(
     "/authenticity",
     () => {
-      const map = readAuthenticity();
-      const entries = Object.entries(map)
-        .map(([key, value]) => {
-          const split = splitAuthenticityKey(key);
-          return { key, ...split, since: value.since, reason: value.reason };
-        })
+      const entries = readAuthenticity()
+        .map((entry) => ({
+          key: entry.key,
+          verdict: entry.verdict,
+          ...splitAuthenticityKey(entry.key),
+          since: entry.since,
+          reason: entry.reason,
+        }))
         .sort((a, b) => b.since.localeCompare(a.since));
       return { success: true as const, data: entries };
     },
@@ -211,16 +258,15 @@ export const historyRoute = new Elysia({ prefix: "/history" })
   .delete(
     "/authenticity/:key",
     async ({ params, set }) => {
-      const map = readAuthenticity();
-      if (!(params.key in map)) {
+      const entries = readAuthenticity();
+      if (!entries.some((e) => e.key === params.key)) {
         set.status = 404;
         return {
           success: false as const,
           message: t("SERVER.ENTRY_NOT_FOUND"),
         };
       }
-      delete map[params.key];
-      writeAuthenticity(map);
+      writeAuthenticity(entries.filter((e) => e.key !== params.key));
       return { success: true as const, data: { deleted: params.key } };
     },
     {

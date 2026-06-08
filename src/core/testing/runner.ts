@@ -14,6 +14,7 @@ import { join } from "path";
 import {
   authenticityProbeAccumulator,
   isAuthenticityBlacklisted,
+  isAuthenticityPassFresh,
   resetAuthenticityProbes,
   saveAuthenticityBlacklist,
   testAnthropicAuthenticity,
@@ -310,13 +311,17 @@ async function testModels(opts: {
 
         let authentic = true;
         if (isClaude && (success || streamSuccess)) {
-          authentic = await testAnthropicAuthenticity({
-            baseUrl: opts.baseUrl,
-            apiKey: opts.apiKey,
-            model,
-            timeoutMs,
-            logKey: blacklistKey,
-          });
+          // A fresh pass verdict means we already paid for the 4 generative
+          // probes within the TTL; trust it and skip the spend.
+          authentic = isAuthenticityPassFresh(blacklistKey)
+            ? true
+            : await testAnthropicAuthenticity({
+                baseUrl: opts.baseUrl,
+                apiKey: opts.apiKey,
+                model,
+                timeoutMs,
+                logKey: blacklistKey,
+              });
         }
 
         const finalSuccess = success && authentic;
@@ -404,6 +409,7 @@ export async function screenDroppedClaudeAuthenticity(opts: {
         if (passingByKey.has(key)) return null;
         const blacklistKey = `${opts.prefix}|${model}`;
         if (isAuthenticityBlacklisted(blacklistKey)) return model;
+        if (isAuthenticityPassFresh(blacklistKey)) return null;
         const authentic = await testAnthropicAuthenticity({
           baseUrl: opts.baseUrl,
           apiKey: opts.apiKey,

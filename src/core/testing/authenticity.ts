@@ -21,64 +21,107 @@ export function resetAuthenticityProbes(): void {
   authenticityProbeAccumulator.clear();
 }
 
-interface AuthenticityBlacklistEntry {
+// Single persisted cache: one flat array of {key, verdict, since, reason}.
+// verdict "fail" = permanent skip (the old blacklist). verdict "pass" = trusted
+// for PASS_TTL_DAYS so a known-good Claude channel isn't re-probed (and re-billed)
+// every run. Older logs stored only failures under {rulesVersion, entries:{...}};
+// loadAuthenticityCache migrates that to "fail" entries on read.
+export type AuthenticityVerdict = "pass" | "fail";
+export interface AuthenticityCacheEntry {
+  key: string;
+  verdict: AuthenticityVerdict;
   since: string;
   reason: string;
 }
-interface PersistedBlacklist {
-  rulesVersion?: number;
-  entries: Record<string, AuthenticityBlacklistEntry>;
+
+const PASS_TTL_DAYS = 7;
+const AUTHENTICITY_CACHE_FILE = "authenticity-cache.json";
+const LEGACY_BLACKLIST_FILE = "authenticity-blacklist.json";
+
+const authenticityCache = new Map<string, AuthenticityCacheEntry>();
+
+const today = () => new Date().toISOString().slice(0, 10);
+const getAuthenticityCachePath = () => join(logsDir(), AUTHENTICITY_CACHE_FILE);
+
+function daysSince(isoDay: string): number {
+  const then = Date.parse(`${isoDay}T00:00:00Z`);
+  if (Number.isNaN(then)) return Infinity;
+  return (Date.now() - then) / 86_400_000;
 }
 
-const AUTHENTICITY_RULES_VERSION = 1;
-const AUTHENTICITY_BLACKLIST_FILE = "authenticity-blacklist.json";
-const authenticityBlacklist = new Map<string, AuthenticityBlacklistEntry>();
+type LegacyEntry = { since: string; reason: string };
+type LegacyBlacklist =
+  | { rulesVersion?: number; entries: Record<string, LegacyEntry> }
+  | Record<string, LegacyEntry>;
 
-const getAuthenticityBlacklistPath = () =>
-  join(logsDir(), AUTHENTICITY_BLACKLIST_FILE);
+function loadLegacyBlacklist(): boolean {
+  const raw = readJson<LegacyBlacklist>(join(logsDir(), LEGACY_BLACKLIST_FILE));
+  if (!raw) return false;
+  const entries =
+    "entries" in raw && typeof raw.entries === "object"
+      ? raw.entries
+      : (raw as Record<string, LegacyEntry>);
+  for (const [key, val] of Object.entries(entries))
+    if (val && typeof val.since === "string")
+      authenticityCache.set(key, {
+        key,
+        verdict: "fail",
+        since: val.since,
+        reason: val.reason ?? "",
+      });
+  return authenticityCache.size > 0;
+}
 
 export function loadAuthenticityBlacklist(): void {
-  const raw = readJson<
-    PersistedBlacklist | Record<string, AuthenticityBlacklistEntry>
-  >(getAuthenticityBlacklistPath());
-  if (!raw) return;
-  const wrapped = "entries" in raw && typeof raw.entries === "object";
-  if (wrapped) {
-    const version = (raw as PersistedBlacklist).rulesVersion ?? 0;
-    if (version < AUTHENTICITY_RULES_VERSION) return;
+  authenticityCache.clear();
+  const raw = readJson<AuthenticityCacheEntry[]>(getAuthenticityCachePath());
+  if (Array.isArray(raw)) {
+    for (const e of raw)
+      if (e && typeof e.key === "string")
+        authenticityCache.set(e.key, {
+          key: e.key,
+          verdict: e.verdict === "pass" ? "pass" : "fail",
+          since: e.since ?? today(),
+          reason: e.reason ?? "",
+        });
+  } else if (!loadLegacyBlacklist()) {
+    return;
   }
-  const entries = wrapped
-    ? (raw as PersistedBlacklist).entries
-    : (raw as Record<string, AuthenticityBlacklistEntry>);
-  authenticityBlacklist.clear();
-  for (const [key, val] of Object.entries(entries))
-    authenticityBlacklist.set(key, val);
   consola.info(
-    t("CORE.TESTER.AUTHENTICITY_LOADED", { count: authenticityBlacklist.size }),
+    t("CORE.TESTER.AUTHENTICITY_LOADED", { count: authenticityCache.size }),
   );
 }
 
 export function saveAuthenticityBlacklist(): void {
-  if (authenticityBlacklist.size === 0) return;
-  const entries: Record<string, AuthenticityBlacklistEntry> = {};
-  for (const [key, val] of authenticityBlacklist) entries[key] = val;
-  writeJsonAtomic(getAuthenticityBlacklistPath(), {
-    rulesVersion: AUTHENTICITY_RULES_VERSION,
-    entries,
-  });
+  if (authenticityCache.size === 0) return;
+  writeJsonAtomic(getAuthenticityCachePath(), [...authenticityCache.values()]);
 }
 
 function addToAuthenticityBlacklist(key: string, reason: string): void {
-  if (authenticityBlacklist.has(key)) return;
-  authenticityBlacklist.set(key, {
-    since: new Date().toISOString().slice(0, 10),
-    reason,
-  });
+  // A fail always wins over a stale pass; refresh the timestamp/reason.
+  authenticityCache.set(key, { key, verdict: "fail", since: today(), reason });
   consola.warn(t("CORE.TESTER.AUTHENTICITY_ADDED", { key, reason }));
 }
 
+function recordAuthenticityPass(key: string): void {
+  const existing = authenticityCache.get(key);
+  if (existing?.verdict === "fail") return; // never overwrite a failure with a pass
+  authenticityCache.set(key, {
+    key,
+    verdict: "pass",
+    since: today(),
+    reason: "",
+  });
+}
+
 export const isAuthenticityBlacklisted = (key: string): boolean =>
-  authenticityBlacklist.has(key);
+  authenticityCache.get(key)?.verdict === "fail";
+
+// True when key passed authenticity recently enough to skip re-probing.
+export function isAuthenticityPassFresh(key: string): boolean {
+  const entry = authenticityCache.get(key);
+  return entry?.verdict === "pass" && daysSince(entry.since) < PASS_TTL_DAYS;
+}
 
 const CODING_TOOL_REFUSAL_PATTERNS = [
   "assist with development",
@@ -436,5 +479,6 @@ export async function testAnthropicAuthenticity(opts: {
     }
   }
 
+  if (passing) recordAuthenticityPass(opts.logKey);
   return passing;
 }

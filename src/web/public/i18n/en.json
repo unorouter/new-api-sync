@@ -408,17 +408,20 @@
       }
     },
     "AUTHENTICITY": {
-      "EMPTY": "The authenticity blacklist is empty.",
-      "LOAD_ERROR": "Failed to load authenticity blacklist: {error}",
+      "EMPTY": "The authenticity cache is empty.",
+      "LOAD_ERROR": "Failed to load authenticity cache: {error}",
       "FILTER": "Filter by provider, group, model, or reason",
+      "COL_VERDICT": "Verdict",
       "COL_PROVIDER": "Provider",
       "COL_GROUP": "Group",
       "COL_MODEL": "Model",
       "COL_SINCE": "Since",
       "COL_REASON": "Reason",
+      "VERDICT_PASS": "Trusted",
+      "VERDICT_FAIL": "Blacklisted",
       "REMOVE": "Remove",
-      "REMOVE_CONFIRM": "Remove from authenticity blacklist?",
-      "REMOVE_CONFIRM_DESC": "The next test run will re-probe this model. If it fails again, it will be re-added.",
+      "REMOVE_CONFIRM": "Remove from authenticity cache?",
+      "REMOVE_CONFIRM_DESC": "The next test run will re-probe this model. A trusted entry will be re-verified (and re-billed); a blacklisted one is re-added if it fails again.",
       "CANCEL": "Cancel"
     }
   },

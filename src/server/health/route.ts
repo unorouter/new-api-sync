@@ -9,7 +9,8 @@ import pkg from "../../../package.json" with { type: "json" };
 
 const LOGS_DIR = "logs";
 const TEST_FILE_RE = /^(.+)-model-tests\.json$/;
-const AUTHENTICITY_FILE = "authenticity-blacklist.json";
+const AUTHENTICITY_FILE = "authenticity-cache.json";
+const LEGACY_AUTHENTICITY_FILE = "authenticity-blacklist.json";
 
 interface RawRun {
   timestamp?: string;
@@ -47,15 +48,30 @@ function summarizeLastRun() {
   }
 }
 
+// Count blacklisted (verdict "fail") entries only; "pass" entries are trusted
+// channels, not failures. Falls back to the legacy fail-only map.
 function authenticityBlacklistCount(): number {
   const path = join(LOGS_DIR, AUTHENTICITY_FILE);
-  if (!existsSync(path)) return 0;
+  if (existsSync(path)) {
+    try {
+      const raw = JSON.parse(readFileSync(path, "utf8")) as unknown;
+      if (Array.isArray(raw))
+        return raw.filter(
+          (e) => (e as { verdict?: string })?.verdict !== "pass",
+        ).length;
+    } catch {
+      return 0;
+    }
+  }
+  const legacy = join(LOGS_DIR, LEGACY_AUTHENTICITY_FILE);
+  if (!existsSync(legacy)) return 0;
   try {
-    const map = JSON.parse(readFileSync(path, "utf8")) as Record<
+    const raw = JSON.parse(readFileSync(legacy, "utf8")) as Record<
       string,
       unknown
     >;
-    return Object.keys(map).length;
+    const map = "entries" in raw ? (raw.entries as object) : raw;
+    return Object.keys(map ?? {}).length;
   } catch {
     return 0;
   }

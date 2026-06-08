@@ -408,17 +408,20 @@
       }
     },
     "AUTHENTICITY": {
-      "EMPTY": "真伪黑名单为空。",
-      "LOAD_ERROR": "加载真伪黑名单失败：{error}",
+      "EMPTY": "真伪缓存为空。",
+      "LOAD_ERROR": "加载真伪缓存失败：{error}",
       "FILTER": "按提供商、分组、模型或原因筛选",
+      "COL_VERDICT": "判定",
       "COL_PROVIDER": "提供商",
       "COL_GROUP": "分组",
       "COL_MODEL": "模型",
       "COL_SINCE": "加入日期",
       "COL_REASON": "原因",
+      "VERDICT_PASS": "可信",
+      "VERDICT_FAIL": "已拉黑",
       "REMOVE": "移除",
-      "REMOVE_CONFIRM": "从真伪黑名单中移除？",
-      "REMOVE_CONFIRM_DESC": "下一次测试将重新探测该模型。如果再次失败，会被重新加入黑名单。",
+      "REMOVE_CONFIRM": "从真伪缓存中移除？",
+      "REMOVE_CONFIRM_DESC": "下一次测试将重新探测该模型。可信条目会被重新验证（并再次计费）；已拉黑条目若再次失败会被重新加入。",
       "CANCEL": "取消"
     }
   },

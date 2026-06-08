@@ -76,7 +76,7 @@ const RunDetailSchema = T.Object({ id: T.String(), timestamp: T.String(), result
 export const RunDetailDataSchema = RunDetailSchema;
 
 // prettier-ignore
-const AuthenticityEntrySchema = T.Object({ key: T.String(), provider: T.String(), group: T.String(), model: T.String(), since: T.String(), reason: T.String() });
+const AuthenticityEntrySchema = T.Object({ key: T.String(), verdict: T.Union([T.Literal("pass"), T.Literal("fail")]), provider: T.String(), group: T.String(), model: T.String(), since: T.String(), reason: T.String() });
 
 export const RunsListResponseSchema = successArrayResponse(RunSummarySchema);
 export const RunIdParamsSchema = T.Object({ id: T.String() });
