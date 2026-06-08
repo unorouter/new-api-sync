@@ -40,12 +40,12 @@ export async function updateGuestTokenIfConfigured(
   return { configured: true, updated: true, freeModelCount: freeModels.length };
 }
 
-/** Zero-priced in EVERY group. Cross-group cheap-but-not-free is excluded. */
+/** Reachable free if ANY group is zero-priced. Guest has 0 balance so the paid groups are unreachable; listing the model only ever resolves to its free group. */
 function collectTrulyFreeModels(pricing: UpstreamPricing): string[] {
   const free: string[] = [];
   for (const model of pricing.models) {
     if (model.groups.length === 0) continue;
-    const isFree = model.groups.every((g) =>
+    const isFree = model.groups.some((g) =>
       isGroupPriceZero(pricing, model, g),
     );
     if (isFree) free.push(model.name);
