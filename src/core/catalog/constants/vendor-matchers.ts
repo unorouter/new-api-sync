@@ -52,6 +52,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   amazon: { modelPatterns: ["nova","polly","titan-"], nameAliases: ["amazon","aws"], displayName: "Amazon" },
   pollinations: { modelPatterns: ["midijourney"], nameAliases: ["pollinations"], displayName: "Pollinations" },
   thedrummer: { modelPatterns: ["cydonia","skyfall","behemoth","rocinante","magidonia","tiger-gemma"], nameAliases: ["thedrummer","drummer"], displayName: "TheDrummer" },
+  nexagi: { modelPatterns: ["nex-n2","nex-agi"], nameAliases: ["nexagi","nex agi","nex-agi"], displayName: "Nex AGI" },
 };
 
 export function inferVendorFromModelName(name: string): string | undefined {
