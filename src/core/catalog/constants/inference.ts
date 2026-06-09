@@ -7,7 +7,7 @@ import {
 } from "./endpoints";
 
 // prettier-ignore
-const NAME_PATTERN_TYPES: [string, ModelType][] = [["dall-e","image"],["dalle","image"],["gpt-image","image"],["imagen","image"],["midjourney","image"],["stable-diffusion","image"],["flux","image"],["seedream","image"],["seededit","image"],["jimeng","image"],["sora","video"],["veo","video"],["video","video"],["kling","video"],["vidu","video"],["hailuo","video"],["seedance","video"],["t2v-","video"],["i2v-","video"],["s2v-","video"],["wan2","video"],["wanx","video"],["whisper","audio"],["tts","audio"],["speech","audio"],["suno","audio"],["embedding","embedding"],["embed","embedding"],["rerank","embedding"],["bge-","embedding"],["m3e-","embedding"],["image","image"],["moderation","image"]];
+const NAME_PATTERN_TYPES: [string, ModelType][] = [["dall-e","image"],["dalle","image"],["gpt-image","image"],["imagen","image"],["midjourney","image"],["stable-diffusion","image"],["flux","image"],["seedream","image"],["seededit","image"],["jimeng","image"],["phoenix-","image"],["lucid-","image"],["dreamshaper","image"],["sora","video"],["veo","video"],["video","video"],["kling","video"],["vidu","video"],["hailuo","video"],["seedance","video"],["t2v-","video"],["i2v-","video"],["s2v-","video"],["wan2","video"],["wanx","video"],["whisper","audio"],["tts","audio"],["speech","audio"],["suno","audio"],["embedding","embedding"],["embed","embedding"],["rerank","embedding"],["bge-","embedding"],["m3e-","embedding"],["image","image"],["moderation","image"]];
 
 const NON_TEXT_MODEL_PATTERNS = NAME_PATTERN_TYPES.map(([p]) => p);
 
