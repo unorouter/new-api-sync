@@ -104,8 +104,37 @@ const ComfyUiProviderSchema = T.Object({
   templates: T.Record(str, ComfyUiTemplateSchema),
 });
 
+// A private channel: a routing group NOT added to the global usable list, granted
+// only to the provider's identity group via group_special_usable_group, so only
+// users whose account group equals that identity may pass X-Group: <group>.
+const PrivateChannelSchema = T.Object({
+  group: str,
+  desc: Opt(str),
+  ratio: Opt(T.Number({ minimum: 0 })),
+  channelName: Opt(str),
+  type: T.Integer({ minimum: 1 }),
+  baseUrl: uri,
+  apiKey: str,
+  models: T.Array(str, { minItems: 1 }),
+  modelMapping: Opt(T.Record(T.String(), T.String())),
+  paramOverride: Opt(str),
+});
+export type PrivateChannelConfig = Static<typeof PrivateChannelSchema>;
+
+// A private provider: declarative-only (no discovery/testing/pricing). `identity`
+// is the user's `users.group`; `channels` are the private routing groups that
+// identity may use. Synced like any provider, so `--only <name>` targets it alone.
+const PrivateProviderSchema = T.Object({
+  type: T.Literal("private"),
+  name: str,
+  identity: str,
+  ratio: Opt(T.Number({ minimum: 0 })),
+  channels: T.Array(PrivateChannelSchema, { minItems: 1 }),
+});
+export type PrivateProviderConfig = Static<typeof PrivateProviderSchema>;
+
 // prettier-ignore
-const AnyProviderSchema = T.Union([NewApiProviderSchema, Sub2ApiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, SimpleFreeProviderSchema, ComfyUiProviderSchema]);
+const AnyProviderSchema = T.Union([NewApiProviderSchema, Sub2ApiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, SimpleFreeProviderSchema, ComfyUiProviderSchema, PrivateProviderSchema]);
 
 export type ProviderConfig = Static<typeof NewApiProviderSchema>;
 export type Sub2ApiProviderConfig = Static<typeof Sub2ApiProviderSchema>;
@@ -129,7 +158,7 @@ export type SimpleFreeProviderConfig = Static<
 };
 export type ComfyUiProviderConfig = Static<typeof ComfyUiProviderSchema>;
 // prettier-ignore
-export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | SimpleFreeProviderConfig | ComfyUiProviderConfig;
+export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | SimpleFreeProviderConfig | ComfyUiProviderConfig | PrivateProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
 const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);

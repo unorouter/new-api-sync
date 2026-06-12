@@ -1,9 +1,9 @@
 import { matchesAnyPattern } from "@core/catalog/constants/patterns";
-import type { AnyProviderConfig } from "@core/validations/config";
+import type { ProviderConfig } from "@core/validations/config";
 
 /** First-match: glob → vendor → modelType → "default". With modelMapping, original (pre-mapping) names also checked. */
 export function resolvePriceAdjustment(opts: {
-  adj: AnyProviderConfig["priceAdjustment"];
+  adj: ProviderConfig["priceAdjustment"];
   model: string;
   vendor: string;
   modelType: string;

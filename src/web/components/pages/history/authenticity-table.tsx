@@ -97,7 +97,7 @@ export function AuthenticityTable() {
                     className={
                       entry.verdict === "pass"
                         ? "rounded bg-emerald-500/15 px-1.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400"
-                        : "rounded bg-destructive/15 text-destructive px-1.5 py-0.5 text-xs font-medium"
+                        : "bg-destructive/15 text-destructive rounded px-1.5 py-0.5 text-xs font-medium"
                     }
                   >
                     {entry.verdict === "pass"

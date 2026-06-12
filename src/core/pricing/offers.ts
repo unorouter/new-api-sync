@@ -5,10 +5,7 @@
 import type { ModelType } from "@core/types";
 import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
-import type {
-  AnyProviderConfig,
-  ModelMetadata,
-} from "@core/validations/config";
+import type { ModelMetadata, ProviderConfig } from "@core/validations/config";
 
 type ProviderKind = string;
 
@@ -59,7 +56,7 @@ export interface UpstreamOffer {
   groupRatio: number;
   channelRemark: string;
   models: OfferModel[];
-  priceAdjustment?: AnyProviderConfig["priceAdjustment"];
+  priceAdjustment?: ProviderConfig["priceAdjustment"];
   defaultAdjustment: number;
   /** OpenRouter paid: cap-fitting binary search picks one group_ratio for the whole offer. */
   paidTier?: boolean;

@@ -24,6 +24,7 @@ import {
   collectResponsesApiModels,
 } from "./desired-models";
 import { buildOptionMaps } from "./option-maps";
+import { buildPrivateGroups } from "./private-groups";
 import { runAllProviders } from "./providers";
 
 export async function runProviderPipeline(
@@ -124,6 +125,7 @@ export async function runProviderPipeline(
       if (m.metadata)
         allMetadata[m.upstream] = { ...allMetadata[m.upstream], ...m.metadata };
   for (const provider of config.providers) {
+    if (provider.type === "private") continue;
     Object.assign(
       allPricingGrids,
       getPricingGridFromEnabledModels(provider.enabledModels),
@@ -134,11 +136,21 @@ export async function runProviderPipeline(
     );
   }
 
+  // Private providers: declarative-only channels (no discovery/testing/pricing),
+  // each tagged with its own routing group, granted only to its identity via
+  // group_special_usable_group and kept off the global usable list.
+  const priv = buildPrivateGroups(
+    config.providers.filter((p) => p.type === "private"),
+  );
+  channels.push(...priv.channels);
+  mergedGroups.push(...priv.mergedGroups);
+
   const optionMaps = buildOptionMaps(
     mergedGroups,
     mergedModels,
     config.modelMapping,
     allPricingGrids,
+    priv.groupSpecialUsableGroup,
   );
 
   for (const provider of config.providers) {

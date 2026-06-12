@@ -10,6 +10,7 @@ export type ModelType = (typeof MODEL_TYPES)[number];
 export const MANAGED_OPTION_KEYS = [
   "GroupRatio",
   "UserUsableGroups",
+  "group_ratio_setting.group_special_usable_group",
   "AutoGroups",
   "DefaultUseAutoGroup",
   "ModelRatio",
@@ -94,6 +95,7 @@ export interface MergedGroup {
   ratio: number;
   description: string;
   provider: string;
+  private?: boolean;
 }
 
 export type PricingSourceName =
@@ -133,6 +135,7 @@ export type GridPricingInfo = GridPricingRow[];
 export interface ManagedOptionMaps {
   groupRatio: Record<string, number>;
   userUsableGroups: Record<string, string>;
+  groupSpecialUsableGroup: Record<string, Record<string, string>>;
   autoGroups: string[];
   modelRatio: Record<string, number>;
   completionRatio: Record<string, number>;

@@ -41,7 +41,11 @@ export async function runAllProviders(
   normalizedEndpointsByName: Map<string, string[]>;
   aggregatedEndpointPaths: Map<string, { path: string; method: string }>;
 }> {
-  const pricingProviders = config.providers.filter((p) => p.type !== "comfyui");
+  // comfyui builds channels separately; private providers are declarative-only
+  // (no discovery/testing/pricing) and handled in the pipeline.
+  const pricingProviders = config.providers.filter(
+    (p) => p.type !== "comfyui" && p.type !== "private",
+  );
   const sorted = [...pricingProviders].sort(
     (a, b) => typeOrder(a.type) - typeOrder(b.type),
   );

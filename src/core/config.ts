@@ -141,7 +141,7 @@ export function customValidateConfig(config: ConfigSchemaType): string[] {
       );
     seen.add(p.name);
 
-    const adj = p.priceAdjustment;
+    const adj = "priceAdjustment" in p ? p.priceAdjustment : undefined;
     if (adj && typeof adj === "object") {
       const path = `providers.${i}.priceAdjustment`;
       if (!("default" in adj))
@@ -275,7 +275,9 @@ export function getTestModelTypes(
   config: RuntimeConfig,
   provider: AnyProviderConfig,
 ): Set<ModelType> {
-  const types = provider.testModelTypes ?? config.testModelTypes;
+  const types =
+    ("testModelTypes" in provider ? provider.testModelTypes : undefined) ??
+    config.testModelTypes;
   if (types !== undefined) return new Set(types as ModelType[]);
   return new Set<ModelType>(["text"]);
 }
