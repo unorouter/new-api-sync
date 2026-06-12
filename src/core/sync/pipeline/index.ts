@@ -139,11 +139,20 @@ export async function runProviderPipeline(
   // Private providers: declarative-only channels (no discovery/testing/pricing),
   // each tagged with its own routing group, granted only to its identity via
   // group_special_usable_group and kept off the global usable list.
-  const priv = buildPrivateGroups(
-    config.providers.filter((p) => p.type === "private"),
-  );
+  const privateProviders = config.providers.filter((p) => p.type === "private");
+  const priv = buildPrivateGroups(privateProviders);
   channels.push(...priv.channels);
   mergedGroups.push(...priv.mergedGroups);
+  for (const p of privateProviders) {
+    const chCount = p.channels.length;
+    providerReports.push({
+      name: p.name,
+      success: true,
+      groups: chCount,
+      models: p.channels.reduce((n, c) => n + c.models.length, 0),
+      tokens: { created: 0, existing: 0, deleted: 0 },
+    });
+  }
 
   const optionMaps = buildOptionMaps(
     mergedGroups,
