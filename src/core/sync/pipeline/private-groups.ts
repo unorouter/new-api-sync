@@ -4,40 +4,25 @@ import type { PrivateProviderConfig } from "@core/validations/config";
 interface PrivateGroupsResult {
   channels: Channel[];
   mergedGroups: MergedGroup[];
-  // identityGroup -> { "+:routingGroup": desc }, the group_special_usable_group grant.
-  groupSpecialUsableGroup: Record<string, Record<string, string>>;
 }
 
-// Build private channels + routing groups + the per-identity grant from every
-// `type: private` provider. Routing groups are flagged `private` so buildOptionMaps
-// keeps them out of the global UserUsableGroups while still registering GroupRatio.
+// Build private channels + routing groups from every `type: private` provider.
+// Routing groups are flagged `private` so buildOptionMaps registers their
+// GroupRatio (needed for routing + the /self/groups intersection) while keeping
+// them OUT of the global UserUsableGroups. Granting access is done per-user in
+// the new-api admin UI (users.setting.usable_groups), not here.
 export function buildPrivateGroups(
   providers: PrivateProviderConfig[],
 ): PrivateGroupsResult {
   const channels: Channel[] = [];
   const mergedGroups: MergedGroup[] = [];
-  const groupSpecialUsableGroup: Record<string, Record<string, string>> = {};
 
   for (const pg of providers) {
-    const grants: Record<string, string> =
-      groupSpecialUsableGroup[pg.identity] ?? {};
-    // The identity group itself must exist in GroupRatio (it is the user's
-    // account group); register it, kept private so it is not globally usable.
-    mergedGroups.push({
-      name: pg.identity,
-      ratio: pg.ratio ?? 1,
-      description: pg.identity,
-      provider: pg.name,
-      private: true,
-    });
-
     for (const ch of pg.channels) {
-      const desc = ch.desc ?? ch.group;
-      grants[`+:${ch.group}`] = desc;
       mergedGroups.push({
         name: ch.group,
         ratio: ch.ratio ?? 0,
-        description: desc,
+        description: ch.desc ?? ch.group,
         provider: pg.name,
         private: true,
       });
@@ -59,9 +44,7 @@ export function buildPrivateGroups(
         param_override: ch.paramOverride,
       });
     }
-
-    groupSpecialUsableGroup[pg.identity] = grants;
   }
 
-  return { channels, mergedGroups, groupSpecialUsableGroup };
+  return { channels, mergedGroups };
 }

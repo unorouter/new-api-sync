@@ -11,7 +11,6 @@ export function buildOptionMaps(
   mergedModels: Map<string, MergedModel>,
   modelMapping: Record<string, string>,
   configGridPricing: Record<string, Record<string, string | number>[]>,
-  groupSpecialUsableGroup: Record<string, Record<string, string>> = {},
 ): Omit<ManagedOptionMaps, "responsesApiModels" | "defaultUseAutoGroup"> {
   const r4 = (n: number) => Math.round(n * 10000) / 10000;
   const groupRatio: Record<string, number> = {};
@@ -90,7 +89,6 @@ export function buildOptionMaps(
   return {
     groupRatio,
     userUsableGroups,
-    groupSpecialUsableGroup,
     autoGroups,
     modelRatio,
     completionRatio,

@@ -121,14 +121,14 @@ const PrivateChannelSchema = T.Object({
 });
 export type PrivateChannelConfig = Static<typeof PrivateChannelSchema>;
 
-// A private provider: declarative-only (no discovery/testing/pricing). `identity`
-// is the user's `users.group`; `channels` are the private routing groups that
-// identity may use. Synced like any provider, so `--only <name>` targets it alone.
+// A private provider: declarative-only (no discovery/testing/pricing). `channels`
+// are private routing groups: registered in GroupRatio but kept off the global
+// usable list. Granting access is per-user in the new-api admin UI
+// (users.setting.usable_groups). Synced like any provider, so `--only <name>`
+// targets it alone.
 const PrivateProviderSchema = T.Object({
   type: T.Literal("private"),
   name: str,
-  identity: str,
-  ratio: Opt(T.Number({ minimum: 0 })),
   channels: T.Array(PrivateChannelSchema, { minItems: 1 }),
 });
 export type PrivateProviderConfig = Static<typeof PrivateProviderSchema>;

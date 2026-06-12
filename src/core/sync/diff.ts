@@ -210,25 +210,6 @@ function buildManagedOptionValues(
     ]),
   ].sort((a, b) => (mergedGroupRatio[a] ?? 1) - (mergedGroupRatio[b] ?? 1));
 
-  // Per-identity private-group grants. Merge-protect at the identity-group level:
-  // identities we do not manage stay untouched, ours are replaced.
-  const specialKey = "group_ratio_setting.group_special_usable_group";
-  const desiredSpecial = opts.groupSpecialUsableGroup;
-  const existingSpecial = parse<Record<string, Record<string, string>>>(
-    specialKey,
-    {},
-  );
-  const specialGuard = new Set(
-    Object.keys(existingSpecial).filter(
-      (identity) => !(identity in desiredSpecial),
-    ),
-  );
-  const mergedSpecialGroups = mergeProtected(
-    existingSpecial,
-    specialGuard,
-    desiredSpecial,
-  );
-
   // prettier-ignore
   const modelOptions: [string, Record<string, unknown>][] = [["ModelRatio", opts.modelRatio],["CompletionRatio", opts.completionRatio],["ModelPrice", opts.modelPrice],["ImageRatio", opts.imageRatio],["CacheRatio", opts.cacheRatio],["CreateCacheRatio", opts.createCacheRatio],["AudioRatio", opts.audioRatio],["AudioCompletionRatio", opts.audioCompletionRatio],["ModelQuotaType", opts.modelQuotaType],["ModelGridPricing", opts.modelGridPricing],["billing_setting.billing_mode", opts.billingMode],["billing_setting.billing_expr", opts.billingExpr]];
 
@@ -239,7 +220,6 @@ function buildManagedOptionValues(
   return {
     GroupRatio: sj(mergedGroupRatio),
     UserUsableGroups: sj(mergedUserGroups),
-    [specialKey]: sj(mergedSpecialGroups),
     AutoGroups: JSON.stringify(mergedAutoGroups),
     DefaultUseAutoGroup: opts.defaultUseAutoGroup ? "true" : "false",
     ...Object.fromEntries(

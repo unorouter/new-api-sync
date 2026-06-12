@@ -159,7 +159,6 @@ export async function runProviderPipeline(
     mergedModels,
     config.modelMapping,
     allPricingGrids,
-    priv.groupSpecialUsableGroup,
   );
 
   for (const provider of config.providers) {
