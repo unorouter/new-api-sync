@@ -159,6 +159,6 @@ If the response refuses or redirects to coding, your "Claude" is not Claude. The
 
 The Anthropic API is the only authoritative source of Claude. Everything else is a routing decision someone else made on your behalf, and routing decisions can be wrong. Catching them is cheap. We're publishing the tests so nobody has to take anyone's word for it.
 
-**Try the gateway:** [unorouter.ai](https://unorouter.ai), free tier, rate-limited, no card. File a reproducible bug or a feature request we ship and we'll add API credit to your account.
+**Try the gateway:** [unorouter.com](https://unorouter.com), free tier, rate-limited, no card. File a reproducible bug or a feature request we ship and we'll add API credit to your account.
 
 **Open source probe suite:** [link to repo](https://github.com/unorouter/new-api-sync)
