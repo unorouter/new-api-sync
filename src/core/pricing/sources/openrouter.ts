@@ -20,6 +20,7 @@ interface OpenRouterSummaryModel {
   id: string;
   description?: string;
   context_length?: number;
+  created?: number;
   knowledge_cutoff?: string | null;
   expiration_date?: string | null;
   hugging_face_id?: string | null;
@@ -102,6 +103,9 @@ function toMetadata(model: OpenRouterSummaryModel): SourceMetadata {
     maxOutputTokens: tp?.max_completion_tokens ?? undefined,
     tokenizer: arch?.tokenizer,
     knowledgeCutoff: model.knowledge_cutoff ?? undefined,
+    releaseDate: model.created
+      ? new Date(model.created * 1000).toISOString()
+      : undefined,
     description: model.description,
     expirationDate: model.expiration_date ?? undefined,
     isModerated: tp?.is_moderated ?? undefined,

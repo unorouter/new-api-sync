@@ -38,6 +38,8 @@ export interface SourceMetadata {
   tokenizer?: string;
   /** ISO string (OpenRouter) */
   knowledgeCutoff?: string;
+  /** ISO string, model release date (OpenRouter `created`) */
+  releaseDate?: string;
   /** ISO string (LiteLLM) */
   deprecationDate?: string;
   /** "chat" | "embedding" | "image" | "audio" | ... */
