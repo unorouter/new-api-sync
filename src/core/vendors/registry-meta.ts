@@ -134,6 +134,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "jina_...",
   },
   {
+    kind: "siliconflow",
+    label: "SiliconFlow",
+    // OpenAI-compatible; base is the host, runner + discovery append /v1. Pay-per-
+    // token (Y14 signup credit), but exposed free here. Image models (FLUX.2,
+    // Z-Image) are OpenAI-shaped -> OPENAI channel type (1).
+    defaultBaseUrl: "https://api.siliconflow.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-...",
+    imageChannelType: 1,
+  },
+  {
     kind: "huggingface",
     label: "HuggingFace",
     // OpenAI-compatible router; base is the host, runner + discovery append /v1.
