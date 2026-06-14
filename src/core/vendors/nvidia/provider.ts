@@ -101,6 +101,9 @@ export async function processNvidiaProvider(
         channelType: CHANNEL_TYPES.OPENAI,
         providerLabel: name,
         testableModelTypes: getTestModelTypes(config, providerConfig),
+        // NIM cold-starts flagship containers (550B/675B/MoE) well past the 20s
+        // default, so they timeout on first probe. Give the probe room.
+        timeoutMs: 60_000,
         retryPolicy: NVIDIA_RETRY_POLICY,
         capabilities: buildCapabilityMap(
           textModels,

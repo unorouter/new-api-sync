@@ -450,6 +450,7 @@ export async function testAndFilterModels(opts: {
   testableModelTypes: Set<ModelType>;
   modelEndpoints?: Map<string, string[]>;
   useResponsesAPI?: boolean;
+  timeoutMs?: number;
   retryPolicy?: RetryPolicy<TestExchange>;
   acceptRateLimited?: boolean;
   capabilities?: Map<string, ModelCapabilityHint>;
@@ -486,6 +487,7 @@ export async function testAndFilterModels(opts: {
       models: testableModels,
       channelType: opts.channelType,
       useResponsesAPI: opts.useResponsesAPI,
+      timeoutMs: opts.timeoutMs,
       modelEndpoints: opts.modelEndpoints,
       logPrefix: provider,
       retryPolicy: opts.retryPolicy,
