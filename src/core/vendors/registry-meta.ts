@@ -134,6 +134,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "jina_...",
   },
   {
+    kind: "huggingface",
+    label: "HuggingFace",
+    // OpenAI-compatible router; base is the host, runner + discovery append /v1.
+    // One key fans out to deepinfra/nebius/novita/together/fireworks/scaleway/...
+    // (HF auto-picks the fastest live provider per model). Monthly free credits.
+    defaultBaseUrl: "https://router.huggingface.co",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "hf_...",
+  },
+  {
     kind: "zai",
     label: "Z.ai",
     // Host only: new-api's ZHIPU_V4 (26) adapter appends /api/paas/v4/chat/completions
