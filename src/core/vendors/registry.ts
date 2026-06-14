@@ -26,6 +26,7 @@ import { discoverJinaModels } from "./jina/discovery";
 import { discoverCohereModels } from "./cohere/discovery";
 import { discoverHuggingFaceModels } from "./huggingface/discovery";
 import { discoverSiliconFlowModels } from "./siliconflow/discovery";
+import { discoverLlm7Models } from "./llm7/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -50,6 +51,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   cohere: discoverCohereModels,
   huggingface: discoverHuggingFaceModels,
   siliconflow: discoverSiliconFlowModels,
+  llm7: discoverLlm7Models,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {

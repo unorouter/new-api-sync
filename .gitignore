@@ -44,4 +44,4 @@ yarn.lock
 bun.lock*
 scripts
 reference
-# logs/*
+.secrets/

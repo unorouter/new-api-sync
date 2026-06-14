@@ -134,6 +134,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "jina_...",
   },
   {
+    kind: "llm7",
+    label: "LLM7",
+    // Free OpenAI-compat gateway (api.llm7.io/v1); base is the host, runner +
+    // discovery append /v1. A free token (token.llm7.io, Google login) lifts the
+    // keyless throttle to 5M tokens/day. /v1/models returns a bare array. ~6 models.
+    defaultBaseUrl: "https://api.llm7.io",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "llm7 token",
+  },
+  {
     kind: "siliconflow",
     label: "SiliconFlow",
     // OpenAI-compatible; base is the host, runner + discovery append /v1. Pay-per-
