@@ -40,6 +40,10 @@ export interface SourceMetadata {
   knowledgeCutoff?: string;
   /** ISO string, model release date (OpenRouter `created`) */
   releaseDate?: string;
+  /** Model family/series, e.g. "Claude" / "GPT" / "Gemini" (OpenRouter `group`). */
+  series?: string;
+  /** Usage categories, e.g. ["programming","roleplay"] (OpenRouter cards). */
+  categories?: string[];
   /** ISO string (LiteLLM) */
   deprecationDate?: string;
   /** "chat" | "embedding" | "image" | "audio" | ... */

@@ -14,7 +14,62 @@ import {
 const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
 const OPENROUTER_ENDPOINTS_URL = (id: string) =>
   `https://openrouter.ai/api/v1/models/${id}/endpoints`;
+// Internal "cards" endpoint: the only source of `group` (series) + category
+// usage. The public /api/v1/models omits both.
+const OPENROUTER_CARDS_URL =
+  "https://openrouter.ai/api/frontend/v1/models/find?active=true&fmt=cards";
 const ENDPOINTS_CONCURRENCY = 20;
+
+// slug -> { series, categories } from the cards endpoint, keyed by bare model id.
+const cardsMeta = new Map<string, { series?: string; categories?: string[] }>();
+
+interface OpenRouterCardModel {
+  slug?: string;
+  permaslug?: string;
+  group?: string | null;
+}
+interface OpenRouterCardCategoryRow {
+  category?: string;
+}
+
+async function fetchCardsMeta(): Promise<void> {
+  cardsMeta.clear();
+  const raw = await tryFetchJson<{
+    data?: {
+      models?: OpenRouterCardModel[];
+      categories?: Record<string, OpenRouterCardCategoryRow[]>;
+    };
+  }>(OPENROUTER_CARDS_URL, { timeoutMs: 15_000 });
+  const data = raw?.data;
+  if (!data?.models) return;
+  // Top categories per model permaslug (volume-ordered as returned).
+  const catBySlug = new Map<string, string[]>();
+  for (const [slug, rows] of Object.entries(data.categories ?? {})) {
+    const cats = [
+      ...new Set(
+        (rows ?? [])
+          .map((r) => r.category?.split("/")[0])
+          .filter((c): c is string => Boolean(c)),
+      ),
+    ];
+    if (cats.length) catBySlug.set(slug, cats);
+  }
+  const bare = (id: string) => {
+    const i = id.indexOf("/");
+    return i >= 0 ? id.slice(i + 1) : id;
+  };
+  for (const m of data.models) {
+    const keys = [m.slug, m.permaslug].filter((k): k is string => Boolean(k));
+    const entry = {
+      series: m.group ?? undefined,
+      categories: m.permaslug ? catBySlug.get(m.permaslug) : undefined,
+    };
+    for (const k of keys) {
+      cardsMeta.set(k, entry);
+      cardsMeta.set(bare(k), entry);
+    }
+  }
+}
 
 interface OpenRouterSummaryModel {
   id: string;
@@ -113,6 +168,8 @@ function toMetadata(model: OpenRouterSummaryModel): SourceMetadata {
     supportsCache: model.pricing?.input_cache_read ? true : undefined,
     outputModalities: outputs.length > 0 ? outputs : undefined,
     defaultParameters: dp && Object.keys(dp).length > 0 ? dp : undefined,
+    series: cardsMeta.get(model.id)?.series,
+    categories: cardsMeta.get(model.id)?.categories,
   });
   if (params.length > 0) {
     md.supportsTools = has("tools");
@@ -208,10 +265,14 @@ function toPricing(
 
 export async function fetchOpenRouterPricingSource(): Promise<PricingSource | null> {
   endpointTraces.clear();
-  const summary = await tryFetchJson<{ data?: OpenRouterSummaryModel[] }>(
-    OPENROUTER_MODELS_URL,
-    { timeoutMs: 15_000 },
-  );
+  // Series + categories live only in the cards endpoint; best-effort (failure
+  // just leaves those metadata fields undefined).
+  const [summary] = await Promise.all([
+    tryFetchJson<{ data?: OpenRouterSummaryModel[] }>(OPENROUTER_MODELS_URL, {
+      timeoutMs: 15_000,
+    }),
+    fetchCardsMeta(),
+  ]);
   if (!summary?.data || !Array.isArray(summary.data)) {
     consola.warn(t("CORE.PRICING.OPENROUTER_FETCH_FAILED"));
     return null;
