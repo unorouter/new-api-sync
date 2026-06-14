@@ -3,6 +3,9 @@ interface VendorMatcher {
   nameAliases?: string[];
   displayName?: string;
   icon?: string;
+  // Unambiguous brand markers (e.g. "nemotron", "sea-lion") that identify the real
+  // vendor even when a base-model prefix ("llama", "gemma") would otherwise win.
+  strongPatterns?: string[];
 }
 
 // prettier-ignore
@@ -18,7 +21,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   baai: { modelPatterns: ["bge-","bce-embedding","baai/"], nameAliases: ["baai","beijing academy"], displayName: "BAAI", icon: "BAAI" },
   baichuan: { modelPatterns: ["baichuan"], nameAliases: ["百川","baichuan"], displayName: "Baichuan", icon: "Baichuan.Color" },
   meta: { modelPatterns: ["llama"], displayName: "Meta", icon: "Meta.Color" },
-  nvidia: { modelPatterns: ["nemotron"], displayName: "NVIDIA", icon: "Nvidia.Color" },
+  nvidia: { modelPatterns: ["nemotron"], strongPatterns: ["nemotron"], displayName: "NVIDIA", icon: "Nvidia.Color" },
   liquid: { modelPatterns: ["lfm-"], nameAliases: ["liquid"], displayName: "Liquid", icon: "Liquid" },
   inclusionai: { modelPatterns: ["ling-"], nameAliases: ["inclusionai"], displayName: "InclusionAI" },
   nousresearch: { modelPatterns: ["hermes-"], nameAliases: ["nous","nousresearch"], displayName: "Nous Research", icon: "NousResearch" },
@@ -50,18 +53,29 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   pfnet: { modelPatterns: ["plamo"], nameAliases: ["pfnet","preferred networks"], displayName: "Preferred Networks" },
   lykon: { modelPatterns: ["dreamshaper"], nameAliases: ["lykon"], displayName: "Lykon" },
   amazon: { modelPatterns: ["nova","polly","titan-"], nameAliases: ["amazon","aws"], displayName: "Amazon" },
-  pollinations: { modelPatterns: ["midijourney"], nameAliases: ["pollinations"], displayName: "Pollinations" },
+  pollinations: { modelPatterns: ["midijourney","openai-fast","openai-large","openai-roblox","openai-audio"], nameAliases: ["pollinations"], displayName: "Pollinations" },
   thedrummer: { modelPatterns: ["cydonia","skyfall","behemoth","rocinante","magidonia","tiger-gemma"], nameAliases: ["thedrummer","drummer"], displayName: "TheDrummer" },
   nexagi: { modelPatterns: ["nex-n2","nex-agi"], nameAliases: ["nexagi","nex agi","nex-agi"], displayName: "Nex AGI" },
+  aisingapore: { modelPatterns: ["sea-lion"], strongPatterns: ["sea-lion"], nameAliases: ["ai singapore","aisingapore","sea-lion"], displayName: "AI Singapore" },
 };
 
+// Most-specific match wins, not first-by-definition-order: a prefix match beats a
+// mid-string match (so "bge-multilingual-gemma2" -> baai, not google), and among
+// equal anchoring the longest pattern wins (so "llama-3.1-nemotron-..." -> nvidia
+// via "nemotron" over meta via "llama", and "openai-fast" -> pollinations).
 export function inferVendorFromModelName(name: string): string | undefined {
   const n = name.toLowerCase();
+  let best: { vendor: string; score: number } | undefined;
   for (const [vendor, matcher] of Object.entries(VENDOR_MATCHERS)) {
-    if (matcher.modelPatterns.some((p) => n.includes(p) || n.startsWith(p)))
-      return vendor;
+    const strong = new Set(matcher.strongPatterns ?? []);
+    for (const p of matcher.modelPatterns) {
+      if (!n.includes(p)) continue;
+      const score =
+        (strong.has(p) ? 10000 : 0) + (n.startsWith(p) ? 1000 : 0) + p.length;
+      if (!best || score > best.score) best = { vendor, score };
+    }
   }
-  return undefined;
+  return best?.vendor;
 }
 
 export function forEachVendor(
