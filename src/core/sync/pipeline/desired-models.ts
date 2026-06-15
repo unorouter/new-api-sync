@@ -37,7 +37,7 @@ function buildChannelModelUpstream(channels: Channel[]): Map<string, string> {
   return map;
 }
 
-function isRoutingOnlyAlias(modelName: string): boolean {
+export function isRoutingOnlyAlias(modelName: string): boolean {
   return modelName.endsWith(CLAUDE_CONTEXT_1M_SUFFIX);
 }
 

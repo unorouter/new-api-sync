@@ -1,4 +1,7 @@
-import { buildReverseMapping } from "@core/catalog/constants/patterns";
+import {
+  buildReverseMapping,
+  parseModelList,
+} from "@core/catalog/constants/patterns";
 import {
   fetchBasellmEntries,
   fetchOpenRouterDescriptions,
@@ -22,6 +25,7 @@ import { resolveCanonicalRetail } from "./canonical";
 import {
   buildDesiredModels,
   collectResponsesApiModels,
+  isRoutingOnlyAlias,
 } from "./desired-models";
 import { buildOptionMaps } from "./option-maps";
 import { buildPrivateGroups } from "./private-groups";
@@ -168,6 +172,30 @@ export async function runProviderPipeline(
       const mapped = config.modelMapping?.[modelName] ?? modelName;
       optionMaps.modelPrice[mapped] = Math.round(tpl.price * 10000) / 10000;
       optionMaps.modelQuotaType[mapped] = 1;
+    }
+  }
+
+  // Safety net: every model a channel publishes MUST carry a price, or new-api
+  // 400s it ("not priced by administrator"). A model can reach a channel yet
+  // miss the option maps (out-of-scope partial sync, half-applied modelMapping
+  // collapse, a dropped pipeline stage). This is a free gateway, so an otherwise
+  // unpriced published model defaults to free (ratio 0) instead of shipping
+  // priceless. Tiered/per-request/already-priced models are left untouched.
+  // Key by the EXACT published name (channel.models is already the post-mapping
+  // exposed name). new-api looks up the price by the published name, so the price
+  // must live under that same key, never a re-mapped one.
+  for (const channel of channels) {
+    for (const modelName of parseModelList(channel.models)) {
+      if (isRoutingOnlyAlias(modelName)) continue;
+      if (
+        optionMaps.modelRatio[modelName] !== undefined ||
+        optionMaps.modelPrice[modelName] !== undefined ||
+        optionMaps.billingExpr[modelName] !== undefined ||
+        optionMaps.modelQuotaType[modelName] !== undefined
+      )
+        continue;
+      optionMaps.modelRatio[modelName] = 0;
+      optionMaps.completionRatio[modelName] = 1;
     }
   }
 
