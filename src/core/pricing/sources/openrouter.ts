@@ -79,7 +79,7 @@ interface OpenRouterSummaryModel {
   knowledge_cutoff?: string | null;
   expiration_date?: string | null;
   hugging_face_id?: string | null;
-  pricing?: { input_cache_read?: string };
+  pricing?: { prompt?: string; completion?: string; input_cache_read?: string };
   top_provider?: {
     context_length?: number;
     max_completion_tokens?: number;
@@ -253,11 +253,26 @@ function toPricing(
   model: OpenRouterSummaryModel,
 ): BaseModelPricing | undefined {
   const picked = endpointTraces.get(model.id)?.picked;
-  if (!picked || picked.promptUsd <= 0) return undefined;
+  if (picked && picked.promptUsd > 0) {
+    return {
+      modelRatio: usdPerTokenToRatio(picked.promptUsd),
+      completionRatio:
+        picked.completionUsd > 0 ? picked.completionUsd / picked.promptUsd : 1,
+      source: "openrouter",
+      sourceKey: model.id,
+    };
+  }
+  // Fallback to the summary list price when the per-model /endpoints fetch
+  // returned nothing (common for brand-new models whose endpoints lag the
+  // catalog). Without this the model contributes no vote, so a model only one
+  // other source prices fails to cluster and ships free.
+  const promptUsd = parseUsdPerToken(model.pricing?.prompt);
+  if (promptUsd == null || promptUsd <= 0) return undefined;
+  const completionUsd =
+    parseUsdPerToken(model.pricing?.completion) ?? promptUsd;
   return {
-    modelRatio: usdPerTokenToRatio(picked.promptUsd),
-    completionRatio:
-      picked.completionUsd > 0 ? picked.completionUsd / picked.promptUsd : 1,
+    modelRatio: usdPerTokenToRatio(promptUsd),
+    completionRatio: completionUsd > 0 ? completionUsd / promptUsd : 1,
     source: "openrouter",
     sourceKey: model.id,
   };
