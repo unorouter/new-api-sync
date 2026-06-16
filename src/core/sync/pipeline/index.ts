@@ -178,12 +178,15 @@ export async function runProviderPipeline(
   // Safety net: every model a channel publishes MUST carry a price, or new-api
   // 400s it ("not priced by administrator"). A model can reach a channel yet
   // miss the option maps (out-of-scope partial sync, half-applied modelMapping
-  // collapse, a dropped pipeline stage). This is a free gateway, so an otherwise
-  // unpriced published model defaults to free (ratio 0) instead of shipping
-  // priceless. Tiered/per-request/already-priced models are left untouched.
-  // Key by the EXACT published name (channel.models is already the post-mapping
-  // exposed name). new-api looks up the price by the published name, so the price
-  // must live under that same key, never a re-mapped one.
+  // collapse, a dropped pipeline stage). Key by the EXACT published name
+  // (channel.models is already the post-mapping exposed name); new-api looks up
+  // the price by the published name, so the price must live under that same key.
+  //
+  // An unpriced published name that is a modelMapping ALIAS (exposed -> upstream)
+  // inherits its upstream target's price: the alias and target are the same model
+  // (e.g. minimax-m2.5-highspeed -> minimax-m2.5), so shipping the alias free
+  // while the target is paid leaks the model. Only a name with no priced target
+  // falls back to free (ratio 0) -- the genuinely-free-gateway default.
   for (const channel of channels) {
     for (const modelName of parseModelList(channel.models)) {
       if (isRoutingOnlyAlias(modelName)) continue;
@@ -194,6 +197,27 @@ export async function runProviderPipeline(
         optionMaps.modelQuotaType[modelName] !== undefined
       )
         continue;
+      const target = config.modelMapping?.[modelName];
+      if (
+        target &&
+        target !== modelName &&
+        (optionMaps.modelRatio[target] !== undefined ||
+          optionMaps.modelPrice[target] !== undefined ||
+          optionMaps.billingExpr[target] !== undefined ||
+          optionMaps.modelQuotaType[target] !== undefined)
+      ) {
+        if (optionMaps.modelRatio[target] !== undefined)
+          optionMaps.modelRatio[modelName] = optionMaps.modelRatio[target];
+        if (optionMaps.modelPrice[target] !== undefined)
+          optionMaps.modelPrice[modelName] = optionMaps.modelPrice[target];
+        if (optionMaps.billingExpr[target] !== undefined)
+          optionMaps.billingExpr[modelName] = optionMaps.billingExpr[target];
+        if (optionMaps.modelQuotaType[target] !== undefined)
+          optionMaps.modelQuotaType[modelName] = optionMaps.modelQuotaType[target];
+        optionMaps.completionRatio[modelName] =
+          optionMaps.completionRatio[target] ?? 1;
+        continue;
+      }
       optionMaps.modelRatio[modelName] = 0;
       optionMaps.completionRatio[modelName] = 1;
     }
