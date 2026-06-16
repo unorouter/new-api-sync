@@ -213,7 +213,8 @@ export async function runProviderPipeline(
         if (optionMaps.billingExpr[target] !== undefined)
           optionMaps.billingExpr[modelName] = optionMaps.billingExpr[target];
         if (optionMaps.modelQuotaType[target] !== undefined)
-          optionMaps.modelQuotaType[modelName] = optionMaps.modelQuotaType[target];
+          optionMaps.modelQuotaType[modelName] =
+            optionMaps.modelQuotaType[target];
         optionMaps.completionRatio[modelName] =
           optionMaps.completionRatio[target] ?? 1;
         continue;
