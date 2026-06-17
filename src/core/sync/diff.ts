@@ -323,14 +323,23 @@ export function buildSyncDiff(
       existingModelsByName.set(model.model_name, model);
       continue;
     }
+    // Keep the better row: a resolved vendor_id beats 0 (stale-snapshot creates
+    // land 0), then higher id wins. Score = [hasVendor, id]; bigger keeps.
+    const score = (m: ModelMeta): [number, number] => [
+      (m.vendor_id ?? 0) !== 0 ? 1 : 0,
+      m.id ?? 0,
+    ];
+    const [ps, ms] = [score(prev), score(model)];
     const [keep, discard] =
-      (prev.id ?? 0) >= (model.id ?? 0) ? [prev, model] : [model, prev];
+      ms[0] > ps[0] || (ms[0] === ps[0] && ms[1] > ps[1])
+        ? [model, prev]
+        : [prev, model];
     existingModelsByName.set(model.model_name, keep);
-    // Duplicate live rows are deleted only on a full sync. A partial sync's
-    // desired set covers a subset of providers, so its snapshot can carry the
-    // same model on several in/out-of-scope channels; treating those as dups to
-    // delete would clobber other providers' models (same rule as orphan delete).
-    if (discard.id && !isPartialSync)
+    // A duplicate of a model in the desired set is always safe to delete: this
+    // sync (re)creates/updates that name anyway. Out-of-scope models are absent
+    // from desired.models, so a partial sync still leaves them untouched. Full
+    // sync deletes every dup (same rule as orphan cleanup).
+    if (discard.id && (!isPartialSync || desired.models.has(model.model_name)))
       modelOps.push({
         type: "delete",
         key: `${discard.model_name} (dup #${discard.id})`,

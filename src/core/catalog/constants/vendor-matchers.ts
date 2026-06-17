@@ -58,6 +58,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   nexagi: { modelPatterns: ["nex-n2","nex-agi"], nameAliases: ["nexagi","nex agi","nex-agi"], displayName: "Nex AGI" },
   aisingapore: { modelPatterns: ["sea-lion"], strongPatterns: ["sea-lion"], nameAliases: ["ai singapore","aisingapore","sea-lion"], displayName: "AI Singapore" },
   stepfun: { modelPatterns: ["step-","step1","step2","step3"], nameAliases: ["stepfun","阶跃星辰","step"], displayName: "StepFun", icon: "Stepfun.Color" },
+  katanemo: { modelPatterns: ["arch-router","arch-function"], nameAliases: ["katanemo"], displayName: "Katanemo" },
 };
 
 // Most-specific match wins, not first-by-definition-order: a prefix match beats a
