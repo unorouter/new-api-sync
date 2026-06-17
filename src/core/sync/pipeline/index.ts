@@ -15,7 +15,12 @@ import { computePricedPlan } from "@core/pricing/compute";
 import { emitChannels } from "@core/pricing/emit";
 import { fetchAllPricingSources } from "@core/pricing/resolver";
 import { ConcurrencyGate, setConcurrencyGate } from "@core/infra/concurrency";
-import type { DesiredState, ProviderReport, TargetSnapshot } from "@core/types";
+import type {
+  DesiredState,
+  ManagedOptionMaps,
+  ProviderReport,
+  TargetSnapshot,
+} from "@core/types";
 import type { ComfyUiProviderConfig } from "@core/validations/config";
 import { buildComfyUiChannels } from "@core/vendors/comfyui/provider";
 import { t } from "@server/i18n";
@@ -30,6 +35,86 @@ import {
 import { buildOptionMaps } from "./option-maps";
 import { buildPrivateGroups } from "./private-groups";
 import { runAllProviders } from "./providers";
+
+interface SnapshotPricing {
+  modelRatio: Record<string, number>;
+  modelPrice: Record<string, number>;
+  completionRatio: Record<string, number>;
+  modelQuotaType: Record<string, number>;
+  billingExpr: Record<string, string>;
+  billingMode: Record<string, string>;
+}
+
+function parseSnapshotPricing(snapshot?: TargetSnapshot): SnapshotPricing {
+  const empty: SnapshotPricing = {
+    modelRatio: {},
+    modelPrice: {},
+    completionRatio: {},
+    modelQuotaType: {},
+    billingExpr: {},
+    billingMode: {},
+  };
+  if (!snapshot) return empty;
+  const parse = <T>(key: string): Record<string, T> => {
+    try {
+      const raw = snapshot.options[key];
+      return raw ? (JSON.parse(raw) as Record<string, T>) : {};
+    } catch {
+      return {};
+    }
+  };
+  return {
+    modelRatio: parse<number>("ModelRatio"),
+    modelPrice: parse<number>("ModelPrice"),
+    completionRatio: parse<number>("CompletionRatio"),
+    modelQuotaType: parse<number>("ModelQuotaType"),
+    billingExpr: parse<string>("billing_setting.billing_expr"),
+    billingMode: parse<string>("billing_setting.billing_mode"),
+  };
+}
+
+// Restore a paid price the target already holds for an unpriced published model.
+// Returns true if anything was restored, so the caller skips the free default.
+// Only a PAID existing entry (ratio > 0, price > 0, or a tiered expr) restores;
+// a stored ratio of 0 is a genuinely-free model and falls through to the default.
+function restoreSnapshotPrice(
+  modelName: string,
+  optionMaps: Pick<
+    ManagedOptionMaps,
+    | "modelRatio"
+    | "modelPrice"
+    | "completionRatio"
+    | "modelQuotaType"
+    | "billingExpr"
+    | "billingMode"
+  >,
+  snap: SnapshotPricing,
+): boolean {
+  const expr = snap.billingExpr[modelName];
+  if (expr !== undefined && expr.trim() !== "") {
+    optionMaps.billingExpr[modelName] = expr;
+    if (snap.billingMode[modelName] !== undefined)
+      optionMaps.billingMode[modelName] = snap.billingMode[modelName]!;
+    if (snap.completionRatio[modelName] !== undefined)
+      optionMaps.completionRatio[modelName] = snap.completionRatio[modelName]!;
+    return true;
+  }
+  const price = snap.modelPrice[modelName];
+  if (price !== undefined && price > 0) {
+    optionMaps.modelPrice[modelName] = price;
+    if (snap.modelQuotaType[modelName] !== undefined)
+      optionMaps.modelQuotaType[modelName] = snap.modelQuotaType[modelName]!;
+    return true;
+  }
+  const ratio = snap.modelRatio[modelName];
+  if (ratio !== undefined && ratio > 0) {
+    optionMaps.modelRatio[modelName] = ratio;
+    optionMaps.completionRatio[modelName] =
+      snap.completionRatio[modelName] ?? 1;
+    return true;
+  }
+  return false;
+}
 
 export async function runProviderPipeline(
   config: RuntimeConfig,
@@ -187,6 +272,7 @@ export async function runProviderPipeline(
   // (e.g. minimax-m2.5-highspeed -> minimax-m2.5), so shipping the alias free
   // while the target is paid leaks the model. Only a name with no priced target
   // falls back to free (ratio 0) -- the genuinely-free-gateway default.
+  const snapshotPricing = parseSnapshotPricing(targetSnapshot);
   for (const channel of channels) {
     for (const modelName of parseModelList(channel.models)) {
       if (isRoutingOnlyAlias(modelName)) continue;
@@ -219,6 +305,13 @@ export async function runProviderPipeline(
           optionMaps.completionRatio[target] ?? 1;
         continue;
       }
+      // A model that already carries a PAID price in the target keeps it. A
+      // pricing-less publisher (e.g. a private declarative channel serving a
+      // paid model name) recomputes nothing this run; defaulting it to ratio 0
+      // would clobber the live paid ratio with $0 (the gemini-3.1-pro-preview
+      // partial-sync regression). Free defaults stay reserved for names with no
+      // existing paid price anywhere.
+      if (restoreSnapshotPrice(modelName, optionMaps, snapshotPricing)) continue;
       optionMaps.modelRatio[modelName] = 0;
       optionMaps.completionRatio[modelName] = 1;
     }
