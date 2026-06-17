@@ -12,9 +12,9 @@ import { getTestModelTypes, type RuntimeConfig } from "@core/config";
 import type {
   OfferModel,
   ProviderResult,
+  ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import { type PricingSource } from "@core/pricing/resolver";
 import { recordProviderCost, testAndFilterModels } from "@core/testing/runner";
 import type { ProviderReport } from "@core/types";
 import type { Sub2ApiProviderConfig } from "@core/validations/config";
@@ -160,7 +160,7 @@ async function resolveViaGroups(
 export async function processSub2ApiProvider(
   providerConfig: Sub2ApiProviderConfig,
   config: RuntimeConfig,
-  ctx: { pricingSources: PricingSource[]; reverseMapping: Map<string, string> },
+  ctx: ProviderRunContext,
 ): Promise<ProviderResult> {
   const report: ProviderReport = {
     name: providerConfig.name,
@@ -184,9 +184,13 @@ export async function processSub2ApiProvider(
       return { report, offers, endpointMetadata };
     }
     groupKeysForBalance = resolvedGroups.map((g) => g.apiKey);
-    totalStart = sumBalances(
-      await Promise.all(groupKeysForBalance.map((k) => client.fetchBalance(k))),
-    );
+    totalStart = ctx.dryRun
+      ? null
+      : sumBalances(
+          await Promise.all(
+            groupKeysForBalance.map((k) => client.fetchBalance(k)),
+          ),
+        );
     if (totalStart !== null)
       consola.info(
         t("CORE.PROVIDER.BALANCE", { name, amount: totalStart.toFixed(4) }),

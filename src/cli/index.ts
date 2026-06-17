@@ -26,12 +26,14 @@ program
     (value: string, prev: string[]) => [...prev, value],
     [] as string[],
   )
+  .option("--dry-run", t("CLI.OPTION.DRY_RUN"))
   .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
   .action(
     async (options: {
       config?: string;
       only: string[];
       models: string[];
+      dryRun?: boolean;
       verbose?: boolean;
     }) => {
       if (options.verbose) consola.level = 4;
@@ -39,7 +41,7 @@ program
         applyOnlyProviders(await loadConfig(options.config), options.only),
         options.models,
       );
-      const result = await runSync(config);
+      const result = await runSync(config, { dryRun: options.dryRun });
       printRunSummary(result);
 
       if (!result.success) {

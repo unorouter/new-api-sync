@@ -119,6 +119,7 @@ function restoreSnapshotPrice(
 export async function runProviderPipeline(
   config: RuntimeConfig,
   targetSnapshot?: TargetSnapshot,
+  opts?: { dryRun?: boolean },
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
   const overrides = new Map<string, number>();
   for (const p of config.providers)
@@ -152,7 +153,11 @@ export async function runProviderPipeline(
     originalEndpointsByName,
     normalizedEndpointsByName,
     aggregatedEndpointPaths,
-  } = await runAllProviders(config, { pricingSources, reverseMapping });
+  } = await runAllProviders(config, {
+    pricingSources,
+    reverseMapping,
+    dryRun: opts?.dryRun,
+  });
 
   const canonical = resolveCanonicalRetail({
     allOffers,

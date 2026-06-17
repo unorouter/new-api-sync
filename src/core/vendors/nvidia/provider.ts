@@ -14,9 +14,9 @@ import {
 import type {
   OfferModel,
   ProviderResult,
+  ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import { type PricingSource } from "@core/pricing/resolver";
 import { NVIDIA_RETRY_POLICY } from "@core/testing/execution";
 import { testAndFilterModels } from "@core/testing/runner";
 import type { ProviderReport } from "@core/types";
@@ -33,7 +33,7 @@ import { discoverNvidiaModels } from "./discovery";
 export async function processNvidiaProvider(
   providerConfig: NvidiaProviderConfig,
   config: RuntimeConfig,
-  ctx: { pricingSources: PricingSource[]; reverseMapping: Map<string, string> },
+  ctx: ProviderRunContext,
 ): Promise<ProviderResult> {
   const name = providerConfig.name;
   const report: ProviderReport = {

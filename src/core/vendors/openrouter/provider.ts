@@ -13,9 +13,9 @@ import { getEnabledModelGlobs, type RuntimeConfig } from "@core/config";
 import type {
   OfferModel,
   ProviderResult,
+  ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import { type PricingSource } from "@core/pricing/resolver";
 import { tryFetchJson } from "@core/infra/http";
 import { testAndFilterModels } from "@core/testing/runner";
 import type { ProviderReport } from "@core/types";
@@ -44,7 +44,7 @@ async function fetchOpenRouterBalance(
 export async function processOpenRouterProvider(
   providerConfig: OpenRouterProviderConfig,
   config: RuntimeConfig,
-  ctx: { pricingSources: PricingSource[]; reverseMapping: Map<string, string> },
+  ctx: ProviderRunContext,
 ): Promise<ProviderResult> {
   const name = providerConfig.name;
   const report: ProviderReport = {
@@ -59,7 +59,10 @@ export async function processOpenRouterProvider(
 
   await withCostTracking(
     name,
-    () => fetchOpenRouterBalance(providerConfig.baseUrl, providerConfig.apiKey),
+    () =>
+      ctx.dryRun
+        ? Promise.resolve(null)
+        : fetchOpenRouterBalance(providerConfig.baseUrl, providerConfig.apiKey),
     async () => {
       try {
         const catalogue = await discoverOpenRouterFreeModels(

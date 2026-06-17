@@ -6,6 +6,7 @@ import type { ModelType } from "@core/types";
 import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
 import type { ModelMetadata, ProviderConfig } from "@core/validations/config";
+import type { PricingSource } from "./sources/types";
 
 type ProviderKind = string;
 
@@ -39,6 +40,16 @@ export interface OfferModel {
   pricingVersion?: string;
   /** Provider-supplied metadata (e.g. upstream max_completion_tokens). Merged into the model's metadata column; config enabledModels overrides win. */
   metadata?: ModelMetadata;
+}
+
+/** Shared per-run context handed to every provider processor. */
+export interface ProviderRunContext {
+  pricingSources: PricingSource[];
+  reverseMapping: Map<string, string>;
+  /** Skip all upstream probes/tests/token-creation; synthesize pass-through
+   *  offers from discovered pricing so the run costs nothing and writes nothing.
+   *  Used by `sync run --dry-run` to preview pricing + diff. */
+  dryRun?: boolean;
 }
 
 export interface UpstreamOffer {

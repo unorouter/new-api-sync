@@ -13,9 +13,9 @@ import { getTestModelTypes, type RuntimeConfig } from "@core/config";
 import type {
   OfferModel,
   ProviderResult,
+  ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import type { PricingSource } from "@core/pricing/resolver";
 import { NVIDIA_RETRY_POLICY, type RetryPolicy } from "@core/testing/execution";
 import { testAndFilterModels } from "@core/testing/runner";
 import type { TestExchange } from "@core/testing/types";
@@ -35,15 +35,10 @@ export interface OpenAIFreeDiscovery {
   modelTypeHints?: Map<string, ModelType>;
 }
 
-interface Ctx {
-  pricingSources: PricingSource[];
-  reverseMapping: Map<string, string>;
-}
-
 export interface OpenAIFreeOpts {
   providerConfig: SimpleFreeProviderConfig;
   config: RuntimeConfig;
-  ctx: Ctx;
+  ctx: ProviderRunContext;
   /** offer.providerKind, e.g. "groq". */
   providerKind: string;
   /** brand label, channel remark becomes "<label> via <name>". */

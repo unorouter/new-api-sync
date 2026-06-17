@@ -16,6 +16,7 @@ import { loadAuthenticityBlacklist } from "@core/testing/authenticity";
 import {
   recordRunSummary,
   resetTestState,
+  setDryRunMode,
   writeTestReport,
 } from "@core/testing/runner";
 import type { DesiredState, SyncRunResult, TargetSnapshot } from "@core/types";
@@ -94,10 +95,15 @@ async function snapshot(client: NewApiClient): Promise<TargetSnapshot> {
   return { channels, models, vendors, options };
 }
 
-export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
+export async function runSync(
+  config: RuntimeConfig,
+  opts?: { dryRun?: boolean },
+): Promise<SyncRunResult> {
   const start = Date.now();
+  const dryRun = opts?.dryRun ?? false;
   const target = new NewApiClient(config.target, "target");
   resetTestState();
+  setDryRunMode(dryRun);
   loadAuthenticityBlacklist();
 
   // Logs written in finally so a crash/abort still flushes buffered errors.
@@ -112,20 +118,55 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
       );
 
     throwIfRunAborted();
-    let snap = await snapshot(target);
+    const snap = await snapshot(target);
     throwIfRunAborted();
-    const { desired, providerReports } = await runProviderPipeline(
-      config,
-      snap,
-    );
+    const { desired, providerReports } = await runProviderPipeline(config, snap, {
+      dryRun,
+    });
 
     throwIfRunAborted();
-    const vendorsCreated = await ensureVendors(target, desired, snap);
+    // Dry-run: no vendor/channel/model/option writes, no guest-token update.
+    // Still diff against the live snapshot so the preview shows real changes,
+    // and the finally block still writes the test report + pricing-gate logs.
+    if (dryRun) {
+      const diff = buildSyncDiff(config, desired, snap);
+      printDryRunPricing(desired, snap, config);
+      const apply: SyncRunResult["apply"] = {
+        channels: { created: [], updated: [], deleted: [] },
+        models: { created: [], updated: [], deleted: [], orphansDeleted: 0 },
+        options: { updated: [] },
+        errors: [],
+      };
+      const successfulProviders = providerReports.filter(
+        (p) => p.success,
+      ).length;
+      const hasProviderSuccess =
+        successfulProviders > 0 || config.providers.length === 0;
+      const elapsedMs = Date.now() - start;
+      recordRunSummary({
+        providerReports,
+        apply,
+        diff,
+        elapsedMs,
+        success: hasProviderSuccess,
+      });
+      return {
+        success: hasProviderSuccess,
+        providerReports,
+        desired,
+        diff,
+        apply,
+        elapsedMs,
+      };
+    }
+
+    let liveSnap = snap;
+    const vendorsCreated = await ensureVendors(target, desired, liveSnap);
     if (vendorsCreated > 0)
-      snap = { ...snap, vendors: await target.listVendors() };
+      liveSnap = { ...liveSnap, vendors: await target.listVendors() };
 
     throwIfRunAborted();
-    const diff = buildSyncDiff(config, desired, snap);
+    const diff = buildSyncDiff(config, desired, liveSnap);
     const apply = await applySyncDiff(target, diff);
     applyErrors = apply.errors;
     if (apply.options.updated.length > 0) await target.updateCache();
@@ -146,6 +187,80 @@ export async function runSync(config: RuntimeConfig): Promise<SyncRunResult> {
     writeTestReport();
     writeApplyErrorsLog(applyErrors);
   }
+}
+
+// Dry-run pricing preview: for every in-scope model, show the computed
+// model_ratio/completion (what WOULD be written) vs what new-api currently
+// stores, and the channels that would serve it. Surfaces ratio discrepancies
+// (e.g. a model falling back to new-api's 37.5 default because no tier survived
+// the cap) without any upstream cost or write.
+function printDryRunPricing(
+  desired: DesiredState,
+  snapshot: TargetSnapshot,
+  config: RuntimeConfig,
+): void {
+  const opts = desired.options;
+  const currentRatio = ((): Record<string, number> => {
+    try {
+      return snapshot.options.ModelRatio
+        ? (JSON.parse(snapshot.options.ModelRatio) as Record<string, number>)
+        : {};
+    } catch {
+      return {};
+    }
+  })();
+
+  const channelsByModel = new Map<string, { name: string; ratio: number }[]>();
+  for (const ch of desired.channels)
+    for (const m of ch.models.split(",").map((s) => s.trim()))
+      if (m) {
+        let arr = channelsByModel.get(m);
+        if (!arr) channelsByModel.set(m, (arr = []));
+        arr.push({ name: ch.name, ratio: opts.groupRatio[ch.group] ?? 1 });
+      }
+
+  const names0 = [
+    ...Object.keys(opts.modelRatio),
+    ...Object.keys(opts.modelPrice),
+    ...channelsByModel.keys(),
+  ];
+  const names = [
+    ...new Set([...names0, ...Object.keys(opts.billingExpr)]),
+  ].sort();
+
+  consola.info(t("CLI.DRY.HEADER", { count: names.length }));
+  for (const name of names) {
+    const ratio = opts.modelRatio[name];
+    const comp = opts.completionRatio[name];
+    const price = opts.modelPrice[name];
+    const expr = opts.billingExpr[name];
+    const chans = channelsByModel.get(name) ?? [];
+    const hasComputed =
+      ratio !== undefined || price !== undefined || expr !== undefined;
+    const stored = currentRatio[name];
+    // Channels exist but no computed ratio/price/expr => new-api keeps its
+    // stored/default value (37.5 for unknown models). That is the discrepancy.
+    const flag =
+      !hasComputed && chans.length > 0
+        ? ` <= NO COMPUTED RATIO; new-api keeps stored=${stored ?? "default(37.5)"}`
+        : "";
+    const priced =
+      expr !== undefined
+        ? `TIERED ${expr}`
+        : price !== undefined
+          ? `price=$${price}`
+          : ratio !== undefined
+            ? `in=$${(ratio * 2).toFixed(2)}/M out=$${(ratio * 2 * (comp ?? 0)).toFixed(2)}/M (ratio=${ratio}, comp=${comp})`
+            : "(none)";
+    const cheapest =
+      chans.length > 0
+        ? Math.min(...chans.map((c) => c.ratio)).toFixed(4)
+        : "-";
+    consola.info(
+      `  ${name}: ${priced} | channels=${chans.length} cheapestGroupRatio=${cheapest}${flag}`,
+    );
+  }
+  void config;
 }
 
 function writeApplyErrorsLog(

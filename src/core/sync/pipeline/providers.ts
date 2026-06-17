@@ -1,6 +1,8 @@
 import type { RuntimeConfig } from "@core/config";
-import type { UpstreamOffer } from "@core/pricing/offers";
-import type { PricingSource } from "@core/pricing/resolver";
+import type {
+  ProviderRunContext,
+  UpstreamOffer,
+} from "@core/pricing/offers";
 import { throwIfRunAborted } from "@core/infra/abort";
 import type { ProviderReport } from "@core/types";
 import type {
@@ -33,7 +35,7 @@ function typeOrder(type: string): number {
 
 export async function runAllProviders(
   config: RuntimeConfig,
-  ctx: { pricingSources: PricingSource[]; reverseMapping: Map<string, string> },
+  ctx: ProviderRunContext,
 ): Promise<{
   reports: ProviderReport[];
   offers: UpstreamOffer[];

@@ -17,6 +17,7 @@ import type {
   EndpointPathInfo,
   OfferModel,
   ProviderResult,
+  ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
 import { type PricingSource } from "@core/pricing/resolver";
@@ -42,7 +43,7 @@ import { colorize } from "consola/utils";
 import { buildCapabilityMap, lowercaseExposed } from "../shared/capability-map";
 import { partitionByVendor } from "../shared/partition";
 import { NewApiClient } from "./client";
-import { probeChannelType } from "./probe-channel-type";
+import { nativeShapeForVendor, probeChannelType } from "./probe-channel-type";
 
 // Parse failure -> placeholder ratio -> silent "no-fit" drop. Warn once/model so it's diagnosable.
 const warnedBadBillingExpr = new Set<string>();
@@ -294,7 +295,7 @@ async function cleanupEmptyGroupTokens(
 export async function processNewApiProvider(
   providerConfig: ProviderConfig,
   config: RuntimeConfig,
-  ctx: { pricingSources: PricingSource[]; reverseMapping: Map<string, string> },
+  ctx: ProviderRunContext,
 ): Promise<ProviderResult> {
   const pName = providerConfig.name;
   const baseUrl = providerConfig.baseUrl;
@@ -358,15 +359,19 @@ export async function processNewApiProvider(
     }
     const tokenPrefix = config.target.targetPrefix ?? pName;
     const partialSync = (config.modelFilter?.length ?? 0) > 0;
-    const tokenResult = await upstream.ensureTokens(groups, tokenPrefix, {
-      skipCleanup: partialSync,
-    });
+    // Dry-run creates no upstream tokens and reads no balance (both cost/mutate);
+    // probes + tests are skipped downstream so the per-group apiKey is unused.
+    const tokenResult = ctx.dryRun
+      ? { tokens: {} as Record<string, string>, created: 0, existing: 0, deleted: 0 }
+      : await upstream.ensureTokens(groups, tokenPrefix, {
+          skipCleanup: partialSync,
+        });
     report.tokens = {
       created: tokenResult.created,
       existing: tokenResult.existing,
       deleted: tokenResult.deleted,
     };
-    const startBalance = await upstream.fetchBalance();
+    const startBalance = ctx.dryRun ? null : await upstream.fetchBalance();
     if (startBalance !== null)
       consola.info(
         t("CORE.PROVIDER.BALANCE", {
@@ -427,14 +432,21 @@ export async function processNewApiProvider(
         const bucketResults = await Promise.all(
           [...vendorBuckets.entries()].map(async ([vendor, vendorModels]) => {
             throwIfRunAborted();
-            const probe = await probeChannelType({
-              baseUrl,
-              apiKey: p.apiKey,
-              vendor,
-              models: vendorModels,
-              modelEndpoints: localNormalizedEndpoints,
-              logPrefix: probeLabel,
-            });
+            // Dry-run: no upstream probe (costs nothing); assume the vendor's
+            // native channel shape.
+            const probe = ctx.dryRun
+              ? {
+                  channelType: nativeShapeForVendor(vendor),
+                  shape: "native" as const,
+                }
+              : await probeChannelType({
+                  baseUrl,
+                  apiKey: p.apiKey,
+                  vendor,
+                  models: vendorModels,
+                  modelEndpoints: localNormalizedEndpoints,
+                  logPrefix: probeLabel,
+                });
             if (!probe) {
               consola.warn(
                 t("CORE.PROVIDER.PROBE_FAILED_SKIP", {
@@ -463,7 +475,7 @@ export async function processNewApiProvider(
                     "drop",
                 )
               : [];
-            if (droppedModels.length > 0)
+            if (droppedModels.length > 0 && !ctx.dryRun)
               await screenDroppedClaudeAuthenticity({
                 baseUrl,
                 apiKey: p.apiKey,
@@ -477,20 +489,28 @@ export async function processNewApiProvider(
                 working: 0,
                 offer: null as null | UpstreamOffer,
               };
-            const filterResult = await testAndFilterModels({
-              allModels: gatedModels,
-              baseUrl,
-              apiKey: p.apiKey,
-              channelType: probe.channelType,
-              providerLabel: `${probeLabel}/${vendor}`,
-              testableModelTypes: getTestModelTypes(config, providerConfig),
-              modelEndpoints: localNormalizedEndpoints,
-              capabilities: buildCapabilityMap(
-                gatedModels,
-                lowercaseExposed(config),
-                ctx,
-              ),
-            });
+            // Dry-run: no live tests (the money). Every gate-kept model is
+            // treated as working so pricing + diff compute against the full set.
+            const filterResult = ctx.dryRun
+              ? {
+                  workingModels: gatedModels,
+                  testedCount: gatedModels.length,
+                  details: undefined,
+                }
+              : await testAndFilterModels({
+                  allModels: gatedModels,
+                  baseUrl,
+                  apiKey: p.apiKey,
+                  channelType: probe.channelType,
+                  providerLabel: `${probeLabel}/${vendor}`,
+                  testableModelTypes: getTestModelTypes(config, providerConfig),
+                  modelEndpoints: localNormalizedEndpoints,
+                  capabilities: buildCapabilityMap(
+                    gatedModels,
+                    lowercaseExposed(config),
+                    ctx,
+                  ),
+                });
             const workingUpstream = filterResult.workingModels;
             if (workingUpstream.length === 0)
               return {

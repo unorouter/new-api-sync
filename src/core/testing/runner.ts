@@ -55,6 +55,13 @@ let testReport: TestReport = {
 const passingByKey = new Map<string, ModelTestLog>();
 const passKey = (provider: string, model: string) => `${provider}|${model}`;
 
+// Dry-run gate: when set, testAndFilterModels treats every testable model as
+// working and sends no upstream requests (no cost). Set per run by runSync.
+let dryRunMode = false;
+export function setDryRunMode(on: boolean): void {
+  dryRunMode = on;
+}
+
 // Reset module-level state per run so the server doesn't leak run N's cache into N+1.
 export function resetTestState(): void {
   testReport = {
@@ -63,6 +70,7 @@ export function resetTestState(): void {
     modelTests: [],
   };
   passingByKey.clear();
+  dryRunMode = false;
   resetAuthenticityProbes();
 }
 
@@ -460,6 +468,15 @@ export async function testAndFilterModels(opts: {
   details?: ModelTestDetail[];
 }> {
   const provider = opts.providerLabel;
+  // Dry-run: no upstream requests. Every model is reported working so pricing +
+  // diff compute against the full candidate set.
+  if (dryRunMode) {
+    return {
+      workingModels: opts.allModels,
+      testedCount: 0,
+      details: undefined,
+    };
+  }
   const testableModels = opts.allModels.filter((m) => {
     const mt = inferModelType(m, undefined, opts.modelEndpoints);
     if (mt !== "text" && opts.testableModelTypes.has(mt)) return true;

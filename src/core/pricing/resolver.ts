@@ -1,8 +1,11 @@
 import { type BasellmEntry, lookup } from "@core/catalog/metadata";
 import { t } from "@server/i18n";
+import { fetchAipricingSource } from "./sources/aipricing";
 import { buildBasellmCanonicalSource } from "./sources/basellm";
+import { fetchGenaiPricesSource } from "./sources/genai-prices";
 import { fetchLiteLLMSource } from "./sources/litellm";
 import { fetchLlmPricesSource } from "./sources/llm-prices";
+import { fetchModelsDevSource } from "./sources/models-dev";
 import { fetchOpenRouterPricingSource } from "./sources/openrouter";
 import type {
   BaseModelPricing,
@@ -14,11 +17,15 @@ export type { BaseModelPricing, PricingSource, SourceMetadata };
 export async function fetchAllPricingSources(
   basellmEntries: BasellmEntry[],
 ): Promise<PricingSource[]> {
-  const [llmPrices, litellm, openrouter] = await Promise.all([
-    fetchLlmPricesSource(),
-    fetchLiteLLMSource(),
-    fetchOpenRouterPricingSource(),
-  ]);
+  const [llmPrices, litellm, openrouter, modelsDev, aipricing, genaiPrices] =
+    await Promise.all([
+      fetchLlmPricesSource(),
+      fetchLiteLLMSource(),
+      fetchOpenRouterPricingSource(),
+      fetchModelsDevSource(),
+      fetchAipricingSource(),
+      fetchGenaiPricesSource(),
+    ]);
   const basellm = buildBasellmCanonicalSource(basellmEntries);
 
   const empty: string[] = [];
@@ -32,9 +39,15 @@ export async function fetchAllPricingSources(
     );
   }
 
-  return [llmPrices, basellm, litellm, openrouter].filter(
-    (s): s is PricingSource => s != null,
-  );
+  return [
+    llmPrices,
+    basellm,
+    litellm,
+    openrouter,
+    modelsDev,
+    aipricing,
+    genaiPrices,
+  ].filter((s): s is PricingSource => s != null);
 }
 
 export function resolveBasePricing(

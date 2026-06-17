@@ -102,6 +102,9 @@ export type PricingSourceName =
   | "openrouter"
   | "basellm"
   | "llm-prices"
+  | "models-dev"
+  | "aipricing"
+  | "genai-prices"
   | "channel";
 
 export interface MergedModel {

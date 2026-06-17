@@ -20,7 +20,7 @@ const SHAPE_NAMES: Record<number, string> = {
 };
 const shapeName = (ct: number) => SHAPE_NAMES[ct] ?? `unknown(${ct})`;
 
-function nativeShapeForVendor(vendor: string): number {
+export function nativeShapeForVendor(vendor: string): number {
   if (vendor === "anthropic") return SHAPE_TYPES.ANTHROPIC;
   if (vendor === "google") return SHAPE_TYPES.GEMINI;
   return SHAPE_TYPES.OPENAI;

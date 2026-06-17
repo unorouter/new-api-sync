@@ -1,6 +1,8 @@
 import type { RuntimeConfig } from "@core/config";
-import type { ProviderResult } from "@core/pricing/offers";
-import type { PricingSource } from "@core/pricing/resolver";
+import type {
+  ProviderResult,
+  ProviderRunContext,
+} from "@core/pricing/offers";
 import type { SimpleFreeProviderConfig } from "@core/validations/config";
 import {
   SIMPLE_PROVIDER_META,
@@ -77,16 +79,11 @@ export const SIMPLE_PROVIDERS: SimpleProviderDef[] = SIMPLE_PROVIDER_META.map(
 export const SIMPLE_PROVIDER_MAP: Record<string, SimpleProviderDef> =
   Object.fromEntries(SIMPLE_PROVIDERS.map((d) => [d.kind, d]));
 
-interface Ctx {
-  pricingSources: PricingSource[];
-  reverseMapping: Map<string, string>;
-}
-
 export function processSimpleProvider(
   def: SimpleProviderDef,
   providerConfig: SimpleFreeProviderConfig,
   config: RuntimeConfig,
-  ctx: Ctx,
+  ctx: ProviderRunContext,
 ): Promise<ProviderResult> {
   return processOpenAICompatibleFreeProvider({
     providerConfig,

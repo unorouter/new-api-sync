@@ -10,9 +10,13 @@ Units: the expression's `p * X` coefficient X is the input ratio in new-api's
 native units (USD per million tokens / 2 — same as `model_ratio`). See
 src/core/pricing/sources/types.ts:usdPerTokenToRatio.
 
-Strategy: parse all tiers, pick the cheapest one by input coefficient (p).
-Returns its `p` coefficient as effective ratio and `c/p` as completion ratio.
-Single-tier expressions become their direct coefficients.
+Strategy: parse all tiers, pick by input coefficient (p). Default picks the
+HIGHEST tier (worst-case upstream cost) so the canonical-cap comparison never
+underestimates what the upstream charges us: a tiered upstream that is cheap on
+short prompts but expensive past 32k must be judged on its expensive tier, or we
+adopt its billing and lose money on long-context calls. Returns the picked
+tier's `p` as effective ratio and `c/p` as completion ratio. Single-tier
+expressions become their direct coefficients.
 
 Returns undefined when the expression is unparseable; caller should fall back
 to the raw placeholder ratio (and likely drop the model).
@@ -80,6 +84,7 @@ export interface EffectiveTierPricing {
 
 export function effectiveRatioFromBillingExpr(
   billingExpr: string,
+  pick: "highest" | "cheapest" = "highest",
 ): EffectiveTierPricing | undefined {
   const tiers = parseTierCoefficients(billingExpr);
   if (tiers.length === 0) return undefined;
@@ -88,15 +93,17 @@ export function effectiveRatioFromBillingExpr(
     (t): t is TierWithP => typeof t.p === "number" && t.p > 0,
   );
   if (withInput.length === 0) return undefined;
-  const cheapest = withInput.reduce((min, t) => (t.p < min.p ? t : min));
+  const chosen = withInput.reduce((acc, t) =>
+    pick === "highest" ? (t.p > acc.p ? t : acc) : t.p < acc.p ? t : acc,
+  );
   const completionRatio =
-    typeof cheapest.c === "number" ? cheapest.c / cheapest.p : 1;
+    typeof chosen.c === "number" ? chosen.c / chosen.p : 1;
   return {
-    modelRatio: cheapest.p,
+    modelRatio: chosen.p,
     completionRatio,
     cacheRatio:
-      typeof cheapest.cr === "number" ? cheapest.cr / cheapest.p : undefined,
+      typeof chosen.cr === "number" ? chosen.cr / chosen.p : undefined,
     createCacheRatio:
-      typeof cheapest.cc === "number" ? cheapest.cc / cheapest.p : undefined,
+      typeof chosen.cc === "number" ? chosen.cc / chosen.p : undefined,
   };
 }

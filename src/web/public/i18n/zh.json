@@ -267,6 +267,7 @@
       "ONLY_MODELS": "逗号分隔的模型通配符（支持通配符）",
       "VERBOSE": "启用调试日志",
       "PORT": "监听端口",
+      "DRY_RUN": "预览定价与差异，不探测、不测试、不创建令牌、不写入目标（无费用；仍保存日志）",
       "IMAGES_DRY_RUN": "仅发现候选模型而不发送请求（写入 logs/images-dry-run.json）",
       "IMAGES_STEP": "每次探测前提示确认（交互式运行）"
     },
@@ -294,6 +295,9 @@
       "COMPLETED": "已在 {elapsed}s 内完成",
       "COMPLETED_WITH_ERRORS": "已在 {elapsed}s 内完成，存在错误",
       "RESET_COMPLETE": "重置完成 | 渠道：-{channels} / ~{channelsUpdated} | 模型：-{models} | 孤儿：-{orphans} | 令牌：-{tokens} | 选项：{options}"
+    },
+    "DRY": {
+      "HEADER": "[dry-run] 已为 {count} 个范围内模型计算定价（不写入）："
     }
   },
   "MODEL_TYPE": {
@@ -565,6 +569,12 @@
       "OPENROUTER_FETCHING_ENDPOINTS": "[pricing] OpenRouter 正在为 {count} 个模型抓取 /endpoints（并发={concurrency}）",
       "OPENROUTER_PREFETCH_DONE": "[pricing] OpenRouter /endpoints 预取：{with}/{total} 个模型获得定价，用时 {dt}ms",
       "OPENROUTER_LOADED": "[pricing] OpenRouter 已加载 {pricing} 条定价记录、{metadata} 条元数据记录",
+      "MODELS_DEV_FETCH_FAILED": "[pricing] 获取 models.dev 目录失败",
+      "MODELS_DEV_LOADED": "[pricing] models.dev 已加载 {count} 条定价记录",
+      "AIPRICING_FETCH_FAILED": "[pricing] 获取 aipricing.guru 目录失败",
+      "AIPRICING_LOADED": "[pricing] aipricing.guru 已加载 {count} 条定价记录",
+      "GENAI_PRICES_FETCH_FAILED": "[pricing] 获取 genai-prices 目录失败",
+      "GENAI_PRICES_LOADED": "[pricing] genai-prices 已加载 {count} 条定价记录",
       "DROP": "[pricing] 丢弃 {model} {channel}，原因={reason}{detail}"
     },
     "IMAGES": {
