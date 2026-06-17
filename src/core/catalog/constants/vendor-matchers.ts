@@ -59,6 +59,9 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   aisingapore: { modelPatterns: ["sea-lion"], strongPatterns: ["sea-lion"], nameAliases: ["ai singapore","aisingapore","sea-lion"], displayName: "AI Singapore" },
   stepfun: { modelPatterns: ["step-","step1","step2","step3"], nameAliases: ["stepfun","阶跃星辰","step"], displayName: "StepFun", icon: "Stepfun.Color" },
   katanemo: { modelPatterns: ["arch-router","arch-function"], nameAliases: ["katanemo"], displayName: "Katanemo" },
+  hcompany: { modelPatterns: ["holo2","holo-"], nameAliases: ["hcompany","h company"], displayName: "H Company" },
+  // NavyAI house finetunes (undisclosed bases): navy-roleplay, *-uncensored, emotional-36b.
+  navyai: { modelPatterns: ["navy-roleplay","devious-uncensored","revenant-uncensored","laborratse","emotional-36b"], nameAliases: ["navyai","navy"], displayName: "NavyAI" },
 };
 
 // Most-specific match wins, not first-by-definition-order: a prefix match beats a

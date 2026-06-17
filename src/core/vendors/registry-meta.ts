@@ -165,6 +165,19 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "hf_...",
   },
   {
+    kind: "scaleway",
+    label: "Scaleway",
+    // Generative APIs (api.scaleway.ai/v1); base is the host, runner + discovery
+    // append /v1. OpenAI-compatible; Bearer = IAM secret key (access-key id unused).
+    // EU-hosted, stable. 1M free tokens/new account then pay-per-use (gate behind a
+    // locked card). ~17 models: gemma-4, qwen3.5/3.6, mistral-medium-3.5, llama-3.3,
+    // gpt-oss-120b, devstral, plus embeddings/audio. Audio is OpenAI-shaped -> type 1.
+    defaultBaseUrl: "https://api.scaleway.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "IAM secret key (uuid)",
+    audioChannelType: 1,
+  },
+  {
     kind: "navyai",
     label: "NavyAI",
     // Freemium aggregator (api.navy/v1); base is the host, runner + discovery append
