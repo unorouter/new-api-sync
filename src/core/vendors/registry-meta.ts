@@ -165,6 +165,28 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "hf_...",
   },
   {
+    kind: "crowllm",
+    label: "CrowLLM",
+    // crowllm.com/v1 NewAPI gateway. Discord signup, $2 one-time credit, NO online
+    // topup (zero charge risk; dies when spent). Honest model ids (response model
+    // matches request). ~31 models: deepseek-v3/v3.2/v4, glm-4.6/4.7/5.x, kimi-k2.6
+    // variants, grok-4.x, ernie-5.1/4.5 (Baidu), gpt-oss-120b. Free lanes + bonus.
+    defaultBaseUrl: "https://crowllm.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (crowllm.com)",
+  },
+  {
+    kind: "freemodel",
+    label: "FreeModel",
+    // api.freemodel.dev OpenAI-compatible. Google/email signup, NO card; 1-month Pro
+    // trial unlocks the FULL frontier catalog (Claude opus/sonnet/haiku/fable, GPT-5.x,
+    // o3, Gemini). Its /v1/models lies (advertises only 4 GPT rows) so discovery uses
+    // a curated CONSTANT list, not the endpoint. The only free Claude lane we have.
+    defaultBaseUrl: "https://api.freemodel.dev",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "fe_oa_... (freemodel.dev)",
+  },
+  {
     kind: "scaleway",
     label: "Scaleway",
     // Generative APIs (api.scaleway.ai/v1); base is the host, runner + discovery
