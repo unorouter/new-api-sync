@@ -165,6 +165,27 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "hf_...",
   },
   {
+    kind: "logfare",
+    label: "Logfare",
+    // OpenAI-compatible (logfare.ai/v1); base is the host, runner + discovery append
+    // /v1. Free, no rate limits; account-level training opt-in unlocks all models.
+    // Upstreams are flaky (frequent "temporarily unavailable") so the probe keeps
+    // only what responds at sync time. ~8 models (deepseek/kimi/glm/gemini).
+    defaultBaseUrl: "https://logfare.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "lfu_... (logfare.ai/register)",
+  },
+  {
+    kind: "opencodezen",
+    label: "OpenCode Zen",
+    // OpenAI-compatible; base is the host + "/zen", runner + discovery append /v1.
+    // Curated coding/RP catalog; only the "-free" variants + big-pickle work without
+    // billing (discovery filters to those). Instant key from opencode.ai/auth, no card.
+    defaultBaseUrl: "https://opencode.ai/zen",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (opencode.ai/auth)",
+  },
+  {
     kind: "zai",
     label: "Z.ai",
     // Host only: new-api's ZHIPU_V4 (26) adapter appends /api/paas/v4/chat/completions
