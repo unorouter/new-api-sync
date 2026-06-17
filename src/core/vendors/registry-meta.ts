@@ -165,6 +165,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "hf_...",
   },
   {
+    kind: "navyai",
+    label: "NavyAI",
+    // Freemium aggregator (api.navy/v1); base is the host, runner + discovery append
+    // /v1. Free tier = ~157 non-premium models (GPT-5 line, o3, Gemini 2.5/3, full
+    // DeepSeek, Grok-4.x, Mistral, Cohere); 150k TPD / 20 RPD. Discovery filters out
+    // premium:true (paid-only) rows. Discord acct >= 7 days to generate a key.
+    defaultBaseUrl: "https://api.navy",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-navy-...",
+  },
+  {
     kind: "logfare",
     label: "Logfare",
     // OpenAI-compatible (logfare.ai/v1); base is the host, runner + discovery append

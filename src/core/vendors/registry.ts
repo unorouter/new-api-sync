@@ -29,6 +29,7 @@ import { discoverSiliconFlowModels } from "./siliconflow/discovery";
 import { discoverLlm7Models } from "./llm7/discovery";
 import { discoverOpenCodeZenModels } from "./opencodezen/discovery";
 import { discoverLogfareModels } from "./logfare/discovery";
+import { discoverNavyAiModels } from "./navyai/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -56,6 +57,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   llm7: discoverLlm7Models,
   opencodezen: discoverOpenCodeZenModels,
   logfare: discoverLogfareModels,
+  navyai: discoverNavyAiModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {
