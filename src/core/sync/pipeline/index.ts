@@ -273,6 +273,8 @@ export async function runProviderPipeline(
   // while the target is paid leaks the model. Only a name with no priced target
   // falls back to free (ratio 0) -- the genuinely-free-gateway default.
   const snapshotPricing = parseSnapshotPricing(targetSnapshot);
+  const restoredFromSnapshot: string[] = [];
+  const defaultedFree: string[] = [];
   for (const channel of channels) {
     for (const modelName of parseModelList(channel.models)) {
       if (isRoutingOnlyAlias(modelName)) continue;
@@ -311,11 +313,27 @@ export async function runProviderPipeline(
       // would clobber the live paid ratio with $0 (the gemini-3.1-pro-preview
       // partial-sync regression). Free defaults stay reserved for names with no
       // existing paid price anywhere.
-      if (restoreSnapshotPrice(modelName, optionMaps, snapshotPricing)) continue;
+      if (restoreSnapshotPrice(modelName, optionMaps, snapshotPricing)) {
+        restoredFromSnapshot.push(modelName);
+        continue;
+      }
       optionMaps.modelRatio[modelName] = 0;
       optionMaps.completionRatio[modelName] = 1;
+      defaultedFree.push(modelName);
     }
   }
+  // Make the safety-net visible: "restored" means a published model carried no
+  // price this run but kept its live PAID ratio (e.g. a private channel serving
+  // a paid model). "defaulted free" means it shipped at ratio 0. Either line on a
+  // model you expect to be paid is the gemini-3.1-pro-preview $0 regression.
+  if (restoredFromSnapshot.length > 0)
+    consola.info(
+      `[safety-net] kept live paid price for ${restoredFromSnapshot.length} unpriced published model(s): ${restoredFromSnapshot.sort().join(", ")}`,
+    );
+  if (defaultedFree.length > 0)
+    consola.warn(
+      `[safety-net] defaulted ${defaultedFree.length} unpriced published model(s) to FREE (ratio 0): ${defaultedFree.sort().join(", ")}`,
+    );
 
   const models = buildDesiredModels({
     channels,
