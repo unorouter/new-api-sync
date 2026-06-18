@@ -204,6 +204,26 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "ng-... (naga.ac)",
   },
   {
+    kind: "infercom",
+    label: "Infercom",
+    // api.infercom.ai - EU/Germany-hosted, GDPR, zero-retention. OpenAI-compat. EUR5 signup
+    // credit (no card) then PAYG. 9 models: DeepSeek-V3.1/V3.2, Llama-3.3-70B, MiniMax-M2.5/M2.7,
+    // gemma-4-31b, gpt-oss-120b + Whisper (audio) + E5-Mistral (embedding). Failover lane.
+    defaultBaseUrl: "https://api.infercom.ai",
+    defaultRatio: 0,
+    audioChannelType: 1,
+    apiKeyPlaceholder: "<infercom key> (infercom.ai)",
+  },
+  {
+    kind: "minimax",
+    label: "MiniMax",
+    // api.minimax.io - direct MiniMax (distinct vendor). OpenAI-compat. Trial credits (email/
+    // phone signup, no card). Frontier M2.x/M3, 1M context. Dynamic; probe drops failures.
+    defaultBaseUrl: "https://api.minimax.io",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "<minimax key> (platform.minimax.io)",
+  },
+  {
     kind: "ollama",
     label: "Ollama Cloud",
     // ollama.com - OpenAI-compat. Base is root; runner + discovery append /v1. Free tier ~21

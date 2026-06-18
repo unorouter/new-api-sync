@@ -42,6 +42,8 @@ import { discoverAkashMlModels } from "./akashml/discovery";
 import { discoverNscaleModels } from "./nscale/discovery";
 import { discoverNagaModels } from "./naga/discovery";
 import { discoverOllamaModels } from "./ollama/discovery";
+import { discoverInfercomModels } from "./infercom/discovery";
+import { discoverMiniMaxModels } from "./minimax/discovery";
 import { discoverVoidAiModels } from "./voidai/discovery";
 import { discoverZanityModels } from "./zanity/discovery";
 
@@ -82,6 +84,8 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   nscale: discoverNscaleModels,
   naga: discoverNagaModels,
   ollama: discoverOllamaModels,
+  infercom: discoverInfercomModels,
+  minimax: discoverMiniMaxModels,
   voidai: discoverVoidAiModels,
   zanity: discoverZanityModels,
 };
