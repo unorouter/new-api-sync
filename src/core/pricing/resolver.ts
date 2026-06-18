@@ -1,7 +1,9 @@
+import { toBareName } from "@core/catalog/bare-name";
 import { type BasellmEntry, lookup } from "@core/catalog/metadata";
 import { t } from "@server/i18n";
 import { fetchAipricingSource } from "./sources/aipricing";
 import { buildBasellmCanonicalSource } from "./sources/basellm";
+import { buildCuratedSource } from "./sources/curated";
 import { fetchGenaiPricesSource } from "./sources/genai-prices";
 import { fetchLiteLLMSource } from "./sources/litellm";
 import { fetchLlmPricesSource } from "./sources/llm-prices";
@@ -47,6 +49,8 @@ export async function fetchAllPricingSources(
     modelsDev,
     aipricing,
     genaiPrices,
+    // last = lowest priority: only fills gaps live sources leave blank
+    buildCuratedSource(),
   ].filter((s): s is PricingSource => s != null);
 }
 
@@ -62,7 +66,7 @@ export function resolveBasePricing(
   return undefined;
 }
 
-export function resolveSourceMetadata(
+function resolveOneName(
   modelName: string,
   sources: PricingSource[],
   reverseMapping: Map<string, string>,
@@ -73,6 +77,18 @@ export function resolveSourceMetadata(
     if (hit) Object.assign(merged, hit.value);
   }
   return merged;
+}
+
+export function resolveSourceMetadata(
+  modelName: string,
+  sources: PricingSource[],
+  reverseMapping: Map<string, string>,
+): SourceMetadata {
+  // A `{model}:free` published name has no metadata key of its own; fuzzy-matching
+  // the literal `:free` lands on a wrong dateless candidate, so resolve the bare
+  // identity (real date/description). The suffix carries no unique metadata.
+  const bare = toBareName(modelName);
+  return resolveOneName(bare === modelName ? modelName : bare, sources, reverseMapping);
 }
 
 export function buildModelMetadata(opts: {

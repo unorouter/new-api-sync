@@ -105,6 +105,7 @@ export type PricingSourceName =
   | "models-dev"
   | "aipricing"
   | "genai-prices"
+  | "curated"
   | "channel";
 
 export interface MergedModel {
