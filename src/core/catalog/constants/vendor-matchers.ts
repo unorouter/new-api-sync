@@ -37,7 +37,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   baidu: { modelPatterns: ["ernie-","qianfan-","embedding-v1"], nameAliases: ["百度","文心"], displayName: "Baidu", icon: "Wenxin" },
   xunfei: { modelPatterns: ["sparkdesk"], nameAliases: ["讯飞","spark"], displayName: "Xunfei", icon: "Spark.Color" },
   tencent: { modelPatterns: ["hunyuan-","hy3-","hy4-"], nameAliases: ["腾讯","混元"], displayName: "Tencent", icon: "Hunyuan" },
-  bytedance: { modelPatterns: ["doubao-"], nameAliases: ["字节","豆包","doubao"], displayName: "ByteDance", icon: "Doubao.Color" },
+  bytedance: { modelPatterns: ["doubao-","seed-","sdxl-lightning"], strongPatterns: ["sdxl-lightning"], nameAliases: ["字节","豆包","doubao","bytedance"], displayName: "ByteDance", icon: "Doubao.Color" },
   stabilityai: { modelPatterns: ["stable-diffusion","stability"], nameAliases: ["stability ai","stabilityai"], displayName: "Stability AI", icon: "Stability" },
   yi: { modelPatterns: ["yi-"], displayName: "Yi", icon: "Yi.Color" },
   ai360: { modelPatterns: ["360gpt"], displayName: "360 AI", icon: "Ai360" },

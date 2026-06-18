@@ -187,6 +187,18 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "akml-... (akashml.com)",
   },
   {
+    kind: "nscale",
+    label: "Nscale",
+    // inference.api.nscale.com - serverless GPU cloud. Base is root; runner + discovery append
+    // /v1 -> /v1/chat/completions + /v1/models. 31 models: small/distill text (Qwen3, R1-Distills,
+    // Llama, gpt-oss, Kimi-K2.5) + image (FLUX.1-schnell/SDXL). PAYG (all billed), $5 signup credit.
+    // Service token (nsk JWT, ~3-month expiry - rotate). Cheap failover lane; pricing cap holds.
+    defaultBaseUrl: "https://inference.api.nscale.com",
+    defaultRatio: 0,
+    imageChannelType: 1,
+    apiKeyPlaceholder: "eyJ... (nscale service token, 3-month - rotate)",
+  },
+  {
     kind: "aionlabs",
     label: "Aion Labs",
     // api.aionlabs.ai/v1; /v1/models returns a { models: [...] } envelope. 5 models
