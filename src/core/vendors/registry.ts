@@ -40,6 +40,9 @@ import { discoverAionLabsModels } from "./aionlabs/discovery";
 import { discoverIoNetModels } from "./ionet/discovery";
 import { discoverAkashMlModels } from "./akashml/discovery";
 import { discoverNscaleModels } from "./nscale/discovery";
+import { discoverNagaModels } from "./naga/discovery";
+import { discoverVoidAiModels } from "./voidai/discovery";
+import { discoverZanityModels } from "./zanity/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -76,6 +79,9 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   ionet: discoverIoNetModels,
   akashml: discoverAkashMlModels,
   nscale: discoverNscaleModels,
+  naga: discoverNagaModels,
+  voidai: discoverVoidAiModels,
+  zanity: discoverZanityModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {

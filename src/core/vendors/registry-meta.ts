@@ -187,6 +187,51 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "akml-... (akashml.com)",
   },
   {
+    kind: "naga",
+    label: "NagaAI",
+    // api.naga.ac - multi-vendor gateway. Base is root; runner + discovery append /v1.
+    // Free tier (~11 :free models): chat (nemotron-3-ultra/super, llama-3.3-70b, llama-4-scout,
+    // sonar) + image (dall-e-3, flux-1-schnell, sdxl) + audio (eleven-multilingual-v2 TTS,
+    // gpt-4o-mini-tts, whisper STT). Authentic (served model matches request). OAuth/email signup,
+    // no card. ChimeraGPT lineage but real free tier; probe drops flaky/capacity-gated models.
+    defaultBaseUrl: "https://api.naga.ac",
+    defaultRatio: 0,
+    imageChannelType: 1,
+    audioChannelType: 1,
+    // Free tier has a tight shared RPM; probing all 11 models in a burst trips 429.
+    // 429 = capacity, not a dead model - keep it (live traffic spaces out).
+    acceptRateLimited: true,
+    apiKeyPlaceholder: "ng-... (naga.ac)",
+  },
+  {
+    kind: "voidai",
+    label: "VoidAI",
+    // api.voidai.app - multi-vendor gateway. Base is root; runner + discovery append /v1.
+    // Free tier ~77 models BUT gpt-5.x/o3/o4/claude/gemini-pro are FAKED (gpt-5.2 self-reports
+    // GPT-4.1) or plan-gated -> discovery excludes them. Keeps ~39 authentic opens (deepseek/
+    // kimi/glm/qwen/gemini-flash/gpt-oss/sonar + image/embedding). OAuth signup, no card.
+    defaultBaseUrl: "https://api.voidai.app",
+    defaultRatio: 0,
+    imageChannelType: 1,
+    audioChannelType: 1,
+    apiKeyPlaceholder: "sk-voidai-... (voidai.app)",
+  },
+  {
+    kind: "zanity",
+    label: "Zanity",
+    // api.zanity.xyz - RP-focused gateway. Base is root; runner + discovery append /v1.
+    // Free tier 100K tok/day, 500 req/day, no card. ~27 free (access.free): llama family,
+    // deepseek, mistral, flux, bge, whisper, elevenlabs/speechify TTS + house RP (zanity-rp-large,
+    // grok-fun). Discord-community signup. Probe drops flaky (zanity-rp-large).
+    defaultBaseUrl: "https://api.zanity.xyz",
+    defaultRatio: 0,
+    imageChannelType: 1,
+    audioChannelType: 1,
+    // Free tier 500 req/day shared; burst-probing trips 429. 429 = capacity, keep the model.
+    acceptRateLimited: true,
+    apiKeyPlaceholder: "vc-... (zanity.xyz)",
+  },
+  {
     kind: "nscale",
     label: "Nscale",
     // inference.api.nscale.com - serverless GPU cloud. Base is root; runner + discovery append
