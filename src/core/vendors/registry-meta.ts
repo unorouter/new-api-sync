@@ -204,6 +204,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "ng-... (naga.ac)",
   },
   {
+    kind: "ollama",
+    label: "Ollama Cloud",
+    // ollama.com - OpenAI-compat. Base is root; runner + discovery append /v1. Free tier ~21
+    // models (gpt-oss, gemma3/4, minimax, nemotron-3, qwen3-coder, ministral-3, devstral, rnj-1);
+    // ~14 frontier (deepseek-v4/v3.2, kimi-k2.x, glm-5.x) are subscription-gated -> probe drops.
+    // GPU-time metered (5h+weekly reset). Static key via ollama.com/settings/keys (GitHub OAuth).
+    defaultBaseUrl: "https://ollama.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "<id>.<secret> (ollama.com/settings/keys)",
+  },
+  {
     kind: "voidai",
     label: "VoidAI",
     // api.voidai.app - multi-vendor gateway. Base is root; runner + discovery append /v1.
