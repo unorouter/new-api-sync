@@ -126,7 +126,7 @@
       "BLACKLIST_HELP": "Models excluded from every provider in every config.",
       "MODEL_MAPPING_HELP": "Renames applied to every config. Global entries override per-config entries on the same key.",
       "SAVE": "Save global settings",
-      "SAVING": "Saving\u2026",
+      "SAVING": "Saving…",
       "SAVED": "Global settings saved"
     },
     "PROVIDERS": {
@@ -259,7 +259,8 @@
       "RUN_DESC": "run sync pipeline",
       "RESET_DESC": "delete sync managed resources",
       "UI_DESC": "launch the web UI (Elysia and React dashboard)",
-      "IMAGES_DESC": "probe image-edit channels per provider/model (writes logs/images-results.json)"
+      "IMAGES_DESC": "probe image-edit channels per provider/model (writes logs/images-results.json)",
+      "METADATA_DESC": "re-seed model metadata (release date, params, context, description) on existing models; no probing/testing, no channel or pricing changes"
     },
     "OPTION": {
       "CONFIG_PATH": "config file path",
@@ -475,7 +476,10 @@
       "SUMMARY": "Metadata: {orHits} from OpenRouter ({orFuzzy} fuzzy), {blmHits} from basellm ({blmFuzzy} fuzzy), {total} enriched total",
       "FUZZY_OR": "Fuzzy OR: \"{model}\" -> \"{key}\" ({score})",
       "FUZZY_BLM_DESC": "Fuzzy BLM desc: \"{model}\" -> \"{key}\" ({score})",
-      "FUZZY_BLM_TAGS": "Fuzzy BLM tags: \"{model}\" -> \"{key}\" ({score})"
+      "FUZZY_BLM_TAGS": "Fuzzy BLM tags: \"{model}\" -> \"{key}\" ({score})",
+      "RESEED_START": "[metadata] re-seeding metadata for {count} models",
+      "RESEED_DONE": "[metadata] re-seed done: {patched} patched, {skipped} skipped, {failed} failed",
+      "RESEED_FAILED_LIST": "[metadata] failed to update: {items}"
     },
     "TESTER": {
       "AUTHENTICITY_LOADED": "[authenticity-blacklist] Loaded {count} entries",

@@ -1,5 +1,9 @@
 import { applyModelFilter, applyOnlyProviders, loadConfig } from "@core/config";
 import { runImageProbe } from "@core/probes/images/pipeline";
+import {
+  printMetadataSummary,
+  runMetadataSync,
+} from "@core/sync/metadata";
 import { runReset } from "@core/sync/reset";
 import { printResetSummary, printRunSummary, runSync } from "@core/sync/run";
 import { readLocaleFromGlobal, setLocale, t } from "@server/i18n";
@@ -76,6 +80,33 @@ program
         onlyProviders: options.only.length > 0,
       });
       printResetSummary(result);
+    },
+  );
+
+program
+  .command("metadata")
+  .description(t("CLI.COMMAND.METADATA_DESC"))
+  .option("-c, --config <path>", t("CLI.OPTION.CONFIG_PATH"))
+  .option(
+    "--models <globs>",
+    t("CLI.OPTION.ONLY_MODELS"),
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[],
+  )
+  .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
+  .action(
+    async (options: {
+      config?: string;
+      models: string[];
+      verbose?: boolean;
+    }) => {
+      if (options.verbose) consola.level = 4;
+      const config = applyModelFilter(
+        await loadConfig(options.config),
+        options.models,
+      );
+      const result = await runMetadataSync(config);
+      printMetadataSummary(result);
     },
   );
 
