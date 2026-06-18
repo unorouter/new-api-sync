@@ -19,7 +19,12 @@ import {
   setDryRunMode,
   writeTestReport,
 } from "@core/testing/runner";
-import type { DesiredState, SyncRunResult, TargetSnapshot } from "@core/types";
+import type {
+  DesiredState,
+  DiffOperation,
+  SyncRunResult,
+  TargetSnapshot,
+} from "@core/types";
 import { MANAGED_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
 import { drainUpstreamErrors } from "@core/vendors/newapi/resources";
@@ -131,10 +136,23 @@ export async function runSync(
     if (dryRun) {
       const diff = buildSyncDiff(config, desired, snap);
       printDryRunPricing(desired, snap, config);
+      // Project the computed diff into the summary changeset so the dry-run
+      // prints what WOULD be created/updated/deleted (no writes happen).
+      const byType = <T>(ops: DiffOperation<T>[], t: DiffOperation<T>["type"]) =>
+        ops.filter((o) => o.type === t).map((o) => o.key);
       const apply: SyncRunResult["apply"] = {
-        channels: { created: [], updated: [], deleted: [] },
-        models: { created: [], updated: [], deleted: [], orphansDeleted: 0 },
-        options: { updated: [] },
+        channels: {
+          created: byType(diff.channels, "create"),
+          updated: byType(diff.channels, "update"),
+          deleted: byType(diff.channels, "delete"),
+        },
+        models: {
+          created: byType(diff.models, "create"),
+          updated: byType(diff.models, "update"),
+          deleted: byType(diff.models, "delete"),
+          orphansDeleted: 0,
+        },
+        options: { updated: byType(diff.options, "update") },
         errors: [],
       };
       const successfulProviders = providerReports.filter(

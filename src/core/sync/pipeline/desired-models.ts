@@ -1,3 +1,4 @@
+import { toBareName } from "@core/catalog/bare-name";
 import { getTaskModelOverride } from "@core/catalog/constants/channel-types";
 import {
   ENDPOINT_DEFAULT_PATHS,
@@ -93,17 +94,24 @@ export function buildDesiredModels(opts: {
     }
   }
 
+  // Also resolve metadata under each name's bare form so a `{model}:free`
+  // published name inherits the base model's description/tags (the fuzzy index
+  // has no `:free` key).
   const metadataMap = buildMetadataMap({
-    modelNames: models.keys(),
+    modelNames: new Set([
+      ...models.keys(),
+      ...[...models.keys()].map((n) => toBareName(n)),
+    ]),
     basellmEntries: opts.basellmEntries,
     openRouterDescriptions: opts.openRouterDescriptions,
     modelMapping: opts.modelMapping,
   });
-  for (const [modelName, meta] of metadataMap) {
-    const existing = models.get(modelName);
-    if (existing) {
-      if (meta.description) existing.description = meta.description;
-      if (meta.tags) existing.tags = meta.tags;
+  for (const [modelName, spec] of models) {
+    const meta =
+      metadataMap.get(modelName) ?? metadataMap.get(toBareName(modelName));
+    if (meta) {
+      if (meta.description) spec.description = meta.description;
+      if (meta.tags) spec.tags = meta.tags;
     }
   }
 

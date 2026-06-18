@@ -408,21 +408,33 @@ function pushBucketsAsTiers(
           ? getTaskModelOverride(m.exposed)
           : undefined;
 
-      const modelMapping: Record<string, string> = {};
-      if (m.exposed !== m.upstream) modelMapping[m.exposed] = m.upstream;
+      // Full free/paid split: a genuinely-free channel (groupRatio 0) publishes
+      // the model as `{name}:free` so it has a distinct identity that can never
+      // route to a paid channel; paid channels keep the base name. Routing is
+      // unchanged (modelMapping -> m.upstream).
+      const publishedName =
+        groupRatio === 0 && !m.exposed.endsWith(":free")
+          ? `${m.exposed}:free`
+          : m.exposed;
 
-      const models = [m.exposed];
+      const modelMapping: Record<string, string> = {};
+      if (publishedName !== m.upstream)
+        modelMapping[publishedName] = m.upstream;
+      if (publishedName !== m.exposed)
+        mirrorAliasRatio(modelRatios, m.exposed, publishedName);
+
+      const models = [publishedName];
       let hasContext1mAlias = false;
       if (isAnthropicNativeOffer(offer) && shouldAddContext1mAlias(m.exposed)) {
-        const alias = `${m.exposed}${CLAUDE_CONTEXT_1M_SUFFIX}`;
+        const alias = `${publishedName}${CLAUDE_CONTEXT_1M_SUFFIX}`;
         models.push(alias);
         modelMapping[alias] = m.upstream;
-        mirrorAliasRatio(modelRatios, m.exposed, alias);
+        mirrorAliasRatio(modelRatios, publishedName, alias);
         hasContext1mAlias = true;
       }
 
       tiers.push({
-        channelName: `${offer.sanitizedBase}-${sanitizeGroupName(m.exposed)}`,
+        channelName: `${offer.sanitizedBase}-${sanitizeGroupName(publishedName)}`,
         vendor: offer.vendor,
         channelType: override?.channelType ?? offer.channelType,
         baseUrl: baseUrlTrim + (override?.baseUrlSuffix ?? ""),
@@ -430,7 +442,7 @@ function pushBucketsAsTiers(
         providerTag: offer.provider,
         channelRemark: offer.channelRemark,
         groupRatio,
-        groupDescription: `${m.exposed} via ${offer.provider} (${offer.vendor})`,
+        groupDescription: `${publishedName} via ${offer.provider} (${offer.vendor})`,
         models,
         modelMapping: Object.keys(modelMapping).length
           ? modelMapping
