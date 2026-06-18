@@ -62,6 +62,12 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   hcompany: { modelPatterns: ["holo2","holo-"], nameAliases: ["hcompany","h company"], displayName: "H Company" },
   // NavyAI house finetunes (undisclosed bases): navy-roleplay, *-uncensored, emotional-36b.
   navyai: { modelPatterns: ["navy-roleplay","devious-uncensored","revenant-uncensored","laborratse","emotional-36b"], nameAliases: ["navyai","navy"], displayName: "NavyAI" },
+  sao10k: { modelPatterns: ["euryale","stheno","lunaris","hanami","fimbulvetr"], strongPatterns: ["euryale","stheno","lunaris"], nameAliases: ["sao10k"], displayName: "Sao10K" },
+  steelskull: { modelPatterns: ["nevoria","ms-nevoria","steelskull"], strongPatterns: ["nevoria"], nameAliases: ["steelskull"], displayName: "Steelskull" },
+  bruhzwater: { modelPatterns: ["sapphira"], strongPatterns: ["sapphira"], nameAliases: ["bruhzwater"], displayName: "BruhzWater" },
+  fallenmerick: { modelPatterns: ["violet-lotus","mn-violet"], strongPatterns: ["violet-lotus"], nameAliases: ["fallenmerick"], displayName: "FallenMerick" },
+  meganova: { modelPatterns: ["manta-mini","manta-flash","manta-pro"], nameAliases: ["meganova","meganova-ai"], displayName: "MegaNova" },
+  aionlabs: { modelPatterns: ["aion-rp","aion-1","aion-2"], strongPatterns: ["aion-rp"], nameAliases: ["aion labs","aionlabs"], displayName: "Aion Labs" },
 };
 
 // Most-specific match wins, not first-by-definition-order: a prefix match beats a

@@ -35,6 +35,7 @@ import { discoverNavyAiModels } from "./navyai/discovery";
 import { discoverScalewayModels } from "./scaleway/discovery";
 import { discoverFreeModelModels } from "./freemodel/discovery";
 import { discoverCrowLlmModels } from "./crowllm/discovery";
+import { discoverMegaNovaModels } from "./meganova/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -66,6 +67,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   scaleway: discoverScalewayModels,
   freemodel: discoverFreeModelModels,
   crowllm: discoverCrowLlmModels,
+  meganova: discoverMegaNovaModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {

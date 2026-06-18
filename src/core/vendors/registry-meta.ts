@@ -165,6 +165,18 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "hf_...",
   },
   {
+    kind: "meganova",
+    label: "MegaNova",
+    // api.meganova.ai/v1 RP-focused gateway (Character Studio). Email signup + Turnstile.
+    // Daily-reset free quota on a subset (RP finetunes: Nevoria/Stheno/Euryale/Sapphira/
+    // Violet-Lotus + Mistral-Small + manta house); frontier (DeepSeek/GLM/claude/gemini)
+    // credit-gated. Discovery drops non-text; probe drops the credit-gated. vendor/model
+    // slugs collapse to bare names via the normalizer.
+    defaultBaseUrl: "https://api.meganova.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (console.meganova.ai)",
+  },
+  {
     kind: "crowllm",
     label: "CrowLLM",
     // crowllm.com/v1 NewAPI gateway. Discord signup, $2 one-time credit, NO online
