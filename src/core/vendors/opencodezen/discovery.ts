@@ -7,12 +7,9 @@ interface OpenCodeZenModel {
   id: string;
 }
 
-// OpenCode Zen serves a mixed free+paid catalog from one /v1/models list, but only
-// the "-free" variants (and the big-pickle stealth model) work without an attached
-// payment method; everything else 402s. Keep only the genuinely free ids so the
-// probe never wastes time on paid models we cannot use.
-const FREE_ONLY = (id: string): boolean =>
-  id.endsWith("-free") || id === "big-pickle";
+// OpenCode Zen serves a mixed free+paid catalog from one /v1/models list. Expose
+// everything and let the probe drop the paid models (they 402 without billing) -
+// dynamic, so new free models are picked up automatically without editing a list.
 
 export async function discoverOpenCodeZenModels(
   baseUrl: string,
@@ -35,6 +32,5 @@ export async function discoverOpenCodeZenModels(
   });
 
   const list = Array.isArray(data) ? data : (data?.data ?? []);
-  const models = list.map((m) => m.id).filter(FREE_ONLY);
-  return { models, maxOutputByModel: new Map() };
+  return { models: list.map((m) => m.id), maxOutputByModel: new Map() };
 }

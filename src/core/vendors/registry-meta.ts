@@ -165,6 +165,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "hf_...",
   },
   {
+    kind: "aionlabs",
+    label: "Aion Labs",
+    // api.aionlabs.ai/v1; /v1/models returns a { models: [...] } envelope. 5 models
+    // (aion-1.0/-mini/-2.0/-2.5 + aion-rp RP finetune); free tier, probe drops the
+    // dead/empty ones. 15 RPM / 20K tok/day.
+    defaultBaseUrl: "https://api.aionlabs.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "alv2_... (aionlabs.ai)",
+  },
+  {
     kind: "meganova",
     label: "MegaNova",
     // api.meganova.ai/v1 RP-focused gateway (Character Studio). Email signup + Turnstile.
