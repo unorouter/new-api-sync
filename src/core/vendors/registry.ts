@@ -38,6 +38,7 @@ import { discoverCrowLlmModels } from "./crowllm/discovery";
 import { discoverMegaNovaModels } from "./meganova/discovery";
 import { discoverAionLabsModels } from "./aionlabs/discovery";
 import { discoverIoNetModels } from "./ionet/discovery";
+import { discoverAkashMlModels } from "./akashml/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -72,6 +73,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   meganova: discoverMegaNovaModels,
   aionlabs: discoverAionLabsModels,
   ionet: discoverIoNetModels,
+  akashml: discoverAkashMlModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {

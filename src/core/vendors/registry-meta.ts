@@ -176,6 +176,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "io-v2-... (180-day, rotate)",
   },
   {
+    kind: "akashml",
+    label: "AkashML",
+    // api.akashml.com - Akash Network decentralized GPU. Base is root; runner + discovery
+    // append /v1 -> /v1/chat/completions + /v1/models. 6 models, all overlap io.net
+    // (DeepSeek-V4-Flash, Kimi-K2.7-Code, Qwen3.5/3.6-35B, Llama-3.3-70B, MiniMax-M2.5).
+    // Wired as a failover backend. $100 signup credit then PAYG (card-gated), not permanent free.
+    defaultBaseUrl: "https://api.akashml.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "akml-... (akashml.com)",
+  },
+  {
     kind: "aionlabs",
     label: "Aion Labs",
     // api.aionlabs.ai/v1; /v1/models returns a { models: [...] } envelope. 5 models
