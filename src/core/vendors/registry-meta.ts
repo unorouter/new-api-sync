@@ -165,6 +165,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "hf_...",
   },
   {
+    kind: "ionet",
+    label: "io.net",
+    // Decentralized GPU inference. Base ends at "/api" so the runner + discovery append
+    // /v1 -> /api/v1/chat/completions + /api/v1/models. Free tier, ~29 frontier models
+    // (DeepSeek-V4, Kimi-K2.x, GLM, MiniMax, Qwen3.x, Llama-4, gpt-oss). API keys expire
+    // ~180 days (rotate). Email-OTP signup, no card.
+    defaultBaseUrl: "https://api.intelligence.io.solutions/api",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "io-v2-... (180-day, rotate)",
+  },
+  {
     kind: "aionlabs",
     label: "Aion Labs",
     // api.aionlabs.ai/v1; /v1/models returns a { models: [...] } envelope. 5 models
