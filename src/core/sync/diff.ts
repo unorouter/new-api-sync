@@ -312,9 +312,14 @@ export function buildSyncDiff(
 
   const vendorNameToId = buildVendorIdMap(snapshot.vendors);
   const modelOps: DiffOperation<ModelMeta>[] = [];
-  const serverSupportsMetadata = snapshot.models.some(
-    (m) => m.metadata !== undefined,
-  );
+  // Metadata support is inferred from the snapshot carrying a metadata field.
+  // An EMPTY snapshot (e.g. the first sync after `reset`) carries none, which
+  // must NOT read as "unsupported" or the whole run ships without metadata;
+  // assume supported when there are no models to disprove it. Only a non-empty
+  // snapshot whose models all lack the field indicates a genuinely old server.
+  const serverSupportsMetadata =
+    snapshot.models.length === 0 ||
+    snapshot.models.some((m) => m.metadata !== undefined);
 
   const existingModelsByName = new Map<string, ModelMeta>();
   for (const model of snapshot.models) {
