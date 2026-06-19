@@ -204,6 +204,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "ng-... (naga.ac)",
   },
   {
+    kind: "internlm",
+    label: "InternLM",
+    // 书生 Shanghai AI Lab. chat.intern-ai.org.cn; base ends /api, runner + discovery append /v1.
+    // ~90M tokens/month free, own models (internlm3-latest, internvl2.5-latest vision). GitHub/email
+    // signup, no real-name. Dynamic discovery.
+    defaultBaseUrl: "https://chat.intern-ai.org.cn/api",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "<internlm token> (internlm.intern-ai.org.cn/api/tokens)",
+  },
+  {
     kind: "streamlake",
     label: "StreamLake",
     // 快手 Kuaishou Vanchin. Base ends at /coding; runner appends /v1 -> /api/gateway/coding/v1/

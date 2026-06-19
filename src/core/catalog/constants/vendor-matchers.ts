@@ -45,6 +45,8 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   essentialai: { modelPatterns: ["rnj-"], strongPatterns: ["rnj-"], nameAliases: ["essentialai","essential ai"], displayName: "Essential AI" },
   meituan: { modelPatterns: ["longcat"], strongPatterns: ["longcat"], nameAliases: ["meituan","美团","longcat"], displayName: "Meituan" },
   kuaishou: { modelPatterns: ["kat-coder","kat-dev","kwaipilot"], strongPatterns: ["kat-coder","kat-dev"], nameAliases: ["kuaishou","快手","kwaipilot","streamlake"], displayName: "Kuaishou" },
+  internlm: { modelPatterns: ["internlm","internvl","intern-s","intern-latest"], strongPatterns: ["internlm","internvl","intern-s"], nameAliases: ["internlm","intern","书生","浦语","shanghai ai"], displayName: "InternLM", icon: "InternLM" },
+  sensenova: { modelPatterns: ["sensechat","sensenova","sense-"], strongPatterns: ["sensechat","sensenova"], nameAliases: ["sensenova","sensetime","商汤"], displayName: "SenseNova", icon: "SenseNova" },
   voidai: { modelPatterns: ["umbra"], strongPatterns: ["umbra"], nameAliases: ["voidai","void ai"], displayName: "VoidAI" },
   zanity: { modelPatterns: ["zanity-rp","zanity"], strongPatterns: ["zanity-rp"], nameAliases: ["zanity"], displayName: "Zanity" },
   yi: { modelPatterns: ["yi-"], displayName: "Yi", icon: "Yi.Color" },
