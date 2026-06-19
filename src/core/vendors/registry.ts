@@ -45,6 +45,7 @@ import { discoverOllamaModels } from "./ollama/discovery";
 import { discoverQiniuModels } from "./qiniu/discovery";
 import { discoverStreamLakeModels } from "./streamlake/discovery";
 import { discoverInternLmModels } from "./internlm/discovery";
+import { discoverSenseNovaModels } from "./sensenova/discovery";
 import { discoverInfercomModels } from "./infercom/discovery";
 import { discoverMiniMaxModels } from "./minimax/discovery";
 import { discoverVoidAiModels } from "./voidai/discovery";
@@ -90,6 +91,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   qiniu: discoverQiniuModels,
   streamlake: discoverStreamLakeModels,
   internlm: discoverInternLmModels,
+  sensenova: discoverSenseNovaModels,
   infercom: discoverInfercomModels,
   minimax: discoverMiniMaxModels,
   voidai: discoverVoidAiModels,
