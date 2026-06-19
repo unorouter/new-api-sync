@@ -431,6 +431,18 @@ export const SIMPLE_PROVIDER_META = [
     acceptRateLimited: true,
     apiKeyPlaceholder: "keyless (or kilo.ai key)",
   },
+  {
+    kind: "uncloseai",
+    label: "UncloseAI",
+    // hermes.ai.unturf.com - UncloseAI/unturf community permacomputer, vllm-served, KEYLESS
+    // (no signup/card). Base is the host; runner + discovery append /v1. 1 chat model:
+    // Hermes-3-Llama-3.1-8B (Nous Research, RP-capable, 82k ctx). Sibling hosts (qwen closed,
+    // speech TTS) are separate subdomains, not wired here. Community-hosted -> can be slow/down.
+    defaultBaseUrl: "https://hermes.ai.unturf.com",
+    defaultRatio: 0,
+    acceptRateLimited: true,
+    apiKeyPlaceholder: "keyless",
+  },
 ] as const satisfies readonly SimpleProviderMeta[];
 
 export type SimpleProviderKind = (typeof SIMPLE_PROVIDER_META)[number]["kind"];
