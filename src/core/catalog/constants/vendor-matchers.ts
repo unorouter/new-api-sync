@@ -66,6 +66,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   pollinations: { modelPatterns: ["midijourney","openai-fast","openai-large","openai-roblox","openai-audio"], nameAliases: ["pollinations"], displayName: "Pollinations" },
   thedrummer: { modelPatterns: ["cydonia","skyfall","behemoth","rocinante","magidonia","tiger-gemma"], nameAliases: ["thedrummer","drummer"], displayName: "TheDrummer" },
   nexagi: { modelPatterns: ["nex-n2","nex-agi"], nameAliases: ["nexagi","nex agi","nex-agi"], displayName: "Nex AGI" },
+  poolside: { modelPatterns: ["laguna","malibu"], nameAliases: ["poolside"], displayName: "Poolside" },
   aisingapore: { modelPatterns: ["sea-lion"], strongPatterns: ["sea-lion"], nameAliases: ["ai singapore","aisingapore","sea-lion"], displayName: "AI Singapore" },
   stepfun: { modelPatterns: ["step-","step1","step2","step3"], nameAliases: ["stepfun","阶跃星辰","step"], displayName: "StepFun", icon: "Stepfun.Color" },
   katanemo: { modelPatterns: ["arch-router","arch-function"], nameAliases: ["katanemo"], displayName: "Katanemo" },

@@ -416,6 +416,21 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "{id}.{secret}",
     channelType: 26,
   },
+  {
+    kind: "kilo",
+    label: "Kilo Code",
+    // api.kilo.ai/api/gateway - OpenAI-compat coding gateway. KEYLESS for free models
+    // (200 req/hr per IP); base is the gateway root, new-api + runner append
+    // /v1/chat/completions, discovery fetches /models (no /v1). ~9 :free models
+    // (nemotron-3-ultra-550b/super-120b/nano-omni/content-safety, stepfun/step-3.7-flash,
+    // nex-agi/nex-n2-pro, cohere/north-mini-code, poolside/laguna-m.1+xs.2). Big contexts
+    // (up to 1M). vendor/model slugs bare-collapse via the normalizer.
+    defaultBaseUrl: "https://api.kilo.ai/api/gateway",
+    defaultRatio: 0,
+    // Free pool is shared per-IP (200 req/hr); burst-probing can 429. 429 = capacity, keep.
+    acceptRateLimited: true,
+    apiKeyPlaceholder: "keyless (or kilo.ai key)",
+  },
 ] as const satisfies readonly SimpleProviderMeta[];
 
 export type SimpleProviderKind = (typeof SIMPLE_PROVIDER_META)[number]["kind"];

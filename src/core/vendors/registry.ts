@@ -50,6 +50,7 @@ import { discoverInfercomModels } from "./infercom/discovery";
 import { discoverMiniMaxModels } from "./minimax/discovery";
 import { discoverVoidAiModels } from "./voidai/discovery";
 import { discoverZanityModels } from "./zanity/discovery";
+import { discoverKiloModels } from "./kilo/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -96,6 +97,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   minimax: discoverMiniMaxModels,
   voidai: discoverVoidAiModels,
   zanity: discoverZanityModels,
+  kilo: discoverKiloModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {
