@@ -43,6 +43,7 @@ import { discoverNscaleModels } from "./nscale/discovery";
 import { discoverNagaModels } from "./naga/discovery";
 import { discoverOllamaModels } from "./ollama/discovery";
 import { discoverQiniuModels } from "./qiniu/discovery";
+import { discoverStreamLakeModels } from "./streamlake/discovery";
 import { discoverInfercomModels } from "./infercom/discovery";
 import { discoverMiniMaxModels } from "./minimax/discovery";
 import { discoverVoidAiModels } from "./voidai/discovery";
@@ -86,6 +87,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   naga: discoverNagaModels,
   ollama: discoverOllamaModels,
   qiniu: discoverQiniuModels,
+  streamlake: discoverStreamLakeModels,
   infercom: discoverInfercomModels,
   minimax: discoverMiniMaxModels,
   voidai: discoverVoidAiModels,

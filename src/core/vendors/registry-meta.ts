@@ -204,6 +204,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "ng-... (naga.ac)",
   },
   {
+    kind: "streamlake",
+    label: "StreamLake",
+    // 快手 Kuaishou Vanchin. Base ends at /coding; runner appends /v1 -> /api/gateway/coding/v1/
+    // chat/completions. Curated: kat-coder-air-v1 (agentic coding, PERMANENTLY FREE). Pro models
+    // Coding-Plan-gated. Google/email signup, no real-name. No /models endpoint.
+    defaultBaseUrl: "https://vanchin.streamlake.ai/api/gateway/coding",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "<streamlake key> (console.streamlake.ai)",
+  },
+  {
     kind: "qiniu",
     label: "Qiniu",
     // openai.qiniu.com - 七牛 CN platform, 65 frontier (deepseek-v4, kimi-k2.7, glm-5.2,

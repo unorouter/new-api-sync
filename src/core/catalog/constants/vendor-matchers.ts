@@ -44,6 +44,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   deepl: { modelPatterns: ["deepl"], strongPatterns: ["deepl"], nameAliases: ["deepl"], displayName: "DeepL" },
   essentialai: { modelPatterns: ["rnj-"], strongPatterns: ["rnj-"], nameAliases: ["essentialai","essential ai"], displayName: "Essential AI" },
   meituan: { modelPatterns: ["longcat"], strongPatterns: ["longcat"], nameAliases: ["meituan","美团","longcat"], displayName: "Meituan" },
+  kuaishou: { modelPatterns: ["kat-coder","kat-dev","kwaipilot"], strongPatterns: ["kat-coder","kat-dev"], nameAliases: ["kuaishou","快手","kwaipilot","streamlake"], displayName: "Kuaishou" },
   voidai: { modelPatterns: ["umbra"], strongPatterns: ["umbra"], nameAliases: ["voidai","void ai"], displayName: "VoidAI" },
   zanity: { modelPatterns: ["zanity-rp","zanity"], strongPatterns: ["zanity-rp"], nameAliases: ["zanity"], displayName: "Zanity" },
   yi: { modelPatterns: ["yi-"], displayName: "Yi", icon: "Yi.Color" },
