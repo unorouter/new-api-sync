@@ -204,6 +204,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "ng-... (naga.ac)",
   },
   {
+    kind: "qiniu",
+    label: "Qiniu",
+    // openai.qiniu.com - 七牛 CN platform, 65 frontier (deepseek-v4, kimi-k2.7, glm-5.2,
+    // minimax-m3, qwen3.7-max, doubao, mimo, claude-fable-5). 3M free tokens/year. OpenAI +
+    // Anthropic dual protocol. Base is root; runner + discovery append /v1. Email intl signup
+    // (no CN phone) + real-name. Vendor-prefixed ids bare-collapse into canonicals.
+    defaultBaseUrl: "https://openai.qiniu.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (qiniu.com/ai, intl email signup)",
+  },
+  {
     kind: "infercom",
     label: "Infercom",
     // api.infercom.ai - EU/Germany-hosted, GDPR, zero-retention. OpenAI-compat. EUR5 signup

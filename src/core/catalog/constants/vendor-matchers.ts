@@ -43,6 +43,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   speechify: { modelPatterns: ["speechify"], nameAliases: ["speechify"], displayName: "Speechify" },
   deepl: { modelPatterns: ["deepl"], strongPatterns: ["deepl"], nameAliases: ["deepl"], displayName: "DeepL" },
   essentialai: { modelPatterns: ["rnj-"], strongPatterns: ["rnj-"], nameAliases: ["essentialai","essential ai"], displayName: "Essential AI" },
+  meituan: { modelPatterns: ["longcat"], strongPatterns: ["longcat"], nameAliases: ["meituan","美团","longcat"], displayName: "Meituan" },
   voidai: { modelPatterns: ["umbra"], strongPatterns: ["umbra"], nameAliases: ["voidai","void ai"], displayName: "VoidAI" },
   zanity: { modelPatterns: ["zanity-rp","zanity"], strongPatterns: ["zanity-rp"], nameAliases: ["zanity"], displayName: "Zanity" },
   yi: { modelPatterns: ["yi-"], displayName: "Yi", icon: "Yi.Color" },
