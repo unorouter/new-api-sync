@@ -53,6 +53,7 @@ import { discoverZanityModels } from "./zanity/discovery";
 import { discoverKiloModels } from "./kilo/discovery";
 import { discoverUncloseAiModels } from "./uncloseai/discovery";
 import { discoverAiHubMixModels } from "./aihubmix/discovery";
+import { discoverTokenReplyModels } from "./tokenreply/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -102,6 +103,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   kilo: discoverKiloModels,
   uncloseai: discoverUncloseAiModels,
   aihubmix: discoverAiHubMixModels,
+  tokenreply: discoverTokenReplyModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {

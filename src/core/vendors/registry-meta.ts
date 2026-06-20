@@ -407,6 +407,20 @@ export const SIMPLE_PROVIDER_META = [
     acceptRateLimited: true,
   },
   {
+    kind: "tokenreply",
+    label: "TokenReply",
+    // OpenAI-compatible (tokenreply.com/v1); base is the host, runner + discovery
+    // append /v1. 130+ mixed catalog; discovery filters to the "-free" lane (~8:
+    // deepseek-v4-flash, big-pickle, mimo-v2.5, nemotron-3-ultra + -thinking).
+    // "-free" calls = $0 (verified balance unmoved); resells the OpenCode-Zen free
+    // backend but with higher rate limits, so it is a higher-RL failover beside
+    // ocz1. "-free" suffix collapsed to canonicals via modelMapping.
+    defaultBaseUrl: "https://www.tokenreply.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (tokenreply.com)",
+    acceptRateLimited: true,
+  },
+  {
     kind: "logfare",
     label: "Logfare",
     // OpenAI-compatible (logfare.ai/v1); base is the host, runner + discovery append
