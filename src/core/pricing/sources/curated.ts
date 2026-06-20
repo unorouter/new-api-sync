@@ -711,6 +711,342 @@ const CURATED: Record<string, SourceMetadata> = {
     contextWindow: 8_191,
     mode: "embedding",
   },
+
+  // ─── Text/chat backfill (nvy + relay-surfaced models) ───
+  // Cohere Command A family
+  "command-a-plus": {
+    releaseDate: iso("2026-05-20"),
+    contextWindow: 128_000,
+    series: "Command",
+    supportsTools: true,
+  },
+  "command-a-reasoning": {
+    releaseDate: iso("2025-08-21"),
+    contextWindow: 256_000,
+    series: "Command",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "command-a-vision": {
+    releaseDate: iso("2025-07-31"),
+    contextWindow: 128_000,
+    series: "Command",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "c4ai-aya-expanse-32b": {
+    releaseDate: iso("2024-10-24"),
+    contextWindow: 128_000,
+    series: "Aya",
+  },
+  "c4ai-aya-vision-32b": {
+    releaseDate: iso("2025-03-04"),
+    contextWindow: 16_000,
+    series: "Aya",
+    supportsVision: true,
+  },
+  // DeepSeek R1 distills (released together; native 128K)
+  "deepseek-r1-distill-llama-8b": {
+    releaseDate: iso("2025-01-20"),
+    contextWindow: 131_072,
+    series: "DeepSeek",
+    isReasoning: true,
+  },
+  "deepseek-r1-distill-qwen-14b": {
+    releaseDate: iso("2025-01-20"),
+    contextWindow: 131_072,
+    series: "DeepSeek",
+    isReasoning: true,
+  },
+  "deepseek-r1-distill-qwen-1.5b": {
+    releaseDate: iso("2025-01-20"),
+    contextWindow: 131_072,
+    series: "DeepSeek",
+    isReasoning: true,
+  },
+  "deepseek-r1-distill-qwen-7b": {
+    releaseDate: iso("2025-01-20"),
+    contextWindow: 131_072,
+    series: "DeepSeek",
+    isReasoning: true,
+  },
+  // DeepSeek reasoner API alias (rolling; mid-2026 = V4-Flash thinking, 1M)
+  "deepseek-reasoner": {
+    releaseDate: iso("2026-04-24"),
+    contextWindow: 1_000_000,
+    series: "DeepSeek",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // Mistral Devstral / Magistral / Ministral 3
+  "devstral-small-2507": {
+    releaseDate: iso("2025-07-10"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "devstral-small-latest": {
+    releaseDate: iso("2025-07-10"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "devstral-medium-2507": {
+    releaseDate: iso("2025-07-10"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "devstral-medium-latest": {
+    releaseDate: iso("2025-07-10"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "devstral-latest": {
+    releaseDate: iso("2025-07-10"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "magistral-medium-2509": {
+    releaseDate: iso("2025-09-18"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "magistral-medium-latest": {
+    releaseDate: iso("2025-09-18"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "magistral-small-2509": {
+    releaseDate: iso("2025-09-18"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "magistral-small-latest": {
+    releaseDate: iso("2025-09-18"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "mistral-small-latest": {
+    releaseDate: iso("2026-03-16"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "ministral-3-3b": {
+    releaseDate: iso("2025-12-02"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "ministral-3-8b": {
+    releaseDate: iso("2025-12-02"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "ministral-3-14b": {
+    releaseDate: iso("2025-12-02"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  // ByteDance Doubao 1.5
+  "doubao-1.5-thinking-pro": {
+    releaseDate: iso("2025-04-17"),
+    contextWindow: 128_000,
+    series: "Doubao",
+    isReasoning: true,
+  },
+  "doubao-1.5-vision-pro": {
+    releaseDate: iso("2025-01-22"),
+    contextWindow: 128_000,
+    series: "Doubao",
+    supportsVision: true,
+  },
+  // Google Gemini 2.x (1M context)
+  "gemini-2.0-flash": {
+    releaseDate: iso("2025-02-05"),
+    contextWindow: 1_048_576,
+    series: "Gemini",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "gemini-2.5-flash-thinking": {
+    releaseDate: iso("2025-06-17"),
+    contextWindow: 1_048_576,
+    series: "Gemini",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // gemini-flash-lite-latest = rolling alias; 2.5-flash-lite GA date as proxy
+  "gemini-flash-lite-latest": {
+    releaseDate: iso("2025-07-22"),
+    contextWindow: 1_048_576,
+    series: "Gemini",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // AI Singapore SEA-LION v4 (Gemma-based)
+  "gemma-sea-lion-v4-27b": {
+    releaseDate: iso("2025-08-11"),
+    contextWindow: 131_072,
+    series: "Gemma",
+    supportsTools: true,
+  },
+  // Moonshot Kimi K2 0905
+  "kimi-k2-instruct-0905": {
+    releaseDate: iso("2025-09-05"),
+    contextWindow: 262_144,
+    series: "Kimi",
+    supportsTools: true,
+  },
+  // NVIDIA Llama 3.1 Nemotron 70B
+  "llama-3.1-nemotron-70b": {
+    releaseDate: iso("2024-10-15"),
+    contextWindow: 131_072,
+    series: "Llama",
+    supportsTools: true,
+  },
+  // Meta Llama 3 70B (native 8K)
+  "llama-3-70b-instruct": {
+    releaseDate: iso("2024-04-18"),
+    contextWindow: 8_192,
+    series: "Llama",
+  },
+  // Qwen
+  "qwen2.5-coder-7b-instruct": {
+    releaseDate: iso("2024-09-19"),
+    contextWindow: 32_768,
+    series: "Qwen",
+    supportsTools: true,
+  },
+  "qwen3-4b-instruct-2507": {
+    releaseDate: iso("2025-08-06"),
+    contextWindow: 262_144,
+    series: "Qwen",
+    supportsTools: true,
+  },
+  "qwen3-max-preview": {
+    releaseDate: iso("2025-09-05"),
+    contextWindow: 262_144,
+    series: "Qwen",
+    supportsTools: true,
+  },
+  "qwen-vl-max-2025-01-25": {
+    releaseDate: iso("2025-01-25"),
+    contextWindow: 131_072,
+    series: "Qwen",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // xAI Grok (fast = reasoning + non-reasoning share one launch + 2M ctx)
+  "grok-4": {
+    releaseDate: iso("2025-07-10"),
+    contextWindow: 256_000,
+    series: "Grok",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "grok-4-fast-reasoning": {
+    releaseDate: iso("2025-09-19"),
+    contextWindow: 2_000_000,
+    series: "Grok",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "grok-4-fast-non-reasoning": {
+    releaseDate: iso("2025-09-19"),
+    contextWindow: 2_000_000,
+    series: "Grok",
+    supportsTools: true,
+  },
+  "grok-4.1-fast-reasoning": {
+    releaseDate: iso("2025-11-19"),
+    contextWindow: 2_000_000,
+    series: "Grok",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "grok-4.1-fast-non-reasoning": {
+    releaseDate: iso("2025-11-19"),
+    contextWindow: 2_000_000,
+    series: "Grok",
+    supportsTools: true,
+  },
+  "grok-4.20-non-reasoning": {
+    releaseDate: iso("2026-03-09"),
+    contextWindow: 1_000_000,
+    series: "Grok",
+    supportsTools: true,
+  },
+  "grok-code-fast-1": {
+    releaseDate: iso("2025-08-26"),
+    contextWindow: 256_000,
+    series: "Grok",
+    supportsTools: true,
+  },
+  // Mistral Large / Medium / Pixtral / Devstral Small 2
+  "mistral-large-latest": {
+    releaseDate: iso("2025-12-02"),
+    contextWindow: 256_000,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "mistral-medium-2508": {
+    releaseDate: iso("2025-08-12"),
+    contextWindow: 128_000,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "mistral-medium-latest": {
+    releaseDate: iso("2026-04-01"),
+    contextWindow: 128_000,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "pixtral-large-2411": {
+    releaseDate: iso("2024-11-18"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "pixtral-large-latest": {
+    releaseDate: iso("2024-11-18"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "devstral-small-2": {
+    releaseDate: iso("2025-12-09"),
+    contextWindow: 256_000,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  // Google Gemini 3.1 Flash Lite (preview)
+  "gemini-3.1-flash-lite-thinking": {
+    releaseDate: iso("2026-03-03"),
+    contextWindow: 1_000_000,
+    series: "Gemini",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
 };
 
 export function buildCuratedSource(): PricingSource {
