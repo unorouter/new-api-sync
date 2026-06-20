@@ -12,7 +12,7 @@ interface VendorMatcher {
 export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   anthropic: { modelPatterns: ["claude"], displayName: "Anthropic", icon: "Claude.Color" },
   google: { modelPatterns: ["gemini","palm","veo","gemma","lyria","imagen","embedding-001","embedding-gecko","text-embedding-004"], displayName: "Google", icon: "Gemini.Color" },
-  openai: { modelPatterns: ["gpt","o1-","o3","o4-","chatgpt","sora","text-embedding-3","text-embedding-ada","whisper","dall-e","omni-moderation","openai"], displayName: "OpenAI", icon: "OpenAI" },
+  openai: { modelPatterns: ["gpt","o1-","o3","o4-","chatgpt","sora","text-embedding-3","text-embedding-ada","whisper","dall-e","tts-1","omni-moderation","openai"], displayName: "OpenAI", icon: "OpenAI" },
   kling: { modelPatterns: ["kling"], nameAliases: ["kling","可灵"], displayName: "Kling", icon: "Kling.Color" },
   deepseek: { modelPatterns: ["deepseek"], displayName: "DeepSeek", icon: "DeepSeek.Color" },
   xai: { modelPatterns: ["grok"], displayName: "xAI", icon: "XAI" },
