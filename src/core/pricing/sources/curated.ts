@@ -494,6 +494,30 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2026-02-12"),
     mode: "video",
   },
+
+  // ─── Audio models (TTS / STT; no context window) ───
+  // OpenAI Whisper (whisper-1 = hosted API on large-v2, Mar 2023 launch)
+  "whisper-1": { releaseDate: iso("2023-03-01"), mode: "audio" },
+  "whisper-large-v3": { releaseDate: iso("2023-11-06"), mode: "audio" },
+  "whisper-large-v3-turbo": {
+    releaseDate: iso("2024-10-01"),
+    mode: "audio",
+  },
+  // OpenAI TTS (DevDay launch)
+  "tts-1": { releaseDate: iso("2023-11-06"), mode: "audio" },
+  "tts-1-hd": { releaseDate: iso("2023-11-06"), mode: "audio" },
+  "gpt-4o-mini-tts": { releaseDate: iso("2025-03-20"), mode: "audio" },
+  // Deepgram Aura-2
+  "aura-2-en": { releaseDate: iso("2025-04-15"), mode: "audio" },
+  "aura-2-es": { releaseDate: iso("2025-06-25"), mode: "audio" },
+  // DeepL (translation API; date = API launch proxy)
+  deepl: { releaseDate: iso("2018-03-01"), mode: "audio" },
+  // ElevenLabs (Eleven Multilingual v2 GA)
+  elevenlabs: { releaseDate: iso("2023-08-22"), mode: "audio" },
+  // MyShell MeloTTS (earliest public tag; approximate)
+  melotts: { releaseDate: iso("2024-02-29"), mode: "audio" },
+  // Speechify SIMBA flagship (speechify-turbo date unpublished, left blank)
+  speechify: { releaseDate: iso("2026-02-19"), mode: "audio" },
 };
 
 export function buildCuratedSource(): PricingSource {

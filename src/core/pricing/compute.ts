@@ -157,10 +157,15 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
     const billing = pickBillingFields(occurrences);
     const fm = occurrences.find((o) => isFixed(o.model))?.model;
     if (fm) {
+      // Fixed-price billing (quotaType >= 1) bypasses the ratio path, so a
+      // group_ratio of 0 does NOT make a free-tier model free; only a zero
+      // modelPrice does. Force it when every occurrence is free, else a `:free`
+      // per-image/per-call model would still bill its sticker price.
+      const allFree = occurrences.every((o) => o.model.isFree);
       modelRatios.set(model, {
         ratio: existing?.ratio ?? 0,
         completionRatio: existing?.completionRatio ?? 0,
-        modelPrice: fm.modelPrice ?? existing?.modelPrice,
+        modelPrice: allFree ? 0 : (fm.modelPrice ?? existing?.modelPrice),
         quotaType: fm.quotaType ?? existing?.quotaType,
         cacheRatio: existing?.cacheRatio ?? fm.cacheRatio,
         createCacheRatio: existing?.createCacheRatio ?? fm.createCacheRatio,
