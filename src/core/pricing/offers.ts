@@ -25,6 +25,10 @@ export interface OfferModel {
   testDetail?: ModelTestDetail;
   /** Forces ratio=0 + group_ratio=0; cap check skipped. (OpenRouter free, NVIDIA) */
   isFree?: boolean;
+  /** Kept only via a 429 accept (capacity throttle, not a real pass). The
+   *  emitted channel is created disabled so new-api's auto-test enables it once
+   *  the limit clears, instead of serving guaranteed-429 requests. */
+  rateLimited?: boolean;
   modelType: ModelType;
   /** Original endpoint strings — gates task-override sub-split detection (e.g. presence of openai-video). */
   endpoints?: string[];

@@ -383,6 +383,10 @@ export const SIMPLE_PROVIDER_META = [
     defaultBaseUrl: "https://api.navy",
     defaultRatio: 0,
     apiKeyPlaceholder: "sk-navy-...",
+    // 20 RPD / 150k TPD free tier: the burst probe trips 429 rpm_limit on live
+    // models. Accept 429 so they're kept, but emitted disabled - new-api's
+    // auto-test enables each once the per-minute window clears.
+    acceptRateLimited: true,
   },
   {
     kind: "logfare",

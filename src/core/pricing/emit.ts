@@ -56,7 +56,7 @@ export function emitChannels(args: EmitArgs): EmitResult {
       group: tier.channelName,
       priority: 0,
       weight: 1,
-      status: 1,
+      status: tier.disabled ? 3 : 1,
       tag: tier.providerTag,
       remark: tier.channelRemark,
       model_mapping:

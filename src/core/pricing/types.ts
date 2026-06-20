@@ -35,6 +35,9 @@ export interface PricedTier {
   /** Optional channel-scoped param_override JSON. Used for header injection
    *  on conditional model-name suffixes (e.g. Claude `[1m]` context beta). */
   paramOverride?: string;
+  /** Emit the channel disabled (status=3). Set when the model only passed via a
+   *  429 capacity throttle; new-api's auto-test enables it once the limit clears. */
+  disabled?: boolean;
 }
 
 type PricedDropReason = "cap-exceeded" | "no-fit" | "collision";

@@ -234,7 +234,11 @@ async function testModels(opts: {
   retryPolicy?: RetryPolicy<TestExchange>;
   acceptRateLimited?: boolean;
   capabilities?: Map<string, ModelCapabilityHint>;
-}): Promise<{ workingModels: string[]; details: ModelTestDetail[] }> {
+}): Promise<{
+  workingModels: string[];
+  rateLimitedModels: string[];
+  details: ModelTestDetail[];
+}> {
   const useResponsesAPI = opts.useResponsesAPI ?? false;
   const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
   const prefix = opts.logPrefix ?? "unknown";
@@ -378,15 +382,19 @@ async function testModels(opts: {
     ),
   );
 
+  const reallyPassed = (r: (typeof results)[number]) =>
+    r.success || r.streamSuccess === true;
+  const acceptedOn429 = (r: (typeof results)[number]) =>
+    opts.acceptRateLimited === true && r.httpStatus === 429 && !reallyPassed(r);
+
   return {
     workingModels: results
-      .filter(
-        (r) =>
-          r.success ||
-          r.streamSuccess === true ||
-          (opts.acceptRateLimited === true && r.httpStatus === 429),
-      )
+      .filter((r) => reallyPassed(r) || acceptedOn429(r))
       .map((r) => r.model),
+    // Models kept ONLY because of a 429 (capacity throttle, not a real pass).
+    // Channels for these are emitted disabled so new-api's auto-test enables
+    // them once the limit clears, instead of serving guaranteed-429 requests.
+    rateLimitedModels: results.filter(acceptedOn429).map((r) => r.model),
     details: results,
   };
 }
@@ -464,6 +472,7 @@ export async function testAndFilterModels(opts: {
   capabilities?: Map<string, ModelCapabilityHint>;
 }): Promise<{
   workingModels: string[];
+  rateLimitedModels: string[];
   testedCount: number;
   details?: ModelTestDetail[];
 }> {
@@ -473,6 +482,7 @@ export async function testAndFilterModels(opts: {
   if (dryRunMode) {
     return {
       workingModels: opts.allModels,
+      rateLimitedModels: [],
       testedCount: 0,
       details: undefined,
     };
@@ -487,6 +497,7 @@ export async function testAndFilterModels(opts: {
   );
 
   let testedWorkingModels: string[] = [];
+  let rateLimitedModels: string[] = [];
   let details: ModelTestDetail[] | undefined;
 
   if (opts.testableModelTypes.size === 0) {
@@ -512,6 +523,7 @@ export async function testAndFilterModels(opts: {
       capabilities: opts.capabilities,
     });
     testedWorkingModels = testResult.workingModels;
+    rateLimitedModels = testResult.rateLimitedModels;
     details = testResult.details;
 
     const failed = testResult.details.filter(
@@ -535,6 +547,7 @@ export async function testAndFilterModels(opts: {
 
   return {
     workingModels: [...testedWorkingModels, ...nonTestableModels],
+    rateLimitedModels,
     testedCount: testableModels.length,
     details,
   };

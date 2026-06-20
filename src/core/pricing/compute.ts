@@ -456,6 +456,7 @@ function pushBucketsAsTiers(
         paramOverride: hasContext1mAlias
           ? CLAUDE_CONTEXT_1M_PARAM_OVERRIDE
           : undefined,
+        ...(m.rateLimited ? { disabled: true } : {}),
       });
     }
   }

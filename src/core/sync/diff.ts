@@ -278,6 +278,10 @@ export function buildSyncDiff(
       existing.setting,
       desiredChannel.setting,
     );
+    // Status is owned by new-api after creation (its auto-test enables/disables
+    // on probe result). Preserve the live status on update so a sync never
+    // clobbers an auto-enabled rate-limited channel back to disabled.
+    normalizedDesired.status = existing.status;
     if (
       !deepEqual(
         normalizeChannel(existing),

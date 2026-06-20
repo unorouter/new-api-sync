@@ -86,11 +86,14 @@ export function emitFreeTextOffers(opts: {
   /** Glob patterns for models that are priced (canonical * (1+adjustment)) instead
    *  of forced-free. Their OfferModel.isFree is false so the pricing phase prices them. */
   paidModels?: string[];
+  /** Upstream ids kept only via a 429 accept; their channels emit disabled. */
+  rateLimited?: Set<string>;
 }): UpstreamOffer[] {
   const offers: UpstreamOffer[] = [];
   const channelType = opts.channelType ?? CHANNEL_TYPES.OPENAI;
   const modelType = opts.modelType ?? "text";
   const paidModels = opts.paidModels ?? [];
+  const rateLimited = opts.rateLimited ?? new Set<string>();
   const isPaid = (exposed: string) =>
     paidModels.length > 0 && matchesAnyPattern(exposed, paidModels);
   const byVendor = partitionByVendor(
@@ -106,6 +109,7 @@ export function emitFreeTextOffers(opts: {
       upstream,
       modelType,
       isFree: !isPaid(x.exposed),
+      ...(rateLimited.has(upstream) ? { rateLimited: true } : {}),
       testDetail: opts.details.find((d) => d.model === x.upstream),
       ...(opts.endpoints ? { endpoints: opts.endpoints } : {}),
       ...(maxOut ? { metadata: { maxOutputTokens: maxOut } } : {}),
@@ -255,6 +259,7 @@ export async function processOpenAICompatibleFreeProvider(
       });
       const working = r.workingModels;
       if (working.length === 0) continue;
+      const rateLimited = new Set(r.rateLimitedModels);
       totalWorking += working.length;
       consola.info(
         t("CORE.NVIDIA.TEXT_WORKING", {
@@ -282,6 +287,7 @@ export async function processOpenAICompatibleFreeProvider(
           modelType: modality.modelType,
           endpoints: modality.endpoints,
           paidModels: providerConfig.paidModels,
+          rateLimited,
         }),
       );
     }

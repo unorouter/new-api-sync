@@ -494,6 +494,14 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2026-02-12"),
     mode: "video",
   },
+  // xAI Grok Imagine video (original feature launch)
+  "grok-imagine-video": { releaseDate: iso("2025-08-07"), mode: "video" },
+  // Kuaishou Kling Motion Control (shipped with Kling 2.6)
+  "kling-motion-control": { releaseDate: iso("2025-12-03"), mode: "video" },
+  // Alibaba Wan (2.5-Preview modes share the Sept launch; 2.6 = Dec)
+  "wan2.5-i2i": { releaseDate: iso("2025-09-23"), mode: "video" },
+  "wan2.5-i2v-preview": { releaseDate: iso("2025-09-23"), mode: "video" },
+  "wan2.6-i2v": { releaseDate: iso("2025-12-16"), mode: "video" },
 
   // ─── Audio models (TTS / STT; no context window) ───
   // OpenAI Whisper (whisper-1 = hosted API on large-v2, Mar 2023 launch)
@@ -518,6 +526,191 @@ const CURATED: Record<string, SourceMetadata> = {
   melotts: { releaseDate: iso("2024-02-29"), mode: "audio" },
   // Speechify SIMBA flagship (speechify-turbo date unpublished, left blank)
   speechify: { releaseDate: iso("2026-02-19"), mode: "audio" },
+
+  // ─── Embedding models (context = max input tokens) ───
+  // BAAI BGE
+  "bge-base-en-v1.5": {
+    releaseDate: iso("2023-09-12"),
+    contextWindow: 512,
+    mode: "embedding",
+  },
+  "bge-large-en-v1.5": {
+    releaseDate: iso("2023-09-12"),
+    contextWindow: 512,
+    mode: "embedding",
+  },
+  "bge-small-en-v1.5": {
+    releaseDate: iso("2023-09-12"),
+    contextWindow: 512,
+    mode: "embedding",
+  },
+  "bge-multilingual-gemma2": {
+    releaseDate: iso("2024-07-26"),
+    contextWindow: 4_096,
+    mode: "embedding",
+  },
+  // Google
+  "embeddinggemma-300m": {
+    releaseDate: iso("2025-09-04"),
+    contextWindow: 2_048,
+    mode: "embedding",
+  },
+  "gemini-embedding-001": {
+    releaseDate: iso("2025-07-14"),
+    contextWindow: 2_048,
+    mode: "embedding",
+  },
+  "gemini-embedding-2": {
+    releaseDate: iso("2026-03-10"),
+    contextWindow: 8_192,
+    mode: "embedding",
+  },
+  "gemini-embedding-2-preview": {
+    releaseDate: iso("2026-03-10"),
+    contextWindow: 8_192,
+    mode: "embedding",
+  },
+  // Cohere Embed v3 family (shared launch) + v4
+  "embed-english-v3.0": {
+    releaseDate: iso("2023-11-02"),
+    contextWindow: 512,
+    mode: "embedding",
+  },
+  "embed-english-light-v3.0": {
+    releaseDate: iso("2023-11-02"),
+    contextWindow: 512,
+    mode: "embedding",
+  },
+  "embed-multilingual-v3.0": {
+    releaseDate: iso("2023-11-02"),
+    contextWindow: 512,
+    mode: "embedding",
+  },
+  "embed-multilingual-light-v3.0": {
+    releaseDate: iso("2023-11-02"),
+    contextWindow: 512,
+    mode: "embedding",
+  },
+  "embed-v4.0": {
+    releaseDate: iso("2025-04-15"),
+    contextWindow: 128_000,
+    mode: "embedding",
+  },
+  // Jina AI
+  "jina-code-embeddings-0.5b": {
+    releaseDate: iso("2025-09-04"),
+    contextWindow: 32_768,
+    mode: "embedding",
+  },
+  "jina-code-embeddings-1.5b": {
+    releaseDate: iso("2025-09-04"),
+    contextWindow: 32_768,
+    mode: "embedding",
+  },
+  "jina-embeddings-v2-base-en": {
+    releaseDate: iso("2023-10-28"),
+    contextWindow: 8_192,
+    mode: "embedding",
+  },
+  "jina-embeddings-v2-base-zh": {
+    releaseDate: iso("2024-01-09"),
+    contextWindow: 8_192,
+    mode: "embedding",
+  },
+  "jina-embeddings-v2-base-de": {
+    releaseDate: iso("2024-01-15"),
+    contextWindow: 8_192,
+    mode: "embedding",
+  },
+  "jina-embeddings-v2-base-code": {
+    releaseDate: iso("2024-02-05"),
+    contextWindow: 8_192,
+    mode: "embedding",
+  },
+  "jina-embeddings-v2-base-es": {
+    releaseDate: iso("2024-02-14"),
+    contextWindow: 8_192,
+    mode: "embedding",
+  },
+  "jina-embeddings-v3": {
+    releaseDate: iso("2024-09-18"),
+    contextWindow: 8_192,
+    mode: "embedding",
+  },
+  "jina-embeddings-v4": {
+    releaseDate: iso("2025-06-25"),
+    contextWindow: 32_768,
+    mode: "embedding",
+  },
+  "jina-embeddings-v5-text-nano": {
+    releaseDate: iso("2026-02-18"),
+    contextWindow: 8_192,
+    mode: "embedding",
+  },
+  "jina-embeddings-v5-text-small": {
+    releaseDate: iso("2026-02-18"),
+    contextWindow: 32_768,
+    mode: "embedding",
+  },
+  "jina-embeddings-v5-omni-nano": {
+    releaseDate: iso("2026-05-12"),
+    contextWindow: 8_192,
+    mode: "embedding",
+  },
+  "jina-embeddings-v5-omni-small": {
+    releaseDate: iso("2026-05-12"),
+    contextWindow: 32_768,
+    mode: "embedding",
+  },
+  // NVIDIA NeMo Retriever (v1 = 512; nemotron v2 = 8192; vl = 10240)
+  "llama-3.2-nv-embedqa-1b-v1": {
+    releaseDate: iso("2024-10-29"),
+    contextWindow: 512,
+    mode: "embedding",
+  },
+  "llama-nemotron-embed-1b-v2": {
+    releaseDate: iso("2025-10-16"),
+    contextWindow: 8_192,
+    mode: "embedding",
+  },
+  "llama-nemotron-embed-vl-1b-v2": {
+    releaseDate: iso("2025-12-03"),
+    contextWindow: 10_240,
+    mode: "embedding",
+  },
+  "nv-embedqa-mistral-7b-v2": {
+    releaseDate: iso("2024-08-01"),
+    contextWindow: 512,
+    mode: "embedding",
+  },
+  // Preferred Networks
+  "plamo-embedding-1b": {
+    releaseDate: iso("2025-04-11"),
+    contextWindow: 4_096,
+    mode: "embedding",
+  },
+  // Alibaba Qwen3-Embedding (shared launch)
+  "qwen3-embedding-0.6b": {
+    releaseDate: iso("2025-06-05"),
+    contextWindow: 32_768,
+    mode: "embedding",
+  },
+  "qwen3-embedding-8b": {
+    releaseDate: iso("2025-06-05"),
+    contextWindow: 32_768,
+    mode: "embedding",
+  },
+  // OpenAI text-embedding-3 (shared launch)
+  "text-embedding-3-large": {
+    releaseDate: iso("2024-01-25"),
+    contextWindow: 8_191,
+    mode: "embedding",
+  },
+  "text-embedding-3-small": {
+    releaseDate: iso("2024-01-25"),
+    contextWindow: 8_191,
+    mode: "embedding",
+  },
 };
 
 export function buildCuratedSource(): PricingSource {
