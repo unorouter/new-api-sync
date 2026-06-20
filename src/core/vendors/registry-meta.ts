@@ -389,6 +389,24 @@ export const SIMPLE_PROVIDER_META = [
     acceptRateLimited: true,
   },
   {
+    kind: "aihubmix",
+    label: "AIHubMix",
+    // OpenAI-compatible (aihubmix.com/v1); base is the host, runner + discovery
+    // append /v1. 340+ mixed catalog; discovery filters to the subsidized "-free"
+    // lane (~30 models: gpt-5.5/4.1/4o, glm/minimax/step coding, xiaomi-mimo,
+    // gpt-image-2). "-free" calls cost $0 (verified: balance unmoved), but an
+    // anti-abuse rule caps un-recharged accounts at 10 trial calls - ANY one-time
+    // top-up lifts it and the free lane stays $0 thereafter. Authentic (real GPT-
+    // 5.5/4.1 snapshots verified); probe drops any -free id the gateway won't serve.
+    defaultBaseUrl: "https://aihubmix.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (aihubmix.com)",
+    // Free lane has a tight concurrency/daily cap: the burst probe trips 429
+    // "reached the free model quota". Accept 429 (model is alive, just throttled),
+    // emit disabled - new-api's auto-test enables each as quota frees.
+    acceptRateLimited: true,
+  },
+  {
     kind: "logfare",
     label: "Logfare",
     // OpenAI-compatible (logfare.ai/v1); base is the host, runner + discovery append
