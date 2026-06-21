@@ -254,7 +254,14 @@ export async function processOpenAICompatibleFreeProvider(
         testableModelTypes: new Set([modality.modelType]),
         retryPolicy: opts.retryPolicy ?? NVIDIA_RETRY_POLICY,
         modelEndpoints,
-        acceptRateLimited: opts.acceptRateLimited,
+        // acceptRateLimited keeps 429-failing models (chat throttling = capacity,
+        // not breakage). Embeddings don't get that grace: a 429 or any failure on
+        // /v1/embeddings means the model doesn't actually serve embeddings (dead,
+        // reranker, wrong endpoint) -> drop it, never list it.
+        acceptRateLimited:
+          modality.modelType === "embedding"
+            ? false
+            : opts.acceptRateLimited,
         capabilities: buildCapabilityMap(models, mapExposed, ctx),
       });
       const working = r.workingModels;
