@@ -1,3 +1,4 @@
+import type { ModelType } from "@core/types";
 import type { OpenAIFreeDiscovery } from "@core/vendors/shared/openai-free-provider";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -26,5 +27,10 @@ export async function discoverVoyageModels(
       url: "static embedding list (no /v1/models)",
     }),
   );
-  return { models: VOYAGE_EMBEDDINGS, maxOutputByModel: new Map() };
+  // "voyage-*" names match no embedding name-pattern, so force the modality or the
+  // helper probes /v1/chat/completions (404) instead of /v1/embeddings.
+  const modelTypeHints = new Map<string, ModelType>(
+    VOYAGE_EMBEDDINGS.map((m) => [m, "embedding"]),
+  );
+  return { models: VOYAGE_EMBEDDINGS, maxOutputByModel: new Map(), modelTypeHints };
 }
