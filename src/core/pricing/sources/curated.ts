@@ -1150,6 +1150,45 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // AI Singapore Qwen-SEA-LION v4.5 27B (Qwen3.6-based, 262K, reasoning)
+  "qwen-sea-lion-v4.5-27b-it": {
+    releaseDate: iso("2026-02-01"),
+    contextWindow: 262_144,
+    series: "Qwen",
+    isReasoning: true,
+  },
+  // AI Singapore SEA-LION Embedding Suite (Mar 2026; 512 tuned seq length)
+  "sea-lion-e5-embedding-600m": {
+    releaseDate: iso("2026-03-01"),
+    contextWindow: 512,
+    series: "SEA-LION",
+  },
+  "sea-lion-modernbert-embedding-300m": {
+    releaseDate: iso("2026-03-01"),
+    contextWindow: 512,
+    series: "SEA-LION",
+  },
+  "sea-lion-modernbert-embedding-600m": {
+    releaseDate: iso("2026-03-01"),
+    contextWindow: 512,
+    series: "SEA-LION",
+  },
+  // Voyage AI embeddings (32K context)
+  "voyage-3": {
+    releaseDate: iso("2024-09-18"),
+    contextWindow: 32_000,
+    series: "Voyage",
+  },
+  "voyage-3-lite": {
+    releaseDate: iso("2024-09-18"),
+    contextWindow: 32_000,
+    series: "Voyage",
+  },
+  "voyage-code-3": {
+    releaseDate: iso("2024-12-04"),
+    contextWindow: 32_000,
+    series: "Voyage",
+  },
 };
 
 export function buildCuratedSource(): PricingSource {
