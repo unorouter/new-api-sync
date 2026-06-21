@@ -3,7 +3,7 @@ import { type BasellmEntry, lookup } from "@core/catalog/metadata";
 import { t } from "@server/i18n";
 import { fetchAipricingSource } from "./sources/aipricing";
 import { buildBasellmCanonicalSource } from "./sources/basellm";
-import { buildCuratedSource } from "./sources/curated";
+import { buildCuratedSource, CURATED_OVERRIDE } from "./sources/curated";
 import { fetchGenaiPricesSource } from "./sources/genai-prices";
 import { fetchLiteLLMSource } from "./sources/litellm";
 import { fetchLlmPricesSource } from "./sources/llm-prices";
@@ -76,6 +76,9 @@ function resolveOneName(
     const hit = lookup(modelName, sources[i]!.metadata, reverseMapping);
     if (hit) Object.assign(merged, hit.value);
   }
+  // Corrections that win over every live source (verified known-wrong upstreams).
+  const override = CURATED_OVERRIDE[modelName];
+  if (override) Object.assign(merged, override);
   return merged;
 }
 

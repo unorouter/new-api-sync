@@ -14,6 +14,16 @@ import {
 
 const iso = (d: string) => `${d}T00:00:00.000Z`;
 
+// Known-WRONG upstream metadata that must be corrected even though a live source
+// (usually litellm) carries it. Unlike CURATED (lowest priority, gap-fill only),
+// these fields win over ALL sources. Keyed by BARE name. Use ONLY when a live
+// source is factually wrong and verified against the official model card.
+export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
+  // litellm lists Apertus at 8192 ctx / no tools; HF model card = 65536, tools yes.
+  "apertus-8b-instruct": { contextWindow: 65_536, maxInputTokens: 65_536, supportsTools: true },
+  "apertus-70b-instruct": { contextWindow: 65_536, maxInputTokens: 65_536, supportsTools: true },
+};
+
 // bare name -> curated metadata. Dates are official announcement dates.
 const CURATED: Record<string, SourceMetadata> = {
   // Anthropic (OpenRouter dropped the dated 3.7 id)
@@ -1045,6 +1055,99 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Gemini",
     isReasoning: true,
     supportsVision: true,
+    supportsTools: true,
+  },
+  // Swiss AI (ETH Zurich + EPFL) Apertus 2509
+  "apertus-8b-instruct": {
+    releaseDate: iso("2025-09-02"),
+    contextWindow: 65_536,
+    series: "Apertus",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "apertus-70b-instruct": {
+    releaseDate: iso("2025-09-02"),
+    contextWindow: 65_536,
+    series: "Apertus",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // EuroLLM (utter-project) 22B Instruct, Dec 2025 snapshot
+  "eurollm-22b-instruct-2512": {
+    releaseDate: iso("2025-12-05"),
+    contextWindow: 32_768,
+    series: "EuroLLM",
+  },
+  // Dicta DictaLM 3.0 24B Thinking (Hebrew/multilingual reasoning)
+  "dictalm-3.0-24b-thinking": {
+    releaseDate: iso("2025-12-10"),
+    contextWindow: 65_280,
+    series: "DictaLM",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // Meituan LongCat 2.0 Preview (closed, API-only; >1T MoE)
+  "longcat-2.0-preview": {
+    releaseDate: iso("2026-04-20"),
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+    series: "LongCat",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // AI Singapore Qwen-SEA-LION v4 32B (Qwen3-based hybrid thinking)
+  "qwen-sea-lion-v4-32b-it": {
+    releaseDate: iso("2025-10-16"),
+    contextWindow: 32_768,
+    series: "Qwen",
+    isReasoning: true,
+  },
+  // Mistral Large 3 (675B MoE, multimodal, Dec 2025)
+  "mistral-large-3-675b": {
+    releaseDate: iso("2025-12-02"),
+    contextWindow: 256_000,
+    series: "Mistral",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // NVIDIA Mistral-Nemotron (NIM-hosted, API-only)
+  "mistral-nemotron": {
+    releaseDate: iso("2025-06-11"),
+    contextWindow: 128_000,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  // ByteDance Seed-OSS 36B Instruct
+  "seed-oss-36b": {
+    releaseDate: iso("2025-08-20"),
+    contextWindow: 524_288,
+    series: "Seed",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // Alibaba Qwen2.5-VL 7B Instruct (vision)
+  "qwen2.5-vl-7b-instruct": {
+    releaseDate: iso("2025-01-26"),
+    contextWindow: 32_768,
+    series: "Qwen",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // Google Gemma 4 E2B Instruct (unsloth GGUF repackage served by Bleak)
+  "gemma-4-e2b-it-gguf": {
+    releaseDate: iso("2026-03-31"),
+    contextWindow: 131_072,
+    series: "Gemma",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // NVIDIA Nemotron 3 Ultra 550B-A55B (thinking mode; 1M architectural context)
+  "nemotron-3-ultra-thinking": {
+    releaseDate: iso("2026-06-04"),
+    contextWindow: 1_000_000,
+    series: "Nemotron",
+    isReasoning: true,
     supportsTools: true,
   },
 };

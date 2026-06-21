@@ -82,6 +82,10 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   aionlabs: { modelPatterns: ["aion-rp","aion-1","aion-2"], strongPatterns: ["aion-rp"], nameAliases: ["aion labs","aionlabs"], displayName: "Aion Labs" },
   // OpenCode Zen house/stealth models (undisclosed base): big-pickle + opencode-branded.
   opencodezen: { modelPatterns: ["big-pickle","opencode"], strongPatterns: ["big-pickle"], nameAliases: ["opencode zen","opencode"], displayName: "OpenCode Zen" },
+  swissai: { modelPatterns: ["apertus"], strongPatterns: ["apertus"], nameAliases: ["swiss ai","swiss-ai","swissai","eth zurich","epfl"], displayName: "Swiss AI" },
+  utterproject: { modelPatterns: ["eurollm"], strongPatterns: ["eurollm"], nameAliases: ["utter-project","utter project","eurollm"], displayName: "EuroLLM" },
+  dictail: { modelPatterns: ["dictalm"], strongPatterns: ["dictalm"], nameAliases: ["dicta-il","dicta","dictalm"], displayName: "Dicta" },
+  allenai: { modelPatterns: ["olmo"], strongPatterns: ["olmo"], nameAliases: ["allenai","allen ai","ai2","olmo"], displayName: "Allen AI" },
 };
 
 // Most-specific match wins, not first-by-definition-order: a prefix match beats a
