@@ -520,6 +520,33 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "keyless",
   },
   {
+    kind: "longcat",
+    label: "LongCat",
+    // api.longcat.chat/openai - first-party Meituan 美团. Base ends /openai; runner +
+    // discovery append /v1. Public-beta daily-refreshing free token quota (5M/day, up to
+    // 120M via feedback), NO paid option. 429 "额度不足" = daily quota spent, not breakage
+    // -> acceptRateLimited keeps it disabled, auto-test re-enables after Beijing-midnight
+    // reset. Email/phone signup, no card, no +86 wall. (distinct from the longcat model
+    // Qiniu resells - this is the direct first-party lane).
+    defaultBaseUrl: "https://api.longcat.chat/openai",
+    defaultRatio: 0,
+    acceptRateLimited: true,
+    apiKeyPlaceholder: "ak_... (longcat.chat platform)",
+  },
+  {
+    kind: "publicai",
+    label: "Public AI",
+    // api.publicai.co/v1 - nonprofit donated-GPU + ad-subsidy "completely free" utility,
+    // flat 20 RPM, NO balance, NO paid tier. Base is the host; runner + discovery append
+    // /v1. Sovereign open models (Apertus 8b/70b, Olmo-3.x, SEA-LION-v4, EuroLLM, DictaLM)
+    // + Cohere embed (rerank drops at probe). Direct key bypasses the wired HF router =
+    // distinct lane. SSO signup, no card. 20 RPM trips 429 under burst -> acceptRateLimited.
+    defaultBaseUrl: "https://api.publicai.co",
+    defaultRatio: 0,
+    acceptRateLimited: true,
+    apiKeyPlaceholder: "zpka_... (platform.publicai.co)",
+  },
+  {
     kind: "uncloseai",
     label: "UncloseAI",
     // hermes.ai.unturf.com - UncloseAI/unturf community permacomputer, vllm-served, KEYLESS
