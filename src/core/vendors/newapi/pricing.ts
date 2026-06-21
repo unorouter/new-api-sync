@@ -20,10 +20,12 @@ export async function fetchPricing(
   const urls = [`${ctx.baseUrl}/api/pricing_new`, `${ctx.baseUrl}/api/pricing`];
   let raw: { success: boolean; [key: string]: unknown } | undefined;
   for (const url of urls) {
+    // Most relays expose /api/pricing publicly, but some (e.g. zetatechs) require
+    // the system token, so pass the client's auth headers either way.
     const body = await tryFetchJson<{
       success: boolean;
       [key: string]: unknown;
-    }>(url);
+    }>(url, { headers: ctx.headers });
     if (!body?.success || !body.data) continue;
     if (url.endsWith("/pricing_new") && !Array.isArray(body.data)) continue;
     raw = body;
