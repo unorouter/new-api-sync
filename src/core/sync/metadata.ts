@@ -59,6 +59,7 @@ export interface MetadataSyncResult {
   skipped: number;
   failed: number;
   failedModels: string[];
+  renamedChannels: number;
 }
 
 // Resolve a model's canonical vendor to an existing vendor_id, creating the
@@ -136,6 +137,76 @@ function publishedNamesFromChannels(channels: Channel[]): Set<string> {
   return names;
 }
 
+// The published name a channel SHOULD use for `published` given the current
+// modelMapping: strip a trailing `:free`, remap the base, re-add `:free`. The
+// `:free` suffix is the free/paid split identity and is preserved.
+function correctPublishedName(
+  published: string,
+  modelMapping: Record<string, string>,
+): string {
+  const free = published.endsWith(":free");
+  const base = free ? published.slice(0, -":free".length) : published;
+  const mapped = modelMapping[base] ?? base;
+  return free ? `${mapped}:free` : mapped;
+}
+
+// Rename any channel-published names that drifted from what the current
+// modelMapping produces (e.g. a leftover `{slug}-free:free`). Rewrites the
+// channel `models` CSV + `model_mapping` KEY in place; the upstream forward value
+// is untouched so routing is unchanged. Pure gateway data, no probing. Mutates
+// `channels` so downstream metadata reseeding sees the corrected names.
+async function normalizePublishedNames(
+  target: NewApiClient,
+  channels: Channel[],
+  config: RuntimeConfig,
+): Promise<number> {
+  let renamed = 0;
+  for (const ch of channels) {
+    const published = parseModelList(ch.models);
+    let mapping: Record<string, string> = {};
+    try {
+      mapping = ch.model_mapping ? JSON.parse(ch.model_mapping) : {};
+    } catch {
+      mapping = {};
+    }
+
+    const renames: Array<[string, string]> = [];
+    for (const name of published) {
+      if (isRoutingOnlyAlias(name)) continue;
+      const correct = correctPublishedName(name, config.modelMapping);
+      if (correct !== name && !published.includes(correct))
+        renames.push([name, correct]);
+    }
+    if (renames.length === 0) continue;
+
+    const nextNames = published.map((n) => {
+      const hit = renames.find(([from]) => from === n);
+      return hit ? hit[1] : n;
+    });
+    const nextMapping: Record<string, string> = { ...mapping };
+    for (const [from, to] of renames) {
+      if (from in nextMapping) {
+        nextMapping[to] = nextMapping[from]!;
+        delete nextMapping[from];
+      }
+    }
+
+    const ok = await target.updateChannel({
+      ...ch,
+      models: nextNames.join(","),
+      model_mapping: JSON.stringify(nextMapping),
+    });
+    if (ok) {
+      ch.models = nextNames.join(",");
+      ch.model_mapping = JSON.stringify(nextMapping);
+      renamed++;
+      for (const [from, to] of renames)
+        consola.info(t("CORE.METADATA.CHANNEL_RENAMED", { from, to }));
+    }
+  }
+  return renamed;
+}
+
 export async function runMetadataSync(
   config: RuntimeConfig,
 ): Promise<MetadataSyncResult> {
@@ -163,6 +234,11 @@ export async function runMetadataSync(
   const reverseMapping = buildReverseMapping(config.modelMapping);
   const vendorIdCache = new Map<string, number | undefined>();
 
+  // Re-derive published names against the current modelMapping and rename any
+  // stale ones on their channels (e.g. a `{slug}-free:free` left over from before
+  // a `{slug}-free -> {canonical}` mapping existed). Gateway-only, no probing.
+  const renamedChannels = await normalizePublishedNames(target, channels, config);
+
   // Union of every served name and every existing models-table row.
   const existingByName = new Map<string, ModelMeta>();
   for (const m of existingModels)
@@ -183,6 +259,7 @@ export async function runMetadataSync(
     skipped: 0,
     failed: 0,
     failedModels: [],
+    renamedChannels,
   };
 
   for (const name of names) {
@@ -321,6 +398,10 @@ export function printMetadataSummary(result: MetadataSyncResult): void {
   );
   if (result.created > 0)
     consola.info(`[metadata] created ${result.created} missing model rows`);
+  if (result.renamedChannels > 0)
+    consola.info(
+      `[metadata] renamed published names on ${result.renamedChannels} channels`,
+    );
   if (result.failedModels.length > 0)
     consola.warn(
       t("CORE.METADATA.RESEED_FAILED_LIST", {

@@ -479,7 +479,8 @@
       "FUZZY_BLM_TAGS": "Fuzzy BLM tags: \"{model}\" -> \"{key}\" ({score})",
       "RESEED_START": "[metadata] re-seeding metadata for {count} models",
       "RESEED_DONE": "[metadata] re-seed done: {patched} patched, {skipped} skipped, {failed} failed",
-      "RESEED_FAILED_LIST": "[metadata] failed to update: {items}"
+      "RESEED_FAILED_LIST": "[metadata] failed to update: {items}",
+      "CHANNEL_RENAMED": "[metadata] renamed published model \"{from}\" -> \"{to}\""
     },
     "TESTER": {
       "AUTHENTICITY_LOADED": "[authenticity-blacklist] Loaded {count} entries",
