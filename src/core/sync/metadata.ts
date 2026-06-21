@@ -40,8 +40,11 @@ import { fetchBasellmEntries } from "@core/catalog/metadata";
 import type { RuntimeConfig } from "@core/config";
 import {
   buildModelMetadata,
+  deriveTagsFromMetadata,
   fetchAllPricingSources,
+  resolveSourceMetadata,
 } from "@core/pricing/resolver";
+import type { PricingSource } from "@core/pricing/sources/types";
 import { isRoutingOnlyAlias } from "@core/sync/pipeline/desired-models";
 import type { Channel, ModelMeta, Vendor } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
@@ -101,6 +104,26 @@ function inferEndpoints(name: string): string | undefined {
   if (!canonicalEp) return undefined;
   const path = ENDPOINT_DEFAULT_PATHS[normalizeEndpointType(canonicalEp)];
   return path ? JSON.stringify({ [canonicalEp]: path }) : undefined;
+}
+
+// Tags string for a row. First tag is the capitalized model type (drives the UI
+// tab), then the metadata-derived flags/context. inferModelType is name-based here
+// (the create/re-seed path has no offer endpoints), which is correct for whisper/
+// tts/embedding/image whose names are unambiguous.
+function buildTags(
+  name: string,
+  sources: PricingSource[],
+  reverseMapping: Map<string, string>,
+): string {
+  const modelType = inferModelType(name);
+  const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
+  const sourceTags = deriveTagsFromMetadata(
+    resolveSourceMetadata(name, sources, reverseMapping),
+  );
+  const seen = new Set<string>();
+  return [typeTag, ...sourceTags]
+    .filter((tag) => tag && !seen.has(tag.toLowerCase()) && seen.add(tag.toLowerCase()))
+    .join(",");
 }
 
 // Every published model name a channel serves (minus routing-only [1m] aliases).
@@ -179,12 +202,15 @@ export async function runMetadataSync(
 
     const existing = existingByName.get(name);
 
+    const tags = buildTags(name, sources, reverseMapping);
+
     if (!existing) {
       const created = await target.createModel({
         model_name: name,
         ...(vendorId != null ? { vendor_id: vendorId } : {}),
         ...(merged ? { metadata: JSON.stringify(merged) } : {}),
         endpoints: inferEndpoints(name),
+        tags,
         status: 1,
       });
       if (created) result.created++;
@@ -200,7 +226,15 @@ export async function runMetadataSync(
       merged != null && (existing.metadata ?? "") !== nextMetadata;
     const vendorChanged = vendorId != null && existing.vendor_id !== vendorId;
 
-    if (!metadataChanged && !vendorChanged) {
+    // The first tag drives the UI modality tab. A full sync builds the richest
+    // tags; only correct the row when its leading tag is missing or the WRONG
+    // type (e.g. an audio model left untagged -> mis-filed under Text), so we
+    // never clobber a good full-sync tag set.
+    const liveFirstTag = (existing.tags ?? "").split(",")[0]?.trim();
+    const wantFirstTag = tags.split(",")[0];
+    const tagsChanged = !!wantFirstTag && liveFirstTag !== wantFirstTag;
+
+    if (!metadataChanged && !vendorChanged && !tagsChanged) {
       result.skipped++;
       continue;
     }
@@ -209,6 +243,7 @@ export async function runMetadataSync(
       ...existing,
       ...(merged ? { metadata: nextMetadata } : {}),
       ...(vendorId != null ? { vendor_id: vendorId } : {}),
+      ...(tagsChanged ? { tags } : {}),
     };
     if (await target.updateModel(patched)) {
       result.patched++;
