@@ -1189,6 +1189,34 @@ const CURATED: Record<string, SourceMetadata> = {
     contextWindow: 32_000,
     series: "Voyage",
   },
+  // OpenCode Zen house coding models (base undisclosed; specs ESTIMATED).
+  "big-pickle": {
+    releaseDate: iso("2026-01-01"),
+    contextWindow: 200_000,
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "big-pickle-thinking": {
+    releaseDate: iso("2026-01-01"),
+    contextWindow: 200_000,
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // Z.ai GLM-4.6 Vision Flash
+  "glm-4.6v-flash": {
+    releaseDate: iso("2025-10-01"),
+    contextWindow: 128_000,
+    series: "GLM",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // Zanity grok-fun: Grok-styled RP finetune (base undisclosed; specs ESTIMATED).
+  "grok-fun": {
+    releaseDate: iso("2026-01-01"),
+    contextWindow: 131_072,
+    series: "Grok",
+  },
 };
 
 export function buildCuratedSource(): PricingSource {
