@@ -117,7 +117,7 @@ function mergeProtected<T>(
 }
 
 // prettier-ignore
-const PARTIAL_MODEL_OPTION_KEYS = ["ModelRatio","ModelPrice","CompletionRatio","ImageRatio","CacheRatio","CreateCacheRatio","AudioRatio","AudioCompletionRatio","ModelQuotaType","ModelGridPricing","billing_setting.billing_mode","billing_setting.billing_expr"] as const;
+const PARTIAL_MODEL_OPTION_KEYS = ["ModelRatio","ModelPrice","CompletionRatio","ImageRatio","CacheRatio","CreateCacheRatio","AudioRatio","AudioCompletionRatio","ModelQuotaType","ModelGridPricing","billing_setting.billing_mode","billing_setting.billing_expr","ModelRequestRateLimitModels"] as const;
 
 function buildManagedOptionValues(
   desired: DesiredState,
@@ -211,7 +211,7 @@ function buildManagedOptionValues(
   ].sort((a, b) => (mergedGroupRatio[a] ?? 1) - (mergedGroupRatio[b] ?? 1));
 
   // prettier-ignore
-  const modelOptions: [string, Record<string, unknown>][] = [["ModelRatio", opts.modelRatio],["CompletionRatio", opts.completionRatio],["ModelPrice", opts.modelPrice],["ImageRatio", opts.imageRatio],["CacheRatio", opts.cacheRatio],["CreateCacheRatio", opts.createCacheRatio],["AudioRatio", opts.audioRatio],["AudioCompletionRatio", opts.audioCompletionRatio],["ModelQuotaType", opts.modelQuotaType],["ModelGridPricing", opts.modelGridPricing],["billing_setting.billing_mode", opts.billingMode],["billing_setting.billing_expr", opts.billingExpr]];
+  const modelOptions: [string, Record<string, unknown>][] = [["ModelRatio", opts.modelRatio],["CompletionRatio", opts.completionRatio],["ModelPrice", opts.modelPrice],["ImageRatio", opts.imageRatio],["CacheRatio", opts.cacheRatio],["CreateCacheRatio", opts.createCacheRatio],["AudioRatio", opts.audioRatio],["AudioCompletionRatio", opts.audioCompletionRatio],["ModelQuotaType", opts.modelQuotaType],["ModelGridPricing", opts.modelGridPricing],["billing_setting.billing_mode", opts.billingMode],["billing_setting.billing_expr", opts.billingExpr],["ModelRequestRateLimitModels", opts.modelRateLimits]];
 
   const modelPatterns = opts.responsesApiModels.map(
     (m) => `^${m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
@@ -231,6 +231,13 @@ function buildManagedOptionValues(
       channel_types: [1],
       model_patterns: modelPatterns,
     }),
+    ModelRequestRateLimitNewUserFactor: String(opts.rateLimitNewUserFactor),
+    ModelRequestRateLimitNewUserMaxAgeDays: String(
+      opts.rateLimitNewUserMaxAgeDays,
+    ),
+    ModelRequestRateLimitNewUserMaxUsedQuota: String(
+      opts.rateLimitNewUserMaxUsedQuota,
+    ),
   };
 }
 

@@ -253,6 +253,7 @@ export async function runProviderPipeline(
     mergedModels,
     config.modelMapping,
     allPricingGrids,
+    config.rateLimit,
   );
 
   for (const provider of config.providers) {

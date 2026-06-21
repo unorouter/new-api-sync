@@ -191,6 +191,13 @@ export const ConfigSchema = T.Object({
   perUpstreamConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),
   blacklist: Opt(T.Array(str)),
   modelMapping: Opt(T.Record(T.String(), T.String())),
+  // prettier-ignore
+  rateLimit: Opt(T.Object({
+    models: T.Record(T.String(), T.Tuple([T.Integer({ minimum: 0 }), T.Integer({ minimum: 1 })])),
+    newUserFactor: Opt(T.Number({ exclusiveMinimum: 0, maximum: 1 })),
+    newUserMaxAgeDays: Opt(T.Integer({ minimum: 0 })),
+    newUserMaxUsedQuota: Opt(T.Integer({ minimum: 0 })),
+  })),
   providers: T.Array(AnyProviderSchema, { minItems: 1 }),
 });
 

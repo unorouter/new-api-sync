@@ -25,6 +25,10 @@ export const MANAGED_OPTION_KEYS = [
   "billing_setting.billing_mode",
   "billing_setting.billing_expr",
   "global.chat_completions_to_responses_policy",
+  "ModelRequestRateLimitModels",
+  "ModelRequestRateLimitNewUserFactor",
+  "ModelRequestRateLimitNewUserMaxAgeDays",
+  "ModelRequestRateLimitNewUserMaxUsedQuota",
 ] as const;
 
 export const PAGINATION = {
@@ -153,6 +157,10 @@ export interface ManagedOptionMaps {
   billingExpr: Record<string, string>;
   defaultUseAutoGroup: boolean;
   responsesApiModels: string[];
+  modelRateLimits: Record<string, [number, number]>;
+  rateLimitNewUserFactor: number;
+  rateLimitNewUserMaxAgeDays: number;
+  rateLimitNewUserMaxUsedQuota: number;
 }
 
 export interface DesiredState {

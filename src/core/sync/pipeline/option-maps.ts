@@ -1,3 +1,4 @@
+import type { RuntimeConfig } from "@core/config";
 import type {
   GridPricingInfo,
   ManagedOptionMaps,
@@ -5,12 +6,14 @@ import type {
   MergedModel,
 } from "@core/types";
 import { t } from "@server/i18n";
+import micromatch from "micromatch";
 
 export function buildOptionMaps(
   mergedGroups: MergedGroup[],
   mergedModels: Map<string, MergedModel>,
   modelMapping: Record<string, string>,
   configGridPricing: Record<string, Record<string, string | number>[]>,
+  rateLimit: RuntimeConfig["rateLimit"],
 ): Omit<ManagedOptionMaps, "responsesApiModels" | "defaultUseAutoGroup"> {
   const r4 = (n: number) => Math.round(n * 10000) / 10000;
   const groupRatio: Record<string, number> = {};
@@ -86,6 +89,22 @@ export function buildOptionMaps(
     }
   }
 
+  // Per-model rate limits apply ONLY to `:free` published names; paid models are
+  // never limited. Expand config globs to the exact `:free` names in this run.
+  const modelRateLimits: Record<string, [number, number]> = {};
+  const limitGlobs = Object.entries(rateLimit?.models ?? {});
+  if (limitGlobs.length > 0) {
+    for (const modelName of mergedModels.keys()) {
+      if (!modelName.endsWith(":free")) continue;
+      for (const [glob, limits] of limitGlobs) {
+        if (micromatch.isMatch(modelName, glob)) {
+          modelRateLimits[modelName] = limits;
+          break;
+        }
+      }
+    }
+  }
+
   return {
     groupRatio,
     userUsableGroups,
@@ -102,5 +121,9 @@ export function buildOptionMaps(
     modelGridPricing,
     billingMode,
     billingExpr,
+    modelRateLimits,
+    rateLimitNewUserFactor: rateLimit?.newUserFactor ?? 1,
+    rateLimitNewUserMaxAgeDays: rateLimit?.newUserMaxAgeDays ?? 0,
+    rateLimitNewUserMaxUsedQuota: rateLimit?.newUserMaxUsedQuota ?? 0,
   };
 }

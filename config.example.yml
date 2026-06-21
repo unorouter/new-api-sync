@@ -7,6 +7,19 @@ blacklist:
   - nsfw
 modelMapping:
   claude-sonnet-4-5-20250929-thinking: claude-sonnet-4-5-20250929
+# Per-user, per-model rate limits for the big FREE models that get swarmed.
+# Globs match the published `:free` names only; paid models are never limited.
+# Each value is [totalRequests, successRequests] per the gateway's limit window.
+# newUser* throttles fresh accounts (age in days OR used quota below the threshold)
+# by multiplying the limits by newUserFactor (1 = off).
+rateLimit:
+  models:
+    kimi-*:free: [0, 20]
+    glm-*:free: [0, 15]
+    deepseek-*:free: [0, 10]
+  newUserFactor: 0.25
+  newUserMaxAgeDays: 3
+  newUserMaxUsedQuota: 500000
 providers:
   # ── new-api upstream ──
   - type: newapi
