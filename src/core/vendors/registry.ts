@@ -60,6 +60,7 @@ import { discoverFreeAiModels } from "./freeai/discovery";
 import { discoverBleakModels } from "./bleak/discovery";
 import { discoverLongCatModels } from "./longcat/discovery";
 import { discoverPublicAiModels } from "./publicai/discovery";
+import { discoverLlmGatewayModels } from "./llmgateway/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -116,6 +117,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   bleak: discoverBleakModels,
   longcat: discoverLongCatModels,
   publicai: discoverPublicAiModels,
+  llmgateway: discoverLlmGatewayModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {

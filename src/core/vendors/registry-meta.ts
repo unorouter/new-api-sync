@@ -547,6 +547,19 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "zpka_... (platform.publicai.co)",
   },
   {
+    kind: "llmgateway",
+    label: "LLM Gateway",
+    // api.llmgateway.io/v1 (theopenco). No-card signup. Base is the host; runner +
+    // discovery append /v1. 224-model catalog; discovery filters to free:true (~3
+    // GLM-Flash rows via the zai upstream). Honest labels, no faked frontier. Free
+    // lane rides zai shared RPM -> 429 "1302" = budget spent, kept disabled, auto-test
+    // re-enables. 20 rpm free cap. glm-4.7-flash-free "-free" suffix collapses via modelMapping.
+    defaultBaseUrl: "https://api.llmgateway.io",
+    defaultRatio: 0,
+    acceptRateLimited: true,
+    apiKeyPlaceholder: "llmgtwy_... (llmgateway.io)",
+  },
+  {
     kind: "uncloseai",
     label: "UncloseAI",
     // hermes.ai.unturf.com - UncloseAI/unturf community permacomputer, vllm-served, KEYLESS
