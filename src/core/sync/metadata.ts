@@ -46,6 +46,7 @@ import {
 } from "@core/pricing/resolver";
 import type { PricingSource } from "@core/pricing/sources/types";
 import { isRoutingOnlyAlias } from "@core/sync/pipeline/desired-models";
+import { expandRateLimitModels } from "@core/sync/pipeline/option-maps";
 import type { Channel, ModelMeta, Vendor } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
 import { t } from "@server/i18n";
@@ -253,7 +254,61 @@ export async function runMetadataSync(
     }
   }
 
+  await syncRateLimitOptions(target, config, allNames, inScope);
+
   return result;
+}
+
+// Push the per-model rate-limit option (and new-user scalars) the same way a full
+// sync does, so `sync metadata` keeps the gateway's rate limits in step with the
+// `:free` catalog. Out-of-scope entries (under a `--models` filter) are preserved.
+// No-op when config carries no `rateLimit` block.
+async function syncRateLimitOptions(
+  target: NewApiClient,
+  config: RuntimeConfig,
+  publishedNames: Set<string>,
+  inScope: (name: string) => boolean,
+): Promise<void> {
+  if (!config.rateLimit) return;
+
+  const desired = expandRateLimitModels(publishedNames, config.rateLimit);
+
+  const RATE_LIMIT_KEYS = [
+    "ModelRequestRateLimitModels",
+    "ModelRequestRateLimitNewUserFactor",
+    "ModelRequestRateLimitNewUserMaxAgeDays",
+    "ModelRequestRateLimitNewUserMaxUsedQuota",
+  ];
+  const current = await target.getOptions(RATE_LIMIT_KEYS);
+
+  // Preserve out-of-scope entries: in a partial run only in-scope `:free` keys are
+  // managed; everything else keeps its existing value.
+  let existing: Record<string, [number, number]> = {};
+  try {
+    existing = JSON.parse(current.ModelRequestRateLimitModels || "{}");
+  } catch {
+    existing = {};
+  }
+  const merged: Record<string, [number, number]> = {};
+  for (const [k, v] of Object.entries(existing)) if (!inScope(k)) merged[k] = v;
+  for (const [k, v] of Object.entries(desired)) merged[k] = v;
+
+  const updates: Record<string, string> = {
+    ModelRequestRateLimitModels: JSON.stringify(merged),
+    ModelRequestRateLimitNewUserFactor: String(
+      config.rateLimit.newUserFactor ?? 1,
+    ),
+    ModelRequestRateLimitNewUserMaxAgeDays: String(
+      config.rateLimit.newUserMaxAgeDays ?? 0,
+    ),
+    ModelRequestRateLimitNewUserMaxUsedQuota: String(
+      config.rateLimit.newUserMaxUsedQuota ?? 0,
+    ),
+  };
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (current[key] !== value) await target.updateOption(key, value);
+  }
 }
 
 export function printMetadataSummary(result: MetadataSyncResult): void {

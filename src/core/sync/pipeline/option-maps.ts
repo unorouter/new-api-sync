@@ -8,6 +8,27 @@ import type {
 import { t } from "@server/i18n";
 import micromatch from "micromatch";
 
+// Per-model rate limits apply ONLY to `:free` published names; paid models are
+// never limited. Expands config globs to the exact `:free` names present.
+export function expandRateLimitModels(
+  names: Iterable<string>,
+  rateLimit: RuntimeConfig["rateLimit"],
+): Record<string, [number, number]> {
+  const out: Record<string, [number, number]> = {};
+  const limitGlobs = Object.entries(rateLimit?.models ?? {});
+  if (limitGlobs.length === 0) return out;
+  for (const name of names) {
+    if (!name.endsWith(":free")) continue;
+    for (const [glob, limits] of limitGlobs) {
+      if (micromatch.isMatch(name, glob)) {
+        out[name] = limits;
+        break;
+      }
+    }
+  }
+  return out;
+}
+
 export function buildOptionMaps(
   mergedGroups: MergedGroup[],
   mergedModels: Map<string, MergedModel>,
@@ -89,21 +110,7 @@ export function buildOptionMaps(
     }
   }
 
-  // Per-model rate limits apply ONLY to `:free` published names; paid models are
-  // never limited. Expand config globs to the exact `:free` names in this run.
-  const modelRateLimits: Record<string, [number, number]> = {};
-  const limitGlobs = Object.entries(rateLimit?.models ?? {});
-  if (limitGlobs.length > 0) {
-    for (const modelName of mergedModels.keys()) {
-      if (!modelName.endsWith(":free")) continue;
-      for (const [glob, limits] of limitGlobs) {
-        if (micromatch.isMatch(modelName, glob)) {
-          modelRateLimits[modelName] = limits;
-          break;
-        }
-      }
-    }
-  }
+  const modelRateLimits = expandRateLimitModels(mergedModels.keys(), rateLimit);
 
   return {
     groupRatio,
