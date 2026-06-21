@@ -55,6 +55,9 @@ import { discoverUncloseAiModels } from "./uncloseai/discovery";
 import { discoverAiHubMixModels } from "./aihubmix/discovery";
 import { discoverTokenReplyModels } from "./tokenreply/discovery";
 import { discoverBazaarLinkModels } from "./bazaarlink/discovery";
+import { discoverBlockRunModels } from "./blockrun/discovery";
+import { discoverFreeAiModels } from "./freeai/discovery";
+import { discoverBleakModels } from "./bleak/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -106,6 +109,9 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   aihubmix: discoverAiHubMixModels,
   tokenreply: discoverTokenReplyModels,
   bazaarlink: discoverBazaarLinkModels,
+  blockrun: discoverBlockRunModels,
+  freeai: discoverFreeAiModels,
+  bleak: discoverBleakModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {

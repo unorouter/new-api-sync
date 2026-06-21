@@ -481,6 +481,45 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "keyless (or kilo.ai key)",
   },
   {
+    kind: "blockrun",
+    label: "BlockRun",
+    // blockrun.ai/api/v1 ClawRouter. KEYLESS free lane (no signup/card). Base is the
+    // host; runner + discovery append /v1. Discovery filters to billing_mode:"free"
+    // (~10 re-wrapped NVIDIA NIM opens: nemotron, llama-4-maverick, qwen3-next-80b,
+    // mistral-large-3, step-3.7-flash). Paid catalog (gpt-5.5/claude-opus) is vaporware
+    // behind 402 USDC - never exposed. Borrowed-upstream sustainability, additive lane.
+    defaultBaseUrl: "https://blockrun.ai/api",
+    defaultRatio: 0,
+    // Free lane rides a shared NVIDIA NIM tier - burst-probing trips real RPM 429.
+    // 429 = capacity, keep the model (emitted disabled, auto-test enables later).
+    acceptRateLimited: true,
+    apiKeyPlaceholder: "keyless",
+  },
+  {
+    kind: "freeai",
+    label: "free.ai",
+    // api.free.ai/v1 - KEYLESS self-hosted single-droplet project. Its /v1/models is a
+    // fake 386-entry OpenRouter mirror (all 404); discovery IGNORES it and hardcodes the
+    // one real loaded id (Qwen/Qwen2.5-VL-7B-Instruct-AWQ, vision). Base is the host;
+    // runner + discovery append /v1. Fragile (IP churns) -> additive lane, probe drops it.
+    defaultBaseUrl: "https://api.free.ai",
+    defaultRatio: 0,
+    acceptRateLimited: true,
+    apiKeyPlaceholder: "keyless",
+  },
+  {
+    kind: "bleak",
+    label: "Bleak",
+    // bleak-openai-compatible-server-gemma4.hf.space/v1 - KEYLESS self-hosted llama.cpp
+    // on the free HF CPU tier (genuinely owned, not proxied). One honest unsloth Gemma-3n
+    // GGUF. ~6 tok/s, single replica, sleeps -> FALLBACK lane only. Base ends at the
+    // Space host; runner + discovery append /v1.
+    defaultBaseUrl: "https://bleak-openai-compatible-server-gemma4.hf.space",
+    defaultRatio: 0,
+    acceptRateLimited: true,
+    apiKeyPlaceholder: "keyless",
+  },
+  {
     kind: "uncloseai",
     label: "UncloseAI",
     // hermes.ai.unturf.com - UncloseAI/unturf community permacomputer, vllm-served, KEYLESS
