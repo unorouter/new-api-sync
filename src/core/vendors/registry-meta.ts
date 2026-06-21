@@ -560,6 +560,32 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "llmgtwy_... (llmgateway.io)",
   },
   {
+    kind: "voyage",
+    label: "Voyage AI",
+    // api.voyageai.com/v1 - top-tier retrieval EMBEDDINGS (distinct from jina/cohere/
+    // siliconflow). 200M free tokens/account, no card (pay only after the allowance) =
+    // genuine $0. Base is the host; runner + discovery append /v1; the embedding modality
+    // probes /v1/embeddings. No /v1/models (404) -> static curated embedding list in
+    // discovery. rerank-2.5 is NOT OpenAI-shaped -> excluded (embeddings only).
+    defaultBaseUrl: "https://api.voyageai.com",
+    defaultRatio: 0,
+    acceptRateLimited: true,
+    apiKeyPlaceholder: "pa-... (dashboard.voyageai.com)",
+  },
+  {
+    kind: "sealion",
+    label: "SEA-LION",
+    // api.sea-lion.ai/v1 (AI Singapore) - LiteLLM proxy, OpenAI-shaped text + embeddings.
+    // Free Google-SSO key, 10 rpm/user, no card. Direct lane (vs publicai's qwen-sea-lion)
+    // adds Apertus-SEA-LION + a SEA embedding. Discovery HARD-FILTERS to the Apache-2.0
+    // subset (Gemma/Llama SEA-LION + SEA-Guard excluded for commercial-license reasons).
+    // 10 rpm trips 429 under burst -> acceptRateLimited; failover lane only.
+    defaultBaseUrl: "https://api.sea-lion.ai",
+    defaultRatio: 0,
+    acceptRateLimited: true,
+    apiKeyPlaceholder: "sk-... (playground.sea-lion.ai, Google SSO)",
+  },
+  {
     kind: "uncloseai",
     label: "UncloseAI",
     // hermes.ai.unturf.com - UncloseAI/unturf community permacomputer, vllm-served, KEYLESS

@@ -86,6 +86,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   utterproject: { modelPatterns: ["eurollm"], strongPatterns: ["eurollm"], nameAliases: ["utter-project","utter project","eurollm"], displayName: "EuroLLM" },
   dictail: { modelPatterns: ["dictalm"], strongPatterns: ["dictalm"], nameAliases: ["dicta-il","dicta","dictalm"], displayName: "Dicta" },
   allenai: { modelPatterns: ["olmo"], strongPatterns: ["olmo"], nameAliases: ["allenai","allen ai","ai2","olmo"], displayName: "Allen AI" },
+  voyage: { modelPatterns: ["voyage-"], strongPatterns: ["voyage-"], nameAliases: ["voyage","voyage ai"], displayName: "Voyage AI" },
 };
 
 // Most-specific match wins, not first-by-definition-order: a prefix match beats a

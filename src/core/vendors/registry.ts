@@ -61,6 +61,8 @@ import { discoverBleakModels } from "./bleak/discovery";
 import { discoverLongCatModels } from "./longcat/discovery";
 import { discoverPublicAiModels } from "./publicai/discovery";
 import { discoverLlmGatewayModels } from "./llmgateway/discovery";
+import { discoverVoyageModels } from "./voyage/discovery";
+import { discoverSeaLionModels } from "./sealion/discovery";
 
 type Discover = (
   baseUrl: string,
@@ -118,6 +120,8 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   longcat: discoverLongCatModels,
   publicai: discoverPublicAiModels,
   llmgateway: discoverLlmGatewayModels,
+  voyage: discoverVoyageModels,
+  sealion: discoverSeaLionModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {
