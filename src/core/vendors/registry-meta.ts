@@ -421,6 +421,19 @@ export const SIMPLE_PROVIDER_META = [
     acceptRateLimited: true,
   },
   {
+    kind: "bazaarlink",
+    label: "BazaarLink",
+    // OpenRouter-mirror reseller (bazaarlink.ai/api/v1); 295 models but exactly ONE
+    // is free - the "auto:free" routing id ($0, no card, verified routes to a real
+    // deepseek-v4-flash, not a faked frontier). Key minted no-card via
+    // POST /api/v1/agents/register. Discovery is static (auto:free only). Brand-new
+    // low-trust vendor - disposable failover; probe drops it if the lane vanishes.
+    defaultBaseUrl: "https://bazaarlink.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-bl-... (POST /api/v1/agents/register)",
+    acceptRateLimited: true,
+  },
+  {
     kind: "logfare",
     label: "Logfare",
     // OpenAI-compatible (logfare.ai/v1); base is the host, runner + discovery append
