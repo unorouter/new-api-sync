@@ -1089,6 +1089,39 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Hunyuan",
     supportsTools: true,
   },
+  // OpenAI GPT-5.5 with web search tool
+  "gpt-5.5-search": {
+    releaseDate: iso("2026-04-23"),
+    contextWindow: 400_000,
+    series: "GPT",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+    supportsWebSearch: true,
+  },
+  // DeepSeek V4-Flash reasoning variant (date; context already from upstream)
+  "deepseek-v4-flash-thinking": {
+    releaseDate: iso("2026-04-22"),
+    contextWindow: 200_000,
+    series: "DeepSeek",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // NavyAI house "laborratse" models (undisclosed base; specs ESTIMATED)
+  "gpt-laborratse": {
+    releaseDate: iso("2026-01-01"),
+    contextWindow: 128_000,
+    supportsTools: true,
+  },
+  "gpt-laborratse-de": {
+    releaseDate: iso("2026-01-01"),
+    contextWindow: 128_000,
+    supportsTools: true,
+  },
+  "laborratse-uncensored": {
+    releaseDate: iso("2026-01-01"),
+    contextWindow: 128_000,
+  },
   "grok-code-fast-1": {
     releaseDate: iso("2025-08-26"),
     contextWindow: 256_000,

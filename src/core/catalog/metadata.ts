@@ -80,7 +80,7 @@ export async function fetchBasellmEntries(): Promise<BasellmEntry[]> {
 }
 
 // prettier-ignore
-const STRIPPABLE_SUFFIXES = ["-latest","-preview","-instruct","-thinking","-free","-online","-nightly","-beta","-exp","-experimental"];
+const STRIPPABLE_SUFFIXES = ["-latest","-preview","-instruct","-thinking","-free","-online","-nightly","-beta","-exp","-experimental","-search","-search-preview","-search-api","-openai-compact"];
 // prettier-ignore
 const TIER_SUFFIXES = ["-highspeed","-fast","-pro","-air","-flash","-mini","-nano","-turbo","-lite","-max","-ultra","-plus","-standard","-economy","-coder","-code","-vision","-image","-audio"];
 // prettier-ignore
@@ -183,7 +183,17 @@ function fuzzyLookup<T>(
     if (v !== undefined) return { key: exactKey, value: v, score: 1.0 };
   }
   for (const variant of strippedVariants(norm)) {
-    const hit = score(index.normalized.get(variant));
+    // A stripped variant that EXACTLY equals a candidate's normalized key is a
+    // direct hit (e.g. "gpt-5-5-search" -> "gpt-5-5" == gpt-5.5). Skip the token-
+    // similarity gate, which under-scores repeated-digit names (the two 5s in 5.5
+    // collapse in the token Set, dropping dice below threshold).
+    const keys = index.normalized.get(variant);
+    const directKey = keys?.[0];
+    if (directKey && !tierSuffixMismatch(norm, variant)) {
+      const v = index.candidates.get(directKey);
+      if (v !== undefined) return { key: directKey, value: v, score: 1.0 };
+    }
+    const hit = score(keys);
     if (hit) return hit;
   }
   let best: Hit | undefined;
