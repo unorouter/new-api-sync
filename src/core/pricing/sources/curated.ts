@@ -22,6 +22,22 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // litellm lists Apertus at 8192 ctx / no tools; HF model card = 65536, tools yes.
   "apertus-8b-instruct": { contextWindow: 65_536, maxInputTokens: 65_536, supportsTools: true },
   "apertus-70b-instruct": { contextWindow: 65_536, maxInputTokens: 65_536, supportsTools: true },
+  // Flash/turbo GLM tiers get fuzzy-matched to their base (glm-4.7, glm-5) by
+  // other sources, which overstates context and drops the series. Hard-pin them.
+  "glm-4.7-flash": {
+    releaseDate: iso("2025-12-01"),
+    contextWindow: 128_000,
+    series: "GLM",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "glm-5-turbo": {
+    releaseDate: iso("2026-01-15"),
+    contextWindow: 128_000,
+    series: "GLM",
+    isReasoning: true,
+    supportsTools: true,
+  },
 };
 
 // bare name -> curated metadata. Dates are official announcement dates.
@@ -1328,6 +1344,47 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "GLM",
     isReasoning: true,
     supportsVision: true,
+    supportsTools: true,
+  },
+  // Zhipu GLM-4.1V-9B-Thinking (vision reasoning flash tiers)
+  "glm-4.1v-thinking-flash": {
+    releaseDate: iso("2025-07-02"),
+    contextWindow: 65_536,
+    series: "GLM",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "glm-4.1v-thinking-flashx": {
+    releaseDate: iso("2025-07-02"),
+    contextWindow: 65_536,
+    series: "GLM",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // Zhipu GLM-4.7 Flash tier
+  "glm-4.7-flash": {
+    releaseDate: iso("2025-12-01"),
+    contextWindow: 128_000,
+    series: "GLM",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // Zhipu GLM-5 Turbo
+  "glm-5-turbo": {
+    releaseDate: iso("2026-01-15"),
+    contextWindow: 128_000,
+    series: "GLM",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // Zhipu GLM-Z1 Air (Z1-0414 reasoning line)
+  "glm-z1-air": {
+    releaseDate: iso("2025-04-14"),
+    contextWindow: 128_000,
+    series: "GLM",
+    isReasoning: true,
     supportsTools: true,
   },
   // Zanity grok-fun: Grok-styled RP finetune (base undisclosed; specs ESTIMATED).
