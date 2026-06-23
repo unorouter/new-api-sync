@@ -395,7 +395,19 @@ async function syncUpstreamPricing(
       if (!isRoutingOnlyAlias(name) && inScope(name)) served.add(name);
   if (served.size === 0) return;
 
-  const result = await runProviderPipeline(config, snap, { dryRun: true });
+  // Only newapi providers expose an /api/pricing to read paid ratios from; the
+  // other provider kinds (nvidia/openrouter/sub2api) would run live probes even
+  // under dryRun (their processors don't honor the flag), so scope the pipeline
+  // to newapi providers to avoid wasted upstream test traffic.
+  const newapiConfig: RuntimeConfig = {
+    ...config,
+    providers: config.providers.filter((p) => p.type === "newapi"),
+  };
+  if (newapiConfig.providers.length === 0) return;
+
+  const result = await runProviderPipeline(newapiConfig, snap, {
+    dryRun: true,
+  });
   const opts = result.desired.options;
 
   // Same field -> option-key map the apply path uses (sync/diff.ts).
