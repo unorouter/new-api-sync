@@ -499,7 +499,9 @@ const CURATED: Record<string, SourceMetadata> = {
   "flux-2-flex": { releaseDate: iso("2025-11-25"), mode: "image" },
   "flux-kontext-max": { releaseDate: iso("2025-05-29"), mode: "image" },
   "flux-dev": { releaseDate: iso("2024-08-01"), mode: "image" },
+  "flux.1-schnell": { releaseDate: iso("2024-08-01"), mode: "image" },
   // OpenAI image
+  "dall-e-3": { releaseDate: iso("2023-10-19"), mode: "image" },
   "gpt-4o-image": { releaseDate: iso("2025-03-25"), mode: "image" },
   "gpt-image-1": { releaseDate: iso("2025-04-23"), mode: "image" },
   "gpt-image-1-mini": { releaseDate: iso("2025-10-06"), mode: "image" },
@@ -514,6 +516,11 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2024-02-21"),
     mode: "image",
   },
+  // Lykon DreamShaper (LCM distill of v8)
+  "dreamshaper-8-lcm": { releaseDate: iso("2023-11-15"), mode: "image" },
+  // Leonardo.Ai
+  "lucid-origin": { releaseDate: iso("2025-08-19"), mode: "image" },
+  "phoenix-1.0": { releaseDate: iso("2024-08-15"), mode: "image" },
 
   // ─── Video-gen models (dates = public launch; suffix is snapshot code) ───
   "doubao-seedance-1-5-pro-251215": {
