@@ -99,14 +99,22 @@ export function buildOptionMaps(
     }
   }
 
+  // Pricing is global per model name (new-api has no per-channel price), so a grid
+  // and a per-request provider of the same model cannot coexist cleanly. Collapse
+  // every config grid to a single flat per-request modelPrice = the most expensive
+  // grid row, so all groups bill one consistent, never-underbilling price. No
+  // ModelGridPricing is emitted (the map stays empty, clearing any stale grid).
   const modelGridPricing: Record<string, GridPricingInfo> = {};
   for (const [modelName, rows] of Object.entries(configGridPricing)) {
     const mappedName = modelMapping?.[modelName] ?? modelName;
-    if (
-      modelPrice[mappedName] !== undefined ||
-      modelRatio[mappedName] !== undefined
-    ) {
-      modelGridPricing[mappedName] = rows as GridPricingInfo;
+    const maxPricing = rows.reduce((max, row) => {
+      const p = Number(row.Pricing);
+      return Number.isFinite(p) && p > max ? p : max;
+    }, 0);
+    if (maxPricing > 0) {
+      modelPrice[mappedName] = r4(maxPricing);
+      delete modelRatio[mappedName];
+      delete completionRatio[mappedName];
     }
   }
 

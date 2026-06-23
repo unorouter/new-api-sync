@@ -38,6 +38,7 @@ import {
 } from "@core/catalog/constants/vendor-matchers";
 import { fetchBasellmEntries } from "@core/catalog/metadata";
 import type { RuntimeConfig } from "@core/config";
+import { getPricingGridFromEnabledModels } from "@core/config";
 import {
   buildModelMetadata,
   deriveTagsFromMetadata,
@@ -356,6 +357,11 @@ export async function runMetadataSync(
   };
   await syncUpstreamPricing(target, config, snap, inScope);
 
+  // Collapse EVERY config pricing grid (all providers, served or not) to a flat
+  // per-request price = the most expensive grid row. Runs after syncUpstreamPricing
+  // so this max-grid price wins over any flat price the pipeline set.
+  await syncGridCollapse(target, config, inScope);
+
   // Every served `:free` name must be priced at ratio 0 (always free). Paid
   // ("general") models keep their existing ratios untouched. This also backfills
   // names that drifted (e.g. a published `minimax-m3-thinking:free` whose ratio
@@ -428,6 +434,14 @@ async function syncUpstreamPricing(
 
   const current = await target.getOptions(MODEL_OPTIONS.map(([k]) => k));
 
+  // A served model the pipeline now flat-prices (modelPrice set) must NOT keep a
+  // stale grid or ratio for the same name, or new-api would still bill the old
+  // way. Clear those collisions; scoped to names we actually re-priced so we
+  // never touch models priced elsewhere or left untouched.
+  const flatPriced = new Set<string>();
+  for (const name of served)
+    if (name in opts.modelPrice) flatPriced.add(name);
+
   let pricedNames = 0;
   let changedKeys = 0;
   const counted = new Set<string>();
@@ -439,11 +453,22 @@ async function syncUpstreamPricing(
       map = {};
     }
     let dirty = false;
+    const isRatioKey = key === "ModelRatio" || key === "CompletionRatio";
+    const isGridKey = key === "ModelGridPricing";
     for (const name of served) {
-      if (!(name in computed)) continue;
-      counted.add(name);
-      if (map[name] !== computed[name]) {
-        map[name] = computed[name];
+      if (name in computed) {
+        counted.add(name);
+        if (map[name] !== computed[name]) {
+          map[name] = computed[name];
+          dirty = true;
+          changedKeys++;
+        }
+      } else if (
+        (isGridKey || isRatioKey) &&
+        flatPriced.has(name) &&
+        name in map
+      ) {
+        delete map[name];
         dirty = true;
         changedKeys++;
       }
@@ -456,6 +481,77 @@ async function syncUpstreamPricing(
     t("CORE.METADATA.UPSTREAM_PRICING_SYNCED", {
       count: pricedNames,
       changed: changedKeys,
+    }),
+  );
+}
+
+// Collapse every config `modelPricingGrid` (across all providers) to a single
+// flat per-request ModelPrice = the most expensive grid row, and clear the grid
+// + any ratio for that name. new-api prices globally per model name, so a grid
+// and a per-request provider of the same model cannot coexist; the max-row flat
+// price bills consistently and never underbills regardless of resolution/channel.
+async function syncGridCollapse(
+  target: NewApiClient,
+  config: RuntimeConfig,
+  inScope: (name: string) => boolean,
+): Promise<void> {
+  // Mapped published name -> max grid price, across every provider's grids.
+  const flat: Record<string, number> = {};
+  for (const provider of config.providers) {
+    if (provider.type === "private") continue;
+    const grids = getPricingGridFromEnabledModels(provider.enabledModels);
+    for (const [modelName, rows] of Object.entries(grids)) {
+      const mapped = config.modelMapping?.[modelName] ?? modelName;
+      if (!inScope(mapped)) continue;
+      const max = rows.reduce((m, row) => {
+        const p = Number(row.Pricing);
+        return Number.isFinite(p) && p > m ? p : m;
+      }, 0);
+      if (max > 0) flat[mapped] = Math.max(flat[mapped] ?? 0, max);
+    }
+  }
+  const names = Object.keys(flat);
+  if (names.length === 0) return;
+
+  const KEYS = [
+    "ModelPrice",
+    "ModelGridPricing",
+    "ModelRatio",
+    "CompletionRatio",
+  ];
+  const current = await target.getOptions(KEYS);
+  const r4 = (n: number) => Math.round(n * 10000) / 10000;
+
+  let changed = 0;
+  for (const key of KEYS) {
+    let map: Record<string, unknown> = {};
+    try {
+      map = JSON.parse(current[key] || "{}");
+    } catch {
+      map = {};
+    }
+    let dirty = false;
+    for (const name of names) {
+      if (key === "ModelPrice") {
+        const price = r4(flat[name]!);
+        if (map[name] !== price) {
+          map[name] = price;
+          dirty = true;
+          changed++;
+        }
+      } else if (name in map) {
+        delete map[name];
+        dirty = true;
+        changed++;
+      }
+    }
+    if (dirty) await target.updateOption(key, JSON.stringify(map));
+  }
+
+  consola.info(
+    t("CORE.METADATA.GRID_COLLAPSED", {
+      count: names.length,
+      changed,
     }),
   );
 }

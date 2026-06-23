@@ -482,7 +482,8 @@
       "RESEED_FAILED_LIST": "[metadata] failed to update: {items}",
       "CHANNEL_RENAMED": "[metadata] renamed published model \"{from}\" -> \"{to}\"",
       "FREE_PRICING_SYNCED": "[metadata] priced {count} :free models at ratio 0 ({changed} updated)",
-      "UPSTREAM_PRICING_SYNCED": "[metadata] priced {count} upstream models on current channels ({changed} updated)"
+      "UPSTREAM_PRICING_SYNCED": "[metadata] priced {count} upstream models on current channels ({changed} updated)",
+      "GRID_COLLAPSED": "[metadata] collapsed {count} grid models to flat max-price ({changed} updated)"
     },
     "TESTER": {
       "AUTHENTICITY_LOADED": "[authenticity-blacklist] Loaded {count} entries",
