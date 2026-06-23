@@ -34,9 +34,7 @@ const baseOf = (p: PriceField): number | undefined => {
   return undefined;
 };
 
-const flatPrices = (
-  prices: GenaiModel["prices"],
-): PricesBlock | undefined => {
+const flatPrices = (prices: GenaiModel["prices"]): PricesBlock | undefined => {
   if (Array.isArray(prices)) return prices[0]?.prices;
   return prices;
 };

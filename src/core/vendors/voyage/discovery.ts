@@ -32,5 +32,9 @@ export async function discoverVoyageModels(
   const modelTypeHints = new Map<string, ModelType>(
     VOYAGE_EMBEDDINGS.map((m) => [m, "embedding"]),
   );
-  return { models: VOYAGE_EMBEDDINGS, maxOutputByModel: new Map(), modelTypeHints };
+  return {
+    models: VOYAGE_EMBEDDINGS,
+    maxOutputByModel: new Map(),
+    modelTypeHints,
+  };
 }

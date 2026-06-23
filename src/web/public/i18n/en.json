@@ -480,7 +480,9 @@
       "RESEED_START": "[metadata] re-seeding metadata for {count} models",
       "RESEED_DONE": "[metadata] re-seed done: {patched} patched, {skipped} skipped, {failed} failed",
       "RESEED_FAILED_LIST": "[metadata] failed to update: {items}",
-      "CHANNEL_RENAMED": "[metadata] renamed published model \"{from}\" -> \"{to}\""
+      "CHANNEL_RENAMED": "[metadata] renamed published model \"{from}\" -> \"{to}\"",
+      "FREE_PRICING_SYNCED": "[metadata] priced {count} :free models at ratio 0 ({changed} updated)",
+      "UPSTREAM_PRICING_SYNCED": "[metadata] priced {count} upstream models on current channels ({changed} updated)"
     },
     "TESTER": {
       "AUTHENTICITY_LOADED": "[authenticity-blacklist] Loaded {count} entries",

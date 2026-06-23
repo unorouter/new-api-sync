@@ -259,9 +259,7 @@ export async function processOpenAICompatibleFreeProvider(
         // /v1/embeddings means the model doesn't actually serve embeddings (dead,
         // reranker, wrong endpoint) -> drop it, never list it.
         acceptRateLimited:
-          modality.modelType === "embedding"
-            ? false
-            : opts.acceptRateLimited,
+          modality.modelType === "embedding" ? false : opts.acceptRateLimited,
         capabilities: buildCapabilityMap(models, mapExposed, ctx),
       });
       const working = r.workingModels;

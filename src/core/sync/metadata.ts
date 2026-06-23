@@ -46,9 +46,11 @@ import {
 } from "@core/pricing/resolver";
 import type { PricingSource } from "@core/pricing/sources/types";
 import { updateGuestTokenFromNames } from "@core/sync/guest-token";
+import { runProviderPipeline } from "@core/sync/pipeline";
 import { isRoutingOnlyAlias } from "@core/sync/pipeline/desired-models";
 import { expandRateLimitModels } from "@core/sync/pipeline/option-maps";
-import type { Channel, ModelMeta, Vendor } from "@core/types";
+import type { Channel, ModelMeta, TargetSnapshot, Vendor } from "@core/types";
+import { MANAGED_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -125,7 +127,10 @@ function buildTags(
   );
   const seen = new Set<string>();
   return [typeTag, ...sourceTags]
-    .filter((tag) => tag && !seen.has(tag.toLowerCase()) && seen.add(tag.toLowerCase()))
+    .filter(
+      (tag) =>
+        tag && !seen.has(tag.toLowerCase()) && seen.add(tag.toLowerCase()),
+    )
     .join(",");
 }
 
@@ -224,13 +229,14 @@ export async function runMetadataSync(
   const inScope = (name: string) =>
     filter.length === 0 || matchesAnyPattern(name, filter);
 
-  const [basellmEntries, existingModels, vendors, channels] =
-    await Promise.all([
+  const [basellmEntries, existingModels, vendors, channels] = await Promise.all(
+    [
       fetchBasellmEntries(),
       target.listModels(),
       target.listVendors(),
       target.listChannels(),
-    ]);
+    ],
+  );
   const sources = await fetchAllPricingSources(basellmEntries);
   const reverseMapping = buildReverseMapping(config.modelMapping);
   const vendorIdCache = new Map<string, number | undefined>();
@@ -238,7 +244,11 @@ export async function runMetadataSync(
   // Re-derive published names against the current modelMapping and rename any
   // stale ones on their channels (e.g. a `{slug}-free:free` left over from before
   // a `{slug}-free -> {canonical}` mapping existed). Gateway-only, no probing.
-  const renamedChannels = await normalizePublishedNames(target, channels, config);
+  const renamedChannels = await normalizePublishedNames(
+    target,
+    channels,
+    config,
+  );
 
   // Union of every served name and every existing models-table row.
   const existingByName = new Map<string, ModelMeta>();
@@ -334,16 +344,147 @@ export async function runMetadataSync(
 
   await syncRateLimitOptions(target, config, allNames, inScope);
 
+  // Recompute paid pricing for models the current channels serve, pulled from the
+  // upstream newapi providers (cap + canonical vote + priceAdjustment), without
+  // probing. Runs before syncFreePricing so `:free` -> 0 still wins below.
+  const options = await target.getOptions([...MANAGED_OPTION_KEYS]);
+  const snap: TargetSnapshot = {
+    channels,
+    models: existingModels,
+    vendors,
+    options,
+  };
+  await syncUpstreamPricing(target, config, snap, inScope);
+
+  // Every served `:free` name must be priced at ratio 0 (always free). Paid
+  // ("general") models keep their existing ratios untouched. This also backfills
+  // names that drifted (e.g. a published `minimax-m3-thinking:free` whose ratio
+  // key was stuck under the old `-free:free` name) so they stop hitting the
+  // "not priced by the administrator" gate.
+  const freeNames = [...allNames]
+    .filter((name) => name.endsWith(":free") && inScope(name))
+    .sort();
+  await syncFreePricing(target, freeNames);
+
   // Keep the guest token's allowed-models in step with the served `:free`
   // catalog. Status-agnostic by design: a free model whose channel is currently
   // disabled/banned stays in the allowlist so it works the instant the channel
   // recovers, without waiting for a full `sync run`.
-  const freeNames = [...allNames]
-    .filter((name) => name.endsWith(":free") && inScope(name))
-    .sort();
   await updateGuestTokenFromNames(target, freeNames);
 
   return result;
+}
+
+// Recompute pricing from the upstream newapi providers for models the current
+// target channels serve, then write only those keys (merge-preserving everything
+// else). Runs the provider pipeline in dry-run mode: fetchPricing per provider
+// (read-only), canonical vote, computePricedPlan (hard cap + per-provider
+// priceAdjustment), buildOptionMaps - but NO probes/tests/token-creation, and the
+// pipeline itself writes nothing. We then intersect the computed option maps with
+// the names current channels publish so out-of-scope/paid-elsewhere entries are
+// untouched.
+async function syncUpstreamPricing(
+  target: NewApiClient,
+  config: RuntimeConfig,
+  snap: TargetSnapshot,
+  inScope: (name: string) => boolean,
+): Promise<void> {
+  const served = new Set<string>();
+  for (const ch of snap.channels)
+    for (const name of parseModelList(ch.models))
+      if (!isRoutingOnlyAlias(name) && inScope(name)) served.add(name);
+  if (served.size === 0) return;
+
+  const result = await runProviderPipeline(config, snap, { dryRun: true });
+  const opts = result.desired.options;
+
+  // Same field -> option-key map the apply path uses (sync/diff.ts).
+  const MODEL_OPTIONS: [string, Record<string, unknown>][] = [
+    ["ModelRatio", opts.modelRatio],
+    ["CompletionRatio", opts.completionRatio],
+    ["ModelPrice", opts.modelPrice],
+    ["ImageRatio", opts.imageRatio],
+    ["CacheRatio", opts.cacheRatio],
+    ["CreateCacheRatio", opts.createCacheRatio],
+    ["AudioRatio", opts.audioRatio],
+    ["AudioCompletionRatio", opts.audioCompletionRatio],
+    ["ModelQuotaType", opts.modelQuotaType],
+    ["ModelGridPricing", opts.modelGridPricing],
+    ["billing_setting.billing_mode", opts.billingMode],
+    ["billing_setting.billing_expr", opts.billingExpr],
+  ];
+
+  const current = await target.getOptions(MODEL_OPTIONS.map(([k]) => k));
+
+  let pricedNames = 0;
+  let changedKeys = 0;
+  const counted = new Set<string>();
+  for (const [key, computed] of MODEL_OPTIONS) {
+    let map: Record<string, unknown> = {};
+    try {
+      map = JSON.parse(current[key] || "{}");
+    } catch {
+      map = {};
+    }
+    let dirty = false;
+    for (const name of served) {
+      if (!(name in computed)) continue;
+      counted.add(name);
+      if (map[name] !== computed[name]) {
+        map[name] = computed[name];
+        dirty = true;
+        changedKeys++;
+      }
+    }
+    if (dirty) await target.updateOption(key, JSON.stringify(map));
+  }
+  pricedNames = counted.size;
+
+  consola.info(
+    t("CORE.METADATA.UPSTREAM_PRICING_SYNCED", {
+      count: pricedNames,
+      changed: changedKeys,
+    }),
+  );
+}
+
+// Force ratio 0 for every served `:free` model, preserving all other (paid)
+// entries verbatim. The gateway stores ModelRatio/CompletionRatio as single JSON
+// blobs, so we read, set the in-scope free keys to 0, and write back the merge.
+async function syncFreePricing(
+  target: NewApiClient,
+  freeNames: string[],
+): Promise<void> {
+  if (freeNames.length === 0) return;
+
+  const KEYS = ["ModelRatio", "CompletionRatio"];
+  const current = await target.getOptions(KEYS);
+
+  let changed = 0;
+  for (const key of KEYS) {
+    let map: Record<string, number> = {};
+    try {
+      map = JSON.parse(current[key] || "{}");
+    } catch {
+      map = {};
+    }
+    let dirty = false;
+    for (const name of freeNames) {
+      if (map[name] !== 0) {
+        map[name] = 0;
+        dirty = true;
+        changed++;
+      }
+    }
+    if (dirty) await target.updateOption(key, JSON.stringify(map));
+  }
+
+  consola.info(
+    t("CORE.METADATA.FREE_PRICING_SYNCED", {
+      count: freeNames.length,
+      changed,
+    }),
+  );
 }
 
 // Push the per-model rate-limit option (and new-user scalars) the same way a full

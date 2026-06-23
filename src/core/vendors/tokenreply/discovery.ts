@@ -19,7 +19,9 @@ export async function discoverTokenReplyModels(
 ): Promise<OpenAIFreeDiscovery> {
   const base = baseUrl.replace(/\/$/, "");
   const url = `${base}/v1/models`;
-  consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "TokenReply", url }));
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "TokenReply", url }),
+  );
 
   const data = await tryFetchJson<
     TokenReplyModel[] | { data: TokenReplyModel[] }

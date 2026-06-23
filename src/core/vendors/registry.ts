@@ -1,8 +1,5 @@
 import type { RuntimeConfig } from "@core/config";
-import type {
-  ProviderResult,
-  ProviderRunContext,
-} from "@core/pricing/offers";
+import type { ProviderResult, ProviderRunContext } from "@core/pricing/offers";
 import type { SimpleFreeProviderConfig } from "@core/validations/config";
 import {
   SIMPLE_PROVIDER_META,

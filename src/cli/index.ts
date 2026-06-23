@@ -1,9 +1,6 @@
 import { applyModelFilter, applyOnlyProviders, loadConfig } from "@core/config";
 import { runImageProbe } from "@core/probes/images/pipeline";
-import {
-  printMetadataSummary,
-  runMetadataSync,
-} from "@core/sync/metadata";
+import { printMetadataSummary, runMetadataSync } from "@core/sync/metadata";
 import { runReset } from "@core/sync/reset";
 import { printResetSummary, printRunSummary, runSync } from "@core/sync/run";
 import { readLocaleFromGlobal, setLocale, t } from "@server/i18n";

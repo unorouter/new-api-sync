@@ -125,9 +125,13 @@ export async function runSync(
     throwIfRunAborted();
     const snap = await snapshot(target);
     throwIfRunAborted();
-    const { desired, providerReports } = await runProviderPipeline(config, snap, {
-      dryRun,
-    });
+    const { desired, providerReports } = await runProviderPipeline(
+      config,
+      snap,
+      {
+        dryRun,
+      },
+    );
 
     throwIfRunAborted();
     // Dry-run: no vendor/channel/model/option writes, no guest-token update.
@@ -138,8 +142,10 @@ export async function runSync(
       printDryRunPricing(desired, snap, config);
       // Project the computed diff into the summary changeset so the dry-run
       // prints what WOULD be created/updated/deleted (no writes happen).
-      const byType = <T>(ops: DiffOperation<T>[], t: DiffOperation<T>["type"]) =>
-        ops.filter((o) => o.type === t).map((o) => o.key);
+      const byType = <T>(
+        ops: DiffOperation<T>[],
+        t: DiffOperation<T>["type"],
+      ) => ops.filter((o) => o.type === t).map((o) => o.key);
       const apply: SyncRunResult["apply"] = {
         channels: {
           created: byType(diff.channels, "create"),

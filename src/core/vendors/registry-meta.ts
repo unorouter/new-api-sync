@@ -222,7 +222,8 @@ export const SIMPLE_PROVIDER_META = [
     // signup, no real-name. Dynamic discovery.
     defaultBaseUrl: "https://chat.intern-ai.org.cn/api",
     defaultRatio: 0,
-    apiKeyPlaceholder: "<internlm token> (internlm.intern-ai.org.cn/api/tokens)",
+    apiKeyPlaceholder:
+      "<internlm token> (internlm.intern-ai.org.cn/api/tokens)",
   },
   {
     kind: "streamlake",

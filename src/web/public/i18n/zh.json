@@ -480,7 +480,9 @@
       "RESEED_START": "[metadata] 正在为 {count} 个模型重新写入元数据",
       "RESEED_DONE": "[metadata] 重新写入完成：{patched} 个已更新、{skipped} 个已跳过、{failed} 个失败",
       "RESEED_FAILED_LIST": "[metadata] 更新失败：{items}",
-      "CHANNEL_RENAMED": "[metadata] 已重命名发布模型「{from}」->「{to}」"
+      "CHANNEL_RENAMED": "[metadata] 已重命名发布模型「{from}」->「{to}」",
+      "FREE_PRICING_SYNCED": "[metadata] 已将 {count} 个 :free 模型定价为倍率 0（更新 {changed} 个）",
+      "UPSTREAM_PRICING_SYNCED": "[metadata] 已为当前渠道的 {count} 个上游模型定价（更新 {changed} 个）"
     },
     "TESTER": {
       "AUTHENTICITY_LOADED": "[真伪黑名单] 已加载 {count} 条记录",

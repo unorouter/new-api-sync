@@ -22,8 +22,11 @@ export async function discoverKiloModels(
   const url = `${base}/models`;
   consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Kilo Code", url }));
 
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (apiKey && apiKey !== "keyless") headers.Authorization = `Bearer ${apiKey}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (apiKey && apiKey !== "keyless")
+    headers.Authorization = `Bearer ${apiKey}`;
 
   const data = await tryFetchJson<{ data?: KiloModel[] }>(url, {
     headers,

@@ -121,9 +121,7 @@ export async function fetchModelsDevSource(): Promise<PricingSource | null> {
     pricingMap.set(model, pricing);
   }
 
-  consola.info(
-    t("CORE.PRICING.MODELS_DEV_LOADED", { count: pricingMap.size }),
-  );
+  consola.info(t("CORE.PRICING.MODELS_DEV_LOADED", { count: pricingMap.size }));
 
   return {
     name: "models-dev",

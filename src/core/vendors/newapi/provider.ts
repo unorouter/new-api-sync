@@ -362,7 +362,12 @@ export async function processNewApiProvider(
     // Dry-run creates no upstream tokens and reads no balance (both cost/mutate);
     // probes + tests are skipped downstream so the per-group apiKey is unused.
     const tokenResult = ctx.dryRun
-      ? { tokens: {} as Record<string, string>, created: 0, existing: 0, deleted: 0 }
+      ? {
+          tokens: {} as Record<string, string>,
+          created: 0,
+          existing: 0,
+          deleted: 0,
+        }
       : await upstream.ensureTokens(groups, tokenPrefix, {
           skipCleanup: partialSync,
         });

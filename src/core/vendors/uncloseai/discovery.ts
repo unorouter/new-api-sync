@@ -20,8 +20,11 @@ export async function discoverUncloseAiModels(
   const url = `${base}/v1/models`;
   consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "UncloseAI", url }));
 
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (apiKey && apiKey !== "keyless") headers.Authorization = `Bearer ${apiKey}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (apiKey && apiKey !== "keyless")
+    headers.Authorization = `Bearer ${apiKey}`;
 
   const data = await tryFetchJson<{ data?: UncloseModel[] }>(url, {
     headers,
@@ -30,6 +33,7 @@ export async function discoverUncloseAiModels(
 
   const list = data?.data ?? [];
   const maxOutputByModel = new Map<string, number>();
-  for (const m of list) if (m.max_model_len) maxOutputByModel.set(m.id, m.max_model_len);
+  for (const m of list)
+    if (m.max_model_len) maxOutputByModel.set(m.id, m.max_model_len);
   return { models: list.map((m) => m.id), maxOutputByModel };
 }

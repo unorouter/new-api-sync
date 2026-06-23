@@ -91,7 +91,11 @@ export function resolveSourceMetadata(
   // the literal `:free` lands on a wrong dateless candidate, so resolve the bare
   // identity (real date/description). The suffix carries no unique metadata.
   const bare = toBareName(modelName);
-  return resolveOneName(bare === modelName ? modelName : bare, sources, reverseMapping);
+  return resolveOneName(
+    bare === modelName ? modelName : bare,
+    sources,
+    reverseMapping,
+  );
 }
 
 export function buildModelMetadata(opts: {

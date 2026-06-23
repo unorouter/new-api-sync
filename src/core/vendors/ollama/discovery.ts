@@ -20,15 +20,20 @@ export async function discoverOllamaModels(
 ): Promise<OpenAIFreeDiscovery> {
   const base = baseUrl.replace(/\/$/, "");
   const url = `${base}/v1/models`;
-  consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Ollama Cloud", url }));
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Ollama Cloud", url }),
+  );
 
-  const data = await tryFetchJson<OllamaModel[] | { data: OllamaModel[] }>(url, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
+  const data = await tryFetchJson<OllamaModel[] | { data: OllamaModel[] }>(
+    url,
+    {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      timeoutMs: 15_000,
     },
-    timeoutMs: 15_000,
-  });
+  );
 
   const list = Array.isArray(data) ? data : (data?.data ?? []);
   return { models: list.map((m) => m.id), maxOutputByModel: new Map() };

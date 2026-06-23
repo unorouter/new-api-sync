@@ -1,8 +1,5 @@
 import type { RuntimeConfig } from "@core/config";
-import type {
-  ProviderRunContext,
-  UpstreamOffer,
-} from "@core/pricing/offers";
+import type { ProviderRunContext, UpstreamOffer } from "@core/pricing/offers";
 import { throwIfRunAborted } from "@core/infra/abort";
 import type { ProviderReport } from "@core/types";
 import type {

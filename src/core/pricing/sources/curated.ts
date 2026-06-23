@@ -20,8 +20,16 @@ const iso = (d: string) => `${d}T00:00:00.000Z`;
 // source is factually wrong and verified against the official model card.
 export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // litellm lists Apertus at 8192 ctx / no tools; HF model card = 65536, tools yes.
-  "apertus-8b-instruct": { contextWindow: 65_536, maxInputTokens: 65_536, supportsTools: true },
-  "apertus-70b-instruct": { contextWindow: 65_536, maxInputTokens: 65_536, supportsTools: true },
+  "apertus-8b-instruct": {
+    contextWindow: 65_536,
+    maxInputTokens: 65_536,
+    supportsTools: true,
+  },
+  "apertus-70b-instruct": {
+    contextWindow: 65_536,
+    maxInputTokens: 65_536,
+    supportsTools: true,
+  },
   // Flash/turbo GLM tiers get fuzzy-matched to their base (glm-4.7, glm-5) by
   // other sources, which overstates context and drops the series. Hard-pin them.
   "glm-4.7-flash": {

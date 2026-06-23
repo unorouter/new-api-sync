@@ -23,7 +23,9 @@ export async function discoverLlmGatewayModels(
 ): Promise<OpenAIFreeDiscovery> {
   const base = baseUrl.replace(/\/$/, "");
   const url = `${base}/v1/models`;
-  consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "LLM Gateway", url }));
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "LLM Gateway", url }),
+  );
 
   const data = await tryFetchJson<{ data?: LlmGatewayModel[] }>(url, {
     headers: {

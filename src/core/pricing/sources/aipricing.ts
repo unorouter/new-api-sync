@@ -16,7 +16,11 @@ interface AipricingModel {
   name?: string;
   family?: string;
   provider?: string;
-  pricing?: { inputPerM?: number; outputPerM?: number; cachedInputPerM?: number };
+  pricing?: {
+    inputPerM?: number;
+    outputPerM?: number;
+    cachedInputPerM?: number;
+  };
 }
 interface AipricingResponse {
   models?: AipricingModel[];

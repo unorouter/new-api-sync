@@ -26,8 +26,11 @@ export async function discoverBlockRunModels(
   const url = `${base}/v1/models`;
   consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "BlockRun", url }));
 
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (apiKey && apiKey !== "keyless") headers.Authorization = `Bearer ${apiKey}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (apiKey && apiKey !== "keyless")
+    headers.Authorization = `Bearer ${apiKey}`;
 
   const data = await tryFetchJson<{ data?: BlockRunModel[] }>(url, {
     headers,

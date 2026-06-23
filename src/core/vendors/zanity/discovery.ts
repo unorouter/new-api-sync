@@ -21,17 +21,18 @@ export async function discoverZanityModels(
   const url = `${base}/v1/models`;
   consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Zanity", url }));
 
-  const data = await tryFetchJson<ZanityModel[] | { data: ZanityModel[] }>(url, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
+  const data = await tryFetchJson<ZanityModel[] | { data: ZanityModel[] }>(
+    url,
+    {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      timeoutMs: 15_000,
     },
-    timeoutMs: 15_000,
-  });
+  );
 
   const list = Array.isArray(data) ? data : (data?.data ?? []);
-  const models = list
-    .filter((m) => m.access?.free === true)
-    .map((m) => m.id);
+  const models = list.filter((m) => m.access?.free === true).map((m) => m.id);
   return { models, maxOutputByModel: new Map() };
 }
