@@ -475,6 +475,31 @@ async function syncUpstreamPricing(
     }
     if (dirty) await target.updateOption(key, JSON.stringify(map));
   }
+
+  // GroupRatio is keyed by channel-group name (not model name), so it falls
+  // outside the served-name intersection above. The dry-run pipeline only emits
+  // group ratios for in-scope newapi channels, so merge those over the live map
+  // (preserving every out-of-scope group). This is what carries the per-request
+  // upstream-cost x adjustment group ratio computed in compute.ts.
+  const computedGroupRatio = opts.groupRatio;
+  if (Object.keys(computedGroupRatio).length > 0) {
+    const liveGroupRatio = await target.getOptions(["GroupRatio"]);
+    let gr: Record<string, number> = {};
+    try {
+      gr = JSON.parse(liveGroupRatio["GroupRatio"] || "{}");
+    } catch {
+      gr = {};
+    }
+    let grDirty = false;
+    for (const [group, ratio] of Object.entries(computedGroupRatio)) {
+      if (gr[group] !== ratio) {
+        gr[group] = ratio;
+        grDirty = true;
+        changedKeys++;
+      }
+    }
+    if (grDirty) await target.updateOption("GroupRatio", JSON.stringify(gr));
+  }
   pricedNames = counted.size;
 
   consola.info(

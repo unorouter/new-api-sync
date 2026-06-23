@@ -31,6 +31,7 @@ bun sync run                              # full sync
 bun sync run --only <p1,p2>               # sync only named providers (partial)
 bun sync run --models "claude-*,gpt-4*"   # sync only matching models (partial)
 bun sync run --verbose                    # debug logging
+bun sync metadata                         # re-seed model metadata + re-price WITHOUT probes/tests
 bun sync reset                            # delete all synced data
 bun sync images                           # image-gen probe pipeline (--dry-run, --step)
 bun sync ui --port 3000                   # web dashboard (alias: bun ui)
@@ -55,7 +56,11 @@ src/
     config.ts             config load/merge, ENV expansion, builtin blacklist
     sync/                 orchestration: run, diff, apply, reset, pipeline/
     pricing/              the economic core: compute, vote, resolver, sources/, tiered-expr
-    vendors/              per-provider adapters: newapi (reference), sub2api, openrouter, nvidia, comfyui
+    vendors/              per-provider adapters: newapi (reference), sub2api, openrouter, nvidia, comfyui,
+                          shared/openai-free-provider (keyless/free OpenAI-compat providers), plus
+                          per-provider discovery dirs (blockrun, freeai, bleak, longcat, publicai, voyage,
+                          sealion, llmgateway). New free provider = discovery.ts + registry-meta.ts
+                          (SIMPLE_PROVIDER_META) + registry.ts (DISCOVERERS) + a config.yml block.
     testing/              model probes: runner, authenticity, request-configs, redact
     probes/images/        image-gen discovery + probe pipeline
     catalog/              bare-name norm, vendor-matchers, filter, metadata, constants/
@@ -86,6 +91,18 @@ vote -> `MergedModel` + `PricedTier` -> `Channel` (with `model_mapping: {exposed
 option maps -> `DiffOperation` -> POST to new-api. `exposed` is the published name, `upstream` is what
 gets forwarded.
 
+### `bun sync metadata` (no-probe re-seed + re-price)
+
+`metadata` runs `runProviderPipeline({dryRun:true})` over ONLY the `newapi` providers (the others run
+live probes even under dryRun), then writes a SUBSET of options merge-preserving everything else: it
+re-seeds model metadata (context/release/series/tags via `curated.ts` + `CURATED_OVERRIDE` + fuzzy
+sources) AND re-prices the option maps `ModelRatio`/`CompletionRatio`/`ModelPrice`/`ImageRatio`/
+`Cache*`/`Audio*`/`ModelQuotaType`/`ModelGridPricing`/`billing_setting.*` AND `GroupRatio` (the last is
+keyed by channel-group, not model name, so it is merged separately at the end of `syncUpstreamPricing`).
+It does NO live probes, NO channel create/delete, NO token creation. Use it to apply pricing-engine
+changes (e.g. the per-request group-ratio formula) WITHOUT a full `sync run`. It only touches names the
+current target channels already publish (in-scope), so out-of-scope/paid-elsewhere entries stay intact.
+
 ### Invariants that MUST hold (do not break these)
 
 - **Partial syncs never clobber.** `isPartialSync = onlyProviders || modelFilter.length > 0`. In
@@ -96,6 +113,17 @@ gets forwarded.
   `modelRatio * candidate <= (canonical ?? ratio)` in `compute.ts`. There is no user knob to relax it.
 - **priceAdjustment is schema-bounded** to `(-1, 1)` (record form `(-1, 1]`) in
   `validations/config.ts`, so the `(1 + adjustment)` multiplier stays in `(0, 2)`. Keep the schema bound.
+- **Per-request (fixed-price) group ratio tracks actual upstream cost.** Per-token models bake margin
+  into `ModelRatio`, so a negative `priceAdjustment` still clears cost. Per-request (`quotaType >= 1`,
+  flat `ModelPrice`) has NO ratio markup: the flat price IS the cost. In `compute.ts` `processStandardOffer`
+  the fixed branch sets `groupRatio = offer.groupRatio * (1 + adj) * (relayModelPrice / sticker)`, which
+  resolves to `retail = (relayModelPrice * relayExclusiveRatio) * (1 + adj)` per channel: each channel
+  prices off ITS OWN upstream cost, then the adjustment applies. The sticker (`ModelPrice` option) is the
+  cheapest relay's price; pricier relays get a proportionally higher group ratio so they don't bill the
+  cheap relay's sticker. Do NOT collapse this back to a flat `base` for fixed-price (that was the bug that
+  sold image models 5-17x below cost). Note: upstream relay prices are denominated in yuan but their APIs
+  label the field as USD; the yuan->USD gap is the real retail margin, so a -0.75 adjustment on the
+  yuan-number is still profitable in USD.
 - **Concurrency inversion is deliberate.** `ConcurrencyGate.run(key, fn)` acquires the per-upstream
   limit OUTSIDE the global limit so one slow upstream cannot starve the global pool
   (`infra/concurrency.ts`). Do not reorder.
@@ -112,6 +140,22 @@ gets forwarded.
   that can return zero/null ratios.
 - Unparseable tiered billing expressions fall back to a raw placeholder (~37.5) and silently drop the
   model. Surface a warning rather than dropping silently if you touch `tiered-expr.ts`.
+- **Curated metadata is two-tier** (`pricing/sources/curated.ts`): `CURATED` is a low-priority pricing
+  SOURCE that VOTES with the others (can be outvoted / fuzzy-matched to a base model). `CURATED_OVERRIDE`
+  is a HARD override applied last in `resolver.ts`, winning over every source. Obscure variants that other
+  sources fuzzy-match to the wrong base (e.g. `glm-5-turbo` -> `glm-5`, `glm-4.7-flash` -> `glm-4.7`) must
+  go in `CURATED_OVERRIDE`, not `CURATED`, or the bad fuzzy match overstates context/series.
+- **Fuzzy-match repeated-digit collapse** (`catalog/metadata.ts`): similarity uses token SETS, so a name
+  like `gpt-5.5` has its two `5`s dedupe in the Set, dropping Dice below the 0.75 threshold. The
+  `fuzzyLookup` stripped-variant loop has an exact-equality fast path returning score 1.0 BEFORE the
+  similarity gate; keep it. `STRIPPABLE_SUFFIXES` includes `-search*` so search variants resolve to their
+  base price.
+- **Embeddings reject rate-limited probes** (`shared/openai-free-provider.ts`): a model with
+  `modelType === "embedding"` forces `acceptRateLimited: false` so a 429 during testing does NOT add a
+  flaky embedding channel. Other modalities honor the provider's `acceptRateLimited`.
+- **`fetchPricing` passes auth headers** (`vendors/newapi/pricing.ts`): some relays (e.g. zetatechs)
+  gate `/api/pricing` behind the system token. Always send `ctx.headers`; an authless fetch silently
+  drops those providers from discovery.
 
 ## Conventions (match the existing code)
 

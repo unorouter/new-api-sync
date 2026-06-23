@@ -294,11 +294,30 @@ function processStandardOffer(
     let groupRatio: number;
     if (m.isFree) groupRatio = 0;
     else {
-      const base = offer.groupRatio * (1 + adjustmentFor(offer, m, args));
-      groupRatio =
-        !isFixed(written) && m.upstreamRatio !== undefined && written.ratio > 0
-          ? base * (m.upstreamRatio / written.ratio)
-          : base;
+      const adj = adjustmentFor(offer, m, args);
+      const base = offer.groupRatio * (1 + adj);
+      if (!isFixed(written)) {
+        // Per-token: scale each channel's group ratio by its own upstream ratio
+        // vs the stored sticker, so a pricier relay charges proportionally more.
+        // The token ratio markup gives margin headroom, so a negative adjustment
+        // still clears cost.
+        groupRatio =
+          m.upstreamRatio !== undefined && written.ratio > 0
+            ? base * (m.upstreamRatio / written.ratio)
+            : base;
+      } else {
+        // Per-request (fixed price): scale each channel's group ratio by its own
+        // per-call price vs the stored sticker (cheapest relay wins the sticker),
+        // so a pricier relay's retail tracks its own upstream price, then apply the
+        // adjustment. Net: retail = upstreamPrice * (1 + adjustment), per channel.
+        // adj -0.75 = sell 75% below the relay's upstream price.
+        const mp = m.modelPrice ?? written.modelPrice;
+        const sticker = written.modelPrice;
+        groupRatio =
+          mp !== undefined && sticker !== undefined && sticker > 0
+            ? base * (mp / sticker)
+            : base;
+      }
     }
     addToBucket(buckets, bucketKey(groupRatio), m);
   }
