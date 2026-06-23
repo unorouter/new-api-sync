@@ -40,6 +40,37 @@ export async function updateGuestTokenIfConfigured(
   return { configured: true, updated: true, freeModelCount: freeModels.length };
 }
 
+/**
+ * GUEST_API_KEY: refresh the token's model_limits from a set of PUBLISHED names,
+ * keeping every `:free` name regardless of whether its channel is currently
+ * enabled, auto-disabled, or banned. Used by `sync metadata`, which has no priced
+ * plan but knows the served `:free` catalog; a temporarily-down free model stays
+ * allowed so it works the moment its channel recovers, without a full re-sync.
+ * No-op when GUEST_API_KEY is unset or the token is not found.
+ */
+export async function updateGuestTokenFromNames(
+  target: NewApiClient,
+  freeNames: string[],
+): Promise<GuestTokenUpdateResult> {
+  const guestKey = Bun.env.GUEST_API_KEY;
+  if (!guestKey) return SKIPPED;
+
+  const token = await target.findTokenByKey(guestKey);
+  if (!token) return SKIPPED;
+
+  const modelLimits = freeNames.join(",");
+  const ok = await target.updateTokenModelLimits(token, modelLimits);
+  if (!ok) return { configured: true, updated: false, freeModelCount: 0 };
+
+  consola.info(
+    t("CORE.NEWAPI.GUEST_TOKEN_UPDATED", {
+      name: token.name,
+      count: freeNames.length,
+    }),
+  );
+  return { configured: true, updated: true, freeModelCount: freeNames.length };
+}
+
 /** Reachable free if ANY group is zero-priced. Guest has 0 balance so the paid groups are unreachable; listing the model only ever resolves to its free group. */
 function collectTrulyFreeModels(pricing: UpstreamPricing): string[] {
   const free: string[] = [];

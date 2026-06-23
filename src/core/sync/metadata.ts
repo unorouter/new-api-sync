@@ -45,6 +45,7 @@ import {
   resolveSourceMetadata,
 } from "@core/pricing/resolver";
 import type { PricingSource } from "@core/pricing/sources/types";
+import { updateGuestTokenFromNames } from "@core/sync/guest-token";
 import { isRoutingOnlyAlias } from "@core/sync/pipeline/desired-models";
 import { expandRateLimitModels } from "@core/sync/pipeline/option-maps";
 import type { Channel, ModelMeta, Vendor } from "@core/types";
@@ -332,6 +333,15 @@ export async function runMetadataSync(
   }
 
   await syncRateLimitOptions(target, config, allNames, inScope);
+
+  // Keep the guest token's allowed-models in step with the served `:free`
+  // catalog. Status-agnostic by design: a free model whose channel is currently
+  // disabled/banned stays in the allowlist so it works the instant the channel
+  // recovers, without waiting for a full `sync run`.
+  const freeNames = [...allNames]
+    .filter((name) => name.endsWith(":free") && inScope(name))
+    .sort();
+  await updateGuestTokenFromNames(target, freeNames);
 
   return result;
 }
