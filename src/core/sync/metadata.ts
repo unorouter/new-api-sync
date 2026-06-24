@@ -499,6 +499,42 @@ async function syncUpstreamPricing(
       }
     }
     if (grDirty) await target.updateOption("GroupRatio", JSON.stringify(gr));
+
+    // AutoGroups + UserUsableGroups are channel-routing membership, not pricing, so
+    // the apply path normally owns them. But a partial `sync run` can erode them: a
+    // group present in abilities + GroupRatio yet absent from AutoGroups is invisible
+    // (the auto token can't route to it, so the catalog hides the model). doubao image
+    // groups drifted out this way. Union the dry-run's computed groups over the live
+    // lists (never remove — metadata only adds in-scope groups, preserves the rest),
+    // re-sorted cheapest-first to match the apply path.
+    const liveGM = await target.getOptions(["AutoGroups", "UserUsableGroups"]);
+    let liveAuto: string[] = [];
+    let liveUsable: Record<string, string> = {};
+    try {
+      liveAuto = JSON.parse(liveGM["AutoGroups"] || "[]");
+    } catch {
+      liveAuto = [];
+    }
+    try {
+      liveUsable = JSON.parse(liveGM["UserUsableGroups"] || "{}");
+    } catch {
+      liveUsable = {};
+    }
+    const mergedAuto = [...new Set([...liveAuto, ...opts.autoGroups])].sort(
+      (a, b) => (gr[a] ?? 1) - (gr[b] ?? 1),
+    );
+    if (JSON.stringify(mergedAuto) !== JSON.stringify(liveAuto)) {
+      await target.updateOption("AutoGroups", JSON.stringify(mergedAuto));
+      changedKeys++;
+    }
+    const mergedUsable = { ...liveUsable, ...opts.userUsableGroups };
+    if (JSON.stringify(mergedUsable) !== JSON.stringify(liveUsable)) {
+      await target.updateOption(
+        "UserUsableGroups",
+        JSON.stringify(mergedUsable),
+      );
+      changedKeys++;
+    }
   }
   pricedNames = counted.size;
 
