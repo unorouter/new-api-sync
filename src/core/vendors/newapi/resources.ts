@@ -157,29 +157,60 @@ export async function listModels(ctx: ClientContext): Promise<ModelMeta[]> {
     `${ctx.baseUrl}/api/models/list`,
     `${ctx.baseUrl}/api/models/`,
   ];
-  const winner = (
+  // Pick the endpoint that returns an items array on page 0, then paginate the
+  // SAME endpoint from page 0 uniformly. The old code probed `p=0` then continued
+  // from `p=1`, which silently dropped or duplicated a page whenever the chosen
+  // endpoint's paging didn't line up - leaving the snapshot incomplete. A model
+  // missing from the snapshot looks "new" to diff.ts, which POSTs createModel, and
+  // new-api soft-deletes the real row on the name collision (the recurring
+  // disappearing-metadata bug). One consistent pager prevents that.
+  const probe = (
     await Promise.all(
       endpoints.map(async (base) => {
-        const data = await tryFetchJson<ApiResponse<{ items?: ModelMeta[] }>>(
-          `${base}?p=0&page_size=${PS}`,
-          { headers: ctx.headers, ...FETCH_OPTS },
-        );
-        const items = data?.data?.items;
-        return Array.isArray(items) ? { base, items } : null;
+        const data = await tryFetchJson<
+          ApiResponse<{ items?: ModelMeta[]; total?: number }>
+        >(`${base}?p=0&page_size=${PS}`, {
+          headers: ctx.headers,
+          ...FETCH_OPTS,
+        });
+        return Array.isArray(data?.data?.items)
+          ? { base, total: data!.data!.total }
+          : null;
       }),
     )
   ).find((r) => r !== null);
-  if (!winner) return [];
-  const all: ModelMeta[] = [...winner.items];
-  if (winner.items.length < PS) return all;
-  const rest = await paginate(async (page) => {
-    const data = await fetchJson<ApiResponse<{ items?: ModelMeta[] }>>(
-      `${winner.base}?p=${page}&page_size=${PS}`,
-      { headers: ctx.headers, ...FETCH_OPTS },
+  if (!probe) return [];
+
+  // Some new-api builds are 1-indexed (p=0 and p=1 return the same first page),
+  // so paginating from 0 can re-fetch a page; dedup by id to absorb that. Keep
+  // paging while a page is full.
+  const byId = new Map<number, ModelMeta>();
+  let page = 0;
+  while (true) {
+    const data = await fetchJson<
+      ApiResponse<{ items?: ModelMeta[] }>
+    >(`${probe.base}?p=${page}&page_size=${PS}`, {
+      headers: ctx.headers,
+      ...FETCH_OPTS,
+    });
+    const items = data.data?.items ?? [];
+    for (const m of items) if (m.id != null) byId.set(m.id, m);
+    if (items.length < PS) break;
+    page++;
+  }
+  const all = [...byId.values()];
+
+  // Completeness guard: a short snapshot (failed/timed-out page) makes diff.ts see
+  // live models as "new" and POST createModel, which new-api answers by
+  // soft-deleting the real row on the unique-name collision (the recurring
+  // disappearing-metadata bug). Refuse to return a partial list instead.
+  if (probe.total != null && all.length < probe.total)
+    throw new Error(
+      t("ERROR.NEWAPI_MODEL_LIST_INCOMPLETE", {
+        got: all.length,
+        total: probe.total,
+      }),
     );
-    return data.data?.items ?? [];
-  }, 1);
-  all.push(...rest);
   return all;
 }
 

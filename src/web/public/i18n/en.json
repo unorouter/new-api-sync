@@ -244,6 +244,7 @@
     "NEWAPI_FETCH_PRICING_FAILED": "Failed to fetch pricing from both /api/pricing_new and /api/pricing",
     "NEWAPI_TOKEN_LIST_API_FAILED": "Token list API returned success: false{detail}",
     "NEWAPI_CHANNEL_LIST_API_FAILED": "Channel list API returned success: false",
+    "NEWAPI_MODEL_LIST_INCOMPLETE": "Model list snapshot incomplete: got {got} of {total}; refusing to sync (would soft-delete live model rows)",
     "TARGET_HEALTH_CHECK_FAILED": "Target health check failed: {detail}",
     "CANCELLED_BY_USER": "cancelled by user",
     "CONFIG_DUPLICATE_PROVIDER": "providers.{index}.name: duplicate provider name: {name}",

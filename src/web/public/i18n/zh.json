@@ -244,6 +244,7 @@
     "NEWAPI_FETCH_PRICING_FAILED": "从 /api/pricing_new 和 /api/pricing 获取定价失败",
     "NEWAPI_TOKEN_LIST_API_FAILED": "Token 列表接口返回 success=false{detail}",
     "NEWAPI_CHANNEL_LIST_API_FAILED": "Channel 列表接口返回 success=false",
+    "NEWAPI_MODEL_LIST_INCOMPLETE": "模型列表快照不完整：仅获取到 {total} 个中的 {got} 个，拒绝同步（否则会软删除线上模型行）",
     "TARGET_HEALTH_CHECK_FAILED": "目标健康检查失败：{detail}",
     "CANCELLED_BY_USER": "已由用户取消",
     "CONFIG_DUPLICATE_PROVIDER": "providers.{index}.name：提供方名称重复：{name}",

@@ -543,6 +543,22 @@ const CURATED: Record<string, SourceMetadata> = {
   "wan2.5-i2i": { releaseDate: iso("2025-09-23"), mode: "video" },
   "wan2.5-i2v-preview": { releaseDate: iso("2025-09-23"), mode: "video" },
   "wan2.6-i2v": { releaseDate: iso("2025-12-16"), mode: "video" },
+  "wan2.7-i2v": { releaseDate: iso("2026-03-10"), mode: "video" },
+  // Google Veo
+  "veo3": { releaseDate: iso("2025-05-20"), mode: "video" },
+  "veo3-fast": { releaseDate: iso("2025-07-18"), mode: "video" },
+  "veo3.1": { releaseDate: iso("2025-10-15"), mode: "video" },
+  "veo3.1-pro": { releaseDate: iso("2025-10-15"), mode: "video" },
+  // OpenAI Sora 2
+  "sora-2": { releaseDate: iso("2025-09-30"), mode: "video" },
+  "sora-2-pro": { releaseDate: iso("2025-09-30"), mode: "video" },
+  // Kuaishou Kling 2.5 Turbo
+  "kling-v2-5-turbo": { releaseDate: iso("2025-09-23"), mode: "video" },
+  // MiniMax Hailuo
+  "MiniMax-Hailuo-02": { releaseDate: iso("2025-06-18"), mode: "video" },
+  "MiniMax-Hailuo-2.3": { releaseDate: iso("2025-11-12"), mode: "video" },
+  // Shengshu Vidu Q3
+  "viduq3": { releaseDate: iso("2026-02-20"), mode: "video" },
 
   // ─── Audio models (TTS / STT; no context window) ───
   // OpenAI Whisper (whisper-1 = hosted API on large-v2, Mar 2023 launch)
