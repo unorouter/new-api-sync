@@ -370,7 +370,7 @@ export async function runMetadataSync(
   const freeNames = [...allNames]
     .filter((name) => name.endsWith(":free") && inScope(name))
     .sort();
-  await syncFreePricing(target, freeNames);
+  await syncFreePricing(target, freeNames, channels, inScope);
 
   // Keep the guest token's allowed-models in step with the served `:free`
   // catalog. Status-agnostic by design: a free model whose channel is currently
@@ -584,9 +584,15 @@ async function syncGridCollapse(
 // Force ratio 0 for every served `:free` model, preserving all other (paid)
 // entries verbatim. The gateway stores ModelRatio/CompletionRatio as single JSON
 // blobs, so we read, set the in-scope free keys to 0, and write back the merge.
+// ALSO forces GroupRatio 0 for every channel-group serving a `:free` model: the
+// zero-balance billing gate keys off GroupRatio, and an unlisted group defaults
+// to 1.0 (paid), which blocked $0 users from free GLM channels whose group was
+// never written by the pipeline.
 async function syncFreePricing(
   target: NewApiClient,
   freeNames: string[],
+  channels: Channel[],
+  inScope: (name: string) => boolean,
 ): Promise<void> {
   if (freeNames.length === 0) return;
 
@@ -612,10 +618,43 @@ async function syncFreePricing(
     if (dirty) await target.updateOption(key, JSON.stringify(map));
   }
 
+  // A channel-group is free when it serves any in-scope `:free` model; force its
+  // GroupRatio to 0 so the gateway treats it as free for zero-balance users.
+  const freeGroups = new Set<string>();
+  for (const ch of channels) {
+    if (!ch.group) continue;
+    const servesFree = parseModelList(ch.models).some(
+      (name) => name.endsWith(":free") && inScope(name),
+    );
+    if (servesFree)
+      for (const g of ch.group.split(",").map((s) => s.trim()))
+        if (g) freeGroups.add(g);
+  }
+
+  let groupChanged = 0;
+  if (freeGroups.size > 0) {
+    const liveGr = await target.getOptions(["GroupRatio"]);
+    let gr: Record<string, number> = {};
+    try {
+      gr = JSON.parse(liveGr["GroupRatio"] || "{}");
+    } catch {
+      gr = {};
+    }
+    let grDirty = false;
+    for (const g of freeGroups) {
+      if (gr[g] !== 0) {
+        gr[g] = 0;
+        grDirty = true;
+        groupChanged++;
+      }
+    }
+    if (grDirty) await target.updateOption("GroupRatio", JSON.stringify(gr));
+  }
+
   consola.info(
     t("CORE.METADATA.FREE_PRICING_SYNCED", {
       count: freeNames.length,
-      changed,
+      changed: changed + groupChanged,
     }),
   );
 }
