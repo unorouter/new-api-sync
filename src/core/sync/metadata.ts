@@ -439,8 +439,7 @@ async function syncUpstreamPricing(
   // way. Clear those collisions; scoped to names we actually re-priced so we
   // never touch models priced elsewhere or left untouched.
   const flatPriced = new Set<string>();
-  for (const name of served)
-    if (name in opts.modelPrice) flatPriced.add(name);
+  for (const name of served) if (name in opts.modelPrice) flatPriced.add(name);
 
   let pricedNames = 0;
   let changedKeys = 0;

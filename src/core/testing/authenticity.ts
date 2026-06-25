@@ -173,6 +173,20 @@ const hasCodingToolRefusal = (text: string) =>
   includesAny(text, CODING_TOOL_REFUSAL_PATTERNS);
 const hasScamPage = (text: string) => includesAny(text, SCAM_PAGE_PATTERNS);
 
+// CJK Han + Hiragana/Katakana + Hangul. Our probes are English prompts expecting
+// English answers; a genuine Claude answers in English. A substituted/distilled
+// Chinese model (or a corrupting grey-market proxy) leaks CJK into the reply
+// (e.g. "佐藤美咲" in a kitten story, full Chinese sentences in RP). Treat
+// meaningful CJK in an English-only probe as a language-leak signal.
+const CJK_CHAR = /[぀-ヿ㐀-䶿一-鿿豈-﫿가-힯]/g;
+// Tolerate a couple of incidental glyphs (a quoted loanword, an emoji-adjacent
+// kanji); flag only when CJK is a real share of the reply.
+const CJK_LEAK_MIN_CHARS = 4;
+function cjkLeak(text: string): boolean {
+  const m = text.match(CJK_CHAR);
+  return m !== null && m.length >= CJK_LEAK_MIN_CHARS;
+}
+
 function hasForeignIdentity(
   text: string,
   probe: "identity" | "model-name",
@@ -206,6 +220,7 @@ type ProbeSignal =
   | "scam"
   | "foreign"
   | "cloud-host"
+  | "cjk-leak"
   | "blank"
   | null;
 type ProbeResult = {
@@ -213,12 +228,62 @@ type ProbeResult = {
   authenticityRefusal: boolean;
   signal: ProbeSignal;
   muxFailure?: boolean;
+  transient?: boolean;
+  text?: string;
 };
+
+// Transient upstream conditions during probing (rate limit, overload, gateway,
+// timeout, network). These say nothing about authenticity: a real Claude channel
+// that gets 429'd mid-probe must NOT be permanently blacklisted. Detected from
+// the HTTP_ERROR message ("HTTP 429 Too Many Requests") or a raw network error.
+const TRANSIENT_HTTP = [408, 425, 429, 500, 502, 503, 504, 520, 522, 524];
+function isTransientError(msg: string): boolean {
+  const m = msg.match(/HTTP (\d{3})/);
+  if (m && TRANSIENT_HTTP.includes(Number(m[1]))) return true;
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("timeout") ||
+    lower.includes("timed out") ||
+    lower.includes("econnreset") ||
+    lower.includes("socket") ||
+    lower.includes("network") ||
+    lower.includes("fetch failed")
+  );
+}
+
+const CLAUDE_TIERS = ["opus", "sonnet", "haiku"] as const;
+type ClaudeTier = (typeof CLAUDE_TIERS)[number];
+
+function tierOf(text: string): ClaudeTier | null {
+  const found = CLAUDE_TIERS.filter((tier) => text.includes(tier));
+  // Only decisive when exactly one tier is named (avoids "opus or sonnet" hedges).
+  return found.length === 1 ? found[0]! : null;
+}
+
+// Returns the served tier when it contradicts the requested model's tier
+// (e.g. requested opus, model says sonnet = downgrade substitution). Claude is
+// vague about its VERSION number but never misstates its TIER.
+function detectTierMismatch(
+  requestedModel: string,
+  results: Array<ProbeResult & { label: string }>,
+): string | null {
+  const reqTier = tierOf(requestedModel.toLowerCase());
+  if (!reqTier) return null;
+  const modelName = results.find((r) => r.label === "model-name");
+  if (!modelName?.text) return null;
+  const saidTier = tierOf(modelName.text);
+  if (saidTier && saidTier !== reqTier) return saidTier;
+  return null;
+}
 
 function detectSignal(text: string, probeLabel: string): ProbeSignal {
   if (text.length === 0) return "blank";
   if (hasCodingToolRefusal(text)) return "coding-tool";
   if (hasScamPage(text)) return "scam";
+  // English prompt -> English answer expected. CJK leakage exposes a substituted
+  // Chinese model or a corrupting proxy that the identity Q&A probes miss (a
+  // distill learns to say "anthropic"/"claude" but still answers in Chinese).
+  if (cjkLeak(text)) return "cjk-leak";
   if (probeLabel === "identity" || probeLabel === "model-name") {
     if (hasForeignIdentity(text, probeLabel as "identity" | "model-name"))
       return "foreign";
@@ -282,8 +347,14 @@ async function runAnthropicProbe(opts: {
         timeoutMs: opts.timeoutMs,
       });
     } catch (err) {
-      logFail(reqBody, null, err instanceof Error ? err.message : String(err));
-      return { pass: false, authenticityRefusal: false, signal: null };
+      const emsg = err instanceof Error ? err.message : String(err);
+      logFail(reqBody, null, emsg);
+      return {
+        pass: false,
+        authenticityRefusal: false,
+        signal: null,
+        transient: isTransientError(emsg),
+      };
     }
 
     const text = extractAnthropicText(data);
@@ -317,7 +388,7 @@ async function runAnthropicProbe(opts: {
       request: { url: reqUrl, body: reqBody },
       response: text,
     });
-    return { pass: passed, authenticityRefusal: refusal, signal };
+    return { pass: passed, authenticityRefusal: refusal, signal, text };
   }
 
   return {
@@ -345,7 +416,8 @@ export async function testAnthropicAuthenticity(opts: {
       maxTokens: 200,
       buildPrompt: (n) =>
         `Tell me a 2-sentence sad story about a lost kitten. ${nonceTag(n)}`,
-      evaluate: (text) => !hasCodingToolRefusal(text) && text.length >= 40,
+      evaluate: (text) =>
+        !hasCodingToolRefusal(text) && !cjkLeak(text) && text.length >= 40,
     }),
     runAnthropicProbe({
       ...opts,
@@ -353,7 +425,8 @@ export async function testAnthropicAuthenticity(opts: {
       maxTokens: 120,
       buildPrompt: (n) =>
         `Write a haiku about the ocean at sunrise. ${nonceTag(n)}`,
-      evaluate: (text) => !hasCodingToolRefusal(text) && text.length >= 25,
+      evaluate: (text) =>
+        !hasCodingToolRefusal(text) && !cjkLeak(text) && text.length >= 25,
     }),
     runAnthropicProbe({
       ...opts,
@@ -417,6 +490,14 @@ export async function testAnthropicAuthenticity(opts: {
     addToAuthenticityBlacklist(opts.logKey, `scam-page: ${labels}`);
     return false;
   }
+  if (results.some((r) => r.signal === "cjk-leak")) {
+    const labels = labelsWithSignal("cjk-leak");
+    consola.warn(
+      t("CORE.TESTER.AUTHENTICITY_CJK_LEAK", { model: opts.model, labels }),
+    );
+    addToAuthenticityBlacklist(opts.logKey, `cjk-language-leak: ${labels}`);
+    return false;
+  }
 
   const muxLabels = results.filter((r) => r.muxFailure).map((r) => r.label);
   if (muxLabels.length >= 2) {
@@ -435,11 +516,16 @@ export async function testAnthropicAuthenticity(opts: {
     return false;
   }
 
-  const r4ModelName = results.find((r) => r.label === "model-name");
-  const foreignOnModelName = results.some(
-    (r) => r.signal === "foreign" && r.label === "model-name",
+  // A foreign vendor on EITHER identity probe is a hard fail: a real Claude never
+  // names a competitor as its maker. (Previously only model-name hard-failed, so a
+  // GPT-behind-Claude proxy answering "openai" on the identity probe still slipped
+  // through on the 3/4 threshold.)
+  const foreignOnIdentity = results.some(
+    (r) =>
+      r.signal === "foreign" &&
+      (r.label === "model-name" || r.label === "identity"),
   );
-  if (foreignOnModelName && r4ModelName?.pass !== true) {
+  if (foreignOnIdentity) {
     const labels = labelsWithSignal("foreign");
     consola.warn(
       t("CORE.TESTER.AUTHENTICITY_FOREIGN", { model: opts.model, labels }),
@@ -448,9 +534,50 @@ export async function testAnthropicAuthenticity(opts: {
     return false;
   }
 
+  // Tier substitution: requesting opus but the model confidently names a lower
+  // tier (sonnet/haiku) means a cheaper model is served under an opus label.
+  // Claude is vague about its VERSION (tolerated), but never confuses its TIER.
+  const tierMismatch = detectTierMismatch(opts.model, results);
+  if (tierMismatch) {
+    consola.warn(
+      t("CORE.TESTER.AUTHENTICITY_TIER_MISMATCH", {
+        model: opts.model,
+        claimed: tierMismatch,
+      }),
+    );
+    addToAuthenticityBlacklist(
+      opts.logKey,
+      `tier-mismatch: requested ${opts.model}, served ${tierMismatch}`,
+    );
+    return false;
+  }
+
   const passed = results.filter((r) => r.pass).length;
   const failed = results.filter((r) => !r.pass);
   const passing = passed >= 3;
+
+  // Past the hard-fail signals (coding-tool/scam/cjk/foreign/tier/mux), the only
+  // remaining failures are quality/transport. If the shortfall is driven by
+  // transient upstream errors (429/5xx/timeout), do NOT blacklist: a real Claude
+  // channel that got rate-limited mid-probe must stay eligible and be re-probed
+  // next run, not permanently banned. (This is what wrongly killed pol.)
+  if (!passing) {
+    const transientFails = failed.filter((r) => r.transient).length;
+    const nonTransientFails = failed.filter(
+      (r) => !r.transient && r.signal !== null,
+    ).length;
+    if (transientFails > 0 && nonTransientFails === 0) {
+      consola.warn(
+        t("CORE.TESTER.AUTHENTICITY_TRANSIENT", {
+          model: opts.model,
+          passed,
+          count: transientFails,
+        }),
+      );
+      return false; // not verified this run, but NOT blacklisted
+    }
+  }
+
   if (failed.length > 0) {
     const failedLabels = failed.map((r) => r.label).join(", ");
     const blankCount = failed.filter((r) => r.signal === "blank").length;

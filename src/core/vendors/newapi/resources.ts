@@ -187,12 +187,13 @@ export async function listModels(ctx: ClientContext): Promise<ModelMeta[]> {
   const byId = new Map<number, ModelMeta>();
   let page = 0;
   while (true) {
-    const data = await fetchJson<
-      ApiResponse<{ items?: ModelMeta[] }>
-    >(`${probe.base}?p=${page}&page_size=${PS}`, {
-      headers: ctx.headers,
-      ...FETCH_OPTS,
-    });
+    const data = await fetchJson<ApiResponse<{ items?: ModelMeta[] }>>(
+      `${probe.base}?p=${page}&page_size=${PS}`,
+      {
+        headers: ctx.headers,
+        ...FETCH_OPTS,
+      },
+    );
     const items = data.data?.items ?? [];
     for (const m of items) if (m.id != null) byId.set(m.id, m);
     if (items.length < PS) break;

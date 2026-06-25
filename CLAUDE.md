@@ -103,6 +103,47 @@ It does NO live probes, NO channel create/delete, NO token creation. Use it to a
 changes (e.g. the per-request group-ratio formula) WITHOUT a full `sync run`. It only touches names the
 current target channels already publish (in-scope), so out-of-scope/paid-elsewhere entries stay intact.
 
+### Fixing a bad/fake channel: delete in DB, then re-sync with precision
+
+When a specific channel-model is broken (fake/substituted model, CJK gibberish, dead upstream), do
+NOT `bun sync run` the whole catalog. Surgically remove the bad rows from the target DB, then
+re-discover + re-test ONLY the affected providers and models. The combined scope keeps the run small
+and the partial-sync invariants protect everything out of scope.
+
+1. **Identify** the bad channel(s) and model(s) in the target DB (`channels` table: `id`, `name`,
+   `base_url`, `models`). Confirm the upstream actually still serves a clean alternative first
+   (query each provider's `/api/pricing_new` then `/api/pricing` for the model name; see
+   `vendors/newapi/pricing.ts`).
+2. **Delete the bad channels in the DB by id** (they are recreated only if a provider still passes
+   testing for that model). The target gateway DB runs on don's server (access over don's SSH); the
+   Postgres container is `unorouter-new-api-postgres` (db `newapi`):
+   ```bash
+   ssh don "docker exec unorouter-new-api-postgres psql -U newapi -d newapi -c \"DELETE FROM channels WHERE id IN (5487,5488,...);\""
+   ```
+   Direct DB deletes bypass the in-memory channel cache; the runtime may keep serving the old
+   channel until the next sync reload or a container restart.
+3. **Clear stale authenticity verdicts** for the affected provider+model keys in
+   `logs/authenticity-cache.json` (back it up first). A cached `pass` skips re-probe and would let a
+   known fake through; a cached `fail` (often caused by a TRANSIENT 429/timeout during an earlier
+   probe) blacklists a real channel and stops it being recreated. Drop both so the next run re-probes
+   fresh. Key shape: `provider/channel-name/anthropic|model-name`.
+4. **Re-sync with both filters ANDed** so only the targeted providers AND models are touched:
+   ```bash
+   bun sync run --only code,pol,aigc --models "claude-opus-4-6*,claude-opus-4-7*,claude-opus-4-8*"
+   ```
+   - `--only <csv>` narrows to those provider NAMES (`applyOnlyProviders`); `--models <globs>` narrows
+     to matching model names (`applyModelFilter`, micromatch). They COMBINE (intersection): only those
+     providers, only those models. Both accept repeats or comma-separated lists.
+   - This sets `isPartialSync` -> orphan cleanup is DISABLED and out-of-scope ratios are preserved
+     (`mergeProtected`), so the run never clobbers other providers/models. A clean provider that
+     passes testing for the model is recreated as a channel; a failing one stays absent.
+5. **Verify**: re-query the `channels` table for the model; confirm only clean upstreams remain and
+   the bad ids did not reappear. If a deleted channel reappears, its provider still passed the
+   authenticity test (the fix belongs in `testing/authenticity.ts`, not another delete).
+
+Rule of thumb: DB delete = remove the bad runtime row now; `--only` + `--models` = re-test and
+recreate with precision; never a full `sync run` to fix one model.
+
 ### Invariants that MUST hold (do not break these)
 
 - **Partial syncs never clobber.** `isPartialSync = onlyProviders || modelFilter.length > 0`. In
