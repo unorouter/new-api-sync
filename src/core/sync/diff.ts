@@ -36,12 +36,23 @@ function extractCapabilities(
   }
 }
 
+function extractPassThrough(setting?: string): boolean | undefined {
+  if (!setting) return undefined;
+  try {
+    const v = JSON.parse(setting)?.pass_through_body_enabled;
+    return typeof v === "boolean" ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function mergeSettingCapabilities(
   existingSetting?: string,
   desiredSetting?: string,
 ): string | undefined {
   const desiredCaps = extractCapabilities(desiredSetting);
-  if (!desiredCaps) return undefined;
+  const desiredPassThrough = extractPassThrough(desiredSetting);
+  if (!desiredCaps && desiredPassThrough === undefined) return undefined;
   let existing: Record<string, unknown> = {};
   if (existingSetting) {
     try {
@@ -54,13 +65,23 @@ function mergeSettingCapabilities(
       return existingSetting;
     }
   }
-  existing.capabilities = desiredCaps;
+  if (desiredCaps) existing.capabilities = desiredCaps;
+  if (desiredPassThrough !== undefined)
+    existing.pass_through_body_enabled = desiredPassThrough;
   return JSON.stringify(existing);
 }
 
+// Diff key: capabilities + passthrough are the only setting fields the sync owns.
 function normalizeCapabilities(setting?: string): string | undefined {
   const caps = extractCapabilities(setting);
-  return caps ? JSON.stringify(caps) : undefined;
+  const passThrough = extractPassThrough(setting);
+  if (!caps && passThrough === undefined) return undefined;
+  return JSON.stringify({
+    ...(caps ? { capabilities: caps } : {}),
+    ...(passThrough !== undefined
+      ? { pass_through_body_enabled: passThrough }
+      : {}),
+  });
 }
 
 function normalizeWorkflowTemplates(wf?: string): string | undefined {

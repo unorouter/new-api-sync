@@ -64,6 +64,7 @@ export interface MetadataSyncResult {
   failed: number;
   failedModels: string[];
   renamedChannels: number;
+  passThroughEnabled: number;
 }
 
 // Resolve a model's canonical vendor to an existing vendor_id, creating the
@@ -214,6 +215,45 @@ async function normalizePublishedNames(
   return renamed;
 }
 
+// Media channels (image/video/audio/embedding) must forward the raw client body so non-struct fields
+// (image_urls, vendor extras) survive new-api's ImageRequest re-marshal, which drops unknown fields.
+// Patch pass_through_body_enabled onto any media channel missing it. Gateway-only, no probing.
+async function reconcilePassThrough(
+  target: NewApiClient,
+  channels: Channel[],
+): Promise<number> {
+  let enabled = 0;
+  for (const ch of channels) {
+    const isMedia = parseModelList(ch.models).some(
+      (name) => !isRoutingOnlyAlias(name) && inferModelType(name) !== "text",
+    );
+    if (!isMedia) continue;
+
+    let setting: Record<string, unknown> = {};
+    if (ch.setting) {
+      try {
+        setting = JSON.parse(ch.setting);
+      } catch {
+        // Unparseable existing setting: skip rather than clobber other fields.
+        continue;
+      }
+    }
+    if (setting.pass_through_body_enabled === true) continue;
+
+    setting.pass_through_body_enabled = true;
+    const nextSetting = JSON.stringify(setting);
+    const ok = await target.updateChannel({ ...ch, setting: nextSetting });
+    if (ok) {
+      ch.setting = nextSetting;
+      enabled++;
+      consola.info(
+        t("CORE.METADATA.CHANNEL_PASSTHROUGH_ENABLED", { name: ch.name }),
+      );
+    }
+  }
+  return enabled;
+}
+
 export async function runMetadataSync(
   config: RuntimeConfig,
 ): Promise<MetadataSyncResult> {
@@ -251,6 +291,9 @@ export async function runMetadataSync(
     config,
   );
 
+  // Ensure media channels forward the raw body (image_urls / vendor extras survive new-api re-marshal).
+  const passThroughEnabled = await reconcilePassThrough(target, channels);
+
   // Union of every served name and every existing models-table row.
   const existingByName = new Map<string, ModelMeta>();
   for (const m of existingModels)
@@ -272,6 +315,7 @@ export async function runMetadataSync(
     failed: 0,
     failedModels: [],
     renamedChannels,
+    passThroughEnabled,
   };
 
   for (const name of names) {
@@ -759,6 +803,10 @@ export function printMetadataSummary(result: MetadataSyncResult): void {
   if (result.renamedChannels > 0)
     consola.info(
       `[metadata] renamed published names on ${result.renamedChannels} channels`,
+    );
+  if (result.passThroughEnabled > 0)
+    consola.info(
+      `[metadata] enabled body pass-through on ${result.passThroughEnabled} media channels`,
     );
   if (result.failedModels.length > 0)
     consola.warn(

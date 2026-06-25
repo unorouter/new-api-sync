@@ -38,6 +38,10 @@ export interface PricedTier {
   /** Emit the channel disabled (status=3). Set when the model only passed via a
    *  429 capacity throttle; new-api's auto-test enables it once the limit clears. */
   disabled?: boolean;
+  /** Forward the raw client body to upstream (channel.setting.pass_through_body_enabled).
+   *  Media channels need it so non-struct fields (image_urls, vendor extras) survive new-api's
+   *  ImageRequest re-marshal, which drops unknown fields. */
+  passThroughBody?: boolean;
 }
 
 type PricedDropReason = "cap-exceeded" | "no-fit" | "collision";

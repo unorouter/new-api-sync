@@ -475,6 +475,8 @@ function pushBucketsAsTiers(
         paramOverride: hasContext1mAlias
           ? CLAUDE_CONTEXT_1M_PARAM_OVERRIDE
           : undefined,
+        // Media channels carry refs/extras (image_urls, multipart) new-api drops on re-marshal; pass the raw body through.
+        ...(m.modelType !== "text" ? { passThroughBody: true } : {}),
         ...(m.rateLimited ? { disabled: true } : {}),
       });
     }

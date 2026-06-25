@@ -72,26 +72,31 @@ export function emitChannels(args: EmitArgs): EmitResult {
 }
 
 function buildSettingJson(tier: PricedTier): string | undefined {
-  if (!tier.testDetails || tier.testDetails.length === 0) return undefined;
+  const setting: Record<string, unknown> = {};
 
-  const summarize = (
-    pick: (
-      d: NonNullable<PricedTier["testDetails"]>[number],
-    ) => boolean | null | undefined,
-  ): boolean | undefined => {
-    const results = tier
-      .testDetails!.map(pick)
-      .filter((v): v is boolean => v !== null && v !== undefined);
-    return results.length > 0 ? results.every(Boolean) : undefined;
-  };
+  if (tier.testDetails && tier.testDetails.length > 0) {
+    const summarize = (
+      pick: (
+        d: NonNullable<PricedTier["testDetails"]>[number],
+      ) => boolean | null | undefined,
+    ): boolean | undefined => {
+      const results = tier
+        .testDetails!.map(pick)
+        .filter((v): v is boolean => v !== null && v !== undefined);
+      return results.length > 0 ? results.every(Boolean) : undefined;
+    };
 
-  const capabilities: Record<string, boolean> = {
-    tool_calling: summarize((d) => d.toolCallSuccess) ?? false,
-  };
-  const streaming = summarize((d) => d.streamSuccess);
-  if (streaming !== undefined) capabilities.streaming = streaming;
-  const http = summarize((d) => d.success);
-  if (http !== undefined) capabilities.http = http;
+    const capabilities: Record<string, boolean> = {
+      tool_calling: summarize((d) => d.toolCallSuccess) ?? false,
+    };
+    const streaming = summarize((d) => d.streamSuccess);
+    if (streaming !== undefined) capabilities.streaming = streaming;
+    const http = summarize((d) => d.success);
+    if (http !== undefined) capabilities.http = http;
+    setting.capabilities = capabilities;
+  }
 
-  return JSON.stringify({ capabilities });
+  if (tier.passThroughBody) setting.pass_through_body_enabled = true;
+
+  return Object.keys(setting).length > 0 ? JSON.stringify(setting) : undefined;
 }
