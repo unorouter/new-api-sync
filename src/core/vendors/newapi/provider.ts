@@ -14,11 +14,7 @@ import {
 } from "@core/config";
 import { resolvePriceAdjustment } from "@core/pricing/index";
 import { isFixed } from "@core/pricing/compute";
-import {
-  flatVariantName,
-  imagePerCallUsd,
-  isPerTokenImage,
-} from "@core/pricing/image-per-call";
+import { imagePerCallUsd, isPerTokenImage } from "@core/pricing/image-per-call";
 import type {
   EndpointPathInfo,
   OfferModel,
@@ -131,20 +127,13 @@ function planPreTestDecisions(opts: {
       "unknown",
     )) {
       for (const upstreamName of vendorModels) {
-        const baseExposed = (
+        const exposed = (
           opts.config.modelMapping?.[upstreamName] ?? upstreamName
         ).toLowerCase();
         const modelType = inferModelType(
-          baseExposed,
+          exposed,
           undefined,
           opts.localNormalizedEndpoints,
-        );
-        // Per-call (fixed) image gets a `:flat` variant so it never collides with the per-token
-        // (params) variant under one new-api model name. Per-token image + text keep the base name.
-        const exposed = flatVariantName(
-          baseExposed,
-          modelType,
-          opts.upstreamFixed.get(upstreamName) ?? false,
         );
         const adjustment = resolvePriceAdjustment({
           adj: opts.providerConfig.priceAdjustment,
@@ -604,28 +593,14 @@ export async function processNewApiProvider(
             const seen = new Set<string>();
             const dedupedOfferModels: OfferModel[] = [];
             for (const upstreamName of workingUpstream) {
-              const baseExposed = (
+              const exposed = (
                 config.modelMapping?.[upstreamName] ?? upstreamName
               ).toLowerCase();
-              const normalized = localNormalizedEndpoints.get(upstreamName);
-              const m = pricingByName.get(upstreamName);
-              const modelType = inferModelType(baseExposed, normalized);
-              // Per-call (fixed) image gets a `:flat` variant so it never collides with the per-token
-              // (params) variant under one new-api model name; this also keeps both as distinct
-              // offers instead of one losing the dedup. Per-token image + text keep the base name.
-              // Use isFixed (same signal the gate uses via upstreamFixed) so both agree.
-              const exposed = flatVariantName(
-                baseExposed,
-                modelType,
-                m
-                  ? isFixed({
-                      modelPrice: m.modelPrice,
-                      quotaType: m.quotaType,
-                    })
-                  : false,
-              );
               if (seen.has(exposed)) continue;
               seen.add(exposed);
+              const normalized = localNormalizedEndpoints.get(upstreamName);
+              const m = pricingByName.get(upstreamName);
+              const modelType = inferModelType(exposed, normalized);
               // Replace placeholder ratios with effective values from the
               // billing expression so downstream cap/canonical checks compare
               // in the same units.

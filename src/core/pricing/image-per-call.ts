@@ -45,18 +45,6 @@ export function isPerTokenImage(modelType: string, isFixed: boolean): boolean {
 // To avoid the collision we publish per-call image occurrences under this suffix, keeping per-token
 // (params) on the clean base name. toBareName strips `:suffix`, so canonical pricing still resolves
 // to the base model.
+// The split itself (which per-call occurrences become `:flat`) is cross-provider, so it lives in the
+// pipeline post-pass `applyFlatVariantSplit` (sync/pipeline/providers.ts), not here.
 export const FLAT_VARIANT_SUFFIX = ":flat";
-
-// Exposed name for one upstream image occurrence: per-call (fixed) image gets the `:flat` suffix so
-// it never collides with the per-token (params) variant under one new-api model name. Per-token
-// image and all text/non-image keep the base name. Idempotent.
-export function flatVariantName(
-  exposed: string,
-  modelType: string,
-  isPerCall: boolean,
-): string {
-  if (modelType === "text" || !isPerCall) return exposed;
-  return exposed.endsWith(FLAT_VARIANT_SUFFIX)
-    ? exposed
-    : `${exposed}${FLAT_VARIANT_SUFFIX}`;
-}

@@ -1,4 +1,5 @@
 import type { RuntimeConfig } from "@core/config";
+import { FLAT_VARIANT_SUFFIX } from "@core/pricing/image-per-call";
 import type { ProviderRunContext, UpstreamOffer } from "@core/pricing/offers";
 import { throwIfRunAborted } from "@core/infra/abort";
 import type { ProviderReport } from "@core/types";
@@ -17,6 +18,37 @@ import {
   SIMPLE_PROVIDER_MAP,
   processSimpleProvider,
 } from "@core/vendors/registry";
+
+// new-api bills ONE billing type per model NAME. The SAME media model is served per-token
+// (quota_type 0: ratio+completionRatio, HONORS size/quality params) by some relays and per-call flat
+// (model_price, IGNORES params) by others. Where BOTH exist for one exposed name, publish the per-call
+// occurrences under a `:flat` suffix so they don't collide with the per-token (params) base. A model
+// that is per-call on EVERY provider (no per-token sibling) keeps its clean base name (no redundant
+// `:flat` twin). Cross-provider, so it runs once after all offers are collected. Mutates in place.
+function applyFlatVariantSplit(offers: UpstreamOffer[]): void {
+  const perToken = new Set<string>();
+  const perCall = new Set<string>();
+  for (const offer of offers)
+    for (const m of offer.models) {
+      if (m.modelType === "text" || m.isFree) continue;
+      const fixed =
+        (m.modelPrice !== undefined && m.modelPrice > 0) ||
+        (m.quotaType !== undefined && m.quotaType >= 1);
+      (fixed ? perCall : perToken).add(m.exposed);
+    }
+  // Only names that are BOTH per-token somewhere AND per-call somewhere need the split.
+  const split = new Set([...perCall].filter((n) => perToken.has(n)));
+  if (split.size === 0) return;
+  for (const offer of offers)
+    for (const m of offer.models) {
+      if (!split.has(m.exposed)) continue;
+      const fixed =
+        (m.modelPrice !== undefined && m.modelPrice > 0) ||
+        (m.quotaType !== undefined && m.quotaType >= 1);
+      if (fixed && !m.exposed.endsWith(FLAT_VARIANT_SUFFIX))
+        m.exposed = `${m.exposed}${FLAT_VARIANT_SUFFIX}`;
+    }
+}
 
 // Bespoke providers get explicit ordering; simple registry providers slot in the
 // middle. sub2api runs last (depends on nothing but is cheapest to retry).
@@ -98,6 +130,11 @@ export async function runAllProviders(
     offers.push(...result.offers);
     for (const [k, v] of result.endpointMetadata.endpointPaths)
       aggregatedEndpointPaths.set(k, v);
+  }
+
+  applyFlatVariantSplit(offers);
+
+  for (const result of settled) {
     for (const offer of result.offers) {
       for (const m of offer.models) {
         if (m.endpoints?.length) {
