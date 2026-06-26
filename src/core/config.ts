@@ -127,6 +127,7 @@ export interface RuntimeConfig extends Omit<ConfigSchemaType, StripKeys> {
   modelMapping: Record<string, string>;
   onlyProviders?: Set<string>;
   modelFilter?: string[];
+  modelTypeFilter?: ModelType[];
   isTestMode?: boolean;
 }
 
@@ -323,4 +324,25 @@ export function applyModelFilter(
   const normalized = normalizeCsv(raw);
   if (normalized.length === 0) return config;
   return { ...config, modelFilter: normalized };
+}
+
+// Scope a sync to model TYPES (image/video/audio/text/embedding) via inferModelType, instead of name
+// globs. Sets partial-sync semantics (no orphan cleanup, out-of-scope preserved) like --models.
+export function applyModelTypeFilter(
+  config: RuntimeConfig,
+  raw: string[],
+): RuntimeConfig {
+  if (raw.length === 0) return config;
+  const normalized = normalizeCsv(raw).map((v) => v.toLowerCase());
+  if (normalized.length === 0) return config;
+  const valid = new Set<string>(MODEL_TYPES);
+  const unknown = normalized.filter((t) => !valid.has(t));
+  if (unknown.length > 0)
+    throw new Error(
+      t("ERROR.CONFIG_UNKNOWN_MODEL_TYPES", {
+        unknown: unknown.join(", "),
+        available: [...valid].join(", "),
+      }),
+    );
+  return { ...config, modelTypeFilter: normalized as ModelType[] };
 }

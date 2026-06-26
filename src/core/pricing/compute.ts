@@ -65,6 +65,12 @@ function mirrorAliasRatio(
   if (modelRatios.has(aliasName)) return;
   const base = modelRatios.get(baseName);
   if (!base) return;
+  // A `:free` alias must never inherit a paid sticker. A per-request model bypasses the ratio path,
+  // so only a zero modelPrice makes it free (group_ratio 0 alone would not).
+  if (aliasName.endsWith(":free")) {
+    modelRatios.set(aliasName, { ...base, modelPrice: 0 });
+    return;
+  }
   modelRatios.set(aliasName, { ...base });
 }
 
@@ -107,7 +113,7 @@ function pickBillingFields(
 
 const bucketKey = (r: number) => Math.round(r * 1e6) / 1e6;
 const channelOf = (o: UpstreamOffer) => `${o.sanitizedBase}-${o.vendor}`;
-const isFixed = (w: { modelPrice?: number; quotaType?: number }) =>
+export const isFixed = (w: { modelPrice?: number; quotaType?: number }) =>
   (w.modelPrice !== undefined && w.modelPrice > 0) ||
   (w.quotaType !== undefined && w.quotaType >= 1);
 
@@ -220,13 +226,20 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       completionRatio = allFree ? 0 : 1;
     }
 
+    // No fixed occurrence: this model bills per-token (ratio + completionRatio). If we resolved a
+    // real ratio (source/canonical/upstream), it is genuinely per-token now, so DROP any stale
+    // existing per-call sticker (e.g. a model that used to be flat-priced) instead of inheriting it.
+    const haveRealRatio =
+      sourceHit !== undefined ||
+      canonicalRatio !== undefined ||
+      co !== undefined;
     modelRatios.set(model, {
       ratio: writtenRatio,
       completionRatio,
       cacheRatio: cacheRatio ?? existing?.cacheRatio,
       createCacheRatio: createCacheRatio ?? existing?.createCacheRatio,
-      modelPrice: existing?.modelPrice,
-      quotaType: existing?.quotaType,
+      modelPrice: haveRealRatio ? undefined : existing?.modelPrice,
+      quotaType: haveRealRatio ? undefined : existing?.quotaType,
       imageRatio: existing?.imageRatio,
       audioRatio: existing?.audioRatio ?? billing.audioRatio,
       audioCompletionRatio:

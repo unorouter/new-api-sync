@@ -128,15 +128,18 @@ and the partial-sync invariants protect everything out of scope.
    probe) blacklists a real channel and stops it being recreated. Drop both so the next run re-probes
    fresh. Key shape: `provider/channel-name/anthropic|model-name`.
 4. **Re-sync with both filters ANDed** so only the targeted providers AND models are touched:
+
    ```bash
    bun sync run --only code,pol,aigc --models "claude-opus-4-6*,claude-opus-4-7*,claude-opus-4-8*"
    ```
+
    - `--only <csv>` narrows to those provider NAMES (`applyOnlyProviders`); `--models <globs>` narrows
      to matching model names (`applyModelFilter`, micromatch). They COMBINE (intersection): only those
      providers, only those models. Both accept repeats or comma-separated lists.
    - This sets `isPartialSync` -> orphan cleanup is DISABLED and out-of-scope ratios are preserved
      (`mergeProtected`), so the run never clobbers other providers/models. A clean provider that
      passes testing for the model is recreated as a channel; a failing one stays absent.
+
 5. **Verify**: re-query the `channels` table for the model; confirm only clean upstreams remain and
    the bad ids did not reappear. If a deleted channel reappears, its provider still passed the
    authenticity test (the fix belongs in `testing/authenticity.ts`, not another delete).

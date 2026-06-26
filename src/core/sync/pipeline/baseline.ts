@@ -39,7 +39,8 @@ export async function buildBaseline(opts: {
       const detail = err instanceof Error ? err.message : String(err);
       const isPartialSync =
         !!opts.config.onlyProviders ||
-        (opts.config.modelFilter?.length ?? 0) > 0;
+        (opts.config.modelFilter?.length ?? 0) > 0 ||
+        (opts.config.modelTypeFilter?.length ?? 0) > 0;
       if (isPartialSync)
         throw new Error(
           `Refusing partial sync: target GroupRatio is corrupted (${detail}).`,

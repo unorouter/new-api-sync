@@ -1,4 +1,9 @@
-import { applyModelFilter, applyOnlyProviders, loadConfig } from "@core/config";
+import {
+  applyModelFilter,
+  applyModelTypeFilter,
+  applyOnlyProviders,
+  loadConfig,
+} from "@core/config";
 import { runImageProbe } from "@core/probes/images/pipeline";
 import { printMetadataSummary, runMetadataSync } from "@core/sync/metadata";
 import { runReset } from "@core/sync/reset";
@@ -27,6 +32,12 @@ program
     (value: string, prev: string[]) => [...prev, value],
     [] as string[],
   )
+  .option(
+    "--type <types>",
+    t("CLI.OPTION.MODEL_TYPES"),
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[],
+  )
   .option("--dry-run", t("CLI.OPTION.DRY_RUN"))
   .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
   .action(
@@ -34,13 +45,17 @@ program
       config?: string;
       only: string[];
       models: string[];
+      type: string[];
       dryRun?: boolean;
       verbose?: boolean;
     }) => {
       if (options.verbose) consola.level = 4;
-      const config = applyModelFilter(
-        applyOnlyProviders(await loadConfig(options.config), options.only),
-        options.models,
+      const config = applyModelTypeFilter(
+        applyModelFilter(
+          applyOnlyProviders(await loadConfig(options.config), options.only),
+          options.models,
+        ),
+        options.type,
       );
       const result = await runSync(config, { dryRun: options.dryRun });
       printRunSummary(result);

@@ -13,6 +13,12 @@ import {
   type RuntimeConfig,
 } from "@core/config";
 import { resolvePriceAdjustment } from "@core/pricing/index";
+import { isFixed } from "@core/pricing/compute";
+import {
+  flatVariantName,
+  imagePerCallUsd,
+  isPerTokenImage,
+} from "@core/pricing/image-per-call";
 import type {
   EndpointPathInfo,
   OfferModel,
@@ -71,6 +77,7 @@ function filterGroupModels(
   models: string[],
   config: RuntimeConfig,
   pc: ProviderConfig,
+  modelEndpoints?: Map<string, string[]>,
 ): string[] {
   let r = models.filter((m) => !matchesBlacklist(m, config.blacklist, pc.name));
   const vf = vendorFilter(pc.enabledVendors);
@@ -80,6 +87,12 @@ function filterGroupModels(
     r = r.filter((m) => matchesAnyPattern(m, enabledGlobs));
   if (config.modelFilter?.length)
     r = r.filter((m) => matchesAnyPattern(m, config.modelFilter!));
+  if (config.modelTypeFilter?.length) {
+    const types = new Set(config.modelTypeFilter);
+    r = r.filter((m) =>
+      types.has(inferModelType(m, undefined, modelEndpoints)),
+    );
+  }
   return r;
 }
 
@@ -96,13 +109,15 @@ function softCanonical(vote: PricingVoteResult): number | undefined {
 }
 
 // prettier-ignore
-type BucketCandidate = { key: string; group: string; vendor: string; upstream: string; exposed: string; upstreamRatio: number; groupRatio: number; adjustment: number; vote: PricingVoteResult; charge?: number; canonical?: number };
+type BucketCandidate = { key: string; group: string; vendor: string; upstream: string; exposed: string; upstreamRatio: number; groupRatio: number; adjustment: number; vote: PricingVoteResult; charge?: number; canonical?: number; isMedia: boolean };
 
 function planPreTestDecisions(opts: {
   prepared: Array<{ group: GroupInfo; candidateModels: string[] }>;
   providerConfig: ProviderConfig;
   config: RuntimeConfig;
   upstreamPricing: Map<string, number>;
+  upstreamCompletionRatios: Map<string, number>;
+  upstreamFixed: Map<string, boolean>;
   pricingSources: PricingSource[];
   reverseMapping: Map<string, string>;
   localNormalizedEndpoints: Map<string, string[]>;
@@ -116,13 +131,20 @@ function planPreTestDecisions(opts: {
       "unknown",
     )) {
       for (const upstreamName of vendorModels) {
-        const exposed = (
+        const baseExposed = (
           opts.config.modelMapping?.[upstreamName] ?? upstreamName
         ).toLowerCase();
         const modelType = inferModelType(
-          exposed,
+          baseExposed,
           undefined,
           opts.localNormalizedEndpoints,
+        );
+        // Per-call (fixed) image gets a `:flat` variant so it never collides with the per-token
+        // (params) variant under one new-api model name. Per-token image + text keep the base name.
+        const exposed = flatVariantName(
+          baseExposed,
+          modelType,
+          opts.upstreamFixed.get(upstreamName) ?? false,
         );
         const adjustment = resolvePriceAdjustment({
           adj: opts.providerConfig.priceAdjustment,
@@ -138,12 +160,49 @@ function planPreTestDecisions(opts: {
           opts.pricingSources,
           opts.reverseMapping,
         );
-        const canonical = vote.cluster?.modelRatio ?? softCanonical(vote);
+        const rawCanonical = vote.cluster?.modelRatio ?? softCanonical(vote);
+        // Per-token image/media models cost ~modelRatio*completionRatio*imageTokens, not modelRatio
+        // alone. For those, price a representative generation in ACTUAL $/call (modelRatio*2 == $/M)
+        // on BOTH the cost and canonical sides, so charge/canonical is dimensionless and the drop
+        // log reads real cents. Text/per-request models stay in plain modelRatio space.
+        const perTokenImage = isPerTokenImage(
+          modelType,
+          opts.upstreamFixed.get(upstreamName) ?? false,
+        );
+        const completionRatio =
+          opts.upstreamCompletionRatios.get(upstreamName) ?? 1;
+        const costRatio = perTokenImage
+          ? imagePerCallUsd({ modelRatio: upstreamRatio, completionRatio })
+          : upstreamRatio;
+        const canonical =
+          perTokenImage && rawCanonical !== undefined
+            ? imagePerCallUsd({
+                modelRatio: rawCanonical,
+                completionRatio: vote.cluster?.completionRatio ?? 1,
+              })
+            : rawCanonical;
         const charge =
           canonical !== undefined && canonical > 0
             ? canonical *
-              (p.group.ratio * (1 + adjustment) * (upstreamRatio / canonical))
+              (p.group.ratio * (1 + adjustment) * (costRatio / canonical))
             : undefined;
+        if (perTokenImage && canonical !== undefined && charge !== undefined) {
+          consola.debug(
+            t("CORE.PRICING.PER_TOKEN_IMAGE_COST", {
+              model: exposed,
+              provider: pName,
+              group: p.group.name,
+              vendor,
+              cost: costRatio.toFixed(4),
+              modelRatio: upstreamRatio.toFixed(3),
+              completionRatio: completionRatio.toFixed(2),
+              canonical: canonical.toFixed(4),
+              canonicalRatio: (rawCanonical ?? 0).toFixed(3),
+              canonicalComp: (vote.cluster?.completionRatio ?? 1).toFixed(2),
+              charge: charge.toFixed(4),
+            }),
+          );
+        }
         let bucket = byExposed.get(exposed);
         if (!bucket) byExposed.set(exposed, (bucket = []));
         bucket.push({
@@ -158,6 +217,7 @@ function planPreTestDecisions(opts: {
           vote,
           charge,
           canonical,
+          isMedia: modelType !== "text",
         });
       }
     }
@@ -230,7 +290,10 @@ function planPreTestDecisions(opts: {
       (c.charge ?? Infinity) < (min.charge ?? Infinity) ? c : min,
     );
     const ratio = cheapest.charge! / canonical;
-    if (ratio > CHEAPEST_FALLBACK_MAX) {
+    // Media (image/video/audio) is never dropped wholesale for exceeding canonical: there are few
+    // providers and no free fallback, so always keep the single cheapest even above the limit.
+    // Text still drops all when the cheapest is > CHEAPEST_FALLBACK_MAX (likely broken upstream).
+    if (ratio > CHEAPEST_FALLBACK_MAX && !cheapest.isMedia) {
       consola.warn(
         t("CORE.PRICING.ALL_BUCKETS_BROKEN", {
           model: exposed,
@@ -357,6 +420,18 @@ export async function processNewApiProvider(
       else if (typeof m.ratio === "number")
         upstreamPricing.set(m.name, m.ratio);
     }
+    // Completion ratios feed the cap's per-token image cost estimate (imagePerCallUsd).
+    const upstreamCompletionRatios = new Map<string, number>();
+    for (const m of pricing.models)
+      if (typeof m.completionRatio === "number")
+        upstreamCompletionRatios.set(m.name, m.completionRatio);
+    // Per-request (fixed) vs per-token, so the cap only USD-estimates true per-token image models.
+    const upstreamFixed = new Map<string, boolean>();
+    for (const m of pricing.models)
+      upstreamFixed.set(
+        m.name,
+        isFixed({ modelPrice: m.modelPrice, quotaType: m.quotaType }),
+      );
     const tokenPrefix = config.target.targetPrefix ?? pName;
     const partialSync = (config.modelFilter?.length ?? 0) > 0;
     // Dry-run creates no upstream tokens and reads no balance (both cost/mutate);
@@ -404,6 +479,7 @@ export async function processNewApiProvider(
         group.models,
         config,
         providerConfig,
+        localNormalizedEndpoints,
       );
       if (candidateModels.length === 0) continue;
       prepared.push({
@@ -420,6 +496,8 @@ export async function processNewApiProvider(
           providerConfig,
           config,
           upstreamPricing,
+          upstreamCompletionRatios,
+          upstreamFixed,
           pricingSources: ctx.pricingSources,
           reverseMapping: ctx.reverseMapping,
           localNormalizedEndpoints,
@@ -526,13 +604,28 @@ export async function processNewApiProvider(
             const seen = new Set<string>();
             const dedupedOfferModels: OfferModel[] = [];
             for (const upstreamName of workingUpstream) {
-              const exposed = (
+              const baseExposed = (
                 config.modelMapping?.[upstreamName] ?? upstreamName
               ).toLowerCase();
-              if (seen.has(exposed)) continue;
-              seen.add(exposed);
               const normalized = localNormalizedEndpoints.get(upstreamName);
               const m = pricingByName.get(upstreamName);
+              const modelType = inferModelType(baseExposed, normalized);
+              // Per-call (fixed) image gets a `:flat` variant so it never collides with the per-token
+              // (params) variant under one new-api model name; this also keeps both as distinct
+              // offers instead of one losing the dedup. Per-token image + text keep the base name.
+              // Use isFixed (same signal the gate uses via upstreamFixed) so both agree.
+              const exposed = flatVariantName(
+                baseExposed,
+                modelType,
+                m
+                  ? isFixed({
+                      modelPrice: m.modelPrice,
+                      quotaType: m.quotaType,
+                    })
+                  : false,
+              );
+              if (seen.has(exposed)) continue;
+              seen.add(exposed);
               // Replace placeholder ratios with effective values from the
               // billing expression so downstream cap/canonical checks compare
               // in the same units.
@@ -542,7 +635,7 @@ export async function processNewApiProvider(
               dedupedOfferModels.push({
                 exposed,
                 upstream: upstreamName,
-                modelType: inferModelType(exposed, normalized),
+                modelType,
                 upstreamRatio: tieredEff?.modelRatio ?? m?.ratio,
                 upstreamCompletionRatio:
                   tieredEff?.completionRatio ?? m?.completionRatio,

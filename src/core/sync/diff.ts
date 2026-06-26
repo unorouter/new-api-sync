@@ -1,3 +1,4 @@
+import { inferModelType } from "@core/catalog/constants/inference";
 import {
   matchesAnyPattern,
   parseModelList,
@@ -9,6 +10,7 @@ import type {
   DesiredState,
   DiffOperation,
   ModelMeta,
+  ModelType,
   SyncDiff,
   TargetSnapshot,
   Vendor,
@@ -145,13 +147,19 @@ function buildManagedOptionValues(
   snapshot: TargetSnapshot,
   isPartialSync: boolean,
   modelFilter?: string[],
+  modelTypeFilter?: ModelType[],
 ): Record<string, string> {
   const opts = desired.options;
-  // In a partial (--models) sync, a model on a managed channel is only "in
-  // scope" if it matches the filter. Managed-channel models outside the filter
-  // must keep their existing options, else their ratios get wiped.
+  // In a partial (--models / --type) sync, a model on a managed channel is only
+  // "in scope" if it matches the filter. Managed-channel models outside the
+  // filter must keep their existing options, else their ratios get wiped.
+  const typeSet = modelTypeFilter?.length
+    ? new Set(modelTypeFilter)
+    : undefined;
   const inFilterScope = (m: string) =>
-    !modelFilter?.length || matchesAnyPattern(m, modelFilter);
+    (!modelFilter?.length && !typeSet) ||
+    (!!modelFilter?.length && matchesAnyPattern(m, modelFilter)) ||
+    (typeSet !== undefined && typeSet.has(inferModelType(m)));
   const isManaged = (ch: Channel) =>
     ch.tag && desired.managedProviders.has(ch.tag);
   const unmanagedChannels = snapshot.channels.filter((ch) => !isManaged(ch));
@@ -325,14 +333,20 @@ export function buildSyncDiff(
   }
 
   const modelFilter = config.modelFilter;
+  const typeFilter = config.modelTypeFilter;
+  const hasModelFilter = (modelFilter?.length ?? 0) > 0;
+  const hasTypeFilter = (typeFilter?.length ?? 0) > 0;
   const isPartialSync =
-    config.onlyProviders !== undefined || (modelFilter?.length ?? 0) > 0;
-  const inScope = (channel: Channel): boolean =>
-    !modelFilter ||
-    modelFilter.length === 0 ||
-    parseModelList(channel.models).some((m) =>
-      matchesAnyPattern(m, modelFilter),
+    config.onlyProviders !== undefined || hasModelFilter || hasTypeFilter;
+  const typeSet = hasTypeFilter ? new Set(typeFilter) : undefined;
+  const inScope = (channel: Channel): boolean => {
+    if (!hasModelFilter && !typeSet) return true;
+    return parseModelList(channel.models).some(
+      (m) =>
+        (hasModelFilter && matchesAnyPattern(m, modelFilter!)) ||
+        (typeSet !== undefined && typeSet.has(inferModelType(m))),
     );
+  };
 
   if (!isPartialSync) {
     for (const existing of snapshot.channels) {
@@ -440,11 +454,10 @@ export function buildSyncDiff(
       const modelName = existing.model_name;
       if (desired.models.has(modelName) || protectedModels.has(modelName))
         continue;
-      if (
-        modelFilter &&
-        modelFilter.length > 0 &&
-        !matchesAnyPattern(modelName, modelFilter)
-      )
+      // Scope deletes to the active filter(s); out-of-scope models stay untouched.
+      if (hasModelFilter && !matchesAnyPattern(modelName, modelFilter!))
+        continue;
+      if (typeSet !== undefined && !typeSet.has(inferModelType(modelName)))
         continue;
       if (
         !desired.mappingSources.has(modelName) &&
@@ -460,6 +473,7 @@ export function buildSyncDiff(
     snapshot,
     isPartialSync,
     modelFilter,
+    typeFilter,
   );
   const optionOps: DiffOperation<string>[] = [];
   for (const [key, value] of Object.entries(desiredOptionValues)) {
