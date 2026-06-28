@@ -46,6 +46,24 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // litellm reports a sparse reasoning-effort flag set for the GPT-5 reasoning
+  // models (often only none + max), so the parser drops low/medium/high. OpenAI
+  // docs list the full ladder: none, low, medium (default), high, xhigh ("max").
+  "gpt-5": {
+    reasoningEfforts: ["none", "low", "medium", "high", "max"],
+  },
+  "gpt-5.1": {
+    reasoningEfforts: ["none", "low", "medium", "high", "max"],
+  },
+  "gpt-5.2": {
+    reasoningEfforts: ["none", "low", "medium", "high", "max"],
+  },
+  "gpt-5.4": {
+    reasoningEfforts: ["none", "minimal", "low", "medium", "high", "max"],
+  },
+  "gpt-5.5": {
+    reasoningEfforts: ["none", "low", "medium", "high", "max"],
+  },
 };
 
 // bare name -> curated metadata. Dates are official announcement dates.
