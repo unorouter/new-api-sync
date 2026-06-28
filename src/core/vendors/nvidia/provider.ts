@@ -90,6 +90,7 @@ export async function processNvidiaProvider(
       (inferModelType(m) === "image" ? imageModels : textModels).push(m);
 
     let workingTextModels: string[] = [];
+    let rateLimitedText = new Set<string>();
     let textDetails: NonNullable<
       Awaited<ReturnType<typeof testAndFilterModels>>["details"]
     > = [];
@@ -105,6 +106,7 @@ export async function processNvidiaProvider(
         // default, so they timeout on first probe. Give the probe room.
         timeoutMs: 60_000,
         retryPolicy: NVIDIA_RETRY_POLICY,
+        acceptRateLimited: providerConfig.acceptRateLimited ?? false,
         capabilities: buildCapabilityMap(
           textModels,
           passthroughExposed(config),
@@ -112,6 +114,7 @@ export async function processNvidiaProvider(
         ),
       });
       workingTextModels = r.workingModels;
+      rateLimitedText = new Set(r.rateLimitedModels);
       textDetails = r.details ?? [];
       if (workingTextModels.length > 0)
         consola.info(
@@ -173,6 +176,9 @@ export async function processNvidiaProvider(
                 upstream: rev[r.exposed] ?? r.upstream,
                 modelType: "text",
                 isFree: true,
+                ...(rateLimitedText.has(rev[r.exposed] ?? r.upstream)
+                  ? { rateLimited: true }
+                  : {}),
                 testDetail: textDetails.find((d) => d.model === r.upstream),
               },
         );

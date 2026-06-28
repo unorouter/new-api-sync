@@ -58,9 +58,9 @@ const Sub2ApiProviderSchema = T.Object({
   ),
 });
 // prettier-ignore
-const NvidiaProviderSchema = T.Object({ type: T.Literal("nvidia"), ...ProviderCommonProps, baseUrl: Opt(uri), imageBaseUrl: Opt(uri), apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ exclusiveMinimum: 0 })) });
+const NvidiaProviderSchema = T.Object({ type: T.Literal("nvidia"), ...ProviderCommonProps, baseUrl: Opt(uri), imageBaseUrl: Opt(uri), apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ exclusiveMinimum: 0 })), acceptRateLimited: Opt(T.Boolean()) });
 // prettier-ignore
-const OpenRouterProviderSchema = T.Object({ type: T.Literal("openrouter"), ...ProviderCommonProps, baseUrl: Opt(uri), apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ minimum: 0 })) });
+const OpenRouterProviderSchema = T.Object({ type: T.Literal("openrouter"), ...ProviderCommonProps, baseUrl: Opt(uri), apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ minimum: 0 })), acceptRateLimited: Opt(T.Boolean()) });
 // Simple OpenAI-compatible free providers (groq, gemini, cerebras, ...). One schema,
 // `type` is the union of registry kinds so a new provider needs no schema edit here.
 // T.Unsafe carries the SimpleProviderKind literal union at the type level while the
@@ -79,6 +79,10 @@ const SimpleFreeProviderSchema = T.Object({
   // Models (glob patterns) priced instead of forced-free: each is billed at
   // canonical retail * (1 + priceAdjustment[model]). Everything else stays $0.
   paidModels: Opt(T.Array(str)),
+  // Keep models that probe-fail with a 429 (capacity throttle / daily quota
+  // spent, not breakage). Only safe where 429 = capacity. Emitted disabled so
+  // new-api's auto-test re-enables them once the limit clears.
+  acceptRateLimited: Opt(T.Boolean()),
 });
 const ComfyUiTemplateSchema = T.Object(
   {

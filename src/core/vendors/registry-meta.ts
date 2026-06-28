@@ -16,10 +16,6 @@ export interface SimpleProviderMeta {
   /** If set, audio models (STT/TTS) are emitted with this channel type. Omit to
    *  skip audio. Groq = OPENAI (1), Cloudflare = CLOUDFLARE (39). */
   audioChannelType?: number;
-  /** Keep models that probe-fail with a 429 (Cloudflare: the shared 10k-neuron/day
-   *  cap 429s every model once spent, but they are valid free models, so a sync
-   *  while exhausted must not drop them). Only safe where 429 = capacity, not breakage. */
-  acceptRateLimited?: boolean;
 }
 
 export const SIMPLE_PROVIDER_META = [
@@ -70,7 +66,6 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "cf-... (Workers AI token)",
     imageChannelType: 39,
     audioChannelType: 39,
-    acceptRateLimited: true,
   },
   {
     kind: "github",
@@ -198,9 +193,6 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     imageChannelType: 1,
     audioChannelType: 1,
-    // Free tier has a tight shared RPM; probing all 11 models in a burst trips 429.
-    // 429 = capacity, not a dead model - keep it (live traffic spaces out).
-    acceptRateLimited: true,
     apiKeyPlaceholder: "ng-... (naga.ac)",
   },
   {
@@ -211,7 +203,6 @@ export const SIMPLE_PROVIDER_META = [
     // deepseek-v4-flash. +86 signup (no real-name). Dynamic discovery.
     defaultBaseUrl: "https://token.sensenova.cn",
     defaultRatio: 0,
-    acceptRateLimited: true,
     apiKeyPlaceholder: "sk-... (platform.sensenova.cn token plan)",
   },
   {
@@ -301,8 +292,6 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     imageChannelType: 1,
     audioChannelType: 1,
-    // Free tier 500 req/day shared; burst-probing trips 429. 429 = capacity, keep the model.
-    acceptRateLimited: true,
     apiKeyPlaceholder: "vc-... (zanity.xyz)",
   },
   {
@@ -384,10 +373,6 @@ export const SIMPLE_PROVIDER_META = [
     defaultBaseUrl: "https://api.navy",
     defaultRatio: 0,
     apiKeyPlaceholder: "sk-navy-...",
-    // 20 RPD / 150k TPD free tier: the burst probe trips 429 rpm_limit on live
-    // models. Accept 429 so they're kept, but emitted disabled - new-api's
-    // auto-test enables each once the per-minute window clears.
-    acceptRateLimited: true,
   },
   {
     kind: "aihubmix",
@@ -402,10 +387,6 @@ export const SIMPLE_PROVIDER_META = [
     defaultBaseUrl: "https://aihubmix.com",
     defaultRatio: 0,
     apiKeyPlaceholder: "sk-... (aihubmix.com)",
-    // Free lane has a tight concurrency/daily cap: the burst probe trips 429
-    // "reached the free model quota". Accept 429 (model is alive, just throttled),
-    // emit disabled - new-api's auto-test enables each as quota frees.
-    acceptRateLimited: true,
   },
   {
     kind: "tokenreply",
@@ -419,7 +400,6 @@ export const SIMPLE_PROVIDER_META = [
     defaultBaseUrl: "https://www.tokenreply.com",
     defaultRatio: 0,
     apiKeyPlaceholder: "sk-... (tokenreply.com)",
-    acceptRateLimited: true,
   },
   {
     kind: "bazaarlink",
@@ -432,7 +412,6 @@ export const SIMPLE_PROVIDER_META = [
     defaultBaseUrl: "https://bazaarlink.ai",
     defaultRatio: 0,
     apiKeyPlaceholder: "sk-bl-... (POST /api/v1/agents/register)",
-    acceptRateLimited: true,
   },
   {
     kind: "logfare",
@@ -477,8 +456,6 @@ export const SIMPLE_PROVIDER_META = [
     // (up to 1M). vendor/model slugs bare-collapse via the normalizer.
     defaultBaseUrl: "https://api.kilo.ai/api/gateway",
     defaultRatio: 0,
-    // Free pool is shared per-IP (200 req/hr); burst-probing can 429. 429 = capacity, keep.
-    acceptRateLimited: true,
     apiKeyPlaceholder: "keyless (or kilo.ai key)",
   },
   {
@@ -491,9 +468,6 @@ export const SIMPLE_PROVIDER_META = [
     // behind 402 USDC - never exposed. Borrowed-upstream sustainability, additive lane.
     defaultBaseUrl: "https://blockrun.ai/api",
     defaultRatio: 0,
-    // Free lane rides a shared NVIDIA NIM tier - burst-probing trips real RPM 429.
-    // 429 = capacity, keep the model (emitted disabled, auto-test enables later).
-    acceptRateLimited: true,
     apiKeyPlaceholder: "keyless",
   },
   {
@@ -505,7 +479,6 @@ export const SIMPLE_PROVIDER_META = [
     // runner + discovery append /v1. Fragile (IP churns) -> additive lane, probe drops it.
     defaultBaseUrl: "https://api.free.ai",
     defaultRatio: 0,
-    acceptRateLimited: true,
     apiKeyPlaceholder: "keyless",
   },
   {
@@ -517,7 +490,6 @@ export const SIMPLE_PROVIDER_META = [
     // Space host; runner + discovery append /v1.
     defaultBaseUrl: "https://bleak-openai-compatible-server-gemma4.hf.space",
     defaultRatio: 0,
-    acceptRateLimited: true,
     apiKeyPlaceholder: "keyless",
   },
   {
@@ -525,13 +497,11 @@ export const SIMPLE_PROVIDER_META = [
     label: "LongCat",
     // api.longcat.chat/openai - first-party Meituan 美团. Base ends /openai; runner +
     // discovery append /v1. Public-beta daily-refreshing free token quota (5M/day, up to
-    // 120M via feedback), NO paid option. 429 "额度不足" = daily quota spent, not breakage
-    // -> acceptRateLimited keeps it disabled, auto-test re-enables after Beijing-midnight
-    // reset. Email/phone signup, no card, no +86 wall. (distinct from the longcat model
-    // Qiniu resells - this is the direct first-party lane).
+    // 120M via feedback), NO paid option. 429 "额度不足" = daily quota spent (resets
+    // at Beijing-midnight), not breakage. Email/phone signup, no card, no +86 wall.
+    // (distinct from the longcat model Qiniu resells - this is the direct first-party lane).
     defaultBaseUrl: "https://api.longcat.chat/openai",
     defaultRatio: 0,
-    acceptRateLimited: true,
     apiKeyPlaceholder: "ak_... (longcat.chat platform)",
   },
   {
@@ -541,10 +511,9 @@ export const SIMPLE_PROVIDER_META = [
     // flat 20 RPM, NO balance, NO paid tier. Base is the host; runner + discovery append
     // /v1. Sovereign open models (Apertus 8b/70b, Olmo-3.x, SEA-LION-v4, EuroLLM, DictaLM)
     // + Cohere embed (rerank drops at probe). Direct key bypasses the wired HF router =
-    // distinct lane. SSO signup, no card. 20 RPM trips 429 under burst -> acceptRateLimited.
+    // distinct lane. SSO signup, no card. 20 RPM trips 429 under burst.
     defaultBaseUrl: "https://api.publicai.co",
     defaultRatio: 0,
-    acceptRateLimited: true,
     apiKeyPlaceholder: "zpka_... (platform.publicai.co)",
   },
   {
@@ -557,7 +526,6 @@ export const SIMPLE_PROVIDER_META = [
     // re-enables. 20 rpm free cap. glm-4.7-flash-free "-free" suffix collapses via modelMapping.
     defaultBaseUrl: "https://api.llmgateway.io",
     defaultRatio: 0,
-    acceptRateLimited: true,
     apiKeyPlaceholder: "llmgtwy_... (llmgateway.io)",
   },
   {
@@ -570,7 +538,6 @@ export const SIMPLE_PROVIDER_META = [
     // discovery. rerank-2.5 is NOT OpenAI-shaped -> excluded (embeddings only).
     defaultBaseUrl: "https://api.voyageai.com",
     defaultRatio: 0,
-    acceptRateLimited: true,
     apiKeyPlaceholder: "pa-... (dashboard.voyageai.com)",
   },
   {
@@ -580,10 +547,9 @@ export const SIMPLE_PROVIDER_META = [
     // Free Google-SSO key, 10 rpm/user, no card. Direct lane (vs publicai's qwen-sea-lion)
     // adds Apertus-SEA-LION + a SEA embedding. Discovery HARD-FILTERS to the Apache-2.0
     // subset (Gemma/Llama SEA-LION + SEA-Guard excluded for commercial-license reasons).
-    // 10 rpm trips 429 under burst -> acceptRateLimited; failover lane only.
+    // 10 rpm trips 429 under burst; failover lane only.
     defaultBaseUrl: "https://api.sea-lion.ai",
     defaultRatio: 0,
-    acceptRateLimited: true,
     apiKeyPlaceholder: "sk-... (playground.sea-lion.ai, Google SSO)",
   },
   {
@@ -595,7 +561,6 @@ export const SIMPLE_PROVIDER_META = [
     // speech TTS) are separate subdomains, not wired here. Community-hosted -> can be slow/down.
     defaultBaseUrl: "https://hermes.ai.unturf.com",
     defaultRatio: 0,
-    acceptRateLimited: true,
     apiKeyPlaceholder: "keyless",
   },
 ] as const satisfies readonly SimpleProviderMeta[];

@@ -131,7 +131,7 @@ export async function processOpenRouterProvider(
           channelType: CHANNEL_TYPES.OPENAI,
           providerLabel: name,
           testableModelTypes: new Set(["text"]),
-          acceptRateLimited: true,
+          acceptRateLimited: providerConfig.acceptRateLimited ?? false,
           capabilities: buildCapabilityMap(
             filtered,
             lowercaseExposed(config),

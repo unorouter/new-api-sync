@@ -47,3 +47,11 @@ providers:
   # - type: nvidia
   #   name: nvidia-nim
   #   apiKey: nvapi-...
+  # Free providers with tight RPM/daily caps set acceptRateLimited so a 429 during
+  # probing keeps the model (capacity throttle, not breakage). It is emitted disabled
+  # and new-api's auto-test re-enables it once the limit clears. Only set this where a
+  # 429 means "quota spent", never "model broken".
+  # - type: cloudflare
+  #   name: cf1
+  #   apiKey: cf-...
+  #   acceptRateLimited: true
