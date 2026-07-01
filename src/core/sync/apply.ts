@@ -72,7 +72,12 @@ export async function applySyncDiff(
   diff: SyncDiff,
 ): Promise<ApplyReport> {
   const report: ApplyReport = {
-    channels: { created: [], updated: [], deleted: [] },
+    channels: {
+      created: [],
+      updated: [],
+      deleted: [],
+      orphanAbilitiesDeleted: 0,
+    },
     models: { created: [], updated: [], deleted: [], orphansDeleted: 0 },
     options: { updated: [] },
     errors: [],
@@ -125,6 +130,16 @@ export async function applySyncDiff(
       report.errors.push({
         phase: "cleanup",
         key: "orphaned-models",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    try {
+      report.channels.orphanAbilitiesDeleted =
+        await target.cleanupOrphanedAbilities();
+    } catch (error) {
+      report.errors.push({
+        phase: "cleanup",
+        key: "orphaned-abilities",
         message: error instanceof Error ? error.message : String(error),
       });
     }

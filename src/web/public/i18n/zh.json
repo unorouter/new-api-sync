@@ -455,6 +455,8 @@
       "TOKEN_NEW_KEY_UNAVAILABLE": "[{name}] 无法获取新令牌 \"{token}\" 的完整密钥",
       "ORPHAN_CLEANUP_FAILED": "[{name}] 孤立资源清理失败或不受支持",
       "ORPHAN_CLEANUP_DONE": "[{name}] 已清理 {deleted} 个孤立模型",
+      "ORPHAN_ABILITY_CLEANUP_FAILED": "[{name}] 孤立能力清理失败或不受支持",
+      "ORPHAN_ABILITY_CLEANUP_DONE": "[{name}] 已清理 {deleted} 个孤立能力（失效路由）",
       "GUEST_TOKEN_UPDATED": "已更新访客令牌 \"{name}\"：{count} 个完全免费模型"
     },
     "SYNC": {

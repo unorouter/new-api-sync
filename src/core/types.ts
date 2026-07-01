@@ -203,7 +203,7 @@ export interface EntityChangeSet {
 }
 
 export interface ApplyReport {
-  channels: EntityChangeSet;
+  channels: EntityChangeSet & { orphanAbilitiesDeleted: number };
   models: EntityChangeSet & { orphansDeleted: number };
   options: { updated: string[] };
   errors: ApplyError[];

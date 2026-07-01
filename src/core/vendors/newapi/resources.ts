@@ -317,3 +317,32 @@ export async function cleanupOrphanedModels(
     );
   return deleted;
 }
+
+// Remove ability (routing) rows whose channel was deleted. new-api's own delete
+// paths cascade abilities, but rows can still be orphaned when a channel is
+// removed outside that path; orphaned abilities make /v1/models advertise + route
+// to dead channels (model_not_found). Runs in the same cleanup phase as
+// cleanupOrphanedModels so a full sync self-heals.
+export async function cleanupOrphanedAbilities(
+  ctx: ClientContext,
+): Promise<number> {
+  const data = await tryFetchJson<ApiResponse<{ deleted: number }>>(
+    `${ctx.baseUrl}/api/channel/orphaned-abilities`,
+    { method: "DELETE", headers: ctx.headers },
+  );
+  if (!data) {
+    consola.warn(
+      t("CORE.NEWAPI.ORPHAN_ABILITY_CLEANUP_FAILED", { name: ctx.name }),
+    );
+    return 0;
+  }
+  const deleted = data.data?.deleted ?? 0;
+  if (deleted > 0)
+    consola.info(
+      t("CORE.NEWAPI.ORPHAN_ABILITY_CLEANUP_DONE", {
+        name: ctx.name,
+        deleted,
+      }),
+    );
+  return deleted;
+}

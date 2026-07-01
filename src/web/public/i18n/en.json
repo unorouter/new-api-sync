@@ -455,6 +455,8 @@
       "TOKEN_NEW_KEY_UNAVAILABLE": "[{name}] Could not retrieve full key for new token \"{token}\"",
       "ORPHAN_CLEANUP_FAILED": "[{name}] Orphan cleanup failed or not supported",
       "ORPHAN_CLEANUP_DONE": "[{name}] Cleaned up {deleted} orphaned models",
+      "ORPHAN_ABILITY_CLEANUP_FAILED": "[{name}] Orphaned-ability cleanup failed or not supported",
+      "ORPHAN_ABILITY_CLEANUP_DONE": "[{name}] Cleaned up {deleted} orphaned abilities (dead routes)",
       "GUEST_TOKEN_UPDATED": "Guest token \"{name}\" updated: {count} truly-free model(s)"
     },
     "SYNC": {

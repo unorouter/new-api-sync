@@ -151,6 +151,7 @@ export async function runSync(
           created: byType(diff.channels, "create"),
           updated: byType(diff.channels, "update"),
           deleted: byType(diff.channels, "delete"),
+          orphanAbilitiesDeleted: 0,
         },
         models: {
           created: byType(diff.models, "create"),
