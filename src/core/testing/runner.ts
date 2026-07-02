@@ -14,14 +14,19 @@ import { join } from "path";
 import {
   authenticityProbeAccumulator,
   isAuthenticityBlacklisted,
-  isAuthenticityPassFresh,
+  isAuthenticityPassCached,
   resetAuthenticityProbes,
-  saveAuthenticityBlacklist,
   testAnthropicAuthenticity,
 } from "./authenticity";
 import {
+  getVerdict,
+  recordTestVerdict,
+  saveVerdictCache,
+} from "./verdict-cache";
+import {
   testRequest,
   testStreamRequest,
+  testToolCallRequest,
   withRetry,
   type RetryPolicy,
 } from "./execution";
@@ -179,7 +184,7 @@ export function recordOpenRouterEndpointsForModel(
 }
 
 export function writeTestReport(): void {
-  saveAuthenticityBlacklist();
+  saveVerdictCache();
   if (testReport.modelTests.length === 0) return;
   const logsDir = join(process.cwd(), "logs");
   mkdirSync(logsDir, { recursive: true });
@@ -189,20 +194,10 @@ export function writeTestReport(): void {
   consola.info(t("CORE.TESTER.REPORT_WRITTEN", { path }));
 }
 
-function isToolChoiceUnsupportedError(r: TestExchange): boolean {
-  if (r.status !== undefined && r.status < 400) return false;
-  const parts: string[] = [];
-  if (typeof r.error === "string") parts.push(r.error);
-  if (typeof r.response === "string") parts.push(r.response);
-  else if (r.response && typeof r.response === "object")
-    parts.push(JSON.stringify(r.response));
-  const blob = parts.join(" ").toLowerCase();
-  return (
-    blob.includes("tool_choice") &&
-    (blob.includes("not support") ||
-      blob.includes("unsupported") ||
-      blob.includes("not allowed"))
-  );
+// Rate limits / upstream outages / network errors are NOT evidence the model can't
+// call tools; only a definitive 4xx or a completed-but-toolless response is.
+function isTransientToolFailure(r: TestExchange): boolean {
+  return r.status === undefined || r.status === 429 || r.status >= 500;
 }
 
 export interface ModelCapabilityHint {
@@ -219,7 +214,7 @@ const HTTP_CONFIG_BY_TYPE = {
 } as const;
 
 // prettier-ignore
-const mkDetail = (model: string, channelType: number, success: boolean, streamSuccess: boolean | null, toolCallSuccess: boolean | null, authenticityProbed: boolean, httpStatus?: number): ModelTestDetail => ({ model, success, streamSuccess, toolCallSuccess, authenticityProbed, channelType, ...(httpStatus !== undefined && { httpStatus }) });
+const mkDetail = (model: string, channelType: number, success: boolean, streamSuccess: boolean | null, toolCallSuccess: boolean | null, toolParallel: boolean | null, authenticityProbed: boolean, httpStatus?: number): ModelTestDetail => ({ model, success, streamSuccess, toolCallSuccess, toolParallel, authenticityProbed, channelType, ...(httpStatus !== undefined && { httpStatus }) });
 
 async function testModels(opts: {
   baseUrl: string;
@@ -257,6 +252,7 @@ async function testModels(opts: {
             true,
             ep.stream?.pass ?? null,
             ep.toolCall?.pass ?? null,
+            ep.toolCall?.toolParallel ?? null,
             false,
           );
 
@@ -283,7 +279,15 @@ async function testModels(opts: {
             toolCall: null,
             authentic: false,
           });
-          return mkDetail(model, opts.channelType, false, null, null, false);
+          return mkDetail(
+            model,
+            opts.channelType,
+            false,
+            null,
+            null,
+            null,
+            false,
+          );
         }
 
         const reqOpts: ModelRequestOpts = {
@@ -295,12 +299,47 @@ async function testModels(opts: {
         };
         const modelType = inferModelType(model, undefined, opts.modelEndpoints);
         const isText = modelType === "text";
+
+        // Permanent verdict reuse (logs/verdict-cache.json): a pair with a recorded
+        // pass is never re-probed; force a retest by deleting its entry. Claude pairs
+        // additionally require a cached authenticity pass. Text pairs without a
+        // definitive tool verdict fall through so the tool probe can complete them.
+        const cached = getVerdict(blacklistKey);
+        const cachedTool =
+          cached && cached.toolCallSuccess != null
+            ? {
+                pass: cached.toolCallSuccess,
+                parallel: cached.toolParallel ?? null,
+              }
+            : null;
+        if (
+          cached?.success &&
+          (!isText || cachedTool) &&
+          (!isClaude || cached.authenticity === "pass")
+        )
+          return mkDetail(
+            model,
+            opts.channelType,
+            true,
+            cached.streamSuccess ?? null,
+            cachedTool?.pass ?? null,
+            cachedTool ? cachedTool.parallel : null,
+            false,
+          );
+
         const streamConfig = isText ? getStreamRequestConfig(reqOpts) : null;
-        const toolCfg = isText
-          ? getToolCallConfig(reqOpts, opts.capabilities?.get(model))
-          : null;
+        const toolCfg =
+          isText && !cachedTool
+            ? getToolCallConfig(reqOpts, opts.capabilities?.get(model))
+            : null;
         const retry = (fn: () => Promise<TestExchange>) =>
           withRetry(fn, (r) => r.pass, opts.retryPolicy);
+        // A definitive tool fail is paid generation; only transients are worth re-buying.
+        const retryTool = (fn: () => Promise<TestExchange>) =>
+          withRetry(fn, (r) => r.pass, {
+            ...opts.retryPolicy,
+            shouldRetry: isTransientToolFailure,
+          });
         const [httpResult, streamResult, toolResult] = await Promise.all([
           retry(() =>
             testRequest(HTTP_CONFIG_BY_TYPE[modelType](reqOpts), timeoutMs),
@@ -308,24 +347,32 @@ async function testModels(opts: {
           streamConfig
             ? retry(() => testStreamRequest(streamConfig, timeoutMs))
             : null,
-          toolCfg ? retry(() => testRequest(toolCfg, timeoutMs)) : null,
+          toolCfg
+            ? retryTool(() => testToolCallRequest(toolCfg, timeoutMs))
+            : null,
         ]);
         const success = httpResult.pass;
         const streamSuccess = streamResult?.pass ?? null;
-        const toolCallSuccess: boolean | null =
-          toolResult === null
+        const toolCallSuccess: boolean | null = cachedTool
+          ? cachedTool.pass
+          : toolResult === null
             ? null
             : toolResult.pass
               ? true
-              : isToolChoiceUnsupportedError(toolResult)
+              : isTransientToolFailure(toolResult)
                 ? null
                 : false;
+        const toolParallel: boolean | null = cachedTool
+          ? cachedTool.parallel
+          : toolResult?.pass
+            ? (toolResult.toolParallel ?? false)
+            : null;
 
         let authentic = true;
         if (isClaude && (success || streamSuccess)) {
-          // A fresh pass verdict means we already paid for the 4 generative
-          // probes within the TTL; trust it and skip the spend.
-          authentic = isAuthenticityPassFresh(blacklistKey)
+          // A cached pass verdict means the 4 generative probes were already paid
+          // for; trust it until the entry is manually pruned.
+          authentic = isAuthenticityPassCached(blacklistKey)
             ? true
             : await testAnthropicAuthenticity({
                 baseUrl: opts.baseUrl,
@@ -339,6 +386,15 @@ async function testModels(opts: {
         const finalSuccess = success && authentic;
         const finalStream =
           streamSuccess === null ? null : streamSuccess && authentic;
+
+        recordTestVerdict({
+          key: blacklistKey,
+          success: finalSuccess,
+          streamSuccess: finalStream,
+          toolCallSuccess,
+          toolParallel,
+          toolFresh: cachedTool === null,
+        });
 
         addTestResult({
           provider: prefix,
@@ -375,6 +431,7 @@ async function testModels(opts: {
           finalSuccess,
           finalStream,
           toolCallSuccess,
+          toolParallel,
           isClaude && (success || streamSuccess === true),
           httpResult.status,
         );
@@ -425,7 +482,7 @@ export async function screenDroppedClaudeAuthenticity(opts: {
         if (passingByKey.has(key)) return null;
         const blacklistKey = `${opts.prefix}|${model}`;
         if (isAuthenticityBlacklisted(blacklistKey)) return model;
-        if (isAuthenticityPassFresh(blacklistKey)) return null;
+        if (isAuthenticityPassCached(blacklistKey)) return null;
         const authentic = await testAnthropicAuthenticity({
           baseUrl: opts.baseUrl,
           apiKey: opts.apiKey,

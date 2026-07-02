@@ -1,9 +1,7 @@
 import { fetchJson } from "@core/infra/http";
-import { readJson, writeJsonAtomic } from "@core/infra/fs";
-import { logsDir } from "@core/infra/paths";
 import { t } from "@server/i18n";
 import { consola } from "consola";
-import { join } from "path";
+import { getVerdict, setAuthenticityVerdict } from "./verdict-cache";
 import type { AuthenticityProbeLog } from "./types";
 
 export const authenticityProbeAccumulator = new Map<
@@ -21,107 +19,22 @@ export function resetAuthenticityProbes(): void {
   authenticityProbeAccumulator.clear();
 }
 
-// Single persisted cache: one flat array of {key, verdict, since, reason}.
-// verdict "fail" = permanent skip (the old blacklist). verdict "pass" = trusted
-// for PASS_TTL_DAYS so a known-good Claude channel isn't re-probed (and re-billed)
-// every run. Older logs stored only failures under {rulesVersion, entries:{...}};
-// loadAuthenticityCache migrates that to "fail" entries on read.
-export type AuthenticityVerdict = "pass" | "fail";
-export interface AuthenticityCacheEntry {
-  key: string;
-  verdict: AuthenticityVerdict;
-  since: string;
-  reason: string;
-}
-
-const PASS_TTL_DAYS = 7;
-const AUTHENTICITY_CACHE_FILE = "authenticity-cache.json";
-const LEGACY_BLACKLIST_FILE = "authenticity-blacklist.json";
-
-const authenticityCache = new Map<string, AuthenticityCacheEntry>();
-
-const today = () => new Date().toISOString().slice(0, 10);
-const getAuthenticityCachePath = () => join(logsDir(), AUTHENTICITY_CACHE_FILE);
-
-function daysSince(isoDay: string): number {
-  const then = Date.parse(`${isoDay}T00:00:00Z`);
-  if (Number.isNaN(then)) return Infinity;
-  return (Date.now() - then) / 86_400_000;
-}
-
-type LegacyEntry = { since: string; reason: string };
-type LegacyBlacklist =
-  | { rulesVersion?: number; entries: Record<string, LegacyEntry> }
-  | Record<string, LegacyEntry>;
-
-function loadLegacyBlacklist(): boolean {
-  const raw = readJson<LegacyBlacklist>(join(logsDir(), LEGACY_BLACKLIST_FILE));
-  if (!raw) return false;
-  const entries =
-    "entries" in raw && typeof raw.entries === "object"
-      ? raw.entries
-      : (raw as Record<string, LegacyEntry>);
-  for (const [key, val] of Object.entries(entries))
-    if (val && typeof val.since === "string")
-      authenticityCache.set(key, {
-        key,
-        verdict: "fail",
-        since: val.since,
-        reason: val.reason ?? "",
-      });
-  return authenticityCache.size > 0;
-}
-
-export function loadAuthenticityBlacklist(): void {
-  authenticityCache.clear();
-  const raw = readJson<AuthenticityCacheEntry[]>(getAuthenticityCachePath());
-  if (Array.isArray(raw)) {
-    for (const e of raw)
-      if (e && typeof e.key === "string")
-        authenticityCache.set(e.key, {
-          key: e.key,
-          verdict: e.verdict === "pass" ? "pass" : "fail",
-          since: e.since ?? today(),
-          reason: e.reason ?? "",
-        });
-  } else if (!loadLegacyBlacklist()) {
-    return;
-  }
-  consola.info(
-    t("CORE.TESTER.AUTHENTICITY_LOADED", { count: authenticityCache.size }),
-  );
-}
-
-export function saveAuthenticityBlacklist(): void {
-  if (authenticityCache.size === 0) return;
-  writeJsonAtomic(getAuthenticityCachePath(), [...authenticityCache.values()]);
-}
-
+// Verdicts live in the universal verdict-cache (logs/verdict-cache.json), shared
+// with the general http/stream/tool verdicts. Permanent until manually pruned.
 function addToAuthenticityBlacklist(key: string, reason: string): void {
-  // A fail always wins over a stale pass; refresh the timestamp/reason.
-  authenticityCache.set(key, { key, verdict: "fail", since: today(), reason });
+  setAuthenticityVerdict(key, "fail", reason);
   consola.warn(t("CORE.TESTER.AUTHENTICITY_ADDED", { key, reason }));
 }
 
 function recordAuthenticityPass(key: string): void {
-  const existing = authenticityCache.get(key);
-  if (existing?.verdict === "fail") return; // never overwrite a failure with a pass
-  authenticityCache.set(key, {
-    key,
-    verdict: "pass",
-    since: today(),
-    reason: "",
-  });
+  setAuthenticityVerdict(key, "pass", "");
 }
 
 export const isAuthenticityBlacklisted = (key: string): boolean =>
-  authenticityCache.get(key)?.verdict === "fail";
+  getVerdict(key)?.authenticity === "fail";
 
-// True when key passed authenticity recently enough to skip re-probing.
-export function isAuthenticityPassFresh(key: string): boolean {
-  const entry = authenticityCache.get(key);
-  return entry?.verdict === "pass" && daysSince(entry.since) < PASS_TTL_DAYS;
-}
+export const isAuthenticityPassCached = (key: string): boolean =>
+  getVerdict(key)?.authenticity === "pass";
 
 const CODING_TOOL_REFUSAL_PATTERNS = [
   "assist with development",

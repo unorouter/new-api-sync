@@ -8,6 +8,8 @@ export interface TestExchange {
   error?: string;
   status?: number;
   latencyMs?: number;
+  /** Tool probe only: >=2 valid calls in one turn. */
+  toolParallel?: boolean;
 }
 
 export interface AuthenticityProbeLog {
@@ -106,8 +108,14 @@ export interface RequestConfig extends RequestBase {
 export interface StreamRequestConfig extends RequestBase {
   completionMarker: string;
 }
+export interface ToolProbeVerdict {
+  pass: boolean;
+  parallel: boolean;
+}
 export interface ToolCallRequestConfig extends RequestBase {
-  isToolCallSuccess: (data: unknown) => boolean;
+  /** OpenAI-compat SSE: tool_call deltas are reassembled before grading. */
+  stream?: boolean;
+  gradeToolCall: (data: unknown) => ToolProbeVerdict;
 }
 
 export interface ModelRequestOpts {
@@ -129,18 +137,31 @@ export interface RawResult {
 
 export interface AnthropicResponse {
   type?: string;
-  content?: Array<{ type?: string; text?: string }>;
+  content?: Array<{
+    type?: string;
+    text?: string;
+    name?: string;
+    input?: unknown;
+  }>;
   stop_reason?: string;
 }
 export interface GeminiResponse {
   candidates?: Array<{
-    content?: { parts?: Array<{ functionCall?: unknown; text?: string }> };
+    content?: {
+      parts?: Array<{
+        functionCall?: { name?: string; args?: unknown };
+        text?: string;
+      }>;
+    };
   }>;
 }
 export interface OpenAIChatResponse {
   choices?: Array<{
     finish_reason?: string;
-    message?: { tool_calls?: unknown[]; content?: string };
+    message?: {
+      tool_calls?: Array<{ function?: { name?: string; arguments?: string } }>;
+      content?: string;
+    };
   }>;
 }
 export interface OpenAIDataResponse {
@@ -156,6 +177,7 @@ export interface ModelTestDetail {
   success: boolean;
   streamSuccess: boolean | null;
   toolCallSuccess: boolean | null;
+  toolParallel: boolean | null;
   authenticityProbed: boolean;
   httpStatus?: number;
   channelType: number;

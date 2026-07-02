@@ -9,6 +9,7 @@ import pkg from "../../../package.json" with { type: "json" };
 
 const LOGS_DIR = "logs";
 const TEST_FILE_RE = /^(.+)-model-tests\.json$/;
+const VERDICT_FILE = "verdict-cache.json";
 const AUTHENTICITY_FILE = "authenticity-cache.json";
 const LEGACY_AUTHENTICITY_FILE = "authenticity-blacklist.json";
 
@@ -49,8 +50,20 @@ function summarizeLastRun() {
 }
 
 // Count blacklisted (verdict "fail") entries only; "pass" entries are trusted
-// channels, not failures. Falls back to the legacy fail-only map.
+// channels, not failures. Universal verdict-cache first, then the legacy files.
 function authenticityBlacklistCount(): number {
+  const universal = join(LOGS_DIR, VERDICT_FILE);
+  if (existsSync(universal)) {
+    try {
+      const raw = JSON.parse(readFileSync(universal, "utf8")) as unknown;
+      if (Array.isArray(raw))
+        return raw.filter(
+          (e) => (e as { authenticity?: string })?.authenticity === "fail",
+        ).length;
+    } catch {
+      return 0;
+    }
+  }
   const path = join(LOGS_DIR, AUTHENTICITY_FILE);
   if (existsSync(path)) {
     try {

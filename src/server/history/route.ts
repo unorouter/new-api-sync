@@ -31,15 +31,20 @@ import { join } from "node:path";
  *                                       openrouterEndpoints? }`. Old reports
  *                                       used `results` instead of `modelTests`;
  *                                       the route accepts both.
- *   - `authenticity-cache.json`       — flat array of
- *                                       { key: "<provider>/<group>|<model>",
- *                                       verdict: "pass"|"fail", since, reason }.
- *                                       Reads the legacy `authenticity-blacklist.json`
- *                                       map (fail-only) as a fallback.
+ *   - `verdict-cache.json`            — universal permanent verdict file, flat array
+ *                                       of { key: "<provider>/<group>|<model>",
+ *                                       success?, streamSuccess?, toolCallSuccess?,
+ *                                       toolParallel?, authenticity?, authenticityReason?,
+ *                                       since }. The authenticity endpoints surface only
+ *                                       entries carrying an `authenticity` verdict.
+ *                                       Falls back to the legacy `authenticity-cache.json`
+ *                                       array and the older `authenticity-blacklist.json`
+ *                                       map (fail-only).
  */
 
 const LOGS_DIR = "logs";
 const TEST_FILE_RE = /^(.+)-model-tests\.json$/;
+const VERDICT_FILE = "verdict-cache.json";
 const AUTHENTICITY_FILE = "authenticity-cache.json";
 const LEGACY_AUTHENTICITY_FILE = "authenticity-blacklist.json";
 
@@ -155,12 +160,33 @@ function readLegacyAuthenticity(): AuthenticityCacheEntry[] {
   }
 }
 
-function readAuthenticity(): AuthenticityCacheEntry[] {
-  const path = authenticityPath();
-  if (!existsSync(path)) return readLegacyAuthenticity();
+interface VerdictFileEntry {
+  key: string;
+  authenticity?: string;
+  authenticityReason?: string;
+  since?: string;
+}
+
+function readVerdictFile(): VerdictFileEntry[] | null {
+  const path = join(LOGS_DIR, VERDICT_FILE);
+  if (!existsSync(path)) return null;
   try {
     const raw = JSON.parse(readFileSync(path, "utf8")) as unknown;
-    if (!Array.isArray(raw)) return readLegacyAuthenticity();
+    if (!Array.isArray(raw)) return null;
+    return (raw as VerdictFileEntry[]).filter(
+      (e) => e && typeof e.key === "string",
+    );
+  } catch {
+    return null;
+  }
+}
+
+function readAuthenticityFile(): AuthenticityCacheEntry[] | null {
+  const path = authenticityPath();
+  if (!existsSync(path)) return null;
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8")) as unknown;
+    if (!Array.isArray(raw)) return null;
     return (raw as AuthenticityCacheEntry[])
       .filter((e) => e && typeof e.key === "string")
       .map((e) => ({
@@ -170,12 +196,52 @@ function readAuthenticity(): AuthenticityCacheEntry[] {
         reason: e.reason ?? "",
       }));
   } catch {
-    return readLegacyAuthenticity();
+    return null;
   }
 }
 
-function writeAuthenticity(entries: AuthenticityCacheEntry[]): void {
-  writeFileSync(authenticityPath(), JSON.stringify(entries, null, 2));
+function readAuthenticity(): AuthenticityCacheEntry[] {
+  const universal = readVerdictFile();
+  if (universal)
+    return universal
+      .filter((e) => e.authenticity === "pass" || e.authenticity === "fail")
+      .map((e) => ({
+        key: e.key,
+        verdict:
+          e.authenticity === "pass" ? ("pass" as const) : ("fail" as const),
+        since: e.since ?? "",
+        reason: e.authenticityReason ?? "",
+      }));
+  return readAuthenticityFile() ?? readLegacyAuthenticity();
+}
+
+// Deleting from the universal file drops the WHOLE entry (incl. http/stream/tool
+// verdicts) so the pair fully re-probes on the next run.
+function deleteAuthenticityKey(key: string): boolean {
+  const universal = readVerdictFile();
+  if (universal) {
+    if (!universal.some((e) => e.key === key)) return false;
+    writeFileSync(
+      join(LOGS_DIR, VERDICT_FILE),
+      JSON.stringify(
+        universal.filter((e) => e.key !== key),
+        null,
+        2,
+      ),
+    );
+    return true;
+  }
+  const entries = readAuthenticityFile() ?? readLegacyAuthenticity();
+  if (!entries.some((e) => e.key === key)) return false;
+  writeFileSync(
+    authenticityPath(),
+    JSON.stringify(
+      entries.filter((e) => e.key !== key),
+      null,
+      2,
+    ),
+  );
+  return true;
 }
 
 /** Split "<provider>/<group>|<model>" into its parts. */
@@ -258,15 +324,13 @@ export const historyRoute = new Elysia({ prefix: "/history" })
   .delete(
     "/authenticity/:key",
     async ({ params, set }) => {
-      const entries = readAuthenticity();
-      if (!entries.some((e) => e.key === params.key)) {
+      if (!deleteAuthenticityKey(params.key)) {
         set.status = 404;
         return {
           success: false as const,
           message: t("SERVER.ENTRY_NOT_FOUND"),
         };
       }
-      writeAuthenticity(entries.filter((e) => e.key !== params.key));
       return { success: true as const, data: { deleted: params.key } };
     },
     {

@@ -31,6 +31,7 @@ import {
   buildDesiredModels,
   collectResponsesApiModels,
   isRoutingOnlyAlias,
+  type ToolEvidence,
 } from "./desired-models";
 import { buildOptionMaps } from "./option-maps";
 import { buildPrivateGroups } from "./private-groups";
@@ -341,6 +342,38 @@ export async function runProviderPipeline(
       `[safety-net] defaulted ${defaultedFree.length} unpriced published model(s) to FREE (ratio 0): ${defaultedFree.sort().join(", ")}`,
     );
 
+  // Per published name across every serving channel: any verified-true wins;
+  // definitive-false only when no channel passed; transients (null) carry no vote.
+  const toolEvidence = new Map<string, ToolEvidence>();
+  for (const tier of plan.tiers) {
+    for (const d of tier.testDetails ?? []) {
+      if (d.toolCallSuccess === null) continue;
+      for (const name of tier.models) {
+        if (isRoutingOnlyAlias(name)) continue;
+        const cur = toolEvidence.get(name) ?? {
+          supportsTools: false,
+          supportsParallelTools: false,
+        };
+        if (d.toolCallSuccess) cur.supportsTools = true;
+        if (d.toolParallel) cur.supportsParallelTools = true;
+        toolEvidence.set(name, cur);
+      }
+    }
+  }
+
+  const snapshotMetadata = new Map<string, Record<string, unknown>>();
+  for (const m of targetSnapshot?.models ?? []) {
+    if (!m.metadata) continue;
+    try {
+      snapshotMetadata.set(
+        m.model_name,
+        JSON.parse(m.metadata) as Record<string, unknown>,
+      );
+    } catch {
+      // unparseable target metadata: no prior verdict to preserve
+    }
+  }
+
   const models = buildDesiredModels({
     channels,
     originalEndpointsByName,
@@ -352,6 +385,8 @@ export async function runProviderPipeline(
     modelMapping: config.modelMapping,
     metadataByUpstream: allMetadata,
     pricingSources,
+    toolEvidence,
+    snapshotMetadata,
   });
 
   const responsesApiModels = collectResponsesApiModels(

@@ -12,7 +12,7 @@ import { buildSyncDiff } from "@core/sync/diff";
 import { updateGuestTokenIfConfigured } from "@core/sync/guest-token";
 import { runProviderPipeline } from "@core/sync/pipeline";
 import type { ResetResult } from "@core/sync/reset";
-import { loadAuthenticityBlacklist } from "@core/testing/authenticity";
+import { loadVerdictCache } from "@core/testing/verdict-cache";
 import {
   recordRunSummary,
   resetTestState,
@@ -109,7 +109,7 @@ export async function runSync(
   const target = new NewApiClient(config.target, "target");
   resetTestState();
   setDryRunMode(dryRun);
-  loadAuthenticityBlacklist();
+  loadVerdictCache();
 
   // Logs written in finally so a crash/abort still flushes buffered errors.
   let applyErrors: SyncRunResult["apply"]["errors"] = [];

@@ -122,11 +122,14 @@ and the partial-sync invariants protect everything out of scope.
    ```
    Direct DB deletes bypass the in-memory channel cache; the runtime may keep serving the old
    channel until the next sync reload or a container restart.
-3. **Clear stale authenticity verdicts** for the affected provider+model keys in
-   `logs/authenticity-cache.json` (back it up first). A cached `pass` skips re-probe and would let a
-   known fake through; a cached `fail` (often caused by a TRANSIENT 429/timeout during an earlier
-   probe) blacklists a real channel and stops it being recreated. Drop both so the next run re-probes
-   fresh. Key shape: `provider/channel-name/anthropic|model-name`.
+3. **Clear stale verdicts** for the affected provider+model keys in `logs/verdict-cache.json`
+   (back it up first). This is the UNIVERSAL permanent verdict file: one entry per
+   `provider|model` pair holding http/stream/tool verdicts AND claude authenticity. Verdicts
+   have NO TTL; a pair with a recorded pass is never re-probed until its entry is deleted. A
+   cached `success`/`authenticity: "pass"` skips re-probe and would let a known fake through; a
+   cached `authenticity: "fail"` blacklists a real channel and stops it being recreated. Delete
+   the whole entry so the next run re-probes fresh. Key shape:
+   `provider/channel-name/anthropic|model-name`.
 4. **Re-sync with both filters ANDed** so only the targeted providers AND models are touched:
 
    ```bash
@@ -256,7 +259,9 @@ issues.
 - `config*.yml` is gitignored (holds secrets). Only `config.example.yml` is committed.
 - `scripts/` and `reference/` are dev-only (gitignored). `scripts/*.ts` are one-shot analysis/backfill
   tools run with `bun scripts/<name>.ts`; `reference/` holds snapshotted pricing datasets.
-- `logs/` holds run history, redacted model-test transcripts, and `authenticity-blacklist.json`
-  (auto-maintained; manageable from the UI History tab).
+- `logs/` holds run history, redacted model-test transcripts, and `verdict-cache.json` (the
+  universal PERMANENT verdict file: http/stream/tool + claude authenticity per `provider|model`
+  pair; auto-maintained, no TTL, prune entries manually or from the UI History tab to force a
+  re-probe; migrates the legacy `authenticity-cache.json` on first load).
 - Builtin blacklist (`config.ts`) is merged last and additively; local config can add but never remove
   builtins.

@@ -12,6 +12,7 @@ import type {
   RequestConfig,
   StreamRequestConfig,
   ToolCallRequestConfig,
+  ToolProbeVerdict,
 } from "./types";
 
 const TEST_PROMPT = "Reply with only the word ok.";
@@ -128,16 +129,55 @@ export function getStreamRequestConfig(
   };
 }
 
-const TOOL_NAME = "calculator";
-const TOOL_DESC = "Calculate a math expression";
-const TOOL_PARAMS = {
-  type: "object" as const,
-  properties: {
-    expression: { type: "string", description: "The math expression" },
-  },
-  required: ["expression"],
+// Universal harness-grade tool probe: ONE request exercises every failure mode a coding
+// harness (Cline/Roo/Kilo/Claude Code) hits. History contains a COMPLETED tool exchange
+// (round-trip acceptance), 5 schemas force tool SELECTION, the prompt demands weather for
+// TWO cities (parallel calls), OpenAI-compat runs stream:true so tool_call deltas must
+// reassemble. No tool_choice: harnesses don't send it; the model must choose from prompt.
+const probeTool = (
+  name: string,
+  description: string,
+  properties: object,
+  required: string[],
+) => ({
+  name,
+  description,
+  parameters: { type: "object", properties, required },
+});
+// prettier-ignore
+const PROBE_TOOLS = [
+  probeTool("calculator", "Calculate a math expression", { expression: { type: "string" } }, ["expression"]),
+  probeTool("get_weather", "Get current weather for a city", { city: { type: "string", description: "City name" }, units: { type: "string", enum: ["celsius", "fahrenheit"] } }, ["city"]),
+  probeTool("read_file", "Read a file from the workspace", { path: { type: "string" }, range: { type: "object", properties: { start: { type: "integer" }, end: { type: "integer" } } } }, ["path"]),
+  probeTool("search_web", "Search the web", { query: { type: "string" }, max_results: { type: "integer" } }, ["query"]),
+  probeTool("list_files", "List files in a directory", { path: { type: "string" }, recursive: { type: "boolean" } }, ["path"]),
+];
+const PROBE_CALC_PROMPT =
+  "What is 2+2? You must use the calculator tool to answer.";
+const PROBE_WEATHER_PROMPT =
+  "Thanks. Now fetch the current weather for Paris and for London using the weather tool. Call it once per city, both in this turn if you can.";
+// 2048 so reasoning models survive the thinking pass and still reach the call.
+const PROBE_MAX_TOKENS = 2048;
+
+const hasCity = (args: unknown): boolean =>
+  typeof (args as { city?: unknown } | null)?.city === "string";
+
+const gradeOpenAIToolCall = (data: unknown): ToolProbeVerdict => {
+  const d = data as OpenAIChatResponse;
+  const choice = d.choices?.[0];
+  const weather = (choice?.message?.tool_calls ?? []).filter((c) => {
+    if (c.function?.name !== "get_weather") return false;
+    try {
+      return hasCity(JSON.parse(c.function.arguments || "{}"));
+    } catch {
+      return false;
+    }
+  });
+  return {
+    pass: weather.length >= 1 && choice?.finish_reason === "tool_calls",
+    parallel: weather.length >= 2,
+  };
 };
-const TOOL_PROMPT = "What is 2+2? You must use the calculator tool to answer.";
 
 export function getToolCallConfig(
   opts: ModelRequestOpts,
@@ -146,38 +186,56 @@ export function getToolCallConfig(
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
   if (useResponsesAPI || meta?.supportsTools === false) return null;
 
-  // Reasoning models are probed (they are the coding-agent models) with a budget that survives
-  // the thinking pass; a 100-token cap ends at reasoning, never reaching the tool call.
-  const reasoning =
-    meta?.isReasoning === true ||
-    model.endsWith("-thinking") ||
-    model.includes("-thinking-");
-  const maxTokens = reasoning ? 2048 : 100;
-
   if (channelType === CHANNEL_TYPES.ANTHROPIC)
     return {
       url: `${baseUrl}/v1/messages`,
       headers: jsonAnthropic(apiKey),
       body: {
         model,
-        messages: userMsg(TOOL_PROMPT),
-        tools: [
+        max_tokens: PROBE_MAX_TOKENS,
+        tools: PROBE_TOOLS.map((t) => ({
+          name: t.name,
+          description: t.description,
+          input_schema: t.parameters,
+        })),
+        messages: [
+          { role: "user", content: PROBE_CALC_PROMPT },
           {
-            name: TOOL_NAME,
-            description: TOOL_DESC,
-            input_schema: TOOL_PARAMS,
+            role: "assistant",
+            content: [
+              {
+                type: "tool_use",
+                id: "call_probe_1",
+                name: "calculator",
+                input: { expression: "2+2" },
+              },
+            ],
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: "call_probe_1",
+                content: "4",
+              },
+              { type: "text", text: PROBE_WEATHER_PROMPT },
+            ],
           },
         ],
-        tool_choice: { type: "any" },
-        max_tokens: maxTokens,
       },
-      isToolCallSuccess: (data) => {
+      gradeToolCall: (data) => {
         const d = data as AnthropicResponse;
-        if (d.stop_reason === "tool_use") return true;
-        return (
-          Array.isArray(d.content) &&
-          d.content.some((c) => c.type === "tool_use")
+        const weather = (d.content ?? []).filter(
+          (b) =>
+            b.type === "tool_use" &&
+            b.name === "get_weather" &&
+            hasCity(b.input),
         );
+        return {
+          pass: weather.length >= 1 && d.stop_reason === "tool_use",
+          parallel: weather.length >= 2,
+        };
       },
     };
   if (channelType === CHANNEL_TYPES.GEMINI)
@@ -185,59 +243,79 @@ export function getToolCallConfig(
       url: `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`,
       headers: jsonOnly,
       body: {
-        contents: [{ parts: [{ text: TOOL_PROMPT }] }],
-        tools: [
+        contents: [
+          { role: "user", parts: [{ text: PROBE_CALC_PROMPT }] },
           {
-            functionDeclarations: [
+            role: "model",
+            parts: [
               {
-                name: TOOL_NAME,
-                description: TOOL_DESC,
-                parameters: TOOL_PARAMS,
+                functionCall: {
+                  name: "calculator",
+                  args: { expression: "2+2" },
+                },
               },
             ],
           },
+          {
+            role: "user",
+            parts: [
+              {
+                functionResponse: {
+                  name: "calculator",
+                  response: { result: "4" },
+                },
+              },
+              { text: PROBE_WEATHER_PROMPT },
+            ],
+          },
         ],
-        toolConfig: { functionCallingConfig: { mode: "ANY" } },
-        generationConfig: { maxOutputTokens: maxTokens },
+        tools: [{ functionDeclarations: PROBE_TOOLS }],
+        generationConfig: { maxOutputTokens: PROBE_MAX_TOKENS },
       },
-      isToolCallSuccess: (data) => {
+      gradeToolCall: (data) => {
         const d = data as GeminiResponse;
-        return (
-          Array.isArray(d.candidates) &&
-          d.candidates.some(
-            (c) =>
-              Array.isArray(c.content?.parts) &&
-              c.content!.parts.some((p) => p.functionCall != null),
-          )
+        const weather = (d.candidates?.[0]?.content?.parts ?? []).filter(
+          (p) =>
+            p.functionCall?.name === "get_weather" &&
+            hasCity(p.functionCall.args),
         );
+        return { pass: weather.length >= 1, parallel: weather.length >= 2 };
       },
     };
+  const chatUrl =
+    channelType === CHANNEL_TYPES.ZHIPU_V4
+      ? `${baseUrl}/api/paas/v4/chat/completions`
+      : `${baseUrl}/v1/chat/completions`;
   return {
-    url: `${baseUrl}/v1/chat/completions`,
+    url: chatUrl,
     headers: jsonBearer(apiKey),
+    stream: true,
     body: {
       model,
-      messages: userMsg(TOOL_PROMPT),
-      tools: [
+      stream: true,
+      max_tokens: PROBE_MAX_TOKENS,
+      tools: PROBE_TOOLS.map((t) => ({ type: "function", function: t })),
+      messages: [
+        { role: "user", content: PROBE_CALC_PROMPT },
         {
-          type: "function",
-          function: {
-            name: TOOL_NAME,
-            description: TOOL_DESC,
-            parameters: TOOL_PARAMS,
-          },
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: "call_probe_1",
+              type: "function",
+              function: {
+                name: "calculator",
+                arguments: '{"expression":"2+2"}',
+              },
+            },
+          ],
         },
+        { role: "tool", tool_call_id: "call_probe_1", content: "4" },
+        { role: "user", content: PROBE_WEATHER_PROMPT },
       ],
-      tool_choice: "required",
-      max_tokens: maxTokens,
     },
-    isToolCallSuccess: (data) => {
-      const d = data as OpenAIChatResponse;
-      const choice = d.choices?.[0];
-      if (!choice) return false;
-      if (choice.finish_reason === "tool_calls") return true;
-      return (choice.message?.tool_calls?.length ?? 0) > 0;
-    },
+    gradeToolCall: gradeOpenAIToolCall,
   };
 }
 

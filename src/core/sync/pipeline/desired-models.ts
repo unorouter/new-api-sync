@@ -42,6 +42,11 @@ export function isRoutingOnlyAlias(modelName: string): boolean {
   return modelName.endsWith(CLAUDE_CONTEXT_1M_SUFFIX);
 }
 
+export interface ToolEvidence {
+  supportsTools: boolean;
+  supportsParallelTools: boolean;
+}
+
 export function buildDesiredModels(opts: {
   channels: Channel[];
   originalEndpointsByName: Map<string, string[]>;
@@ -53,6 +58,10 @@ export function buildDesiredModels(opts: {
   modelMapping: Record<string, string>;
   metadataByUpstream: Record<string, Record<string, unknown>>;
   pricingSources: PricingSource[];
+  /** Live tool-probe verdicts from this run, keyed by published model name. */
+  toolEvidence: Map<string, ToolEvidence>;
+  /** Existing target metadata, keyed by model name. */
+  snapshotMetadata: Map<string, Record<string, unknown>>;
 }): Map<string, DesiredModelSpec> {
   const models = new Map<string, DesiredModelSpec>();
 
@@ -156,13 +165,30 @@ export function buildDesiredModels(opts: {
     const upstream = channelModelUpstream.get(modelName) ?? modelName;
     const override =
       opts.metadataByUpstream[upstream] ?? opts.metadataByUpstream[modelName];
-    const merged = buildModelMetadata({
-      modelName,
-      sources: opts.pricingSources,
-      reverseMapping: opts.reverseMapping,
-      override,
-    });
-    if (merged) spec.metadata = JSON.stringify(merged);
+    const merged =
+      buildModelMetadata({
+        modelName,
+        sources: opts.pricingSources,
+        reverseMapping: opts.reverseMapping,
+        override,
+      }) ?? {};
+    // Tool-capability policy: live probe evidence beats source CLAIMS; without fresh
+    // evidence, keep the target's existing verdict (prior probe/backfill) so a
+    // transient-skipped run never resurrects a wrong claim.
+    const evidence = opts.toolEvidence.get(modelName);
+    const prior = opts.snapshotMetadata.get(modelName);
+    if (evidence) {
+      merged.supportsTools = evidence.supportsTools;
+      merged.supportsParallelTools = evidence.supportsTools
+        ? evidence.supportsParallelTools
+        : false;
+    } else if (prior) {
+      if (typeof prior.supportsTools === "boolean")
+        merged.supportsTools = prior.supportsTools;
+      if (typeof prior.supportsParallelTools === "boolean")
+        merged.supportsParallelTools = prior.supportsParallelTools;
+    }
+    if (Object.keys(merged).length > 0) spec.metadata = JSON.stringify(merged);
   }
 
   return models;

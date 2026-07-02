@@ -131,7 +131,7 @@ function extractErrorMessage(data: unknown): string | null {
 }
 
 export async function testRequest(
-  config: RequestConfig | ToolCallRequestConfig,
+  config: RequestConfig,
   timeoutMs: number,
 ): Promise<TestExchange> {
   const raw = await rawPost(config.url, config.headers, config.body, timeoutMs);
@@ -140,11 +140,6 @@ export async function testRequest(
     headers: config.headers,
     body: config.body,
   };
-  const isTool = "isToolCallSuccess" in config;
-  const isOk = isTool ? config.isToolCallSuccess : config.isSuccess;
-  const fallback = isTool
-    ? t("CORE.TESTER.ERR_TOOL_CALL_MISSING")
-    : t("CORE.TESTER.ERR_BAD_RESPONSE");
   if (raw.data === null)
     return {
       pass: false,
@@ -155,7 +150,8 @@ export async function testRequest(
       status: raw.status ?? undefined,
       latencyMs: raw.latencyMs,
     };
-  const pass = raw.status !== null && raw.status < 400 && isOk(raw.data);
+  const pass =
+    raw.status !== null && raw.status < 400 && config.isSuccess(raw.data);
   return {
     pass,
     request,
@@ -163,10 +159,151 @@ export async function testRequest(
     responseHeaders: raw.responseHeaders,
     error: pass
       ? undefined
-      : (raw.error ?? extractErrorMessage(raw.data) ?? fallback),
+      : (raw.error ??
+        extractErrorMessage(raw.data) ??
+        t("CORE.TESTER.ERR_BAD_RESPONSE")),
     status: raw.status ?? undefined,
     latencyMs: raw.latencyMs,
   };
+}
+
+// SSE tool_call deltas reassembled by index into an OpenAIChatResponse shape so the
+// config's grader sees the same structure a non-stream response has.
+function assembleOpenAIToolStream(text: string): unknown {
+  const calls = new Map<number, { name: string; args: string }>();
+  let finish: string | undefined;
+  for (const line of text.split("\n")) {
+    if (!line.startsWith("data:")) continue;
+    const payload = line.slice(5).trim();
+    if (!payload || payload === "[DONE]") continue;
+    let d: unknown;
+    try {
+      d = JSON.parse(payload);
+    } catch {
+      continue;
+    }
+    const ch = (
+      d as {
+        choices?: Array<{
+          delta?: {
+            tool_calls?: Array<{
+              index?: number;
+              function?: { name?: string; arguments?: string };
+            }>;
+          };
+          finish_reason?: string;
+        }>;
+      }
+    ).choices?.[0];
+    for (const tc of ch?.delta?.tool_calls ?? []) {
+      const idx = tc.index ?? 0;
+      const cur = calls.get(idx) ?? { name: "", args: "" };
+      if (tc.function?.name) cur.name = tc.function.name;
+      cur.args += tc.function?.arguments ?? "";
+      calls.set(idx, cur);
+    }
+    if (ch?.finish_reason) finish = ch.finish_reason;
+  }
+  return {
+    choices: [
+      {
+        finish_reason: finish,
+        message: {
+          tool_calls: [...calls.values()].map((c) => ({
+            function: { name: c.name, arguments: c.args },
+          })),
+        },
+      },
+    ],
+  };
+}
+
+export async function testToolCallRequest(
+  config: ToolCallRequestConfig,
+  timeoutMs: number,
+): Promise<TestExchange> {
+  const request = {
+    url: config.url,
+    headers: config.headers,
+    body: config.body,
+  };
+  if (!config.stream) {
+    const raw = await rawPost(
+      config.url,
+      config.headers,
+      config.body,
+      timeoutMs,
+    );
+    if (raw.data === null)
+      return {
+        pass: false,
+        request,
+        response: raw.bodyText ?? null,
+        responseHeaders: raw.responseHeaders,
+        error: raw.error ?? t("CORE.TESTER.ERR_NO_RESPONSE"),
+        status: raw.status ?? undefined,
+        latencyMs: raw.latencyMs,
+      };
+    const verdict =
+      raw.status !== null && raw.status < 400
+        ? config.gradeToolCall(raw.data)
+        : { pass: false, parallel: false };
+    return {
+      pass: verdict.pass,
+      toolParallel: verdict.pass ? verdict.parallel : undefined,
+      request,
+      response: raw.data,
+      responseHeaders: raw.responseHeaders,
+      error: verdict.pass
+        ? undefined
+        : (raw.error ??
+          extractErrorMessage(raw.data) ??
+          t("CORE.TESTER.ERR_TOOL_CALL_MISSING")),
+      status: raw.status ?? undefined,
+      latencyMs: raw.latencyMs,
+    };
+  }
+  const started = Date.now();
+  try {
+    const response = await fetch(config.url, {
+      method: "POST",
+      headers: config.headers,
+      body: JSON.stringify(config.body),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const respHeaders = headersToRecord(response.headers);
+    const text = await response.text();
+    if (!response.ok)
+      return {
+        pass: false,
+        request,
+        response: text.slice(0, 500) || null,
+        responseHeaders: respHeaders,
+        error: `HTTP ${response.status} ${response.statusText}`,
+        status: response.status,
+        latencyMs: Date.now() - started,
+      };
+    const verdict = config.gradeToolCall(assembleOpenAIToolStream(text));
+    return {
+      pass: verdict.pass,
+      toolParallel: verdict.pass ? verdict.parallel : undefined,
+      request,
+      response: text.slice(0, 1000),
+      responseHeaders: respHeaders,
+      error: verdict.pass ? undefined : t("CORE.TESTER.ERR_TOOL_CALL_MISSING"),
+      status: response.status,
+      latencyMs: Date.now() - started,
+    };
+  } catch (err) {
+    return {
+      pass: false,
+      request,
+      response: null,
+      responseHeaders: {},
+      error: errMsg(err),
+      latencyMs: Date.now() - started,
+    };
+  }
 }
 
 export async function testStreamRequest(
