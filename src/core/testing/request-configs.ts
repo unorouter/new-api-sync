@@ -144,13 +144,15 @@ export function getToolCallConfig(
   meta?: { supportsTools?: boolean; isReasoning?: boolean },
 ): ToolCallRequestConfig | null {
   const { baseUrl, apiKey, model, channelType, useResponsesAPI } = opts;
-  if (
-    useResponsesAPI ||
-    meta?.supportsTools === false ||
-    meta?.isReasoning === true
-  )
-    return null;
-  if (model.endsWith("-thinking") || model.includes("-thinking-")) return null;
+  if (useResponsesAPI || meta?.supportsTools === false) return null;
+
+  // Reasoning models are probed (they are the coding-agent models) with a budget that survives
+  // the thinking pass; a 100-token cap ends at reasoning, never reaching the tool call.
+  const reasoning =
+    meta?.isReasoning === true ||
+    model.endsWith("-thinking") ||
+    model.includes("-thinking-");
+  const maxTokens = reasoning ? 2048 : 100;
 
   if (channelType === CHANNEL_TYPES.ANTHROPIC)
     return {
@@ -167,7 +169,7 @@ export function getToolCallConfig(
           },
         ],
         tool_choice: { type: "any" },
-        max_tokens: 100,
+        max_tokens: maxTokens,
       },
       isToolCallSuccess: (data) => {
         const d = data as AnthropicResponse;
@@ -196,7 +198,7 @@ export function getToolCallConfig(
           },
         ],
         toolConfig: { functionCallingConfig: { mode: "ANY" } },
-        generationConfig: { maxOutputTokens: 100 },
+        generationConfig: { maxOutputTokens: maxTokens },
       },
       isToolCallSuccess: (data) => {
         const d = data as GeminiResponse;
@@ -227,7 +229,7 @@ export function getToolCallConfig(
         },
       ],
       tool_choice: "required",
-      max_tokens: 100,
+      max_tokens: maxTokens,
     },
     isToolCallSuccess: (data) => {
       const d = data as OpenAIChatResponse;

@@ -86,14 +86,16 @@ function buildSettingJson(tier: PricedTier): string | undefined {
       return results.length > 0 ? results.every(Boolean) : undefined;
     };
 
-    const capabilities: Record<string, boolean> = {
-      tool_calling: summarize((d) => d.toolCallSuccess) ?? false,
-    };
+    // Skipped probes stay absent (new-api: missing = unknown = routable); `?? false` banned every
+    // reasoning model (tool probe skipped) from tools requests via the channel_cache capability gate.
+    const capabilities: Record<string, boolean> = {};
+    const toolCalling = summarize((d) => d.toolCallSuccess);
+    if (toolCalling !== undefined) capabilities.tool_calling = toolCalling;
     const streaming = summarize((d) => d.streamSuccess);
     if (streaming !== undefined) capabilities.streaming = streaming;
     const http = summarize((d) => d.success);
     if (http !== undefined) capabilities.http = http;
-    setting.capabilities = capabilities;
+    if (Object.keys(capabilities).length > 0) setting.capabilities = capabilities;
   }
 
   if (tier.passThroughBody) setting.pass_through_body_enabled = true;
