@@ -55,6 +55,9 @@ export interface OpenAIFreeOpts {
   /** If set, audio models (STT/TTS) are emitted with this channel type. Omit to
    *  skip audio. Groq = OPENAI, Cloudflare = CLOUDFLARE. */
   audioChannelType?: number;
+  /** If set, video models are emitted with this channel type. Omit to skip video.
+   *  Bailian = ALI (17) DashScope video-synthesis. */
+  videoChannelType?: number;
   /** Keep 429-failing models as working (Cloudflare neuron-cap: 429 = free model,
    *  budget spent, not broken). Only where 429 means capacity. */
   acceptRateLimited?: boolean;
@@ -234,10 +237,54 @@ export async function processOpenAICompatibleFreeProvider(
         channelType: opts.audioChannelType,
         endpoints: ["audio"],
       });
+    if (opts.videoChannelType !== undefined)
+      modalities.push({
+        modelType: "video",
+        channelType: opts.videoChannelType,
+        endpoints: ["openai-video"],
+      });
+
+    // Modalities the provider opted OUT of probing (config testModelTypes) are
+    // emitted verbatim, unprobed. Needed for DashScope image/video: their task-API
+    // shapes have no OpenAI-compatible probe (getImageTestConfig is OpenAI-only).
+    const testable = getTestModelTypes(config, providerConfig);
 
     for (const modality of modalities) {
       const models = allModels.filter((m) => typeOf(m) === modality.modelType);
       if (models.length === 0) continue;
+
+      if (!testable.has(modality.modelType)) {
+        const resolutions = resolveBareNames(models, config.modelMapping);
+        totalWorking += models.length;
+        consola.info(
+          t("CORE.NVIDIA.TEXT_WORKING", {
+            name,
+            working: models.length,
+            total: models.length,
+          }),
+        );
+        offers.push(
+          ...emitFreeTextOffers({
+            resolutions,
+            rev: buildChannelModelMapping(resolutions),
+            details: [],
+            maxOutputByModel,
+            provider: name,
+            providerKind: opts.providerKind,
+            sanitizedBase: sanitizeGroupName(name),
+            baseUrl: providerConfig.baseUrl,
+            apiKey: providerConfig.apiKey,
+            groupRatio: providerConfig.ratio,
+            channelRemark: `${opts.channelRemarkLabel} via ${name}`,
+            priceAdjustment: providerConfig.priceAdjustment,
+            channelType: modality.channelType,
+            modelType: modality.modelType,
+            endpoints: modality.endpoints,
+            paidModels: providerConfig.paidModels,
+          }),
+        );
+        continue;
+      }
       // Probe each modality as itself (text -> chat, embedding -> /embeddings),
       // not via the text-only config default, so non-chat models are verified too.
       // modelEndpoints carries the modality's endpoint tag so the runner's own

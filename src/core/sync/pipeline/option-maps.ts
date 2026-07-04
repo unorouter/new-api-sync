@@ -13,16 +13,19 @@ import micromatch from "micromatch";
 export function expandRateLimitModels(
   names: Iterable<string>,
   rateLimit: RuntimeConfig["rateLimit"],
-): Record<string, [number, number]> {
-  const out: Record<string, [number, number]> = {};
+): Record<string, number[]> {
+  const out: Record<string, number[]> = {};
   const limitGlobs = Object.entries(rateLimit?.models ?? {});
   if (limitGlobs.length === 0) return out;
   for (const name of names) {
     if (!name.endsWith(":free")) continue;
     for (const [glob, limits] of limitGlobs) {
       if (micromatch.isMatch(name, glob)) {
-        // Gateway option format is [totalAttempts, successCount].
-        out[name] = [limits.total ?? 0, limits.success];
+        // Gateway option format is [totalAttempts, successCount] or
+        // [totalAttempts, successCount, windowMinutes].
+        out[name] = limits.windowMinutes
+          ? [limits.total ?? 0, limits.success, limits.windowMinutes]
+          : [limits.total ?? 0, limits.success];
         break;
       }
     }
@@ -138,8 +141,5 @@ export function buildOptionMaps(
     billingMode,
     billingExpr,
     modelRateLimits,
-    rateLimitNewUserFactor: rateLimit?.newUserFactor ?? 1,
-    rateLimitNewUserMaxAgeDays: rateLimit?.newUserMaxAgeDays ?? 0,
-    rateLimitNewUserMaxUsedQuota: rateLimit?.newUserMaxUsedQuota ?? 0,
   };
 }

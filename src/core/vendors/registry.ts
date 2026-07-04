@@ -150,6 +150,7 @@ export function processSimpleProvider(
     channelType: def.channelType,
     imageChannelType: def.imageChannelType,
     audioChannelType: def.audioChannelType,
+    videoChannelType: def.videoChannelType,
     acceptRateLimited: providerConfig.acceptRateLimited ?? false,
   });
 }

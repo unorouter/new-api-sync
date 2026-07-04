@@ -752,37 +752,22 @@ async function syncRateLimitOptions(
 
   const desired = expandRateLimitModels(publishedNames, config.rateLimit);
 
-  const RATE_LIMIT_KEYS = [
-    "ModelRequestRateLimitModels",
-    "ModelRequestRateLimitNewUserFactor",
-    "ModelRequestRateLimitNewUserMaxAgeDays",
-    "ModelRequestRateLimitNewUserMaxUsedQuota",
-  ];
-  const current = await target.getOptions(RATE_LIMIT_KEYS);
+  const current = await target.getOptions(["ModelRequestRateLimitModels"]);
 
   // Preserve out-of-scope entries: in a partial run only in-scope `:free` keys are
   // managed; everything else keeps its existing value.
-  let existing: Record<string, [number, number]> = {};
+  let existing: Record<string, number[]> = {};
   try {
     existing = JSON.parse(current.ModelRequestRateLimitModels || "{}");
   } catch {
     existing = {};
   }
-  const merged: Record<string, [number, number]> = {};
+  const merged: Record<string, number[]> = {};
   for (const [k, v] of Object.entries(existing)) if (!inScope(k)) merged[k] = v;
   for (const [k, v] of Object.entries(desired)) merged[k] = v;
 
   const updates: Record<string, string> = {
     ModelRequestRateLimitModels: JSON.stringify(merged),
-    ModelRequestRateLimitNewUserFactor: String(
-      config.rateLimit.newUserFactor ?? 1,
-    ),
-    ModelRequestRateLimitNewUserMaxAgeDays: String(
-      config.rateLimit.newUserMaxAgeDays ?? 0,
-    ),
-    ModelRequestRateLimitNewUserMaxUsedQuota: String(
-      config.rateLimit.newUserMaxUsedQuota ?? 0,
-    ),
   };
 
   for (const [key, value] of Object.entries(updates)) {

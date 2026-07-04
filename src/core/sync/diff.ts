@@ -260,13 +260,6 @@ function buildManagedOptionValues(
       channel_types: [1],
       model_patterns: modelPatterns,
     }),
-    ModelRequestRateLimitNewUserFactor: String(opts.rateLimitNewUserFactor),
-    ModelRequestRateLimitNewUserMaxAgeDays: String(
-      opts.rateLimitNewUserMaxAgeDays,
-    ),
-    ModelRequestRateLimitNewUserMaxUsedQuota: String(
-      opts.rateLimitNewUserMaxUsedQuota,
-    ),
   };
 }
 

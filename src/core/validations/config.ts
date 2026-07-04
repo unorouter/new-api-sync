@@ -197,15 +197,14 @@ export const ConfigSchema = T.Object({
   modelMapping: Opt(T.Record(T.String(), T.String())),
   // prettier-ignore
   rateLimit: Opt(T.Object({
-    // success = successful requests per gateway window; total = attempts incl.
-    // failures (0/absent = unlimited attempts, failures never burn the budget).
+    // success = successful requests per window; total = attempts incl. failures
+    // (0/absent = unlimited attempts, failures never burn the budget). windowMinutes
+    // overrides the global window per model (scarce media: e.g. 60 = 1/hour).
     models: T.Record(T.String(), T.Object({
       success: T.Integer({ minimum: 1 }),
       total: Opt(T.Integer({ minimum: 0 })),
+      windowMinutes: Opt(T.Integer({ minimum: 1, maximum: 10080 })),
     })),
-    newUserFactor: Opt(T.Number({ exclusiveMinimum: 0, maximum: 1 })),
-    newUserMaxAgeDays: Opt(T.Integer({ minimum: 0 })),
-    newUserMaxUsedQuota: Opt(T.Integer({ minimum: 0 })),
   })),
   providers: T.Array(AnyProviderSchema, { minItems: 1 }),
 });

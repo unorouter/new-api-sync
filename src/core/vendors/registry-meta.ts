@@ -16,6 +16,9 @@ export interface SimpleProviderMeta {
   /** If set, audio models (STT/TTS) are emitted with this channel type. Omit to
    *  skip audio. Groq = OPENAI (1), Cloudflare = CLOUDFLARE (39). */
   audioChannelType?: number;
+  /** If set, video models are emitted with this channel type. Omit to skip video.
+   *  Bailian = ALI (17) for the DashScope video-synthesis task surface. */
+  videoChannelType?: number;
 }
 
 export const SIMPLE_PROVIDER_META = [
@@ -207,6 +210,11 @@ export const SIMPLE_PROVIDER_META = [
       "https://dashscope-intl.aliyuncs.com/compatible-mode",
     defaultRatio: 0,
     apiKeyPlaceholder: "sk-ws-... (Bailian workspace key)",
+    // Image/video ride the DashScope task API via the ALI (17) channel. bail1's
+    // discovery drops media (chat/embed only); a second block (bail2) with an
+    // explicit `models` list + a non-/compatible-mode base URL emits these.
+    imageChannelType: 17,
+    videoChannelType: 17,
   },
   {
     kind: "sensenova",
