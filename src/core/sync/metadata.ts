@@ -25,6 +25,7 @@ import {
   MODEL_TYPE_CANONICAL_ENDPOINT,
   normalizeEndpointType,
 } from "@core/catalog/constants/endpoints";
+import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
 import { inferModelType } from "@core/catalog/constants/inference";
 import {
   buildReverseMapping,
@@ -224,6 +225,10 @@ async function reconcilePassThrough(
 ): Promise<number> {
   let enabled = 0;
   for (const ch of channels) {
+    // ALI (17) DashScope channels need the gateway's native-shape conversion
+    // (input.messages, model rewrite); pass-through would forward the raw OpenAI
+    // body and 400/404. Never enable pass-through on them.
+    if (ch.type === CHANNEL_TYPES.ALI) continue;
     const isMedia = parseModelList(ch.models).some(
       (name) => !isRoutingOnlyAlias(name) && inferModelType(name) !== "text",
     );

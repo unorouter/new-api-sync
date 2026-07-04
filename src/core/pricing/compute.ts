@@ -1,4 +1,7 @@
-import { getTaskModelOverride } from "@core/catalog/constants/channel-types";
+import {
+  CHANNEL_TYPES,
+  getTaskModelOverride,
+} from "@core/catalog/constants/channel-types";
 import {
   parseModelList,
   sanitizeGroupName,
@@ -495,8 +498,14 @@ function pushBucketsAsTiers(
         paramOverride: hasContext1mAlias
           ? CLAUDE_CONTEXT_1M_PARAM_OVERRIDE
           : undefined,
-        // Media channels carry refs/extras (image_urls, multipart) new-api drops on re-marshal; pass the raw body through.
-        ...(m.modelType !== "text" ? { passThroughBody: true } : {}),
+        // Media channels carry refs/extras (image_urls, multipart) new-api drops on
+        // re-marshal; pass the raw body through. EXCEPT ALI (17): DashScope's task
+        // API needs the gateway's native-shape conversion (input.messages, model
+        // rewrite), which pass-through would bypass -> 400/404.
+        ...(m.modelType !== "text" &&
+        (override?.channelType ?? offer.channelType) !== CHANNEL_TYPES.ALI
+          ? { passThroughBody: true }
+          : {}),
         ...(m.rateLimited ? { disabled: true } : {}),
       });
     }

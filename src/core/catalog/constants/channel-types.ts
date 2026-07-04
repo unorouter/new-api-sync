@@ -18,7 +18,11 @@ const TASK_MODEL_OVERRIDES: [string, TaskModelOverride][] = [
   ["seedance", { channelType: CHANNEL_TYPES.DOUBAO_VIDEO }],
   ["veo", { channelType: CHANNEL_TYPES.GEMINI }],
   ["imagen", { channelType: CHANNEL_TYPES.GEMINI }],
-  ["wan", { channelType: CHANNEL_TYPES.ALI, baseUrlSuffix: "/alibailian" }],
+  // No baseUrlSuffix: the gateway ALI task adapter adds /alibailian itself only when
+  // the upstream is another new-api relay (isNewAPIRelay checks the host), and omits
+  // it for a direct DashScope/Bailian host. Baking it into the base here would
+  // wrongly prefix a direct aliyuncs.com host -> 404.
+  ["wan", { channelType: CHANNEL_TYPES.ALI }],
 ];
 
 export function getTaskModelOverride(
