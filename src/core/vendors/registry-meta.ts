@@ -196,6 +196,19 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "ng-... (naga.ac)",
   },
   {
+    kind: "bailian",
+    label: "Bailian",
+    // Alibaba Bailian / Model Studio (Singapore intl). Base is the workspace host +
+    // /compatible-mode; runner + discovery append /v1. First-party Qwen3.x / DeepSeek-V4 /
+    // GLM-5.x / Kimi-K2.x. Free = 1M tokens/model, Stop-on-Exhaust enabled account-side so a
+    // spent model 403s (AllocationQuota.FreeTierOnly) instead of billing. baseUrl set per
+    // config block (workspace-scoped domain), so no shared default host.
+    defaultBaseUrl:
+      "https://dashscope-intl.aliyuncs.com/compatible-mode",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-ws-... (Bailian workspace key)",
+  },
+  {
     kind: "sensenova",
     label: "SenseNova",
     // 商汤 SenseTime Token Plan (token.sensenova.cn). Base is root; runner + discovery append /v1.

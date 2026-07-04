@@ -38,6 +38,7 @@ import { discoverIoNetModels } from "./ionet/discovery";
 import { discoverAkashMlModels } from "./akashml/discovery";
 import { discoverNscaleModels } from "./nscale/discovery";
 import { discoverNagaModels } from "./naga/discovery";
+import { discoverBailianModels } from "./bailian/discovery";
 import { discoverOllamaModels } from "./ollama/discovery";
 import { discoverQiniuModels } from "./qiniu/discovery";
 import { discoverStreamLakeModels } from "./streamlake/discovery";
@@ -97,6 +98,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   akashml: discoverAkashMlModels,
   nscale: discoverNscaleModels,
   naga: discoverNagaModels,
+  bailian: discoverBailianModels,
   ollama: discoverOllamaModels,
   qiniu: discoverQiniuModels,
   streamlake: discoverStreamLakeModels,

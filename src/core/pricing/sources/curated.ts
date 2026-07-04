@@ -46,6 +46,11 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // Upstream still dates -latest as Large v1 (2024-02-26); alias now = Large 3.
+  "mistral-large-latest": {
+    releaseDate: iso("2025-12-02"),
+    contextWindow: 256_000,
+  },
   // litellm reports a sparse reasoning-effort flag set for the GPT-5 reasoning
   // models (often only none + max), so the parser drops low/medium/high. OpenAI
   // docs list the full ladder: none, low, medium (default), high, xhigh ("max").
@@ -235,12 +240,25 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsTools: true,
   },
   // NVIDIA Nemotron
+  "llama-3.1-nemotron-nano-8b-v1": {
+    releaseDate: iso("2025-03-18"),
+    contextWindow: 131_072,
+    series: "Llama",
+    isReasoning: true,
+    supportsTools: true,
+  },
   "llama-3.1-nemotron-nano-vl-8b-v1": {
     releaseDate: iso("2025-06-03"),
     contextWindow: 16_384,
     series: "Llama",
     supportsVision: true,
     supportsTools: true,
+  },
+  "gemini-robotics-er-1.6-preview": {
+    releaseDate: iso("2026-04-14"),
+    contextWindow: 128_000,
+    series: "Gemini",
+    supportsVision: true,
   },
   "nemotron-3-nano-omni-30b-a3b-reasoning": {
     releaseDate: iso("2026-04-28"),
@@ -1206,10 +1224,40 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Mistral",
     supportsTools: true,
   },
-  "mistral-medium-latest": {
-    releaseDate: iso("2026-04-01"),
-    contextWindow: 128_000,
+  // Medium rolling aliases point at Medium 3.5 (2604)
+  "mistral-medium": {
+    releaseDate: iso("2026-04-28"),
+    contextWindow: 262_144,
     series: "Mistral",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "mistral-medium-latest": {
+    releaseDate: iso("2026-04-28"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "mistral-medium-3": {
+    releaseDate: iso("2025-05-07"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "mistral-medium-3.5": {
+    releaseDate: iso("2026-04-28"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "mistral-medium-2604": {
+    releaseDate: iso("2026-04-28"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsVision: true,
     supportsTools: true,
   },
   "pixtral-large-2411": {
@@ -1230,6 +1278,72 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2025-12-09"),
     contextWindow: 256_000,
     series: "Mistral",
+    supportsTools: true,
+  },
+  // Ministral 3 published slugs (ministral-{size}-2512 + -latest aliases)
+  "ministral-3b-2512": {
+    releaseDate: iso("2025-12-02"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "ministral-3b-latest": {
+    releaseDate: iso("2025-12-02"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "ministral-8b-2512": {
+    releaseDate: iso("2025-12-02"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "ministral-8b-latest": {
+    releaseDate: iso("2025-12-02"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "ministral-14b-2512": {
+    releaseDate: iso("2025-12-02"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "ministral-14b-latest": {
+    releaseDate: iso("2025-12-02"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  "mistral-large-3-675b-instruct-2512": {
+    releaseDate: iso("2025-12-02"),
+    contextWindow: 256_000,
+    series: "Mistral",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // Codestral rolling alias (current = 2508, announced Jul 30 2025)
+  "codestral-latest": {
+    releaseDate: iso("2025-07-30"),
+    contextWindow: 256_000,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  // Mistral Small dated slugs (2506 = Small 3.2, 2603 = Small 4)
+  "mistral-small-2506": {
+    releaseDate: iso("2025-06-20"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "mistral-small-2603": {
+    releaseDate: iso("2026-03-16"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsVision: true,
     supportsTools: true,
   },
   // Google Gemini 3.1 Flash Lite (preview)
