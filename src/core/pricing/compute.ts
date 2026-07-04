@@ -65,10 +65,17 @@ function mirrorAliasRatio(
   if (modelRatios.has(aliasName)) return;
   const base = modelRatios.get(baseName);
   if (!base) return;
-  // A `:free` alias must never inherit a paid sticker. A per-request model bypasses the ratio path,
-  // so only a zero modelPrice makes it free (group_ratio 0 alone would not).
+  // A `:free` alias must never inherit a paid sticker. Zero modelPrice covers the
+  // per-request path (group_ratio 0 alone would not make it free there), and zero
+  // ratio/completionRatio covers per-token display: a mirrored paid ratio hides the
+  // alias from the free model list even though group_ratio 0 already bills it at 0.
   if (aliasName.endsWith(":free")) {
-    modelRatios.set(aliasName, { ...base, modelPrice: 0 });
+    modelRatios.set(aliasName, {
+      ...base,
+      ratio: 0,
+      completionRatio: 0,
+      modelPrice: 0,
+    });
     return;
   }
   modelRatios.set(aliasName, { ...base });
