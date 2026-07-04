@@ -215,6 +215,7 @@ export const SIMPLE_PROVIDER_META = [
     // explicit `models` list + a non-/compatible-mode base URL emits these.
     imageChannelType: 17,
     videoChannelType: 17,
+    audioChannelType: 17,
   },
   {
     kind: "sensenova",
