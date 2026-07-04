@@ -11,7 +11,7 @@ interface VendorMatcher {
 // prettier-ignore
 export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   anthropic: { modelPatterns: ["claude"], displayName: "Anthropic", icon: "Claude.Color" },
-  google: { modelPatterns: ["gemini","palm","veo","gemma","lyria","imagen","embedding-001","embedding-gecko","text-embedding-004"], displayName: "Google", icon: "Gemini.Color" },
+  google: { modelPatterns: ["gemini","palm","veo","gemma","lyria","imagen","nano-banana","embedding-001","embedding-gecko","text-embedding-004"], displayName: "Google", icon: "Gemini.Color" },
   openai: { modelPatterns: ["gpt","o1-","o3","o4-","chatgpt","sora","text-embedding-3","text-embedding-ada","whisper","dall-e","tts-1","omni-moderation","openai"], displayName: "OpenAI", icon: "OpenAI" },
   kling: { modelPatterns: ["kling"], nameAliases: ["kling","可灵"], displayName: "Kling", icon: "Kling.Color" },
   vidu: { modelPatterns: ["vidu"], nameAliases: ["vidu","生数"], displayName: "Vidu" },
@@ -28,7 +28,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   nousresearch: { modelPatterns: ["hermes-"], nameAliases: ["nous","nousresearch"], displayName: "Nous Research", icon: "NousResearch" },
   gryphe: { modelPatterns: ["mythomax","mythomist","mythalion","mytho-"], strongPatterns: ["mythomax","mythalion"], nameAliases: ["gryphe"], displayName: "Gryphe" },
   venice: { modelPatterns: ["venice"], nameAliases: ["venice"], displayName: "Venice AI", icon: "Venice.Color" },
-  alibaba: { modelPatterns: ["qwen","qwq-","text-embedding-v"], nameAliases: ["阿里","通义","qwen","阿里巴巴"], displayName: "Alibaba", icon: "AlibabaCloud.Color" },
+  alibaba: { modelPatterns: ["qwen","qwq-","qvq-","text-embedding-v"], nameAliases: ["阿里","通义","qwen","阿里巴巴"], displayName: "Alibaba", icon: "AlibabaCloud.Color" },
   bailian: { modelPatterns: ["wan2","z-image"], nameAliases: ["bailian","阿里云百炼"], displayName: "Bailian", icon: "AlibabaCloud.Color" },
   flux: { modelPatterns: ["flux-","flux.","flux"], nameAliases: ["flux"], displayName: "Flux", icon: "Flux" },
   cohere: { modelPatterns: ["command-","c4ai-","cohere","aya-","tiny-aya","north-mini","embed-english-","embed-multilingual-","embed-v4"], displayName: "Cohere", icon: "Cohere.Color" },
