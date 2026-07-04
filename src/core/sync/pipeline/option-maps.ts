@@ -21,7 +21,8 @@ export function expandRateLimitModels(
     if (!name.endsWith(":free")) continue;
     for (const [glob, limits] of limitGlobs) {
       if (micromatch.isMatch(name, glob)) {
-        out[name] = limits;
+        // Gateway option format is [totalAttempts, successCount].
+        out[name] = [limits.total ?? 0, limits.success];
         break;
       }
     }

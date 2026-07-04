@@ -197,7 +197,12 @@ export const ConfigSchema = T.Object({
   modelMapping: Opt(T.Record(T.String(), T.String())),
   // prettier-ignore
   rateLimit: Opt(T.Object({
-    models: T.Record(T.String(), T.Tuple([T.Integer({ minimum: 0 }), T.Integer({ minimum: 1 })])),
+    // success = successful requests per gateway window; total = attempts incl.
+    // failures (0/absent = unlimited attempts, failures never burn the budget).
+    models: T.Record(T.String(), T.Object({
+      success: T.Integer({ minimum: 1 }),
+      total: Opt(T.Integer({ minimum: 0 })),
+    })),
     newUserFactor: Opt(T.Number({ exclusiveMinimum: 0, maximum: 1 })),
     newUserMaxAgeDays: Opt(T.Integer({ minimum: 0 })),
     newUserMaxUsedQuota: Opt(T.Integer({ minimum: 0 })),
