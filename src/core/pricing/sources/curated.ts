@@ -89,6 +89,35 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // Qwen
   "qwq-32b": { releaseDate: iso("2025-03-05"), contextWindow: 131_072 },
+  // Alibaba API-only Qwen models: no OpenRouter/basellm listing, so releaseDate +
+  // series never fill. Dates from each model's snapshot id (Alibaba names commercial
+  // snapshots by release date) or the official announcement. series="Qwen".
+  "qvq-max": { releaseDate: iso("2025-03-25"), contextWindow: 131_072, series: "Qwen" },
+  "qwen-max": { releaseDate: iso("2025-01-28"), contextWindow: 32_768, series: "Qwen" },
+  "qwen-flash": { releaseDate: iso("2025-07-28"), contextWindow: 1_000_000, series: "Qwen" },
+  "qwen-flash-character": { releaseDate: iso("2025-07-28"), contextWindow: 32_768, series: "Qwen" },
+  "qwen-turbo": { releaseDate: iso("2024-09-19"), contextWindow: 1_000_000, series: "Qwen" },
+  "qwen-plus-latest": { releaseDate: iso("2025-04-28"), contextWindow: 1_000_000, series: "Qwen" },
+  "qwen-plus-character": { releaseDate: iso("2025-04-28"), contextWindow: 32_768, series: "Qwen" },
+  "qwen-coder-plus": { releaseDate: iso("2024-11-12"), contextWindow: 131_072, series: "Qwen" },
+  "qwen-vl-plus": { releaseDate: iso("2025-01-25"), contextWindow: 131_072, series: "Qwen" },
+  "qwen-omni-turbo": { releaseDate: iso("2025-01-19"), contextWindow: 32_768, series: "Qwen" },
+  "qwq-plus": { releaseDate: iso("2025-03-05"), contextWindow: 131_072, series: "Qwen" },
+  "qwq-plus-2025-03-05": { releaseDate: iso("2025-03-05"), contextWindow: 131_072, series: "Qwen" },
+  "qwen3-omni-flash": { releaseDate: iso("2025-09-15"), contextWindow: 65_536, series: "Qwen" },
+  "qwen3-omni-flash-2025-09-15": { releaseDate: iso("2025-09-15"), contextWindow: 65_536, series: "Qwen" },
+  "qwen3-omni-flash-2025-12-01": { releaseDate: iso("2025-12-01"), contextWindow: 65_536, series: "Qwen" },
+  "qwen3-vl-flash": { releaseDate: iso("2025-10-15"), contextWindow: 262_144, series: "Qwen" },
+  "qwen3-vl-flash-2025-10-15": { releaseDate: iso("2025-10-15"), contextWindow: 262_144, series: "Qwen" },
+  "qwen3-vl-flash-2026-01-22": { releaseDate: iso("2026-01-22"), contextWindow: 262_144, series: "Qwen" },
+  "qwen3-vl-plus": { releaseDate: iso("2025-09-23"), contextWindow: 262_144, series: "Qwen" },
+  "qwen3-vl-plus-2025-09-23": { releaseDate: iso("2025-09-23"), contextWindow: 262_144, series: "Qwen" },
+  "qwen3-vl-plus-2025-12-19": { releaseDate: iso("2025-12-19"), contextWindow: 262_144, series: "Qwen" },
+  "qwen3.5-omni-flash": { releaseDate: iso("2026-03-15"), contextWindow: 49_152, series: "Qwen" },
+  "qwen3.5-omni-flash-2026-03-15": { releaseDate: iso("2026-03-15"), contextWindow: 49_152, series: "Qwen" },
+  "qwen3.5-omni-plus": { releaseDate: iso("2026-03-15"), contextWindow: 983_040, series: "Qwen" },
+  "qwen3.5-omni-plus-2026-03-15": { releaseDate: iso("2026-03-15"), contextWindow: 983_040, series: "Qwen" },
+  "qwen3.7-max-preview": { releaseDate: iso("2026-05-19"), contextWindow: 1_000_000, series: "Qwen" },
   // DeepSeek distill
   "deepseek-r1-distill-qwen-32b": {
     releaseDate: iso("2025-01-20"),
