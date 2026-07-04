@@ -604,11 +604,25 @@ const CURATED: Record<string, SourceMetadata> = {
   "grok-imagine-video": { releaseDate: iso("2025-08-07"), mode: "video" },
   // Kuaishou Kling Motion Control (shipped with Kling 2.6)
   "kling-motion-control": { releaseDate: iso("2025-12-03"), mode: "video" },
-  // Alibaba Wan (2.5-Preview modes share the Sept launch; 2.6 = Dec)
+  // Alibaba Wan (2.5-Preview modes share the Sept launch; 2.6 = Dec; 2.7 = 2026)
   "wan2.5-i2i": { releaseDate: iso("2025-09-23"), mode: "video" },
   "wan2.5-i2v-preview": { releaseDate: iso("2025-09-23"), mode: "video" },
   "wan2.6-i2v": { releaseDate: iso("2025-12-16"), mode: "video" },
+  "wan2.6-t2v": { releaseDate: iso("2025-12-16"), mode: "video" },
+  "wan2.6-image": { releaseDate: iso("2025-12-16"), mode: "image" },
   "wan2.7-i2v": { releaseDate: iso("2026-03-10"), mode: "video" },
+  "wan2.7-image": { releaseDate: iso("2026-04-01"), mode: "image" },
+  "wan2.7-image-pro": { releaseDate: iso("2026-04-01"), mode: "image" },
+  // Alibaba Qwen-Image (edit 2025-08; edit-plus snapshot 2025-12-15; 2.0 launch 2026-02-10)
+  "qwen-image-edit": { releaseDate: iso("2025-08-19"), mode: "image" },
+  "qwen-image-edit-plus": { releaseDate: iso("2025-12-15"), mode: "image" },
+  "qwen-image-edit-max": { releaseDate: iso("2026-02-10"), mode: "image" },
+  "qwen-image-plus": { releaseDate: iso("2025-12-15"), mode: "image" },
+  "qwen-image-max": { releaseDate: iso("2026-02-10"), mode: "image" },
+  "qwen-image-2.0": { releaseDate: iso("2026-02-10"), mode: "image" },
+  "qwen-image-2.0-pro": { releaseDate: iso("2026-02-10"), mode: "image" },
+  // Alibaba Tongyi Lab Z-Image Turbo (Nov 2025 Apache-2.0 release)
+  "z-image-turbo": { releaseDate: iso("2025-11-25"), mode: "image" },
   // Google Veo
   veo3: { releaseDate: iso("2025-05-20"), mode: "video" },
   "veo3-fast": { releaseDate: iso("2025-07-18"), mode: "video" },
