@@ -152,6 +152,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-…",
   },
   {
+    kind: "requesty",
+    label: "Requesty",
+    // OpenRouter-style router (router.requesty.ai/v1); base is the host, runner +
+    // discovery append /v1. Free tier = the $0/$0 chat models (200 RPD, no card,
+    // GitHub OAuth). Fallback dups: nemotron-3 family, leanstral, gemma-4-31b.
+    defaultBaseUrl: "https://router.requesty.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "rqsty-sk-…",
+  },
+  {
     kind: "siliconflow",
     label: "SiliconFlow",
     // OpenAI-compatible; base is the host, runner + discovery append /v1. Pay-per-
