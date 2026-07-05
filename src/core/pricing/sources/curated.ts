@@ -637,6 +637,14 @@ const CURATED: Record<string, SourceMetadata> = {
   "grok-imagine-video": { releaseDate: iso("2025-08-07"), mode: "video" },
   // Kuaishou Kling Motion Control (shipped with Kling 2.6)
   "kling-motion-control": { releaseDate: iso("2025-12-03"), mode: "video" },
+  // Kuaishou Kling 3.0 Turbo (t2v/i2v task variants share the base launch).
+  "kling-3.0-turbo": { releaseDate: iso("2026-04-15"), mode: "video" },
+  // Vidu Q3 Pro (Shengshu). t2v/i2v/start-end task variants share the launch.
+  "viduq3-pro": { releaseDate: iso("2026-05-20"), mode: "video" },
+  // ByteDance Doubao Seedance 2.0 mini.
+  "doubao-seedance-2-0-mini": { releaseDate: iso("2026-06-15"), mode: "video" },
+  // MiniMax Hailuo 2.3 fast.
+  "minimax-hailuo-2.3-fast": { releaseDate: iso("2026-03-10"), mode: "video" },
   // Alibaba Wan / Tongyi Wanxiang (2.1 Feb 2025; VACE May; 2.2 Jul; 2.5-Preview
   // Sept; 2.6 Dec; 2.7 2026). All modes of a version share that version's launch.
   "wan2.1-i2v-plus": { releaseDate: iso("2025-02-25"), mode: "video" },
@@ -713,6 +721,18 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2024-10-01"),
     mode: "audio",
   },
+  // ElevenLabs TTS/STT. text-to-speech task variants share the base launch.
+  "eleven_monolingual_v1": { releaseDate: iso("2023-01-31"), mode: "audio" },
+  "eleven_multilingual_v1": { releaseDate: iso("2023-05-08"), mode: "audio" },
+  "eleven_english_sts_v2": { releaseDate: iso("2023-08-22"), mode: "audio" },
+  "eleven_multilingual_sts_v2": { releaseDate: iso("2023-08-22"), mode: "audio" },
+  "eleven_multilingual_v2": { releaseDate: iso("2023-08-22"), mode: "audio" },
+  "eleven_turbo_v2": { releaseDate: iso("2023-11-30"), mode: "audio" },
+  "eleven_turbo_v2_5": { releaseDate: iso("2024-07-18"), mode: "audio" },
+  "eleven_flash_v2": { releaseDate: iso("2024-10-28"), mode: "audio" },
+  "eleven_flash_v2_5": { releaseDate: iso("2024-10-28"), mode: "audio" },
+  "eleven_v3": { releaseDate: iso("2025-06-05"), mode: "audio" },
+  "scribe_v1": { releaseDate: iso("2025-02-27"), mode: "audio" },
   // OpenAI TTS (DevDay launch)
   "tts-1": { releaseDate: iso("2023-11-06"), mode: "audio" },
   "tts-1-hd": { releaseDate: iso("2023-11-06"), mode: "audio" },

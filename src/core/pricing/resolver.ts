@@ -82,15 +82,24 @@ function resolveOneName(
   return merged;
 }
 
+// DashScope/relay task-endpoint suffixes (kling-3.0-turbo/image-to-video,
+// viduq3-pro/text-to-video, eleven_flash_v2_5/text-to-speech). These publish with
+// the suffix intact (bare-name collision keeps the full id), but the task word
+// carries no metadata - resolve the base model identity instead. Stripped BEFORE
+// toBareName so the base survives (toBareName would keep only the task word).
+const TASK_SUFFIX =
+  /\/(?:image|text|start-end|video|audio|speech)-to-(?:video|image|speech|text|audio)$/;
+
 export function resolveSourceMetadata(
   modelName: string,
   sources: PricingSource[],
   reverseMapping: Map<string, string>,
 ): SourceMetadata {
+  const detasked = modelName.replace(TASK_SUFFIX, "");
   // A `{model}:free` published name has no metadata key of its own; fuzzy-matching
   // the literal `:free` lands on a wrong dateless candidate, so resolve the bare
   // identity (real date/description). The suffix carries no unique metadata.
-  const bare = toBareName(modelName);
+  const bare = toBareName(detasked);
   return resolveOneName(
     bare === modelName ? modelName : bare,
     sources,
