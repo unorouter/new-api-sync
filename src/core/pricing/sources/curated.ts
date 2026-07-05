@@ -1279,19 +1279,24 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
-  // NavyAI house "laborratse" models (undisclosed base; specs ESTIMATED)
+  // NavyAI house "laborratse" models (GPT-based; releaseDate from NavyAI
+  // /v1/models `created` ts = 2025-06-04. Context ESTIMATED.)
   "gpt-laborratse": {
-    releaseDate: iso("2026-01-01"),
+    releaseDate: iso("2025-06-04"),
     contextWindow: 128_000,
     supportsTools: true,
   },
   "gpt-laborratse-de": {
-    releaseDate: iso("2026-01-01"),
+    releaseDate: iso("2025-06-04"),
     contextWindow: 128_000,
     supportsTools: true,
   },
   "laborratse-uncensored": {
-    releaseDate: iso("2026-01-01"),
+    releaseDate: iso("2025-06-04"),
+    contextWindow: 128_000,
+  },
+  "laborratse-de-uncensored": {
+    releaseDate: iso("2025-06-04"),
     contextWindow: 128_000,
   },
   "grok-code-fast-1": {
