@@ -28,6 +28,7 @@ import { discoverSiliconFlowModels } from "./siliconflow/discovery";
 import { discoverLlm7Models } from "./llm7/discovery";
 import { discoverAgnesModels } from "./agnes/discovery";
 import { discoverRequestyModels } from "./requesty/discovery";
+import { discoverElectronHubModels } from "./electronhub/discovery";
 import { discoverOpenCodeZenModels } from "./opencodezen/discovery";
 import { discoverLogfareModels } from "./logfare/discovery";
 import { discoverNavyAiModels } from "./navyai/discovery";
@@ -90,6 +91,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   llm7: discoverLlm7Models,
   agnes: discoverAgnesModels,
   requesty: discoverRequestyModels,
+  electronhub: discoverElectronHubModels,
   opencodezen: discoverOpenCodeZenModels,
   logfare: discoverLogfareModels,
   navyai: discoverNavyAiModels,

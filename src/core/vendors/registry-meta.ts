@@ -162,6 +162,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "rqsty-sk-…",
   },
   {
+    kind: "electronhub",
+    label: "ElectronHub",
+    // OpenAI-compat aggregator (api.electronhub.ai/v1); base is the host, runner +
+    // discovery append /v1. Only the :free chat models are free (phone-verified
+    // account required); image models are per-image PAID -> chat only. Fallback
+    // dups: glm-5.2, deepseek-v4-flash, gpt-oss, qwen3.6, nemotron.
+    defaultBaseUrl: "https://api.electronhub.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "ek-…",
+  },
+  {
     kind: "siliconflow",
     label: "SiliconFlow",
     // OpenAI-compatible; base is the host, runner + discovery append /v1. Pay-per-
