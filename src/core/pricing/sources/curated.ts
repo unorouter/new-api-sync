@@ -493,6 +493,17 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Mistral",
     supportsTools: true,
   },
+  // Venice commercial aliases of Dolphin-Mistral-24B-Venice-Edition (Venice launch 2025-07-09)
+  "venice-uncensored": {
+    releaseDate: iso("2025-07-09"),
+    contextWindow: 32_768,
+    series: "Mistral",
+  },
+  "venice-uncensored-role-play": {
+    releaseDate: iso("2025-07-09"),
+    contextWindow: 32_768,
+    series: "Mistral",
+  },
   // Qwen3 4B thinking (2507 update)
   "qwen3-4b-thinking-2507": {
     releaseDate: iso("2025-08-05"),
