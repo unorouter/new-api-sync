@@ -29,7 +29,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   gryphe: { modelPatterns: ["mythomax","mythomist","mythalion","mytho-"], strongPatterns: ["mythomax","mythalion"], nameAliases: ["gryphe"], displayName: "Gryphe" },
   venice: { modelPatterns: ["venice"], nameAliases: ["venice"], displayName: "Venice AI", icon: "Venice.Color" },
   alibaba: { modelPatterns: ["qwen","qwq-","qvq-","text-embedding-v"], nameAliases: ["阿里","通义","qwen","阿里巴巴"], displayName: "Alibaba", icon: "AlibabaCloud.Color" },
-  bailian: { modelPatterns: ["wan2","z-image"], nameAliases: ["bailian","阿里云百炼"], displayName: "Bailian", icon: "AlibabaCloud.Color" },
+  bailian: { modelPatterns: ["wan2","z-image","happyhorse"], nameAliases: ["bailian","阿里云百炼"], displayName: "Bailian", icon: "AlibabaCloud.Color" },
   flux: { modelPatterns: ["flux-","flux.","flux"], nameAliases: ["flux"], displayName: "Flux", icon: "Flux" },
   cohere: { modelPatterns: ["command-","c4ai-","cohere","aya-","tiny-aya","north-mini","embed-english-","embed-multilingual-","embed-v4"], displayName: "Cohere", icon: "Cohere.Color" },
   minimax: { modelPatterns: ["abab","minimax-"], displayName: "MiniMax", icon: "Minimax.Color" },

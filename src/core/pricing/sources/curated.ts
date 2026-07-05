@@ -604,23 +604,56 @@ const CURATED: Record<string, SourceMetadata> = {
   "grok-imagine-video": { releaseDate: iso("2025-08-07"), mode: "video" },
   // Kuaishou Kling Motion Control (shipped with Kling 2.6)
   "kling-motion-control": { releaseDate: iso("2025-12-03"), mode: "video" },
-  // Alibaba Wan (2.5-Preview modes share the Sept launch; 2.6 = Dec; 2.7 = 2026)
+  // Alibaba Wan / Tongyi Wanxiang (2.1 Feb 2025; VACE May; 2.2 Jul; 2.5-Preview
+  // Sept; 2.6 Dec; 2.7 2026). All modes of a version share that version's launch.
+  "wan2.1-i2v-plus": { releaseDate: iso("2025-02-25"), mode: "video" },
+  "wan2.1-i2v-turbo": { releaseDate: iso("2025-02-25"), mode: "video" },
+  "wan2.1-t2v-plus": { releaseDate: iso("2025-02-25"), mode: "video" },
+  "wan2.1-t2v-turbo": { releaseDate: iso("2025-02-25"), mode: "video" },
+  "wan2.1-t2i-plus": { releaseDate: iso("2025-02-25"), mode: "image" },
+  "wan2.1-t2i-turbo": { releaseDate: iso("2025-02-25"), mode: "image" },
+  "wan2.1-vace-plus": { releaseDate: iso("2025-05-14"), mode: "video" },
+  "wan2.2-t2v-plus": { releaseDate: iso("2025-07-28"), mode: "video" },
+  "wan2.2-i2v-plus": { releaseDate: iso("2025-07-28"), mode: "video" },
+  "wan2.2-i2v-flash": { releaseDate: iso("2025-07-28"), mode: "video" },
+  "wan2.2-t2i-plus": { releaseDate: iso("2025-07-28"), mode: "image" },
+  "wan2.2-t2i-flash": { releaseDate: iso("2025-07-28"), mode: "image" },
+  "wan2.2-animate-mix": { releaseDate: iso("2025-07-28"), mode: "video" },
   "wan2.5-i2i": { releaseDate: iso("2025-09-23"), mode: "video" },
   "wan2.5-i2v-preview": { releaseDate: iso("2025-09-23"), mode: "video" },
+  "wan2.5-t2v-preview": { releaseDate: iso("2025-09-23"), mode: "video" },
+  "wan2.5-t2i-preview": { releaseDate: iso("2025-09-23"), mode: "image" },
   "wan2.6-i2v": { releaseDate: iso("2025-12-16"), mode: "video" },
+  "wan2.6-i2v-flash": { releaseDate: iso("2025-12-16"), mode: "video" },
+  "wan2.6-r2v": { releaseDate: iso("2025-12-16"), mode: "video" },
+  "wan2.6-r2v-flash": { releaseDate: iso("2025-12-16"), mode: "video" },
   "wan2.6-t2v": { releaseDate: iso("2025-12-16"), mode: "video" },
+  "wan2.6-t2i": { releaseDate: iso("2025-12-16"), mode: "image" },
   "wan2.6-image": { releaseDate: iso("2025-12-16"), mode: "image" },
   "wan2.7-i2v": { releaseDate: iso("2026-03-10"), mode: "video" },
+  "wan2.7-t2v": { releaseDate: iso("2026-03-10"), mode: "video" },
   "wan2.7-image": { releaseDate: iso("2026-04-01"), mode: "image" },
   "wan2.7-image-pro": { releaseDate: iso("2026-04-01"), mode: "image" },
+  // Alibaba HappyHorse (Taotian Future Life Lab, on Bailian): 1.0 API test
+  // 2026-04-27, 1.1 launch 2026-06-22. r2v/i2v/t2v modes share the version date.
+  "happyhorse-1.0-t2v": { releaseDate: iso("2026-04-27"), mode: "video" },
+  "happyhorse-1.0-i2v": { releaseDate: iso("2026-04-27"), mode: "video" },
+  "happyhorse-1.0-r2v": { releaseDate: iso("2026-04-27"), mode: "video" },
+  "happyhorse-1.1-t2v": { releaseDate: iso("2026-06-22"), mode: "video" },
+  "happyhorse-1.1-i2v": { releaseDate: iso("2026-06-22"), mode: "video" },
+  "happyhorse-1.1-r2v": { releaseDate: iso("2026-06-22"), mode: "video" },
   // Alibaba Qwen-Image (edit 2025-08; edit-plus snapshot 2025-12-15; 2.0 launch 2026-02-10)
   "qwen-image-edit": { releaseDate: iso("2025-08-19"), mode: "image" },
   "qwen-image-edit-plus": { releaseDate: iso("2025-12-15"), mode: "image" },
   "qwen-image-edit-max": { releaseDate: iso("2026-02-10"), mode: "image" },
   "qwen-image-plus": { releaseDate: iso("2025-12-15"), mode: "image" },
   "qwen-image-max": { releaseDate: iso("2026-02-10"), mode: "image" },
+  "qwen-image": { releaseDate: iso("2025-08-04"), mode: "image" },
   "qwen-image-2.0": { releaseDate: iso("2026-02-10"), mode: "image" },
   "qwen-image-2.0-pro": { releaseDate: iso("2026-02-10"), mode: "image" },
+  // Alibaba text-embedding (Qwen embeddings via DashScope)
+  "text-embedding-v3": { releaseDate: iso("2024-12-01") },
+  "text-embedding-v4": { releaseDate: iso("2025-05-27") },
   // Alibaba Tongyi Lab Z-Image Turbo (Nov 2025 Apache-2.0 release)
   "z-image-turbo": { releaseDate: iso("2025-11-25"), mode: "image" },
   // Google Veo
