@@ -651,6 +651,8 @@ const CURATED: Record<string, SourceMetadata> = {
   "tts-1": { releaseDate: iso("2023-11-06"), mode: "audio" },
   "tts-1-hd": { releaseDate: iso("2023-11-06"), mode: "audio" },
   "gpt-4o-mini-tts": { releaseDate: iso("2025-03-20"), mode: "audio" },
+  // Alibaba Qwen3-TTS-Flash (earliest cloud snapshot 2025-09-18)
+  "qwen3-tts-flash": { releaseDate: iso("2025-09-18"), mode: "audio" },
   // Deepgram Aura-2
   "aura-2-en": { releaseDate: iso("2025-04-15"), mode: "audio" },
   "aura-2-es": { releaseDate: iso("2025-06-25"), mode: "audio" },
