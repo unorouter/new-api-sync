@@ -450,10 +450,13 @@ function pushBucketsAsTiers(
   const baseUrlTrim = offer.baseUrl.replace(/\/$/, "");
   for (const [groupRatio, bucketModels] of buckets) {
     for (const m of bucketModels) {
+      // Native video task types (Kling/Sora/Vidu/MiniMax/Doubao/Gemini/Ali) route the
+      // gateway's per-second billing adaptors. Match by model NAME for any non-text model:
+      // upstreams that proxy these (ephone, yun) label the endpoint with their own scheme
+      // (e.g. "wan视频生成"), not "openai-video", so gating on the endpoint string missed
+      // them and left the channel at OpenAI(1) -> wrong (Sora) adaptor.
       const override =
-        !m.endpoints || m.endpoints.includes("openai-video")
-          ? getTaskModelOverride(m.exposed)
-          : undefined;
+        m.modelType !== "text" ? getTaskModelOverride(m.exposed) : undefined;
 
       // Full free/paid split: a genuinely-free channel (groupRatio 0) publishes
       // the model as `{name}:free` so it has a distinct identity that can never

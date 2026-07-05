@@ -40,15 +40,23 @@ export class ProbeTokenManager {
     let token = this.tokensByName.get(tokenName);
 
     if (!token) {
-      const ok = await retryOn429(() =>
+      const created = await retryOn429(() =>
         createToken(this.ctx, tokenName, groupName),
       );
-      if (!ok) return null;
+      if (!created.ok) return null;
       const refreshed = await retryOn429(() => listTokens(this.ctx));
       for (const t of refreshed) this.tokensByName.set(t.name, t);
       token = this.tokensByName.get(tokenName);
       if (!token) return null;
       this.createdByThisRun.add(token.id);
+      // Forks that mask keys on read still return the full key on create.
+      if (created.key) {
+        const normalized = created.key.startsWith("sk-")
+          ? created.key
+          : `sk-${created.key}`;
+        this.resolvedKeys.set(groupName, normalized);
+        return normalized;
+      }
     }
 
     let key = token.key;

@@ -39,7 +39,7 @@ export async function createToken(
   ctx: ClientContext,
   name: string,
   group: string,
-): Promise<boolean> {
+): Promise<{ ok: boolean; key?: string }> {
   const body = {
     name,
     group,
@@ -48,16 +48,17 @@ export async function createToken(
     model_limits_enabled: false,
   };
   // New-api rate-limits token writes too. Retry on 429.
-  const data = await tryFetchJson<{ success: boolean; message?: string }>(
-    `${ctx.baseUrl}/api/token/`,
-    {
-      method: "POST",
-      headers: ctx.headers,
-      body,
-      retry: 8,
-      retryDelayMs: 4000,
-    },
-  );
+  const data = await tryFetchJson<{
+    success: boolean;
+    message?: string;
+    data?: { key?: string };
+  }>(`${ctx.baseUrl}/api/token/`, {
+    method: "POST",
+    headers: ctx.headers,
+    body,
+    retry: 8,
+    retryDelayMs: 4000,
+  });
   if (!data?.success) {
     consola.warn(
       t("CORE.NEWAPI.TOKEN_CREATE_FAILED", {
@@ -66,9 +67,10 @@ export async function createToken(
         message: data?.message ?? "unknown",
       }),
     );
-    return false;
+    return { ok: false };
   }
-  return true;
+  // Some forks (ephone) return the full key only here and mask it on later reads.
+  return { ok: true, key: data.data?.key };
 }
 
 export async function getTokenFullKey(
@@ -262,6 +264,15 @@ export async function ensureTokens(
     for (const entry of existingNeedingReveal) {
       const fullKey = batchKeys.get(entry.token.id);
       if (!fullKey) {
+        // Forks that mask keys and expose no reveal endpoint (ephone) return the
+        // full key only on create; delete the masked token and recreate below.
+        if (await deleteToken(ctx, entry.token.id)) {
+          groupsAwaitingCreate.push({
+            group: entry.group,
+            tokenName: entry.token.name,
+          });
+          continue;
+        }
         consola.warn(
           t("CORE.NEWAPI.TOKEN_EXISTING_KEY_UNAVAILABLE", {
             name: ctx.name,
@@ -284,10 +295,10 @@ export async function ensureTokens(
   const createResults = await Promise.all(
     groupsAwaitingCreate.map((entry) =>
       createLimit(() =>
-        gate.run(ctx.baseUrl, async () => ({
-          ...entry,
-          ok: await createToken(ctx, entry.tokenName, entry.group.name),
-        })),
+        gate.run(ctx.baseUrl, async () => {
+          const created = await createToken(ctx, entry.tokenName, entry.group.name);
+          return { ...entry, ok: created.ok, inlineKey: created.key };
+        }),
       ),
     ),
   );
@@ -296,14 +307,24 @@ export async function ensureTokens(
 
   if (successfulCreates.length > 0) {
     throwIfRunAborted();
-    const refreshedByName = new Map(
-      (await listTokens(ctx)).map((tk) => [tk.name, tk]),
-    );
+    // Forks that return the full key on create (ephone) are done here; only fall
+    // back to a list + reveal for those whose create response carried no key.
+    const needLookup = successfulCreates.filter((entry) => {
+      if (entry.inlineKey) {
+        result[entry.group.name] = normalizeKey(entry.inlineKey);
+        return false;
+      }
+      return true;
+    });
+    const refreshedByName =
+      needLookup.length > 0
+        ? new Map((await listTokens(ctx)).map((tk) => [tk.name, tk]))
+        : new Map<string, UpstreamToken>();
     const newTokensNeedingReveal: {
       entry: (typeof successfulCreates)[number];
       token: UpstreamToken;
     }[] = [];
-    for (const entry of successfulCreates) {
+    for (const entry of needLookup) {
       const newToken = refreshedByName.get(entry.tokenName);
       const ctxParams = { name: ctx.name, token: entry.tokenName };
       if (!newToken) {

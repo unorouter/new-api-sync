@@ -107,6 +107,69 @@ export interface PricingResponseV2 {
   };
 }
 
+// VoAPI-style forks (ephone, chatfire) serve data.model_info as an ARRAY, with
+// no /api/pricing_new. ephone prices via price_config (absolute USD or per-second);
+// chatfire via price_info (new-api model_ratio, nested per enable-group).
+interface V3GroupInfo {
+  GroupRatio: number;
+  DisplayName?: string;
+  DisplayNameEn?: string;
+  SubGroups?: string[];
+}
+
+interface EphoneConditionPrice {
+  quota_type: "token" | "time" | "call";
+  currency?: string;
+  input_token_price?: number;
+  output_token_price?: number;
+  per_second_price?: number;
+  model_price?: number;
+  cache_read_token_price?: number;
+  cache_create_token_price?: number;
+}
+
+export interface EphoneModel {
+  model_name: string;
+  display_name?: string;
+  vendor_id?: number;
+  modalities?: { input: string[]; output: string[] };
+  enable_groups?: string[];
+  price_config?: {
+    original_price?: {
+      conditions?: Array<{ rule?: string; price?: EphoneConditionPrice }>;
+      multipliers?: unknown;
+    };
+  };
+}
+
+interface ChatfireGroupPrice {
+  quota_type: number;
+  model_price?: number;
+  model_ratio?: number;
+  model_completion_ratio?: number;
+  model_cache_ratio?: number;
+  model_create_cache_ratio?: number;
+  model_audio_ratio?: number;
+  model_audio_completion_ratio?: number;
+}
+
+export interface ChatfireModel {
+  model_name: string;
+  vendor_id?: number;
+  enable_groups?: string[];
+  supported_endpoint_types?: string[];
+  price_info?: Record<string, { default?: ChatfireGroupPrice }>;
+}
+
+export interface PricingResponseV3 {
+  success: boolean;
+  data: {
+    group_info?: Record<string, V3GroupInfo>;
+    vendor_info?: Array<{ id: number; name: string }>;
+    model_info: Array<EphoneModel | ChatfireModel>;
+  };
+}
+
 export interface TokenListResponse {
   success: boolean;
   message?: string;

@@ -26,6 +26,7 @@ import {
   normalizeEndpointType,
 } from "@core/catalog/constants/endpoints";
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
+import { scrapeYunwuGeminiImageGrids } from "@core/vendors/newapi/yunwu-grid-scraper";
 import { inferModelType } from "@core/catalog/constants/inference";
 import {
   buildReverseMapping,
@@ -604,14 +605,31 @@ async function syncGridCollapse(
   config: RuntimeConfig,
   inScope: (name: string) => boolean,
 ): Promise<void> {
-  // Mapped published name -> max grid price, across every provider's grids.
+  // Mapped published name -> flat max grid price (duration/mode grids, adaptor-handled).
+  // Resolution grids (gemini-image 1K/2K/4K) are kept as real ModelGridPricing (the gateway
+  // applies them via GetGridPrice); their base ModelPrice is the cheapest tier.
   const flat: Record<string, number> = {};
+  const resolutionGrids: Record<string, Record<string, string | number>[]> = {};
   for (const provider of config.providers) {
     if (provider.type === "private") continue;
     const grids = getPricingGridFromEnabledModels(provider.enabledModels);
     for (const [modelName, rows] of Object.entries(grids)) {
       const mapped = config.modelMapping?.[modelName] ?? modelName;
       if (!inScope(mapped)) continue;
+      const isResolutionGrid =
+        rows.length > 0 &&
+        rows.every(
+          (row) => typeof row.Resolution === "string" && row.Resolution !== "",
+        );
+      if (isResolutionGrid) {
+        resolutionGrids[mapped] = rows;
+        const min = rows.reduce((m, row) => {
+          const p = Number(row.Pricing);
+          return Number.isFinite(p) && p > 0 && p < m ? p : m;
+        }, Infinity);
+        if (Number.isFinite(min)) flat[mapped] = min;
+        continue;
+      }
       const max = rows.reduce((m, row) => {
         const p = Number(row.Pricing);
         return Number.isFinite(p) && p > m ? p : m;
@@ -619,16 +637,41 @@ async function syncGridCollapse(
       if (max > 0) flat[mapped] = Math.max(flat[mapped] ?? 0, max);
     }
   }
-  const names = Object.keys(flat);
-  if (names.length === 0) return;
 
   const KEYS = [
     "ModelPrice",
     "ModelGridPricing",
     "ModelRatio",
     "CompletionRatio",
+    "ModelQuotaType",
   ];
   const current = await target.getOptions(KEYS);
+
+  // Scrape yunwu's frontend gemini-image resolution grid (primary over config). Uses the
+  // target's existing per-model ModelPrice as the base; best-effort, never throws. Runs here
+  // too so `bun sync metadata` applies the grid without a full probe/test sync.
+  let existingPrices: Record<string, number> = {};
+  try {
+    existingPrices = JSON.parse(current.ModelPrice || "{}");
+  } catch {
+    existingPrices = {};
+  }
+  const basePrices: Record<string, number> = {};
+  for (const [name, p] of Object.entries(existingPrices))
+    if (inScope(name) && typeof p === "number" && p > 0) basePrices[name] = p;
+  const scraped = await scrapeYunwuGeminiImageGrids(basePrices);
+  for (const name of Object.keys(scraped)) {
+    const rows = scraped[name]!;
+    resolutionGrids[name] = rows;
+    const min = rows.reduce((m, row) => {
+      const p = Number(row.Pricing);
+      return Number.isFinite(p) && p > 0 && p < m ? p : m;
+    }, Infinity);
+    if (Number.isFinite(min)) flat[name] = min;
+  }
+
+  const names = Object.keys(flat);
+  if (names.length === 0) return;
   const r4 = (n: number) => Math.round(n * 10000) / 10000;
 
   let changed = 0;
@@ -648,6 +691,10 @@ async function syncGridCollapse(
           dirty = true;
           changed++;
         }
+      } else if (key === "ModelGridPricing" && name in resolutionGrids) {
+        map[name] = resolutionGrids[name];
+        dirty = true;
+        changed++;
       } else if (name in map) {
         delete map[name];
         dirty = true;

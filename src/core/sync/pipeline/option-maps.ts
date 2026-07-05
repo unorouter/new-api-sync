@@ -103,14 +103,33 @@ export function buildOptionMaps(
     }
   }
 
-  // Pricing is global per model name (new-api has no per-channel price), so a grid
-  // and a per-request provider of the same model cannot coexist cleanly. Collapse
-  // every config grid to a single flat per-request modelPrice = the most expensive
-  // grid row, so all groups bill one consistent, never-underbilling price. No
-  // ModelGridPricing is emitted (the map stays empty, clearing any stale grid).
+  // Two grid shapes, handled differently:
+  // - Resolution grid (rows keyed on "Resolution", e.g. gemini-image 1K/2K/4K): the gateway
+  //   applies it at settlement via GetGridPrice(model, ImageResolution), so emit the real
+  //   ModelGridPricing. A per-request modelPrice base is still set (the cheapest tier) so a
+  //   request without a resolution falls back sanely.
+  // - Duration/mode grid (wan/sora config grids): the video task adaptor derives seconds/mode
+  //   from the request, so a settlement grid would double-count. Collapse to a flat max-price
+  //   modelPrice (never-underbilling), emit no grid.
   const modelGridPricing: Record<string, GridPricingInfo> = {};
   for (const [modelName, rows] of Object.entries(configGridPricing)) {
     const mappedName = modelMapping?.[modelName] ?? modelName;
+    const isResolutionGrid = rows.every(
+      (row) => typeof row.Resolution === "string" && row.Resolution !== "",
+    );
+    if (isResolutionGrid && rows.length > 0) {
+      modelGridPricing[mappedName] = rows as GridPricingInfo;
+      const minPricing = rows.reduce((min, row) => {
+        const p = Number(row.Pricing);
+        return Number.isFinite(p) && p > 0 && p < min ? p : min;
+      }, Infinity);
+      if (Number.isFinite(minPricing)) {
+        modelPrice[mappedName] = r4(minPricing);
+        delete modelRatio[mappedName];
+        delete completionRatio[mappedName];
+      }
+      continue;
+    }
     const maxPricing = rows.reduce((max, row) => {
       const p = Number(row.Pricing);
       return Number.isFinite(p) && p > max ? p : max;
