@@ -301,7 +301,63 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       tiers,
       drops,
     );
+  dropAbove1xDuplicates(tiers, modelRatios, canonical, drops);
   return { tiers, modelRatios, drops };
+}
+
+// A per-channel group ratio can push a model's retail ABOVE 1x canonical (e.g. ephone's
+// pricey vendor-group channels vs its cheap Official group). Drop such a channel for a model
+// WHEN a cheaper channel (retail <= 1x) also serves it; keep the single cheapest above-1x
+// channel when it is the model's ONLY option (never leave a model with zero channels).
+function dropAbove1xDuplicates(
+  tiers: PricedTier[],
+  modelRatios: Map<string, MergedModel>,
+  canonical: Map<string, number>,
+  drops: PricedDrop[],
+): void {
+  const retailRatio = (model: string, tier: PricedTier): number | undefined => {
+    const w = modelRatios.get(model);
+    if (!w) return undefined;
+    const unit = isFixed(w) ? w.modelPrice : w.ratio;
+    return unit !== undefined ? unit * tier.groupRatio : undefined;
+  };
+  // Per model: gather every (tier, retail); a ceiling of undefined never caps.
+  const perModel = new Map<string, { tier: PricedTier; retail: number }[]>();
+  for (const tier of tiers)
+    for (const model of tier.models) {
+      const r = retailRatio(model, tier);
+      if (r === undefined) continue;
+      (perModel.get(model) ?? perModel.set(model, []).get(model)!).push({
+        tier,
+        retail: r,
+      });
+    }
+  const removeModelFromTier = (tier: PricedTier, model: string) => {
+    tier.models = tier.models.filter((m) => m !== model);
+    if (tier.modelMapping) delete tier.modelMapping[model];
+    drops.push({
+      model,
+      channel: tier.channelName,
+      reason: "cap-exceeded",
+      effectiveRatio: tier.groupRatio,
+    });
+  };
+  for (const [model, entries] of perModel) {
+    const w = modelRatios.get(model);
+    if (!w) continue;
+    // 1x ceiling = the multi-source canonical, else the model's own sticker (cheapest
+    // relay's price IS the natural 1x), matching the existing cap fallback at :412/:473.
+    const sticker = isFixed(w) ? w.modelPrice : w.ratio;
+    const ceiling = canonical.get(model) ?? sticker;
+    if (ceiling === undefined) continue;
+    const hasCheap = entries.some((e) => e.retail <= ceiling + 1e-9);
+    if (!hasCheap) continue; // only expensive channels -> keep them all (cheapest stays)
+    for (const e of entries)
+      if (e.retail > ceiling + 1e-9) removeModelFromTier(e.tier, model);
+  }
+  // Prune tiers whose model list is now empty.
+  for (let i = tiers.length - 1; i >= 0; i--)
+    if (tiers[i]!.models.length === 0) tiers.splice(i, 1);
 }
 
 function processStandardOffer(
