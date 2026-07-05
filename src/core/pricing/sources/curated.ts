@@ -297,6 +297,28 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsVision: true,
     supportsTools: true,
   },
+  // Agnes AI (Sapiens AI) house models. 2.0-flash rolled its 1M context back to
+  // 256K in June 2026; supports thinking, streaming, tools, vision.
+  "agnes-2.0-flash": {
+    releaseDate: iso("2026-06-01"),
+    contextWindow: 262_144,
+    series: "Agnes",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "agnes-1.5-flash": {
+    releaseDate: iso("2026-03-01"),
+    contextWindow: 131_072,
+    series: "Agnes",
+    supportsTools: true,
+  },
+  // Mistral Leanstral (served free via Requesty). 262K context, tool calling.
+  "leanstral-1-5": {
+    releaseDate: iso("2026-05-01"),
+    contextWindow: 262_144,
+    series: "Mistral",
+    supportsTools: true,
+  },
   "nemotron-nano-12b-v2-vl": {
     releaseDate: iso("2025-10-28"),
     contextWindow: 131_072,
