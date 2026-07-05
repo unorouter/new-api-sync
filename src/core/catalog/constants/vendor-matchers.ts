@@ -28,6 +28,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   nousresearch: { modelPatterns: ["hermes-"], nameAliases: ["nous","nousresearch"], displayName: "Nous Research", icon: "NousResearch" },
   gryphe: { modelPatterns: ["mythomax","mythomist","mythalion","mytho-"], strongPatterns: ["mythomax","mythalion"], nameAliases: ["gryphe"], displayName: "Gryphe" },
   venice: { modelPatterns: ["venice"], nameAliases: ["venice"], displayName: "Venice AI", icon: "Venice.Color" },
+  agnes: { modelPatterns: ["agnes-"], nameAliases: ["agnes","sapiens"], displayName: "Agnes AI" },
   alibaba: { modelPatterns: ["qwen","qwq-","qvq-","text-embedding-v"], nameAliases: ["阿里","通义","qwen","阿里巴巴"], displayName: "Alibaba", icon: "AlibabaCloud.Color" },
   bailian: { modelPatterns: ["wan2","z-image","happyhorse"], nameAliases: ["bailian","阿里云百炼"], displayName: "Bailian", icon: "AlibabaCloud.Color" },
   flux: { modelPatterns: ["flux-","flux.","flux"], nameAliases: ["flux"], displayName: "Flux", icon: "Flux" },
