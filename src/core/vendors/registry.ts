@@ -26,6 +26,7 @@ import { discoverCohereModels } from "./cohere/discovery";
 import { discoverHuggingFaceModels } from "./huggingface/discovery";
 import { discoverSiliconFlowModels } from "./siliconflow/discovery";
 import { discoverLlm7Models } from "./llm7/discovery";
+import { discoverAgnesModels } from "./agnes/discovery";
 import { discoverOpenCodeZenModels } from "./opencodezen/discovery";
 import { discoverLogfareModels } from "./logfare/discovery";
 import { discoverNavyAiModels } from "./navyai/discovery";
@@ -86,6 +87,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   huggingface: discoverHuggingFaceModels,
   siliconflow: discoverSiliconFlowModels,
   llm7: discoverLlm7Models,
+  agnes: discoverAgnesModels,
   opencodezen: discoverOpenCodeZenModels,
   logfare: discoverLogfareModels,
   navyai: discoverNavyAiModels,

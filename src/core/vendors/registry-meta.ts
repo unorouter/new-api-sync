@@ -142,6 +142,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "llm7 token",
   },
   {
+    kind: "agnes",
+    label: "Agnes AI",
+    // Sapiens AI omni-modal gateway (apihub.agnes-ai.com/v1); base is the host,
+    // runner + discovery append /v1. Free RPM 20, no card, GitHub OAuth key.
+    // House models only (agnes-2.0-flash 256K/tools/vision, agnes-1.5-flash).
+    defaultBaseUrl: "https://apihub.agnes-ai.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-…",
+  },
+  {
     kind: "siliconflow",
     label: "SiliconFlow",
     // OpenAI-compatible; base is the host, runner + discovery append /v1. Pay-per-
