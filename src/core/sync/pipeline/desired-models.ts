@@ -12,6 +12,7 @@ import { type BasellmEntry, buildMetadataMap } from "@core/catalog/metadata";
 import {
   buildModelMetadata,
   deriveTagsFromMetadata,
+  looksTruncated,
   type PricingSource,
   resolveSourceMetadata,
 } from "@core/pricing/resolver";
@@ -19,6 +20,22 @@ import type { Channel, DesiredModelSpec } from "@core/types";
 import { consola } from "consola";
 
 const CLAUDE_CONTEXT_1M_SUFFIX = "[1m]";
+
+// Prefer the non-truncated, then the longer description. Keeps the current
+// OpenRouter win when both are complete; lets ePhone's full text override a
+// truncated OpenRouter stub.
+function pickBetterDescription(
+  primary: string | undefined,
+  fallback: string | undefined,
+): string | undefined {
+  if (!primary) return fallback;
+  if (!fallback) return primary;
+  const primaryTrunc = looksTruncated(primary);
+  const fallbackTrunc = looksTruncated(fallback);
+  if (primaryTrunc && !fallbackTrunc) return fallback;
+  if (!primaryTrunc && fallbackTrunc) return primary;
+  return fallback.length > primary.length ? fallback : primary;
+}
 
 // exposed -> upstream from every channel's model_mapping. First-wins for determinism.
 function buildChannelModelUpstream(channels: Channel[]): Map<string, string> {
@@ -118,10 +135,16 @@ export function buildDesiredModels(opts: {
   for (const [modelName, spec] of models) {
     const meta =
       metadataMap.get(modelName) ?? metadataMap.get(toBareName(modelName));
-    if (meta) {
-      if (meta.description) spec.description = meta.description;
-      if (meta.tags) spec.tags = meta.tags;
-    }
+    if (meta?.tags) spec.tags = meta.tags;
+    // ePhone (and other pricing sources) carry full descriptions; OpenRouter's is
+    // often truncated. Take the fuller/non-truncated of the two.
+    const sourceDescription = resolveSourceMetadata(
+      modelName,
+      opts.pricingSources,
+      opts.reverseMapping,
+    ).description;
+    const chosen = pickBetterDescription(meta?.description, sourceDescription);
+    if (chosen) spec.description = chosen;
   }
 
   for (const [modelName, spec] of models) {

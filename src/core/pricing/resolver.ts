@@ -81,6 +81,14 @@ export function resolveBasePricing(
   return undefined;
 }
 
+// OpenRouter/basellm ship blurbs cut mid-sentence with a trailing ellipsis
+// ("...reasoning effort levels (low, medium, high, max,..."). A higher-priority
+// source with a truncated description must not clobber a full one from a lower
+// source (ePhone ships the complete text).
+export function looksTruncated(desc: string): boolean {
+  return /(?:[,.]\s*)?\.\.\.\s*$/.test(desc.trimEnd());
+}
+
 function resolveOneName(
   modelName: string,
   sources: PricingSource[],
@@ -89,7 +97,22 @@ function resolveOneName(
   const merged: SourceMetadata = {};
   for (let i = sources.length - 1; i >= 0; i--) {
     const hit = lookup(modelName, sources[i]!.metadata, reverseMapping);
-    if (hit) Object.assign(merged, hit.value);
+    if (!hit) continue;
+    const incoming = hit.value;
+    // Higher priority applies last; keep an existing full description when the
+    // incoming one is truncated.
+    if (
+      incoming.description &&
+      merged.description &&
+      looksTruncated(incoming.description) &&
+      !looksTruncated(merged.description)
+    ) {
+      const keep = merged.description;
+      Object.assign(merged, incoming);
+      merged.description = keep;
+    } else {
+      Object.assign(merged, incoming);
+    }
   }
   // Corrections that win over every live source (verified known-wrong upstreams).
   const override = CURATED_OVERRIDE[modelName];

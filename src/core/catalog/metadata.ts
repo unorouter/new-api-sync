@@ -4,7 +4,11 @@ import { t } from "@server/i18n";
 import { consola } from "consola";
 import removeMd from "remove-markdown";
 
-const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
+// Frontend catalog, NOT the public /api/v1/models: the public endpoint truncates
+// descriptions to ~226 chars ("...low, medium, high, max,..."), the frontend
+// catalog serves the full text.
+const OPENROUTER_MODELS_URL =
+  "https://openrouter.ai/api/frontend/v1/catalog/models";
 const BASELLM_MODELS_URL =
   "https://basellm.github.io/llm-metadata/api/newapi/models.json";
 const TEMPLATE_DESCRIPTION_RE = /^.+ is an AI model provided by .+\.$/;
@@ -15,7 +19,7 @@ const stripMarkdown = (text: string): string =>
     .trim();
 
 interface OpenRouterModel {
-  id: string;
+  slug: string;
   description: string;
 }
 
@@ -56,9 +60,10 @@ export async function fetchOpenRouterDescriptions(): Promise<
     return map;
   }
   for (const model of raw.data) {
-    if (!model.id || !model.description) continue;
-    const slashIdx = model.id.indexOf("/");
-    const bareName = slashIdx >= 0 ? model.id.slice(slashIdx + 1) : model.id;
+    if (!model.slug || !model.description) continue;
+    const slashIdx = model.slug.indexOf("/");
+    const bareName =
+      slashIdx >= 0 ? model.slug.slice(slashIdx + 1) : model.slug;
     if (!map.has(bareName)) map.set(bareName, stripMarkdown(model.description));
   }
   consola.info(t("CORE.METADATA.OPENROUTER_FETCHED", { count: map.size }));
