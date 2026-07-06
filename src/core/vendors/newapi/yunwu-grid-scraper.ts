@@ -27,17 +27,26 @@ export interface ResolutionRatioRow {
 }
 
 async function fetchText(url: string): Promise<string> {
-  return ofetch<string>(url, { parseResponse: (t) => t, retry: 2, timeout: 20_000 });
+  return ofetch<string>(url, {
+    parseResponse: (t) => t,
+    retry: 2,
+    timeout: 20_000,
+  });
 }
 
 // /pricing HTML -> the app entry chunk URL (the only <script src> that is an index-*.js).
 function findEntryChunk(html: string): string | undefined {
-  const m = html.match(/https:\/\/[^"']+\/assets\/js\/index-[A-Za-z0-9_-]+\.js/);
+  const m = html.match(
+    /https:\/\/[^"']+\/assets\/js\/index-[A-Za-z0-9_-]+\.js/,
+  );
   return m?.[0];
 }
 
 // entry chunk -> the pricing route's lazy chunk name, resolved by route path (survives rebuilds).
-function findPricingChunk(entryJs: string, entryUrl: string): string | undefined {
+function findPricingChunk(
+  entryJs: string,
+  entryUrl: string,
+): string | undefined {
   const m = entryJs.match(
     /"\/pricing":\s*\(\)\s*=>[^,]*import\("\.\/(index-[A-Za-z0-9_-]+\.js)"\)/,
   );
@@ -89,13 +98,17 @@ export async function scrapeYunwuGeminiImageGrids(
     const html = await fetchText(PRICING_URL);
     const entryUrl = findEntryChunk(html);
     if (!entryUrl) {
-      consola.warn("[yunwu-grid] entry chunk not found in /pricing HTML; using flat prices");
+      consola.warn(
+        "[yunwu-grid] entry chunk not found in /pricing HTML; using flat prices",
+      );
       return out;
     }
     const entryJs = await fetchText(entryUrl);
     const chunkUrl = findPricingChunk(entryJs, entryUrl);
     if (!chunkUrl) {
-      consola.warn("[yunwu-grid] pricing chunk not found via route import; using flat prices");
+      consola.warn(
+        "[yunwu-grid] pricing chunk not found via route import; using flat prices",
+      );
       return out;
     }
     const chunk = await fetchText(chunkUrl);
@@ -115,7 +128,9 @@ export async function scrapeYunwuGeminiImageGrids(
       for (const model of models) {
         const flat = basePrices[model];
         if (!flat || flat <= 0) {
-          consola.warn(`[yunwu-grid] no base price for ${model}; skipping grid`);
+          consola.warn(
+            `[yunwu-grid] no base price for ${model}; skipping grid`,
+          );
           continue;
         }
         out[model] = [
@@ -126,7 +141,9 @@ export async function scrapeYunwuGeminiImageGrids(
       }
     }
     if (Object.keys(out).length > 0)
-      consola.info(`[yunwu-grid] scraped resolution grids for ${Object.keys(out).join(", ")}`);
+      consola.info(
+        `[yunwu-grid] scraped resolution grids for ${Object.keys(out).join(", ")}`,
+      );
     return out;
   } catch (err) {
     consola.warn(

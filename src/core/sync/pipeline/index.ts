@@ -214,6 +214,11 @@ export async function runProviderPipeline(
 
   const allPricingGrids: Record<string, Record<string, string | number>[]> = {};
   const allMetadata: Record<string, Record<string, unknown>> = {};
+  // Provider-decoded resolution grids (ephone image models priced per resolution).
+  // Seeded first so config `modelPricingGrid` overrides win on key collision.
+  for (const offer of allOffers)
+    for (const m of offer.models)
+      if (m.gridRows?.length) allPricingGrids[m.upstream] = m.gridRows;
   // Provider-supplied per-model metadata (e.g. Groq upstream max_completion_tokens).
   // Seeded first so config enabledModels overrides win on key collision.
   for (const offer of allOffers)
@@ -241,7 +246,10 @@ export async function runProviderPipeline(
     const basePrices: Record<string, number> = {};
     for (const [name, mm] of mergedModels)
       if ((mm.modelPrice ?? 0) > 0) basePrices[name] = mm.modelPrice!;
-    Object.assign(allPricingGrids, await scrapeYunwuGeminiImageGrids(basePrices));
+    Object.assign(
+      allPricingGrids,
+      await scrapeYunwuGeminiImageGrids(basePrices),
+    );
   }
 
   // Private providers: declarative-only channels (no discovery/testing/pricing),

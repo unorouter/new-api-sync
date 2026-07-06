@@ -99,7 +99,8 @@ function tierSuffixMismatch(a: string, b: string): boolean {
 // image-to-video, viduq3-pro/text-to-video, eleven_flash_v2_5/text-to-speech).
 // These are routing markers, not part of the model identity, so strip them before
 // metadata lookup. NOT a general slash strip (Cloudflare "@cf/org/model" keeps its).
-const TASK_SUFFIX = /\/(?:image|text|start-end|video|audio|speech)-to-(?:video|image|speech|text|audio)$/;
+const TASK_SUFFIX =
+  /\/(?:image|text|start-end|video|audio|speech)-to-(?:video|image|speech|text|audio)$/;
 
 function normalize(name: string): string {
   return name

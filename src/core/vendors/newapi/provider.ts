@@ -623,6 +623,8 @@ export async function processNewApiProvider(
                 normalizedEndpoints: normalized,
                 audioRatio: m?.audioRatio,
                 audioCompletionRatio: m?.audioCompletionRatio,
+                imageRatio: m?.imageRatio,
+                gridRows: m?.gridRows,
                 billingMode: m?.billingMode,
                 billingExpr: m?.billingExpr,
                 pricingVersion: m?.pricingVersion,

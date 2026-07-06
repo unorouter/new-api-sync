@@ -89,6 +89,7 @@ interface BillingFields {
   billingExpr?: string;
   audioRatio?: number;
   audioCompletionRatio?: number;
+  imageRatio?: number;
   pricingVersion?: string;
 }
 
@@ -116,6 +117,8 @@ function pickBillingFields(
     audioCompletionRatio: occurrences.find(
       (o) => o.model.audioCompletionRatio !== undefined,
     )?.model.audioCompletionRatio,
+    imageRatio: occurrences.find((o) => o.model.imageRatio !== undefined)?.model
+      .imageRatio,
     pricingVersion: occurrences.find((o) => o.model.pricingVersion)?.model
       .pricingVersion,
   };
@@ -185,7 +188,7 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
         quotaType: fm.quotaType ?? existing?.quotaType,
         cacheRatio: existing?.cacheRatio ?? fm.cacheRatio,
         createCacheRatio: existing?.createCacheRatio ?? fm.createCacheRatio,
-        imageRatio: existing?.imageRatio,
+        imageRatio: existing?.imageRatio ?? billing.imageRatio,
         audioRatio: existing?.audioRatio ?? billing.audioRatio,
         audioCompletionRatio:
           existing?.audioCompletionRatio ?? billing.audioCompletionRatio,
@@ -250,7 +253,7 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       createCacheRatio: createCacheRatio ?? existing?.createCacheRatio,
       modelPrice: haveRealRatio ? undefined : existing?.modelPrice,
       quotaType: haveRealRatio ? undefined : existing?.quotaType,
-      imageRatio: existing?.imageRatio,
+      imageRatio: existing?.imageRatio ?? billing.imageRatio,
       audioRatio: existing?.audioRatio ?? billing.audioRatio,
       audioCompletionRatio:
         existing?.audioCompletionRatio ?? billing.audioCompletionRatio,
@@ -301,35 +304,40 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       tiers,
       drops,
     );
-  dropAbove1xDuplicates(tiers, modelRatios, canonical, drops);
+  capAbove1x(tiers, modelRatios, canonical, drops);
   return { tiers, modelRatios, drops };
 }
 
-// A per-channel group ratio can push a model's retail ABOVE 1x canonical (e.g. ephone's
-// pricey vendor-group channels vs its cheap Official group). Drop such a channel for a model
-// WHEN a cheaper channel (retail <= 1x) also serves it; keep the single cheapest above-1x
-// channel when it is the model's ONLY option (never leave a model with zero channels).
-function dropAbove1xDuplicates(
+// Per model, on the priced tiers:
+//   1. DEDUPE: keep the single cheapest channel, drop every pricier duplicate above 1x list.
+//   2. RE-PRICE the survivor from its cost_ratio = groupRatio / (1 + priceAdjustment):
+//      - discounted lane (cost_ratio < 1): sit `adj` of the way from cost to 1x list
+//        (target = cost_ratio + (1 - cost_ratio) * adj). adj=0.5 -> midpoint of cost and list:
+//        always below 1x, always above cost.
+//      - no-discount lane (cost_ratio >= 1, only the 1x "Official" group): no cheap group to
+//        profit on, so take just +5% over cost. The ONLY case retail exceeds 1x, and by 5%.
+const MAX_ABOVE_1X = 1.05;
+
+function capAbove1x(
   tiers: PricedTier[],
   modelRatios: Map<string, MergedModel>,
   canonical: Map<string, number>,
   drops: PricedDrop[],
 ): void {
-  const retailRatio = (model: string, tier: PricedTier): number | undefined => {
+  const unitOf = (model: string): number | undefined => {
     const w = modelRatios.get(model);
     if (!w) return undefined;
-    const unit = isFixed(w) ? w.modelPrice : w.ratio;
-    return unit !== undefined ? unit * tier.groupRatio : undefined;
+    return isFixed(w) ? w.modelPrice : w.ratio;
   };
-  // Per model: gather every (tier, retail); a ceiling of undefined never caps.
+  // Per model: every (tier, retail).
   const perModel = new Map<string, { tier: PricedTier; retail: number }[]>();
   for (const tier of tiers)
     for (const model of tier.models) {
-      const r = retailRatio(model, tier);
-      if (r === undefined) continue;
+      const unit = unitOf(model);
+      if (unit === undefined) continue;
       (perModel.get(model) ?? perModel.set(model, []).get(model)!).push({
         tier,
-        retail: r,
+        retail: unit * tier.groupRatio,
       });
     }
   const removeModelFromTier = (tier: PricedTier, model: string) => {
@@ -343,21 +351,62 @@ function dropAbove1xDuplicates(
     });
   };
   for (const [model, entries] of perModel) {
-    const w = modelRatios.get(model);
-    if (!w) continue;
-    // 1x ceiling = the multi-source canonical, else the model's own sticker (cheapest
-    // relay's price IS the natural 1x), matching the existing cap fallback at :412/:473.
-    const sticker = isFixed(w) ? w.modelPrice : w.ratio;
-    const ceiling = canonical.get(model) ?? sticker;
-    if (ceiling === undefined) continue;
-    const hasCheap = entries.some((e) => e.retail <= ceiling + 1e-9);
-    if (!hasCheap) continue; // only expensive channels -> keep them all (cheapest stays)
+    const unit = unitOf(model);
+    if (unit === undefined || unit <= 0) continue;
+    // 1x ceiling = multi-source canonical, else the model's own sticker (the natural 1x).
+    const ceiling = canonical.get(model) ?? unit;
+    // Keep the cheapest, drop every pricier duplicate (cross-provider dedupe).
+    const cheapest = entries.reduce((a, b) => (b.retail < a.retail ? b : a));
     for (const e of entries)
-      if (e.retail > ceiling + 1e-9) removeModelFromTier(e.tier, model);
+      if (e !== cheapest && e.retail > ceiling + 1e-9)
+        removeModelFromTier(e.tier, model);
+    // Re-price the surviving cheapest from its cost_ratio = groupRatio/(1+adj):
+    //   - discounted lane (cost_ratio < 1): sit `adj` of the way from cost to 1x list, i.e.
+    //     target = cost_ratio + (1 - cost_ratio) * adj. With adj=0.5 that is the midpoint of our
+    //     cost and list: always below 1x, always above cost (half the discount is our margin).
+    //   - no-discount lane (cost_ratio >= 1, only the 1x "Official" group): no cheap group to
+    //     profit on, so take just +5% over cost. The ONLY case retail exceeds 1x, and by 5%.
+    // Only positive-markup (ephone-style USD) providers are re-priced. Negative/zero adjustments
+    // are the yuan convention (retail already below cost in USD terms) and paid-offer tiers, both
+    // left untouched.
+    const adj = cheapest.tier.priceAdjustment ?? 0;
+    if (adj <= 0) continue;
+    const costRatio = cheapest.tier.groupRatio / (1 + adj);
+    const target =
+      costRatio < 1
+        ? costRatio + (1 - costRatio) * adj
+        : costRatio * MAX_ABOVE_1X;
+    if (Math.abs(cheapest.tier.groupRatio - target) > 1e-9)
+      clampTierForModel(tiers, cheapest.tier, model, target);
   }
-  // Prune tiers whose model list is now empty.
   for (let i = tiers.length - 1; i >= 0; i--)
     if (tiers[i]!.models.length === 0) tiers.splice(i, 1);
+}
+
+// Set `model`'s group ratio to `newRatio` on `tier`. If the tier serves other models (which
+// keep the original ratio), move `model` onto a cloned sibling tier so only it is clamped.
+function clampTierForModel(
+  tiers: PricedTier[],
+  tier: PricedTier,
+  model: string,
+  newRatio: number,
+): void {
+  if (tier.models.length === 1) {
+    tier.groupRatio = newRatio;
+    return;
+  }
+  tier.models = tier.models.filter((m) => m !== model);
+  const mapping = tier.modelMapping?.[model]
+    ? { [model]: tier.modelMapping[model]! }
+    : undefined;
+  if (tier.modelMapping) delete tier.modelMapping[model];
+  tiers.push({
+    ...tier,
+    channelName: `${tier.channelName}-cap`,
+    groupRatio: newRatio,
+    models: [model],
+    modelMapping: mapping,
+  });
 }
 
 function processStandardOffer(
@@ -400,7 +449,8 @@ function processStandardOffer(
     }
     addToBucket(buckets, bucketKey(groupRatio), m);
   }
-  if (buckets.size > 0) pushBucketsAsTiers(offer, buckets, tiers, modelRatios);
+  if (buckets.size > 0)
+    pushBucketsAsTiers(offer, buckets, tiers, modelRatios, args);
 }
 
 function processPaidOffer(
@@ -488,7 +538,8 @@ function processNoUpstreamOffer(
     }
     addToBucket(buckets, bucketKey(groupRatio), m);
   }
-  if (buckets.size > 0) pushBucketsAsTiers(offer, buckets, tiers, modelRatios);
+  if (buckets.size > 0)
+    pushBucketsAsTiers(offer, buckets, tiers, modelRatios, args);
 }
 
 // One channel per model: each model maps to its own new-api channel so a per-model
@@ -502,6 +553,7 @@ function pushBucketsAsTiers(
   buckets: Map<number, OfferModel[]>,
   tiers: PricedTier[],
   modelRatios: Map<string, MergedModel>,
+  args?: ComputeArgs,
 ): void {
   const baseUrlTrim = offer.baseUrl.replace(/\/$/, "");
   for (const [groupRatio, bucketModels] of buckets) {
@@ -550,6 +602,7 @@ function pushBucketsAsTiers(
         groupRatio,
         groupDescription: `${publishedName} via ${offer.provider} (${offer.vendor})`,
         models,
+        priceAdjustment: args ? adjustmentFor(offer, m, args) : 0,
         modelMapping: Object.keys(modelMapping).length
           ? modelMapping
           : undefined,

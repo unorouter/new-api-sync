@@ -1,4 +1,4 @@
-import type { GroupInfo } from "@core/types";
+import type { GridPricingInfo, GroupInfo } from "@core/types";
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -19,6 +19,9 @@ export interface ModelInfo {
   quotaType?: number;
   audioRatio?: number;
   audioCompletionRatio?: number;
+  imageRatio?: number;
+  /** Per-resolution grid rows for image models whose upstream conditions price by resolution. */
+  gridRows?: GridPricingInfo;
   billingMode?: string;
   billingExpr?: string;
   pricingVersion?: string;
@@ -126,6 +129,9 @@ interface EphoneConditionPrice {
   model_price?: number;
   cache_read_token_price?: number;
   cache_create_token_price?: number;
+  audio_token_price?: number;
+  audio_completion_token_price?: number;
+  image_token_price?: number;
 }
 
 export interface EphoneModel {

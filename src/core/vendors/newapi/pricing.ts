@@ -1,9 +1,10 @@
 import {
   CHANNEL_TYPES,
+  getTaskModelOverride,
   inferChannelType,
 } from "@core/catalog/constants/channel-types";
 import { tryFetchJson } from "@core/infra/http";
-import type { GroupInfo } from "@core/types";
+import type { GridPricingInfo, GroupInfo } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import type { ClientContext } from "./context";
@@ -240,19 +241,23 @@ function endpointsFromModalities(m: {
   return [];
 }
 
+type EphoneConditions = NonNullable<
+  NonNullable<EphoneModel["price_config"]>["original_price"]
+>["conditions"];
+type EphoneCondition = NonNullable<EphoneConditions>[number];
+
 // ephone: price_config.original_price.conditions[].price.
-// - token: ratio + completionRatio (LLM). Multi-condition token = geo/context surcharge,
-//   priced off the base condition (the surcharge is a runtime add-on).
-// - call (per-request flat) and time (per-second): emit a flat modelPrice. The gateway's
-//   native task adaptor applies resolution/duration multipliers at request time
-//   (seconds/mode/resolution), so the flat base is the per-second rate (time) or per-unit
-//   rate (call). Multi-condition media uses the CHEAPEST tier as the base; the adaptor's
-//   EstimateBilling scales up for higher resolutions. Prices pass through verbatim (the
+// - token: ratio + completionRatio + cache/audio/image sub-ratios (LLM). Multi-condition token
+//   is a context-tier surcharge (usage.prompt_tokens >= N); the gateway cannot switch price by
+//   context, so we bill the DOMINANT (highest) condition to never under-bill.
+// - call (per-request flat) and time (per-second): emit a flat modelPrice. Video that routes to a
+//   resolution/duration-capable task adaptor (kling/sora/gemini/vertex/ali) keeps the CHEAPEST
+//   base; the adaptor's EstimateBilling scales up for higher resolutions, so a grid here would
+//   double-count. Image models priced by resolution (no adaptor) emit a real resolution grid.
+//   Everything else uses the DOMINANT flat price. Prices pass through verbatim (the
 //   yuan-labeled-as-USD number is the retail-margin convention used across providers).
 function decodeEphone(m: EphoneModel): ModelInfo | undefined {
-  const orig = m.price_config?.original_price;
-  const conditions = orig?.conditions ?? [];
-  const price = conditions[0]?.price;
+  const conditions = m.price_config?.original_price?.conditions ?? [];
   const base: ModelInfo = {
     name: m.model_name,
     ratio: 1,
@@ -261,6 +266,8 @@ function decodeEphone(m: EphoneModel): ModelInfo | undefined {
     vendorId: m.vendor_id,
     supportedEndpoints: endpointsFromModalities(m.modalities ?? {}),
   };
+  const dominant = dominantCondition(conditions);
+  const price = dominant?.price;
   if (!price) return base;
   if (price.quota_type === "token") {
     const input = price.input_token_price ?? 0;
@@ -268,15 +275,48 @@ function decodeEphone(m: EphoneModel): ModelInfo | undefined {
     if (input <= 0) return base;
     base.ratio = input / USD_PER_M_PER_RATIO;
     base.completionRatio = output > 0 ? output / input : 1;
-    if (price.cache_read_token_price != null && input > 0)
+    if (price.cache_read_token_price != null)
       base.cacheRatio = price.cache_read_token_price / input;
-    if (price.cache_create_token_price != null && input > 0)
+    if (price.cache_create_token_price != null)
       base.createCacheRatio = price.cache_create_token_price / input;
+    if (price.audio_token_price != null && price.audio_token_price > 0) {
+      base.audioRatio = price.audio_token_price / input;
+      // Gateway bills audio output at audioRatio * audioCompletionRatio, so this ratio is
+      // audio-out / audio-in (not / input).
+      if (
+        price.audio_completion_token_price != null &&
+        price.audio_completion_token_price > 0
+      )
+        base.audioCompletionRatio =
+          price.audio_completion_token_price / price.audio_token_price;
+    }
+    if (price.image_token_price != null && price.image_token_price > 0)
+      base.imageRatio = price.image_token_price / input;
     return base;
   }
-  // Flat media price: per-unit (call) or per-second (time). Pick the cheapest condition's
-  // value so multi-condition resolution tiers start at the base rate.
-  const flat = cheapestFlatPrice(conditions);
+  // Image priced by resolution with no task adaptor: emit a per-resolution grid the gateway bills
+  // via GetGridPrice (image output resolution). Distinguish from adaptor-billed video by (a) image
+  // modality, (b) a resolution/size rule, (c) no task-model override.
+  const isImage = (m.modalities?.output ?? []).includes("image");
+  if (isImage && !getTaskModelOverride(m.model_name)) {
+    const grid = conditionsToResolutionGrid(conditions);
+    if (grid) {
+      base.gridRows = grid;
+      base.quotaType = 1;
+      const cheapest = grid.reduce(
+        (min, r) => (r.Pricing < min ? r.Pricing : min),
+        Infinity,
+      );
+      if (Number.isFinite(cheapest)) base.modelPrice = cheapest;
+      return base;
+    }
+  }
+  // Video that routes to a resolution/duration-capable task adaptor bills off the cheapest base
+  // (the adaptor multiplies up); everything else takes the dominant (highest) flat price.
+  const adaptorScales = adaptorScalesResolution(m.model_name);
+  const flat = adaptorScales
+    ? cheapestFlatPrice(conditions)
+    : flatPriceOf(price);
   if (flat != null && flat > 0) {
     base.modelPrice = flat;
     base.quotaType = 1;
@@ -284,20 +324,94 @@ function decodeEphone(m: EphoneModel): ModelInfo | undefined {
   return base;
 }
 
-// Lowest per-unit/per-second price across an ephone model's conditions (resolution tiers).
-function cheapestFlatPrice(
-  conditions: NonNullable<
-    NonNullable<EphoneModel["price_config"]>["original_price"]
-  >["conditions"],
-): number | undefined {
-  let min: number | undefined;
+const flatPriceOf = (
+  p: EphoneCondition["price"] | undefined,
+): number | undefined =>
+  p?.per_second_price != null && p.per_second_price > 0
+    ? p.per_second_price
+    : (p?.model_price ?? undefined);
+
+// The condition we bill from: highest input_token_price (token) or highest flat price (media),
+// so a context/resolution surcharge is never under-billed.
+function dominantCondition(
+  conditions: EphoneConditions,
+): EphoneCondition | undefined {
+  let best: EphoneCondition | undefined;
+  let bestVal = -Infinity;
   for (const c of conditions ?? []) {
     const p = c.price;
     if (!p) continue;
-    const v = p.per_second_price ?? p.model_price;
+    const v =
+      p.quota_type === "token"
+        ? (p.input_token_price ?? 0)
+        : (flatPriceOf(p) ?? 0);
+    if (v > bestVal) {
+      bestVal = v;
+      best = c;
+    }
+  }
+  return best;
+}
+
+// Task adaptors that apply per-request resolution/duration multipliers (kling/sora/gemini/
+// vertex/ali). For these the flat base must be the CHEAPEST tier; the rest are flat per-call.
+const RES_SCALING_ADAPTORS = new Set<number>([
+  CHANNEL_TYPES.KLING,
+  CHANNEL_TYPES.SORA,
+  CHANNEL_TYPES.GEMINI,
+  CHANNEL_TYPES.VERTEX_AI,
+  CHANNEL_TYPES.ALI,
+]);
+const adaptorScalesResolution = (name: string): boolean => {
+  const t = RES_SCALING_ADAPTORS as Set<number | undefined>;
+  return t.has(getTaskModelOverride(name)?.channelType);
+};
+
+// Lowest per-unit/per-second price across an ephone model's conditions (resolution tiers).
+function cheapestFlatPrice(conditions: EphoneConditions): number | undefined {
+  let min: number | undefined;
+  for (const c of conditions ?? []) {
+    const v = flatPriceOf(c.price);
     if (v != null && v > 0 && (min === undefined || v < min)) min = v;
   }
   return min;
+}
+
+// Build {Resolution, Pricing}[] rows from conditions whose rule selects a resolution/size, so the
+// gateway bills per output resolution via GetGridPrice. Returns undefined when no rule yields a
+// resolution label (then the caller falls back to a flat price).
+function conditionsToResolutionGrid(
+  conditions: EphoneConditions,
+): GridPricingInfo | undefined {
+  const rows: GridPricingInfo = [];
+  let sawLabel = false;
+  for (const c of conditions ?? []) {
+    const price = flatPriceOf(c.price);
+    if (price == null || price <= 0) continue;
+    const label = resolutionLabelFromRule(c.rule ?? "");
+    if (label) sawLabel = true;
+    rows.push({ Resolution: label ?? "default", Pricing: price });
+  }
+  return sawLabel && rows.length > 0 ? rows : undefined;
+}
+
+// Extract a resolution label from an ephone rule string. Handles explicit resolution tokens
+// (720p/2k) and WxH size expressions (max dimension -> nearest label). Empty for non-resolution
+// rules (e.g. context-tier), so the caller keeps the "default" row.
+function resolutionLabelFromRule(rule: string): string | undefined {
+  const explicit = rule.match(/resolution\s*==\s*['"]?(\d+k|\d+p)['"]?/i)?.[1];
+  if (explicit) return explicit.toUpperCase();
+  let maxDim = 0;
+  for (const m of rule.matchAll(/(\d{3,4})\s*[x*:]\s*(\d{3,4})/g)) {
+    const hi = Math.max(Number(m[1]), Number(m[2]));
+    if (hi > maxDim) maxDim = hi;
+  }
+  if (maxDim >= 3840) return "4K";
+  if (maxDim >= 2048) return "2K";
+  if (maxDim >= 1920) return "1080P";
+  if (maxDim >= 1280) return "720P";
+  if (maxDim >= 640) return "480P";
+  return undefined;
 }
 
 // chatfire: price_info[group].default. Native new-api ratios; pick the cheapest
@@ -323,7 +437,10 @@ function decodeChatfire(m: ChatfireModel): ModelInfo | undefined {
   };
   if (best.model_cache_ratio != null && best.model_cache_ratio >= 0)
     info.cacheRatio = best.model_cache_ratio;
-  if (best.model_create_cache_ratio != null && best.model_create_cache_ratio >= 0)
+  if (
+    best.model_create_cache_ratio != null &&
+    best.model_create_cache_ratio >= 0
+  )
     info.createCacheRatio = best.model_create_cache_ratio;
   if (best.model_audio_ratio != null && best.model_audio_ratio > 0)
     info.audioRatio = best.model_audio_ratio;

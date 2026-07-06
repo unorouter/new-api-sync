@@ -95,7 +95,8 @@ function buildSettingJson(tier: PricedTier): string | undefined {
     if (streaming !== undefined) capabilities.streaming = streaming;
     const http = summarize((d) => d.success);
     if (http !== undefined) capabilities.http = http;
-    if (Object.keys(capabilities).length > 0) setting.capabilities = capabilities;
+    if (Object.keys(capabilities).length > 0)
+      setting.capabilities = capabilities;
   }
 
   if (tier.passThroughBody) setting.pass_through_body_enabled = true;

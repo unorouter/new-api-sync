@@ -296,7 +296,11 @@ export async function ensureTokens(
     groupsAwaitingCreate.map((entry) =>
       createLimit(() =>
         gate.run(ctx.baseUrl, async () => {
-          const created = await createToken(ctx, entry.tokenName, entry.group.name);
+          const created = await createToken(
+            ctx,
+            entry.tokenName,
+            entry.group.name,
+          );
           return { ...entry, ok: created.ok, inlineKey: created.key };
         }),
       ),

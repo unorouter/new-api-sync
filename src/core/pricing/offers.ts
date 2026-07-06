@@ -2,7 +2,7 @@
 // returns UpstreamOffer[]; compute() consumes the union and produces a
 // PricedPlan. No mid-pipeline mutation.
 
-import type { ModelType } from "@core/types";
+import type { GridPricingInfo, ModelType } from "@core/types";
 import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
 import type { ModelMetadata, ProviderConfig } from "@core/validations/config";
@@ -36,6 +36,9 @@ export interface OfferModel {
   normalizedEndpoints?: string[];
   audioRatio?: number;
   audioCompletionRatio?: number;
+  imageRatio?: number;
+  /** Per-resolution grid rows (ephone image models priced by resolution). */
+  gridRows?: GridPricingInfo;
   /** "tiered_expr" when billingExpr is set; otherwise "ratio" or undefined. */
   billingMode?: string;
   /** expr-lang expression; presence forces tiered_expr billing, ratios are ignored. */
