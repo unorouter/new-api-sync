@@ -4,6 +4,7 @@ import { t } from "@server/i18n";
 import { fetchAipricingSource } from "./sources/aipricing";
 import { buildBasellmCanonicalSource } from "./sources/basellm";
 import { buildCuratedSource, CURATED_OVERRIDE } from "./sources/curated";
+import { fetchEphoneMetadataSource } from "./sources/ephone";
 import { fetchGenaiPricesSource } from "./sources/genai-prices";
 import { fetchLiteLLMSource } from "./sources/litellm";
 import { fetchLlmPricesSource } from "./sources/llm-prices";
@@ -19,15 +20,23 @@ export type { BaseModelPricing, PricingSource, SourceMetadata };
 export async function fetchAllPricingSources(
   basellmEntries: BasellmEntry[],
 ): Promise<PricingSource[]> {
-  const [llmPrices, litellm, openrouter, modelsDev, aipricing, genaiPrices] =
-    await Promise.all([
-      fetchLlmPricesSource(),
-      fetchLiteLLMSource(),
-      fetchOpenRouterPricingSource(),
-      fetchModelsDevSource(),
-      fetchAipricingSource(),
-      fetchGenaiPricesSource(),
-    ]);
+  const [
+    llmPrices,
+    litellm,
+    openrouter,
+    modelsDev,
+    aipricing,
+    genaiPrices,
+    ephone,
+  ] = await Promise.all([
+    fetchLlmPricesSource(),
+    fetchLiteLLMSource(),
+    fetchOpenRouterPricingSource(),
+    fetchModelsDevSource(),
+    fetchAipricingSource(),
+    fetchGenaiPricesSource(),
+    fetchEphoneMetadataSource(),
+  ]);
   const basellm = buildBasellmCanonicalSource(basellmEntries);
 
   const empty: string[] = [];
@@ -49,7 +58,13 @@ export async function fetchAllPricingSources(
     modelsDev,
     aipricing,
     genaiPrices,
-    // last = lowest priority: only fills gaps live sources leave blank
+    // ePhone metadata (description/release/cutoff/context/tags) fills gaps the
+    // pricing-focused live sources leave blank, esp. Chinese-vendor video/audio
+    // + fresh flagships. Array order = priority (earlier wins via the reverse
+    // Object.assign in resolveOneName), so ePhone outranks curated: ePhone ships
+    // real catalog dates for models curated only hand-guessed.
+    ephone,
+    // last = lowest priority: only fills gaps every other source left blank
     buildCuratedSource(),
   ].filter((s): s is PricingSource => s != null);
 }

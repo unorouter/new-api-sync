@@ -106,6 +106,7 @@ export type PricingSourceName =
   | "models-dev"
   | "aipricing"
   | "genai-prices"
+  | "ephone"
   | "curated"
   | "channel";
 
