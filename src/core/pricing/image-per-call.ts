@@ -48,3 +48,8 @@ export function isPerTokenImage(modelType: string, isFixed: boolean): boolean {
 // The split itself (which per-call occurrences become `:flat`) is cross-provider, so it lives in the
 // pipeline post-pass `applyFlatVariantSplit` (sync/pipeline/providers.ts), not here.
 export const FLAT_VARIANT_SUFFIX = ":flat";
+
+// A resolution-grid billing type (quotaType 4, ModelGridPricing) is distinct from per-token and
+// per-call; a grid on a shared name deletes the base's ratios. Grid occurrences publish under this
+// suffix so a per-token/per-call twin keeps its own name. Split in `applyGridVariantSplit`.
+export const GRID_VARIANT_SUFFIX = ":grid";

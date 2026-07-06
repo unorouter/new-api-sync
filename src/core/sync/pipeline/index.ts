@@ -214,11 +214,13 @@ export async function runProviderPipeline(
 
   const allPricingGrids: Record<string, Record<string, string | number>[]> = {};
   const allMetadata: Record<string, Record<string, unknown>> = {};
-  // Provider-decoded resolution grids (ephone image models priced per resolution).
+  // Provider-decoded resolution grids (ephone image models priced per resolution). Keyed by the
+  // PUBLISHED name (m.exposed) which applyGridVariantSplit renamed to `{name}:grid`, so the grid
+  // attaches to the `:grid` variant and the bare name keeps its per-token/per-call billing.
   // Seeded first so config `modelPricingGrid` overrides win on key collision.
   for (const offer of allOffers)
     for (const m of offer.models)
-      if (m.gridRows?.length) allPricingGrids[m.upstream] = m.gridRows;
+      if (m.gridRows?.length) allPricingGrids[m.exposed] = m.gridRows;
   // Provider-supplied per-model metadata (e.g. Groq upstream max_completion_tokens).
   // Seeded first so config enabledModels overrides win on key collision.
   for (const offer of allOffers)

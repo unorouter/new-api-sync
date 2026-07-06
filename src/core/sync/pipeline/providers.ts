@@ -1,5 +1,8 @@
 import type { RuntimeConfig } from "@core/config";
-import { FLAT_VARIANT_SUFFIX } from "@core/pricing/image-per-call";
+import {
+  FLAT_VARIANT_SUFFIX,
+  GRID_VARIANT_SUFFIX,
+} from "@core/pricing/image-per-call";
 import type { ProviderRunContext, UpstreamOffer } from "@core/pricing/offers";
 import { throwIfRunAborted } from "@core/infra/abort";
 import type { ProviderReport } from "@core/types";
@@ -48,6 +51,17 @@ function applyFlatVariantSplit(offers: UpstreamOffer[]): void {
       if (fixed && !m.exposed.endsWith(FLAT_VARIANT_SUFFIX))
         m.exposed = `${m.exposed}${FLAT_VARIANT_SUFFIX}`;
     }
+}
+
+// A resolution grid (quotaType 4, ModelGridPricing) is a distinct billing type: on a shared name the
+// grid deletes the base's per-token ratios (option-maps grid branch). Always publish grid occurrences
+// under `:grid` so a per-token/per-call twin keeps its own name and the grid never cannibalizes it.
+// Runs after applyFlatVariantSplit; mutates OfferModel.exposed in place.
+function applyGridVariantSplit(offers: UpstreamOffer[]): void {
+  for (const offer of offers)
+    for (const m of offer.models)
+      if (m.gridRows?.length && !m.exposed.endsWith(GRID_VARIANT_SUFFIX))
+        m.exposed = `${m.exposed}${GRID_VARIANT_SUFFIX}`;
 }
 
 // Bespoke providers get explicit ordering; simple registry providers slot in the
@@ -133,6 +147,7 @@ export async function runAllProviders(
   }
 
   applyFlatVariantSplit(offers);
+  applyGridVariantSplit(offers);
 
   for (const result of settled) {
     for (const offer of result.offers) {
