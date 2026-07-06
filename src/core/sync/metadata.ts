@@ -38,19 +38,27 @@ import {
   inferVendorFromModelName,
   VENDOR_MATCHERS,
 } from "@core/catalog/constants/vendor-matchers";
-import { fetchBasellmEntries } from "@core/catalog/metadata";
+import {
+  buildMetadataMap,
+  fetchBasellmEntries,
+  fetchOpenRouterDescriptions,
+} from "@core/catalog/metadata";
 import type { RuntimeConfig } from "@core/config";
 import { getPricingGridFromEnabledModels } from "@core/config";
 import {
   buildModelMetadata,
   deriveTagsFromMetadata,
   fetchAllPricingSources,
+  looksTruncated,
   resolveSourceMetadata,
 } from "@core/pricing/resolver";
 import type { PricingSource } from "@core/pricing/sources/types";
 import { updateGuestTokenFromNames } from "@core/sync/guest-token";
 import { runProviderPipeline } from "@core/sync/pipeline";
-import { isRoutingOnlyAlias } from "@core/sync/pipeline/desired-models";
+import {
+  isRoutingOnlyAlias,
+  pickBetterDescription,
+} from "@core/sync/pipeline/desired-models";
 import { expandRateLimitModels } from "@core/sync/pipeline/option-maps";
 import type { Channel, ModelMeta, TargetSnapshot, Vendor } from "@core/types";
 import { MANAGED_OPTION_KEYS } from "@core/types";
@@ -276,14 +284,14 @@ export async function runMetadataSync(
   const inScope = (name: string) =>
     filter.length === 0 || matchesAnyPattern(name, filter);
 
-  const [basellmEntries, existingModels, vendors, channels] = await Promise.all(
-    [
+  const [basellmEntries, openRouterDescriptions, existingModels, vendors, channels] =
+    await Promise.all([
       fetchBasellmEntries(),
+      fetchOpenRouterDescriptions(),
       target.listModels(),
       target.listVendors(),
       target.listChannels(),
-    ],
-  );
+    ]);
   const sources = await fetchAllPricingSources(basellmEntries);
   const reverseMapping = buildReverseMapping(config.modelMapping);
   const vendorIdCache = new Map<string, number | undefined>();
@@ -310,6 +318,16 @@ export async function runMetadataSync(
     ...publishedNamesFromChannels(channels),
   ]);
   const names = [...allNames].filter(inScope).sort();
+
+  // Descriptions live in the models.description COLUMN (not the metadata JSON) and
+  // are written only by a full sync run; re-seed them here too so a `metadata` run
+  // picks up the full OpenRouter-frontend/ePhone text without a full run.
+  const descriptionMap = buildMetadataMap({
+    modelNames: new Set([...names, ...names.map((n) => toBareName(n))]),
+    basellmEntries,
+    openRouterDescriptions,
+    modelMapping: config.modelMapping,
+  });
 
   consola.info(t("CORE.METADATA.RESEED_START", { count: names.length }));
 
@@ -344,11 +362,24 @@ export async function runMetadataSync(
 
     const tags = buildTags(name, sources, reverseMapping);
 
+    // Prefer the fuller of OpenRouter-frontend (descriptionMap) vs the pricing
+    // sources (ePhone), matching the full-sync desired-models logic.
+    const orDescription =
+      descriptionMap.get(name)?.description ??
+      descriptionMap.get(toBareName(name))?.description;
+    const sourceDescription = resolveSourceMetadata(
+      name,
+      sources,
+      reverseMapping,
+    ).description;
+    const description = pickBetterDescription(orDescription, sourceDescription);
+
     if (!existing) {
       const created = await target.createModel({
         model_name: name,
         ...(vendorId != null ? { vendor_id: vendorId } : {}),
         ...(merged ? { metadata: JSON.stringify(merged) } : {}),
+        ...(description ? { description } : {}),
         endpoints: inferEndpoints(name),
         tags,
         status: 1,
@@ -366,6 +397,18 @@ export async function runMetadataSync(
       merged != null && (existing.metadata ?? "") !== nextMetadata;
     const vendorChanged = vendorId != null && existing.vendor_id !== vendorId;
 
+    // Overwrite when we have a description AND it differs; a truncated stored value
+    // is replaced by the fuller re-seeded text (do not clobber a full one with a
+    // truncated one).
+    const descriptionChanged =
+      !!description &&
+      description !== (existing.description ?? "") &&
+      !(
+        looksTruncated(description) &&
+        !!existing.description &&
+        !looksTruncated(existing.description)
+      );
+
     // The first tag drives the UI modality tab. A full sync builds the richest
     // tags; only correct the row when its leading tag is missing or the WRONG
     // type (e.g. an audio model left untagged -> mis-filed under Text), so we
@@ -374,7 +417,7 @@ export async function runMetadataSync(
     const wantFirstTag = tags.split(",")[0];
     const tagsChanged = !!wantFirstTag && liveFirstTag !== wantFirstTag;
 
-    if (!metadataChanged && !vendorChanged && !tagsChanged) {
+    if (!metadataChanged && !vendorChanged && !tagsChanged && !descriptionChanged) {
       result.skipped++;
       continue;
     }
@@ -384,6 +427,7 @@ export async function runMetadataSync(
       ...(merged ? { metadata: nextMetadata } : {}),
       ...(vendorId != null ? { vendor_id: vendorId } : {}),
       ...(tagsChanged ? { tags } : {}),
+      ...(descriptionChanged ? { description } : {}),
     };
     if (await target.updateModel(patched)) {
       result.patched++;

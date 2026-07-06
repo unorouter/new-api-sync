@@ -24,7 +24,7 @@ const CLAUDE_CONTEXT_1M_SUFFIX = "[1m]";
 // Prefer the non-truncated, then the longer description. Keeps the current
 // OpenRouter win when both are complete; lets ePhone's full text override a
 // truncated OpenRouter stub.
-function pickBetterDescription(
+export function pickBetterDescription(
   primary: string | undefined,
   fallback: string | undefined,
 ): string | undefined {
