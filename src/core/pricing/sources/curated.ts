@@ -1457,30 +1457,56 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Ling",
     supportsTools: true,
   },
-  // ByteDance Seed 2.0
+  // ByteDance Seed 2.0 (Doubao Seed 2.0 family, 2026-02-14)
   "seed-2.0-code": {
+    releaseDate: iso("2026-02-14"),
     contextWindow: 262_144,
     series: "Seed",
     supportsTools: true,
   },
   "seed-2.0-pro": {
+    releaseDate: iso("2026-02-14"),
     contextWindow: 262_144,
     series: "Seed",
     supportsTools: true,
   },
-  // Sao10K roleplay finetunes (Llama 3 base)
+  "seed-1.8": {
+    contextWindow: 262_144,
+    series: "Seed",
+    supportsTools: true,
+  },
+  // Sao10K roleplay finetunes (Llama 3 base, HF first-commit dates)
   "sao10k-l3-8b-lunaris-v1": {
+    releaseDate: iso("2024-06-26"),
     contextWindow: 8_192,
     series: "Lunaris",
   },
   "sao10k-l3.1-70b-euryale-v2.2": {
-    contextWindow: 131_072,
+    releaseDate: iso("2024-08-28"),
+    contextWindow: 32_768,
     series: "Euryale",
   },
-  // Alibaba Qwen2 small
+  // Alibaba Qwen2 small (Qwen2 series launch 2024-06-06)
   "qwen-2-1.5b-instruct": {
+    releaseDate: iso("2024-06-06"),
     contextWindow: 32_768,
     series: "Qwen2",
+  },
+  // Alibaba Qwen3-VL multimodal thinking (2025-10-21)
+  "qwen-3-vl-32b-thinking": {
+    releaseDate: iso("2025-10-21"),
+    contextWindow: 262_144,
+    series: "Qwen3-VL",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // Zhipu GLM-4-32B-0414 (2025-04-14; 32K native, served at 128K via YaRN)
+  "glm-4-32b": {
+    releaseDate: iso("2025-04-14"),
+    contextWindow: 131_072,
+    series: "GLM",
+    supportsTools: true,
   },
   // OpenAI GPT-5.5 with web search tool
   "gpt-5.5-search": {

@@ -320,6 +320,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk_... (platform.inceptionlabs.ai)",
   },
   {
+    kind: "jiekou",
+    label: "Jiekou",
+    // api.jiekou.ai/openai - Interface AI multi-vendor relay, 172 models. Free daily quota,
+    // no card, hard-stops when drained. Authenticity probes drop faked closed models. Base
+    // carries the /openai path; discovery appends /v1.
+    defaultBaseUrl: "https://api.jiekou.ai/openai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk_... (jiekou.vip)",
+  },
+  {
     kind: "bailian",
     label: "Bailian",
     // Alibaba Bailian / Model Studio (Singapore intl). Base is the workspace host +
