@@ -300,6 +300,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk_ber_... (console.berget.ai)",
   },
   {
+    kind: "cloudferro",
+    label: "CloudFerro Sherlock",
+    // api-sherlock.cloudferro.com/openai - EU/GDPR-hosted (Poland). 14 models: Llama-3.3-70B,
+    // DeepSeek-R1-70B, Mistral-Small-4-119B, gpt-oss-120b, MiniMax-M2.5, gemma-4 + Polish
+    // PLLuM/Bielik + embeddings. Free-trial credits, hard-stops when drained. Base carries
+    // the /openai path; discovery appends /v1.
+    defaultBaseUrl: "https://api-sherlock.cloudferro.com/openai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "(console.sherlock.cloudferro.com)",
+  },
+  {
     kind: "bailian",
     label: "Bailian",
     // Alibaba Bailian / Model Studio (Singapore intl). Base is the workspace host +

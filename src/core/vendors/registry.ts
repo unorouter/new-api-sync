@@ -48,6 +48,7 @@ import { discoverMimoModels } from "./mimo/discovery";
 import { discoverAbliterationModels } from "./abliteration/discovery";
 import { discoverAurikoModels } from "./auriko/discovery";
 import { discoverBergetModels } from "./berget/discovery";
+import { discoverCloudFerroModels } from "./cloudferro/discovery";
 import { discoverBailianModels } from "./bailian/discovery";
 import { discoverOllamaModels } from "./ollama/discovery";
 import { discoverQiniuModels } from "./qiniu/discovery";
@@ -118,6 +119,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   abliteration: discoverAbliterationModels,
   auriko: discoverAurikoModels,
   berget: discoverBergetModels,
+  cloudferro: discoverCloudFerroModels,
   bailian: discoverBailianModels,
   ollama: discoverOllamaModels,
   qiniu: discoverQiniuModels,

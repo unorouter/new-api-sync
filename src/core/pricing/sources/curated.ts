@@ -1426,6 +1426,56 @@ const CURATED: Record<string, SourceMetadata> = {
     contextWindow: 32_768,
     supportsTools: true,
   },
+  // SpeakLeash Bielik (Polish national LLM)
+  "bielik-11b-v3.0-instruct": {
+    releaseDate: iso("2025-05-01"),
+    contextWindow: 32_768,
+    series: "Bielik",
+  },
+  // CYFRAGOVPL PLLuM (Polish government LLM)
+  "pllum-12b-instruct": {
+    releaseDate: iso("2025-02-01"),
+    contextWindow: 131_072,
+    series: "PLLuM",
+  },
+  // VillanovaAI (small preview model)
+  "villanova-2b-2512-preview-apnea-ft": {
+    releaseDate: iso("2025-12-01"),
+    contextWindow: 32_768,
+    series: "Villanova",
+  },
+  // InclusionAI Ling
+  "ling-flash-2.0": {
+    releaseDate: iso("2025-09-01"),
+    contextWindow: 131_072,
+    series: "Ling",
+    supportsTools: true,
+  },
+  // ByteDance Seed 2.0
+  "seed-2.0-code": {
+    contextWindow: 262_144,
+    series: "Seed",
+    supportsTools: true,
+  },
+  "seed-2.0-pro": {
+    contextWindow: 262_144,
+    series: "Seed",
+    supportsTools: true,
+  },
+  // Sao10K roleplay finetunes (Llama 3 base)
+  "sao10k-l3-8b-lunaris-v1": {
+    contextWindow: 8_192,
+    series: "Lunaris",
+  },
+  "sao10k-l3.1-70b-euryale-v2.2": {
+    contextWindow: 131_072,
+    series: "Euryale",
+  },
+  // Alibaba Qwen2 small
+  "qwen-2-1.5b-instruct": {
+    contextWindow: 32_768,
+    series: "Qwen2",
+  },
   // OpenAI GPT-5.5 with web search tool
   "gpt-5.5-search": {
     releaseDate: iso("2026-04-23"),
