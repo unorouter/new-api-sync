@@ -65,7 +65,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   speakleash: { modelPatterns: ["bielik"], strongPatterns: ["bielik"], nameAliases: ["speakleash"], displayName: "SpeakLeash" },
   pllum: { modelPatterns: ["pllum"], strongPatterns: ["pllum"], nameAliases: ["cyfragovpl"], displayName: "PLLuM" },
   villanova: { modelPatterns: ["villanova"], strongPatterns: ["villanova"], nameAliases: ["villanovaai"], displayName: "Villanova" },
-  inception: { modelPatterns: ["mercury"], strongPatterns: ["mercury"], nameAliases: ["inception","inceptionlabs"], displayName: "Inception" },
+  inception: { modelPatterns: ["mercury"], strongPatterns: ["mercury"], nameAliases: ["inception","inceptionlabs"], displayName: "Inception", icon: "Inception" },
   microsoft: { modelPatterns: ["phi-","phi4","wizardlm"], nameAliases: ["microsoft"], displayName: "Microsoft" },
   deepgram: { modelPatterns: ["aura-","nova-3","nova-2"], nameAliases: ["deepgram"], displayName: "Deepgram" },
   leonardo: { modelPatterns: ["phoenix-","lucid-"], nameAliases: ["leonardo"], displayName: "Leonardo AI" },
