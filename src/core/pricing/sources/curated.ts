@@ -1584,7 +1584,7 @@ const CURATED: Record<string, SourceMetadata> = {
   // Baidu ERNIE 4.5 300B (PaddlePaddle serve)
   "ernie-4.5-300b-a47b-paddle": {
     releaseDate: iso("2025-06-30"),
-    contextWindow: 123_000,
+    contextWindow: 131_072,
     series: "ERNIE",
     supportsTools: true,
   },
@@ -1616,7 +1616,7 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "ElevenLabs",
   },
   "scribe_v2": {
-    releaseDate: iso("2026-01-09"),
+    releaseDate: iso("2025-11-11"),
     series: "Scribe",
   },
   // Kinfra (TokenHub) embeddings
@@ -2060,7 +2060,7 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // Z.ai GLM-4.6 Vision Flash
   "glm-4.6v-flash": {
-    releaseDate: iso("2025-10-01"),
+    releaseDate: iso("2025-12-09"),
     contextWindow: 128_000,
     series: "GLM",
     isReasoning: true,
