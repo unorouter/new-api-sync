@@ -357,7 +357,7 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsTools: true,
   },
   "intern-s1-mini": {
-    releaseDate: iso("2025-07-24"),
+    releaseDate: iso("2025-09-02"),
     contextWindow: 65_536,
     series: "Intern-S",
     isReasoning: true,
@@ -657,7 +657,7 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   "venice-uncensored-role-play": {
     releaseDate: iso("2025-07-09"),
-    contextWindow: 32_768,
+    contextWindow: 128_000,
     series: "Mistral",
   },
   // Qwen3 4B thinking (2507 update)
@@ -749,9 +749,9 @@ const CURATED: Record<string, SourceMetadata> = {
     mode: "image",
   },
   // Lykon DreamShaper (LCM distill of v8)
-  "dreamshaper-8-lcm": { releaseDate: iso("2023-11-15"), mode: "image" },
+  "dreamshaper-8-lcm": { releaseDate: iso("2023-12-06"), mode: "image" },
   // Leonardo.Ai
-  "lucid-origin": { releaseDate: iso("2025-08-19"), mode: "image" },
+  "lucid-origin": { releaseDate: iso("2025-08-05"), mode: "image" },
   "phoenix-1.0": { releaseDate: iso("2024-08-15"), mode: "image" },
 
   // ─── Video-gen models (dates = public launch; suffix is snapshot code) ───
@@ -778,7 +778,7 @@ const CURATED: Record<string, SourceMetadata> = {
   // ByteDance Doubao Seedance 2.0 mini.
   "doubao-seedance-2-0-mini": { releaseDate: iso("2026-06-15"), mode: "video" },
   // MiniMax Hailuo 2.3 fast.
-  "minimax-hailuo-2.3-fast": { releaseDate: iso("2026-03-10"), mode: "video" },
+  "minimax-hailuo-2.3-fast": { releaseDate: iso("2025-10-28"), mode: "video" },
   // Alibaba Wan / Tongyi Wanxiang (2.1 Feb 2025; VACE May; 2.2 Jul; 2.5-Preview
   // Sept; 2.6 Dec; 2.7 2026). All modes of a version share that version's launch.
   "wan2.1-i2v-plus": { releaseDate: iso("2025-02-25"), mode: "video" },
@@ -904,7 +904,7 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   "bge-multilingual-gemma2": {
     releaseDate: iso("2024-07-26"),
-    contextWindow: 4_096,
+    contextWindow: 8_192,
     mode: "embedding",
   },
   // Google
@@ -1251,7 +1251,7 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // gemini-flash-lite-latest = rolling alias; 2.5-flash-lite GA date as proxy
   "gemini-flash-lite-latest": {
-    releaseDate: iso("2025-07-22"),
+    releaseDate: iso("2025-09-25"),
     contextWindow: 1_048_576,
     series: "Gemini",
     supportsVision: true,
@@ -1446,8 +1446,8 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // JetBrains Mellum2 (code completion)
   "mellum2-12b-a2.5b-instruct": {
-    releaseDate: iso("2025-10-15"),
-    contextWindow: 32_768,
+    releaseDate: iso("2026-06-02"),
+    contextWindow: 131_072,
     series: "Mellum",
     supportsTools: true,
   },
@@ -1576,7 +1576,7 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // DeepSeek OCR 2 (vision OCR)
   "deepseek-ocr-2": {
-    releaseDate: iso("2025-10-20"),
+    releaseDate: iso("2026-01-27"),
     contextWindow: 8_192,
     series: "DeepSeek",
     supportsVision: true,
@@ -1594,7 +1594,7 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "FLUX",
   },
   "flux.1-kontext-dev": {
-    releaseDate: iso("2025-05-29"),
+    releaseDate: iso("2025-06-26"),
     series: "FLUX",
   },
   "flux.1-kontext-max": {
@@ -1612,11 +1612,11 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // ElevenLabs audio (dubbing + Scribe STT)
   "dubbing": {
-    releaseDate: iso("2024-11-01"),
+    releaseDate: iso("2023-10-10"),
     series: "ElevenLabs",
   },
   "scribe_v2": {
-    releaseDate: iso("2025-02-01"),
+    releaseDate: iso("2026-01-09"),
     series: "Scribe",
   },
   // Kinfra (TokenHub) embeddings
@@ -1642,13 +1642,13 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // Voyage multimodal embedding
   "voyage-multimodal-3.5": {
-    releaseDate: iso("2025-11-01"),
+    releaseDate: iso("2026-01-15"),
     contextWindow: 32_768,
     series: "Voyage",
   },
   // SpeakLeash Bielik (Polish national LLM)
   "bielik-11b-v3.0-instruct": {
-    releaseDate: iso("2025-05-01"),
+    releaseDate: iso("2025-12-30"),
     contextWindow: 32_768,
     series: "Bielik",
   },
@@ -1666,7 +1666,7 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // InclusionAI Ling
   "ling-flash-2.0": {
-    releaseDate: iso("2025-09-01"),
+    releaseDate: iso("2025-09-17"),
     contextWindow: 131_072,
     series: "Ling",
     supportsTools: true,
