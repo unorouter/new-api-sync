@@ -19,6 +19,36 @@ const iso = (d: string) => `${d}T00:00:00.000Z`;
 // these fields win over ALL sources. Keyed by BARE name. Use ONLY when a live
 // source is factually wrong and verified against the official model card.
 export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
+  // Verified release dates (official sources) for models a live source carries
+  // dateless, so plain CURATED (gap-fill) can't set them; hard-pin here.
+  "deepseek-r1-distill-llama-8b": { releaseDate: iso("2025-01-20") },
+  "deepseek-r1-distill-qwen-14b": { releaseDate: iso("2025-01-20") },
+  "deepseek-r1-distill-qwen-7b": { releaseDate: iso("2025-01-20") },
+  "qwen2.5-coder-7b-instruct": { releaseDate: iso("2024-09-19") },
+  "qwen2.5-coder-3b-instruct": { releaseDate: iso("2024-11-12") },
+  "qwen3-4b-instruct-2507": { releaseDate: iso("2025-08-06") },
+  "qwen3-4b-thinking-2507": { releaseDate: iso("2025-08-06") },
+  "qwen3-coder-480b-a35b-instruct": { releaseDate: iso("2025-07-22") },
+  "qwen3-embedding-4b": { releaseDate: iso("2025-06-05") },
+  "qwen3-embedding-8b": { releaseDate: iso("2025-06-05") },
+  "qwen3-reranker-0.6b": { releaseDate: iso("2025-06-05") },
+  "qwen3-reranker-8b": { releaseDate: iso("2025-06-05") },
+  "whisper-large-v3": { releaseDate: iso("2023-11-07") },
+  "flux.1-schnell": { releaseDate: iso("2024-08-01") },
+  "flux-1.1-pro": { releaseDate: iso("2024-10-01") },
+  "bge-reranker-v2-m3": { releaseDate: iso("2024-03-18") },
+  "gpt-oss-120b": { releaseDate: iso("2025-08-05") },
+  "devstral-small-2": { releaseDate: iso("2025-07-11") },
+  "grok-4": { releaseDate: iso("2025-07-09") },
+  "grok-code-fast-1": { releaseDate: iso("2025-08-28") },
+  "voyage-context-3": { releaseDate: iso("2025-07-23") },
+  "grok-4-fast-reasoning": { releaseDate: iso("2025-09-19") },
+  "grok-4-fast-non-reasoning": { releaseDate: iso("2025-09-19") },
+  "grok-4.1-fast-reasoning": { releaseDate: iso("2025-11-01") },
+  "grok-4.1-fast-non-reasoning": { releaseDate: iso("2025-11-01") },
+  "gemini-2.5-computer-use-preview-10-2025": {
+    releaseDate: iso("2025-10-07"),
+  },
   // litellm lists Apertus at 8192 ctx / no tools; HF model card = 65536, tools yes.
   "apertus-8b-instruct": {
     contextWindow: 65_536,
@@ -1591,18 +1621,22 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // Kinfra (TokenHub) embeddings
   "kinfra-text-embedding-0.6b": {
+    releaseDate: iso("2026-06-01"),
     contextWindow: 8_192,
     series: "Kinfra",
   },
   "kinfra-text-embedding-4b": {
+    releaseDate: iso("2026-06-01"),
     contextWindow: 8_192,
     series: "Kinfra",
   },
   "kinfra-vl-embedding-2b": {
+    releaseDate: iso("2026-06-01"),
     contextWindow: 32_768,
     series: "Kinfra",
   },
   "kinfra-vl-embedding-8b": {
+    releaseDate: iso("2026-06-01"),
     contextWindow: 32_768,
     series: "Kinfra",
   },
