@@ -280,6 +280,26 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "ak_... (abliteration.ai)",
   },
   {
+    kind: "auriko",
+    label: "Auriko",
+    // api.auriko.ai - multi-vendor relay, 177 models. $0.99 trial + 14-day Pro,
+    // hard-stops at $0 with no card. Authenticity probes filter faked channels.
+    // Base is root; discovery appends /v1.
+    defaultBaseUrl: "https://api.auriko.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "ak_live_... (auriko.ai)",
+  },
+  {
+    kind: "berget",
+    label: "Berget.AI",
+    // api.berget.ai - EU/GDPR-hosted (Sweden). 14 models GLM/Kimi/Mistral/gpt-oss/Llama
+    // + whisper + embeddings. Free 5EUR trial, hard-stops at 0 no card. audioChannelType
+    // omitted (skip whisper, conserve trial). Base is root; discovery appends /v1.
+    defaultBaseUrl: "https://api.berget.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk_ber_... (console.berget.ai)",
+  },
+  {
     kind: "bailian",
     label: "Bailian",
     // Alibaba Bailian / Model Studio (Singapore intl). Base is the workspace host +
