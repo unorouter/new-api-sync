@@ -1544,6 +1544,74 @@ const CURATED: Record<string, SourceMetadata> = {
   "umbra": {
     contextWindow: 32_768,
   },
+  // DeepSeek OCR 2 (vision OCR)
+  "deepseek-ocr-2": {
+    releaseDate: iso("2025-10-20"),
+    contextWindow: 8_192,
+    series: "DeepSeek",
+    supportsVision: true,
+  },
+  // Baidu ERNIE 4.5 300B (PaddlePaddle serve)
+  "ernie-4.5-300b-a47b-paddle": {
+    releaseDate: iso("2025-06-30"),
+    contextWindow: 123_000,
+    series: "ERNIE",
+    supportsTools: true,
+  },
+  // Black Forest Labs FLUX (image gen)
+  "flux.1-dev": {
+    releaseDate: iso("2024-08-01"),
+    series: "FLUX",
+  },
+  "flux.1-kontext-dev": {
+    releaseDate: iso("2025-05-29"),
+    series: "FLUX",
+  },
+  "flux.1-kontext-max": {
+    releaseDate: iso("2025-05-29"),
+    series: "FLUX",
+  },
+  "flux.1-kontext-pro": {
+    releaseDate: iso("2025-05-29"),
+    series: "FLUX",
+  },
+  // Stability SDXL
+  "sdxl": {
+    releaseDate: iso("2023-07-26"),
+    series: "Stable Diffusion",
+  },
+  // ElevenLabs audio (dubbing + Scribe STT)
+  "dubbing": {
+    releaseDate: iso("2024-11-01"),
+    series: "ElevenLabs",
+  },
+  "scribe_v2": {
+    releaseDate: iso("2025-02-01"),
+    series: "Scribe",
+  },
+  // Kinfra (TokenHub) embeddings
+  "kinfra-text-embedding-0.6b": {
+    contextWindow: 8_192,
+    series: "Kinfra",
+  },
+  "kinfra-text-embedding-4b": {
+    contextWindow: 8_192,
+    series: "Kinfra",
+  },
+  "kinfra-vl-embedding-2b": {
+    contextWindow: 32_768,
+    series: "Kinfra",
+  },
+  "kinfra-vl-embedding-8b": {
+    contextWindow: 32_768,
+    series: "Kinfra",
+  },
+  // Voyage multimodal embedding
+  "voyage-multimodal-3.5": {
+    releaseDate: iso("2025-11-01"),
+    contextWindow: 32_768,
+    series: "Voyage",
+  },
   // SpeakLeash Bielik (Polish national LLM)
   "bielik-11b-v3.0-instruct": {
     releaseDate: iso("2025-05-01"),
@@ -1583,8 +1651,11 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsTools: true,
   },
   "seed-1.8": {
+    releaseDate: iso("2025-12-28"),
     contextWindow: 262_144,
     series: "Seed",
+    isReasoning: true,
+    supportsVision: true,
     supportsTools: true,
   },
   // Sao10K roleplay finetunes (Llama 3 base, HF first-commit dates)

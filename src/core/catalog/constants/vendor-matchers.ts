@@ -66,7 +66,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   pllum: { modelPatterns: ["pllum"], strongPatterns: ["pllum"], nameAliases: ["cyfragovpl"], displayName: "PLLuM" },
   villanova: { modelPatterns: ["villanova"], strongPatterns: ["villanova"], nameAliases: ["villanovaai"], displayName: "Villanova" },
   inception: { modelPatterns: ["mercury"], strongPatterns: ["mercury"], nameAliases: ["inception","inceptionlabs"], displayName: "Inception", icon: "Inception" },
-  kinfra: { modelPatterns: ["kinfra"], strongPatterns: ["kinfra"], nameAliases: ["kinfra","tokenhub"], displayName: "Kinfra" },
+  kinfra: { modelPatterns: ["kinfra"], strongPatterns: ["kinfra"], nameAliases: ["kinfra","tokenhub"], displayName: "Kinfra", icon: "Tencent" },
   deepreinforce: { modelPatterns: ["ornith"], strongPatterns: ["ornith"], nameAliases: ["deepreinforce"], displayName: "DeepReinforce" },
   microsoft: { modelPatterns: ["phi-","phi4","wizardlm"], nameAliases: ["microsoft"], displayName: "Microsoft" },
   deepgram: { modelPatterns: ["aura-","nova-3","nova-2"], nameAliases: ["deepgram"], displayName: "Deepgram" },
