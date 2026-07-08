@@ -28,6 +28,11 @@ export async function discoverNagaModels(
     timeoutMs: 15_000,
   });
 
+  // /v1/models returns the full multi-vendor catalog; the key only serves the
+  // ":free"-suffixed entries. Everything else is paid and must not be exposed as free.
   const list = Array.isArray(data) ? data : (data?.data ?? []);
-  return { models: list.map((m) => m.id), maxOutputByModel: new Map() };
+  const freeModels = list
+    .map((m) => m.id)
+    .filter((id) => id.endsWith(":free"));
+  return { models: freeModels, maxOutputByModel: new Map() };
 }
