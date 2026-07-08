@@ -311,6 +311,15 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "(console.sherlock.cloudferro.com)",
   },
   {
+    kind: "inception",
+    label: "Inception",
+    // api.inceptionlabs.ai - Mercury diffusion LLM (mercury-2), distinct dLLM. 10M free
+    // tokens, no card, hard-stops. Base is root; discovery appends /v1.
+    defaultBaseUrl: "https://api.inceptionlabs.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk_... (platform.inceptionlabs.ai)",
+  },
+  {
     kind: "bailian",
     label: "Bailian",
     // Alibaba Bailian / Model Studio (Singapore intl). Base is the workspace host +

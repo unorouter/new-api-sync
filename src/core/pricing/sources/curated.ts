@@ -1426,6 +1426,12 @@ const CURATED: Record<string, SourceMetadata> = {
     contextWindow: 32_768,
     supportsTools: true,
   },
+  // Inception Mercury (diffusion LLM)
+  "mercury-2": {
+    contextWindow: 32_768,
+    series: "Mercury",
+    supportsTools: true,
+  },
   // SpeakLeash Bielik (Polish national LLM)
   "bielik-11b-v3.0-instruct": {
     releaseDate: iso("2025-05-01"),
