@@ -230,6 +230,47 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "ng-... (naga.ac)",
   },
   {
+    kind: "poolside",
+    label: "Poolside",
+    // inference.poolside.ai - first-party laguna coding/reasoning models (m.1,
+    // xs.2, xs-2.1). OpenAI-compat, key-gated free. laguna-m.1 reasons before
+    // answering (needs a large output budget). Base is root; discovery appends /v1.
+    defaultBaseUrl: "https://inference.poolside.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sky_... (platform.poolside.ai)",
+  },
+  {
+    kind: "tokenhub",
+    label: "TokenHub",
+    // Tencent Cloud MaaS Singapore intl gateway. New-user free trial 1M tokens/model
+    // + 60 QPM. Frontier: GLM-5.x, Kimi-K2.x, DeepSeek-V4/V3.2, MiniMax-M2.x/M3.
+    // OpenAI-compat, Bearer key from the TokenHub console. Base is root; discovery
+    // appends /v1.
+    defaultBaseUrl: "https://tokenhub-intl.tencentcloudmaas.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (TokenHub console)",
+  },
+  {
+    kind: "wandb",
+    label: "W&B Inference",
+    // Weights & Biases serverless inference. 29 frontier models, vendor-namespaced ids
+    // (bare-name resolve strips the prefix). Free while the plan's monthly credit lasts;
+    // hard-stops with no card. Base is root; discovery appends /v1.
+    defaultBaseUrl: "https://api.inference.wandb.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "wandb_v1_... (wandb.ai)",
+  },
+  {
+    kind: "mimo",
+    label: "Xiaomi MiMo",
+    // api.xiaomimimo.com - first-party MiMo-V2.5 (mimo-v2.5, mimo-v2.5-pro). Prepaid
+    // balance, hard-stops at $0, no auto-recharge. audioChannelType omitted so the
+    // -asr/-tts models are skipped (conserve balance). Base is root; discovery adds /v1.
+    defaultBaseUrl: "https://api.xiaomimimo.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (platform.xiaomimimo.com)",
+  },
+  {
     kind: "bailian",
     label: "Bailian",
     // Alibaba Bailian / Model Studio (Singapore intl). Base is the workspace host +

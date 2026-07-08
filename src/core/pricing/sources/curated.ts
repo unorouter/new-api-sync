@@ -1407,6 +1407,16 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Hunyuan",
     supportsTools: true,
   },
+  // Tencent Hunyuan MT2 (machine translation)
+  "hy-mt2-plus": {
+    contextWindow: 32_768,
+    series: "Hunyuan",
+  },
+  // JetBrains Mellum2 (code completion)
+  "mellum2-12b-a2.5b-instruct": {
+    contextWindow: 32_768,
+    series: "Mellum",
+  },
   // OpenAI GPT-5.5 with web search tool
   "gpt-5.5-search": {
     releaseDate: iso("2026-04-23"),

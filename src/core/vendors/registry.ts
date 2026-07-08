@@ -41,6 +41,10 @@ import { discoverIoNetModels } from "./ionet/discovery";
 import { discoverAkashMlModels } from "./akashml/discovery";
 import { discoverNscaleModels } from "./nscale/discovery";
 import { discoverNagaModels } from "./naga/discovery";
+import { discoverPoolsideModels } from "./poolside/discovery";
+import { discoverTokenHubModels } from "./tokenhub/discovery";
+import { discoverWandbModels } from "./wandb/discovery";
+import { discoverMimoModels } from "./mimo/discovery";
 import { discoverBailianModels } from "./bailian/discovery";
 import { discoverOllamaModels } from "./ollama/discovery";
 import { discoverQiniuModels } from "./qiniu/discovery";
@@ -104,6 +108,10 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   akashml: discoverAkashMlModels,
   nscale: discoverNscaleModels,
   naga: discoverNagaModels,
+  poolside: discoverPoolsideModels,
+  tokenhub: discoverTokenHubModels,
+  wandb: discoverWandbModels,
+  mimo: discoverMimoModels,
   bailian: discoverBailianModels,
   ollama: discoverOllamaModels,
   qiniu: discoverQiniuModels,
