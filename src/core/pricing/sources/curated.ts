@@ -843,7 +843,7 @@ const CURATED: Record<string, SourceMetadata> = {
   "kling-v2-5-turbo": { releaseDate: iso("2025-09-23"), mode: "video" },
   // MiniMax Hailuo
   "MiniMax-Hailuo-02": { releaseDate: iso("2025-06-18"), mode: "video" },
-  "MiniMax-Hailuo-2.3": { releaseDate: iso("2025-11-12"), mode: "video" },
+  "MiniMax-Hailuo-2.3": { releaseDate: iso("2025-10-28"), mode: "video" },
   // Shengshu Vidu Q3
   viduq3: { releaseDate: iso("2026-02-20"), mode: "video" },
 
