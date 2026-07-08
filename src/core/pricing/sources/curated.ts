@@ -1409,13 +1409,17 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // Tencent Hunyuan MT2 (machine translation)
   "hy-mt2-plus": {
+    releaseDate: iso("2025-09-01"),
     contextWindow: 32_768,
     series: "Hunyuan",
+    supportsTools: true,
   },
   // JetBrains Mellum2 (code completion)
   "mellum2-12b-a2.5b-instruct": {
+    releaseDate: iso("2025-10-15"),
     contextWindow: 32_768,
     series: "Mellum",
+    supportsTools: true,
   },
   // OpenAI GPT-5.5 with web search tool
   "gpt-5.5-search": {
