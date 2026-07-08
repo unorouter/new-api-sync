@@ -1432,6 +1432,118 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Mercury",
     supportsTools: true,
   },
+  // Aion Labs 2.5 (DeepSeek-based RP/storytelling)
+  "aion-2.5": {
+    releaseDate: iso("2026-03-10"),
+    contextWindow: 131_072,
+    series: "Aion",
+    supportsTools: true,
+  },
+  // DeepReinforce Ornith 1.0 35B (RL post-train of Qwen3.5-35B-A3B)
+  "ornith-1.0-35b": {
+    releaseDate: iso("2026-06-25"),
+    contextWindow: 262_144,
+    series: "Ornith",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "ornith-1.0-35b-fp8": {
+    releaseDate: iso("2026-06-25"),
+    contextWindow: 262_144,
+    series: "Ornith",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // ByteDance Doubao Seed 1.8 (agentic multimodal, thinking)
+  "doubao-seed-1-8-251228": {
+    releaseDate: iso("2025-12-28"),
+    contextWindow: 262_144,
+    series: "Doubao",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // OpenAI gpt-oss 120B (open-weight reasoning MoE)
+  "gpt-oss-120b": {
+    releaseDate: iso("2025-08-05"),
+    contextWindow: 131_072,
+    series: "gpt-oss",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // Moonshot Kimi coding (K2 family)
+  "k2.6-code-preview": {
+    contextWindow: 262_144,
+    series: "Kimi",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "kimi-for-coding": {
+    contextWindow: 262_144,
+    series: "Kimi",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // Alibaba Qwen3.6 Plus preview
+  "qwen3.6-plus-preview": {
+    contextWindow: 262_144,
+    series: "Qwen",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // Alibaba Qwen3-Coder 30B-A3B (missing-dash slug)
+  "qwen3-coder-30-a3b-instruct": {
+    releaseDate: iso("2025-07-31"),
+    contextWindow: 262_144,
+    series: "Qwen",
+    supportsTools: true,
+  },
+  // Xiaomi MiMo V2 (Omni multimodal / Pro reasoning)
+  "xiaomi-mimo-v2-omni": {
+    releaseDate: iso("2026-03-18"),
+    contextWindow: 262_144,
+    series: "MiMo",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "xiaomi-mimo-v2-pro": {
+    releaseDate: iso("2026-03-18"),
+    contextWindow: 262_144,
+    series: "MiMo",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // Zhipu GLM-4.7 Flash "heretic" (decensored GLM-4.7-Flash)
+  "glm-4.7-flash-heretic": {
+    contextWindow: 128_000,
+    series: "GLM",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // Obscure uncensored/RP relay finetunes (specs estimated, no reliable date)
+  "devious-uncensored": {
+    contextWindow: 32_768,
+    series: "Uncensored",
+  },
+  "emotional-36b": {
+    contextWindow: 32_768,
+    series: "Uncensored",
+  },
+  "revenant-uncensored": {
+    contextWindow: 32_768,
+    series: "Uncensored",
+  },
+  "grok-uncensored": {
+    contextWindow: 131_072,
+    series: "Grok",
+  },
+  "schizogpt": {
+    contextWindow: 32_768,
+  },
+  "umbra": {
+    contextWindow: 32_768,
+  },
   // SpeakLeash Bielik (Polish national LLM)
   "bielik-11b-v3.0-instruct": {
     releaseDate: iso("2025-05-01"),
