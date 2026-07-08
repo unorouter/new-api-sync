@@ -61,6 +61,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   sdaia: { modelPatterns: ["allam"], nameAliases: ["sdaia","allam"], displayName: "SDAIA", icon: "SDAIA" },
   ibm: { modelPatterns: ["granite-"], nameAliases: ["ibm","ibm-granite"], displayName: "IBM", icon: "IBM" },
   jetbrains: { modelPatterns: ["mellum"], strongPatterns: ["mellum"], nameAliases: ["jetbrains"], displayName: "JetBrains" },
+  abliteration: { modelPatterns: ["abliterated"], strongPatterns: ["abliterated"], nameAliases: ["abliteration"], displayName: "Abliteration" },
   microsoft: { modelPatterns: ["phi-","phi4","wizardlm"], nameAliases: ["microsoft"], displayName: "Microsoft" },
   deepgram: { modelPatterns: ["aura-","nova-3","nova-2"], nameAliases: ["deepgram"], displayName: "Deepgram" },
   leonardo: { modelPatterns: ["phoenix-","lucid-"], nameAliases: ["leonardo"], displayName: "Leonardo AI" },

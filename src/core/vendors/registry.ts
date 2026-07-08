@@ -45,6 +45,7 @@ import { discoverPoolsideModels } from "./poolside/discovery";
 import { discoverTokenHubModels } from "./tokenhub/discovery";
 import { discoverWandbModels } from "./wandb/discovery";
 import { discoverMimoModels } from "./mimo/discovery";
+import { discoverAbliterationModels } from "./abliteration/discovery";
 import { discoverBailianModels } from "./bailian/discovery";
 import { discoverOllamaModels } from "./ollama/discovery";
 import { discoverQiniuModels } from "./qiniu/discovery";
@@ -112,6 +113,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   tokenhub: discoverTokenHubModels,
   wandb: discoverWandbModels,
   mimo: discoverMimoModels,
+  abliteration: discoverAbliterationModels,
   bailian: discoverBailianModels,
   ollama: discoverOllamaModels,
   qiniu: discoverQiniuModels,

@@ -1421,6 +1421,11 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Mellum",
     supportsTools: true,
   },
+  // abliteration.ai uncensored model
+  "abliterated-model": {
+    contextWindow: 32_768,
+    supportsTools: true,
+  },
   // OpenAI GPT-5.5 with web search tool
   "gpt-5.5-search": {
     releaseDate: iso("2026-04-23"),

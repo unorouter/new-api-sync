@@ -271,6 +271,15 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-... (platform.xiaomimimo.com)",
   },
   {
+    kind: "abliteration",
+    label: "Abliteration",
+    // api.abliteration.ai - one uncensored "abliterated-model". Free credits, hard-stops
+    // at 0 with no card. Reasoning model. Base is root; discovery appends /v1.
+    defaultBaseUrl: "https://api.abliteration.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "ak_... (abliteration.ai)",
+  },
+  {
     kind: "bailian",
     label: "Bailian",
     // Alibaba Bailian / Model Studio (Singapore intl). Base is the workspace host +
