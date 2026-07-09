@@ -23,6 +23,8 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // dateless, so plain CURATED (gap-fill) can't set them; hard-pin here.
   // Google Nano Banana Pro (Gemini 3 Pro Image Preview), launched 2025-11-20.
   "nano-banana-pro-preview": { releaseDate: iso("2025-11-20") },
+  // Rolling alias to the latest Gemini Flash (approximate; tracks 2.5 Flash GA).
+  "gemini-flash-latest": { releaseDate: iso("2025-09-25") },
   // Google Lyria 3 music gen: base 2026-02-18, Pro 2026-03-25.
   "lyria-3-clip-preview": { releaseDate: iso("2026-02-18") },
   "lyria-3-pro-preview": { releaseDate: iso("2026-03-25") },
@@ -1456,8 +1458,9 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Mellum",
     supportsTools: true,
   },
-  // abliteration.ai uncensored model
+  // abliteration.ai uncensored model (no official date; approximate)
   "abliterated-model": {
+    releaseDate: iso("2025-10-15"),
     contextWindow: 32_768,
     supportsTools: true,
   },
@@ -1506,21 +1509,24 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
-  // Moonshot Kimi coding (K2 family)
+  // Moonshot Kimi coding (K2 family; preview dates approximate)
   "k2.6-code-preview": {
+    releaseDate: iso("2026-05-20"),
     contextWindow: 262_144,
     series: "Kimi",
     isReasoning: true,
     supportsTools: true,
   },
   "kimi-for-coding": {
+    releaseDate: iso("2026-04-15"),
     contextWindow: 262_144,
     series: "Kimi",
     isReasoning: true,
     supportsTools: true,
   },
-  // Alibaba Qwen3.6 Plus preview
+  // Alibaba Qwen3.6 Plus preview (date approximate)
   "qwen3.6-plus-preview": {
+    releaseDate: iso("2026-06-10"),
     contextWindow: 262_144,
     series: "Qwen",
     isReasoning: true,
@@ -1531,6 +1537,13 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2025-07-31"),
     contextWindow: 262_144,
     series: "Qwen",
+    supportsTools: true,
+  },
+  // Xiaomi MiMo V2 Flash (fast tier, sibling of v2-omni/pro; date approximate)
+  "mimo-v2-flash": {
+    releaseDate: iso("2026-03-18"),
+    contextWindow: 262_144,
+    series: "MiMo",
     supportsTools: true,
   },
   // Xiaomi MiMo V2 (Omni multimodal / Pro reasoning)
@@ -1556,27 +1569,33 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
-  // Obscure uncensored/RP relay finetunes (specs estimated, no reliable date)
+  // Obscure uncensored/RP relay finetunes (specs + dates estimated, no official source)
   "devious-uncensored": {
+    releaseDate: iso("2025-11-05"),
     contextWindow: 32_768,
     series: "Uncensored",
   },
   "emotional-36b": {
+    releaseDate: iso("2025-10-22"),
     contextWindow: 32_768,
     series: "Uncensored",
   },
   "revenant-uncensored": {
+    releaseDate: iso("2025-12-10"),
     contextWindow: 32_768,
     series: "Uncensored",
   },
   "grok-uncensored": {
+    releaseDate: iso("2025-08-15"),
     contextWindow: 131_072,
     series: "Grok",
   },
   "schizogpt": {
+    releaseDate: iso("2025-09-18"),
     contextWindow: 32_768,
   },
   "umbra": {
+    releaseDate: iso("2025-11-20"),
     contextWindow: 32_768,
   },
   // DeepSeek OCR 2 (vision OCR)
