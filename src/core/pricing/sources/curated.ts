@@ -1952,6 +1952,27 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  "apertus-70b": {
+    releaseDate: iso("2025-09-02"),
+    contextWindow: 65_536,
+    series: "Apertus",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // Regolo house models (Regolo.ai; no public spec, estimated)
+  "brick-v1-beta": {
+    releaseDate: iso("2026-06-01"),
+    contextWindow: 131_072,
+    series: "Brick",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "brick-complexity-pro": {
+    releaseDate: iso("2026-06-01"),
+    contextWindow: 131_072,
+    series: "Brick",
+    supportsTools: false,
+  },
   // EuroLLM (utter-project) 22B Instruct, Dec 2025 snapshot
   "eurollm-22b-instruct-2512": {
     releaseDate: iso("2025-12-05"),
@@ -2172,6 +2193,20 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   "qwen3.5-397b": {
     releaseDate: iso("2026-02-23"),
+    contextWindow: 262_144,
+    series: "Qwen",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "qwen3.5-122b": {
+    releaseDate: iso("2026-02-23"),
+    contextWindow: 262_144,
+    series: "Qwen",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "qwen3.6-27b": {
+    releaseDate: iso("2026-05-01"),
     contextWindow: 262_144,
     series: "Qwen",
     isReasoning: true,
