@@ -2138,6 +2138,45 @@ const CURATED: Record<string, SourceMetadata> = {
     contextWindow: 131_072,
     series: "Grok",
   },
+  // OrcaRouter free auto-router meta-models (route to a free upstream; no fixed base/date).
+  "orca-router": {
+    releaseDate: iso("2026-05-01"),
+    contextWindow: 200_000,
+    series: "OrcaRouter",
+    supportsTools: true,
+  },
+  "orca-fusion": {
+    releaseDate: iso("2026-05-01"),
+    contextWindow: 200_000,
+    series: "OrcaRouter",
+    supportsTools: true,
+  },
+  "orca-fusion-flash": {
+    releaseDate: iso("2026-05-01"),
+    contextWindow: 200_000,
+    series: "OrcaRouter",
+    supportsTools: true,
+  },
+  "orca-fusion-mini": {
+    releaseDate: iso("2026-05-01"),
+    contextWindow: 200_000,
+    series: "OrcaRouter",
+    supportsTools: true,
+  },
+  // Alibaba Qwen3.5 variants surfaced via mixlayer/llmtr/morph free lanes.
+  "qwen3.5-4b": {
+    releaseDate: iso("2026-02-23"),
+    contextWindow: 262_144,
+    series: "Qwen",
+    supportsTools: true,
+  },
+  "qwen3.5-397b": {
+    releaseDate: iso("2026-02-23"),
+    contextWindow: 262_144,
+    series: "Qwen",
+    isReasoning: true,
+    supportsTools: true,
+  },
 };
 
 export function buildCuratedSource(): PricingSource {

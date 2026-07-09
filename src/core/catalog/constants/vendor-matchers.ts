@@ -93,6 +93,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   aionlabs: { modelPatterns: ["aion-rp","aion-1","aion-2","aion-3"], strongPatterns: ["aion-rp"], nameAliases: ["aion labs","aionlabs"], displayName: "Aion Labs" },
   // OpenCode Zen house/stealth models (undisclosed base): big-pickle + opencode-branded.
   opencodezen: { modelPatterns: ["big-pickle","opencode"], strongPatterns: ["big-pickle"], nameAliases: ["opencode zen","opencode"], displayName: "OpenCode Zen" },
+  orcarouter: { modelPatterns: ["orca-router","orca-fusion"], strongPatterns: ["orca-fusion","orca-router"], nameAliases: ["orcarouter","orca router"], displayName: "OrcaRouter" },
   swissai: { modelPatterns: ["apertus"], strongPatterns: ["apertus"], nameAliases: ["swiss ai","swiss-ai","swissai","eth zurich","epfl"], displayName: "Swiss AI" },
   utterproject: { modelPatterns: ["eurollm"], strongPatterns: ["eurollm"], nameAliases: ["utter-project","utter project","eurollm"], displayName: "EuroLLM" },
   dictail: { modelPatterns: ["dictalm"], strongPatterns: ["dictalm"], nameAliases: ["dicta-il","dicta","dictalm"], displayName: "Dicta" },

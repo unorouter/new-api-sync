@@ -338,6 +338,15 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-... (morphllm.com dashboard)",
   },
   {
+    kind: "orcarouter",
+    label: "OrcaRouter",
+    // www.orcarouter.ai/v1 - new-api relay, FUNDED account (paid models bill). Wire ONLY the free
+    // auto-router meta-models (hardcoded in discovery); paid models are never exposed. Base is root.
+    defaultBaseUrl: "https://www.orcarouter.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-orca-... (orcarouter.ai/console/token)",
+  },
+  {
     kind: "cloudferro",
     label: "CloudFerro Sherlock",
     // api-sherlock.cloudferro.com/openai - EU/GDPR-hosted (Poland). 14 models: Llama-3.3-70B,
