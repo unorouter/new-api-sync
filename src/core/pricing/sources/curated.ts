@@ -21,6 +21,11 @@ const iso = (d: string) => `${d}T00:00:00.000Z`;
 export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // Verified release dates (official sources) for models a live source carries
   // dateless, so plain CURATED (gap-fill) can't set them; hard-pin here.
+  // Google Nano Banana Pro (Gemini 3 Pro Image Preview), launched 2025-11-20.
+  "nano-banana-pro-preview": { releaseDate: iso("2025-11-20") },
+  // Google Lyria 3 music gen: base 2026-02-18, Pro 2026-03-25.
+  "lyria-3-clip-preview": { releaseDate: iso("2026-02-18") },
+  "lyria-3-pro-preview": { releaseDate: iso("2026-03-25") },
   "deepseek-r1-distill-llama-8b": { releaseDate: iso("2025-01-20") },
   "deepseek-r1-distill-qwen-14b": { releaseDate: iso("2025-01-20") },
   "deepseek-r1-distill-qwen-7b": { releaseDate: iso("2025-01-20") },
