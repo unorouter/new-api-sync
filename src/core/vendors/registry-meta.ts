@@ -356,6 +356,15 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "(app.thegrid.ai/account/api-keys)",
   },
   {
+    kind: "vivgrid",
+    label: "Vivgrid",
+    // api.vivgrid.com/v1 - free promo key. FAKE-MODEL relay (all premium ids served as
+    // deepseek-v4-flash); discovery exposes ONLY the honest deepseek-v4-flash. Base is root.
+    defaultBaseUrl: "https://api.vivgrid.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "viv-... (vivgrid.com)",
+  },
+  {
     kind: "cloudferro",
     label: "CloudFerro Sherlock",
     // api-sherlock.cloudferro.com/openai - EU/GDPR-hosted (Poland). 14 models: Llama-3.3-70B,
