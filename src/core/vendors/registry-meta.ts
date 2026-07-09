@@ -396,6 +396,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-proj-... (platform.openai.com/api-keys, data-sharing on)",
   },
   {
+    kind: "vercel",
+    label: "Vercel AI Gateway",
+    // ai-gateway.vercel.sh/v1 - $5 recurring free credit, card on file but per-key spend-quota
+    // hard-capped at $5 (can never bill beyond). Legit multi-provider gateway (real upstreams),
+    // full frontier chat set. 429-rate-limited on free tier -> acceptRateLimited + failover. Base
+    // is root; new-api appends /v1/chat/completions.
+    defaultBaseUrl: "https://ai-gateway.vercel.sh",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "vck_... (vercel.com/~/ai-gateway/api-keys)",
+  },
+  {
     kind: "cloudferro",
     label: "CloudFerro Sherlock",
     // api-sherlock.cloudferro.com/openai - EU/GDPR-hosted (Poland). 14 models: Llama-3.3-70B,

@@ -58,6 +58,7 @@ import { discoverVivgridModels } from "./vivgrid/discovery";
 import { discoverZenMuxModels } from "./zenmux/discovery";
 import { discoverAiNativeModels } from "./ainative/discovery";
 import { discoverOpenAiModels } from "./openai/discovery";
+import { discoverVercelModels } from "./vercel/discovery";
 import { discoverCloudFerroModels } from "./cloudferro/discovery";
 import { discoverInceptionModels } from "./inception/discovery";
 import { discoverJiekouModels } from "./jiekou/discovery";
@@ -141,6 +142,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   zenmux: discoverZenMuxModels,
   ainative: discoverAiNativeModels,
   openai: discoverOpenAiModels,
+  vercel: discoverVercelModels,
   cloudferro: discoverCloudFerroModels,
   inception: discoverInceptionModels,
   jiekou: discoverJiekouModels,
