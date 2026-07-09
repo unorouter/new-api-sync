@@ -48,6 +48,8 @@ import { discoverMimoModels } from "./mimo/discovery";
 import { discoverAbliterationModels } from "./abliteration/discovery";
 import { discoverAurikoModels } from "./auriko/discovery";
 import { discoverBergetModels } from "./berget/discovery";
+import { discoverKenariModels } from "./kenari/discovery";
+import { discoverLlmtrModels } from "./llmtr/discovery";
 import { discoverCloudFerroModels } from "./cloudferro/discovery";
 import { discoverInceptionModels } from "./inception/discovery";
 import { discoverJiekouModels } from "./jiekou/discovery";
@@ -121,6 +123,8 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   abliteration: discoverAbliterationModels,
   auriko: discoverAurikoModels,
   berget: discoverBergetModels,
+  kenari: discoverKenariModels,
+  llmtr: discoverLlmtrModels,
   cloudferro: discoverCloudFerroModels,
   inception: discoverInceptionModels,
   jiekou: discoverJiekouModels,

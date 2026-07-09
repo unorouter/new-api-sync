@@ -300,6 +300,25 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk_ber_... (console.berget.ai)",
   },
   {
+    kind: "kenari",
+    label: "Kenari",
+    // kenari.id/v1 - Indonesian multi-provider aggregator (pay-per-token IDR/QRIS). 26-model
+    // catalog, only 2 free (deepseek-v4-flash:free, hy3:free); paid ids hard-block at 402 no
+    // card. Discovery filters strictly to pricing.free. Base includes /v1.
+    defaultBaseUrl: "https://kenari.id",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "kn-... (kenari.id/keys)",
+  },
+  {
+    kind: "llmtr",
+    label: "LLMTR",
+    // llmtr.com/v1 - Turkish aggregator, 198 frontier models but only qwen/qwen3-32b-free is
+    // free; the rest hard-block 402 no card. Discovery filters to the -free suffix. Base is root.
+    defaultBaseUrl: "https://llmtr.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "llmtr-... (llmtr.com/dashboard/keys)",
+  },
+  {
     kind: "cloudferro",
     label: "CloudFerro Sherlock",
     // api-sherlock.cloudferro.com/openai - EU/GDPR-hosted (Poland). 14 models: Llama-3.3-70B,
