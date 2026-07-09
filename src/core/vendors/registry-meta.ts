@@ -396,6 +396,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-proj-... (platform.openai.com/api-keys, data-sharing on)",
   },
   {
+    kind: "regolo",
+    label: "Regolo",
+    // api.regolo.ai/v1 - EU/green LLM API, 30-day free trial (1M tok/day, all Core Models, no
+    // card; PAYG after with no auto-charge). ~14 chat models incl glm-5.2, gpt-oss, qwen3.5-122b,
+    // apertus-70b (Swiss AI). Base is root; discovery + new-api append /v1.
+    defaultBaseUrl: "https://api.regolo.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (dashboard.regolo.ai/api-keys)",
+  },
+  {
     kind: "vercel",
     label: "Vercel AI Gateway",
     // ai-gateway.vercel.sh/v1 - $5 recurring free credit, card on file but per-key spend-quota

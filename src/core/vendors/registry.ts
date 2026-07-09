@@ -59,6 +59,7 @@ import { discoverZenMuxModels } from "./zenmux/discovery";
 import { discoverAiNativeModels } from "./ainative/discovery";
 import { discoverOpenAiModels } from "./openai/discovery";
 import { discoverVercelModels } from "./vercel/discovery";
+import { discoverRegoloModels } from "./regolo/discovery";
 import { discoverCloudFerroModels } from "./cloudferro/discovery";
 import { discoverInceptionModels } from "./inception/discovery";
 import { discoverJiekouModels } from "./jiekou/discovery";
@@ -143,6 +144,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   ainative: discoverAiNativeModels,
   openai: discoverOpenAiModels,
   vercel: discoverVercelModels,
+  regolo: discoverRegoloModels,
   cloudferro: discoverCloudFerroModels,
   inception: discoverInceptionModels,
   jiekou: discoverJiekouModels,
