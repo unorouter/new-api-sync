@@ -16,6 +16,27 @@ import type {
 } from "./types";
 
 const TEST_PROMPT = "Reply with only the word ok.";
+
+// OpenAI gpt-5* and o1/o3/o4 reasoning models reject `max_tokens` (require
+// `max_completion_tokens`). new-api's OpenAI adaptor translates this for user traffic, but
+// the sync probe hits the upstream directly, so build the correct field here by bare name.
+const bareModel = (model: string) => {
+  const slash = model.lastIndexOf("/");
+  return (slash === -1 ? model : model.slice(slash + 1)).toLowerCase();
+};
+const needsMaxCompletionTokens = (model: string) => {
+  const n = bareModel(model);
+  return (
+    n.startsWith("gpt-5") ||
+    n.startsWith("o1") ||
+    n.startsWith("o3") ||
+    n.startsWith("o4")
+  );
+};
+const tokenBudget = (model: string, n: number) =>
+  needsMaxCompletionTokens(model)
+    ? { max_completion_tokens: n }
+    : { max_tokens: n };
 const noError = (data: unknown) => !(data as ErrorEnvelope).error;
 const jsonBearer = (apiKey: string) => ({
   "Content-Type": "application/json",
@@ -90,7 +111,7 @@ export function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
     headers: jsonBearer(apiKey),
     // 16 is the floor some backends accept (AI Horde rejects max_tokens < 16);
     // still tiny for a liveness probe.
-    body: { model, messages: userMsg(TEST_PROMPT), max_tokens: 16 },
+    body: { model, messages: userMsg(TEST_PROMPT), ...tokenBudget(model, 16) },
     isSuccess: noError,
   };
 }
@@ -122,7 +143,7 @@ export function getStreamRequestConfig(
     body: {
       model,
       messages: userMsg(TEST_PROMPT),
-      max_tokens: channelType === CHANNEL_TYPES.ZHIPU_V4 ? 64 : 16,
+      ...tokenBudget(model, channelType === CHANNEL_TYPES.ZHIPU_V4 ? 64 : 16),
       stream: true,
     },
     completionMarker: "data: [DONE]",
@@ -293,7 +314,7 @@ export function getToolCallConfig(
     body: {
       model,
       stream: true,
-      max_tokens: PROBE_MAX_TOKENS,
+      ...tokenBudget(model, PROBE_MAX_TOKENS),
       tools: PROBE_TOOLS.map((t) => ({ type: "function", function: t })),
       messages: [
         { role: "user", content: PROBE_CALC_PROMPT },

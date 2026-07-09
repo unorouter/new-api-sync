@@ -386,6 +386,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk_... (ainative.studio/dashboard/api-keys)",
   },
   {
+    kind: "openai",
+    label: "OpenAI",
+    // api.openai.com/v1 first-party, complimentary-tokens program (data-sharing opt-in). Fixed
+    // eligible set is free to a daily cap; discovery hardcodes ONLY that set. WARNING: over-cap
+    // usage bills the card - the rateLimit block + a hard per-day guard keep total under 250k/day.
+    defaultBaseUrl: "https://api.openai.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-proj-... (platform.openai.com/api-keys, data-sharing on)",
+  },
+  {
     kind: "cloudferro",
     label: "CloudFerro Sherlock",
     // api-sherlock.cloudferro.com/openai - EU/GDPR-hosted (Poland). 14 models: Llama-3.3-70B,
