@@ -55,6 +55,7 @@ import { discoverMorphModels } from "./morph/discovery";
 import { discoverOrcaRouterModels } from "./orcarouter/discovery";
 import { discoverTheGridModels } from "./thegrid/discovery";
 import { discoverVivgridModels } from "./vivgrid/discovery";
+import { discoverZenMuxModels } from "./zenmux/discovery";
 import { discoverCloudFerroModels } from "./cloudferro/discovery";
 import { discoverInceptionModels } from "./inception/discovery";
 import { discoverJiekouModels } from "./jiekou/discovery";
@@ -135,6 +136,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   orcarouter: discoverOrcaRouterModels,
   thegrid: discoverTheGridModels,
   vivgrid: discoverVivgridModels,
+  zenmux: discoverZenMuxModels,
   cloudferro: discoverCloudFerroModels,
   inception: discoverInceptionModels,
   jiekou: discoverJiekouModels,

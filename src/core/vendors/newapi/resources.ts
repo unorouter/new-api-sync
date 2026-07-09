@@ -261,7 +261,7 @@ export async function deleteModel(
 export async function listVendors(ctx: ClientContext): Promise<Vendor[]> {
   return paginate(async (page) => {
     const data = await fetchJson<ApiResponse<{ items?: Vendor[] }>>(
-      `${ctx.baseUrl}/api/vendors/?page=${page}&page_size=${PS}`,
+      `${ctx.baseUrl}/api/vendors/?p=${page}&page_size=${PS}`,
       { headers: ctx.headers, ...FETCH_OPTS },
     );
     return data.data?.items ?? [];

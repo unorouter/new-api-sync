@@ -365,6 +365,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "viv-... (vivgrid.com)",
   },
   {
+    kind: "zenmux",
+    label: "ZenMux",
+    // zenmux.ai/api/v1 - PAYG aggregator, 144 models. Only all-zero-priced -free ids are wired
+    // (grok-4.5-free, step-3.7-flash-free, glm-4.7/4.6v-flash-free); paid ids hard-block at $0
+    // balance no card. claude-fable-5-free excluded (balance-gated, sunsets 2026-07-10).
+    // Base includes /api.
+    defaultBaseUrl: "https://zenmux.ai/api",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-ai-v1-... (zenmux.ai/platform/pay-as-you-go)",
+  },
+  {
     kind: "cloudferro",
     label: "CloudFerro Sherlock",
     // api-sherlock.cloudferro.com/openai - EU/GDPR-hosted (Poland). 14 models: Llama-3.3-70B,
