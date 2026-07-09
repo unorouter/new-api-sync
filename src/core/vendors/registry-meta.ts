@@ -347,6 +347,15 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-orca-... (orcarouter.ai/console/token)",
   },
   {
+    kind: "thegrid",
+    label: "TheGrid",
+    // api.thegrid.ai/v1 - rate-limited free tier (5/window no card), 307-redirect flow. Text tiers
+    // route to claude-opus-4-8/minimax-m3/gpt-oss-120b, collapsed via modelMapping. Base is root.
+    defaultBaseUrl: "https://api.thegrid.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "(app.thegrid.ai/account/api-keys)",
+  },
+  {
     kind: "cloudferro",
     label: "CloudFerro Sherlock",
     // api-sherlock.cloudferro.com/openai - EU/GDPR-hosted (Poland). 14 models: Llama-3.3-70B,

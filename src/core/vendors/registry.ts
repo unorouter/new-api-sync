@@ -53,6 +53,7 @@ import { discoverLlmtrModels } from "./llmtr/discovery";
 import { discoverMixlayerModels } from "./mixlayer/discovery";
 import { discoverMorphModels } from "./morph/discovery";
 import { discoverOrcaRouterModels } from "./orcarouter/discovery";
+import { discoverTheGridModels } from "./thegrid/discovery";
 import { discoverCloudFerroModels } from "./cloudferro/discovery";
 import { discoverInceptionModels } from "./inception/discovery";
 import { discoverJiekouModels } from "./jiekou/discovery";
@@ -131,6 +132,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   mixlayer: discoverMixlayerModels,
   morph: discoverMorphModels,
   orcarouter: discoverOrcaRouterModels,
+  thegrid: discoverTheGridModels,
   cloudferro: discoverCloudFerroModels,
   inception: discoverInceptionModels,
   jiekou: discoverJiekouModels,
