@@ -376,6 +376,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-ai-v1-... (zenmux.ai/platform/pay-as-you-go)",
   },
   {
+    kind: "ainative",
+    label: "AINative",
+    // api.ainative.studio/v1 - free 10M tok/mo, email signup no card. Fake-model relay for
+    // premium ids (all one Qwen3 backend); discovery hardcodes the fingerprinted honest subset
+    // (deepseek-v4-flash, glm-4.7/5, phi-4, gpt-oss, qwen3-*, mistral-large). Base is root.
+    defaultBaseUrl: "https://api.ainative.studio",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk_... (ainative.studio/dashboard/api-keys)",
+  },
+  {
     kind: "cloudferro",
     label: "CloudFerro Sherlock",
     // api-sherlock.cloudferro.com/openai - EU/GDPR-hosted (Poland). 14 models: Llama-3.3-70B,
