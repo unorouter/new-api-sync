@@ -319,6 +319,25 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "llmtr-... (llmtr.com/dashboard/keys)",
   },
   {
+    kind: "mixlayer",
+    label: "Mixlayer",
+    // models.mixlayer.ai/v1 - programmable inference; 8-model catalog but only qwen3.5-4b-free
+    // is free, rest hard-block 402 no card. Discovery filters to -free suffix. Base is root.
+    defaultBaseUrl: "https://models.mixlayer.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk_mxl_... (console.mixlayer.com)",
+  },
+  {
+    kind: "morph",
+    label: "Morph",
+    // api.morphllm.com/v1 - YC coding-agent inference. Free tier renews 200 requests/MONTH no
+    // card. Exposes general chat (qwen/minimax/glm/deepseek) + code tooling; discovery keeps
+    // only chat. morph- prefixed ids collapse via modelMapping. Base is root.
+    defaultBaseUrl: "https://api.morphllm.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (morphllm.com dashboard)",
+  },
+  {
     kind: "cloudferro",
     label: "CloudFerro Sherlock",
     // api-sherlock.cloudferro.com/openai - EU/GDPR-hosted (Poland). 14 models: Llama-3.3-70B,
