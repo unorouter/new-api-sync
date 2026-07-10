@@ -9,7 +9,11 @@ import {
   sanitizeGroupName,
 } from "@core/catalog/constants/patterns";
 import { filterModels } from "@core/catalog/filter";
-import { getTestModelTypes, type RuntimeConfig } from "@core/config";
+import {
+  getMetadataFromEnabledModels,
+  getTestModelTypes,
+  type RuntimeConfig,
+} from "@core/config";
 import type {
   OfferModel,
   ProviderResult,
@@ -20,7 +24,10 @@ import { NVIDIA_RETRY_POLICY, type RetryPolicy } from "@core/testing/execution";
 import { testAndFilterModels } from "@core/testing/runner";
 import type { TestExchange } from "@core/testing/types";
 import type { ModelType, ProviderReport } from "@core/types";
-import type { SimpleFreeProviderConfig } from "@core/validations/config";
+import type {
+  ModelMetadata,
+  SimpleFreeProviderConfig,
+} from "@core/validations/config";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { buildCapabilityMap, passthroughExposed } from "./capability-map";
@@ -91,12 +98,22 @@ export function emitFreeTextOffers(opts: {
   paidModels?: string[];
   /** Upstream ids kept only via a 429 accept; their channels emit disabled. */
   rateLimited?: Set<string>;
+  /** Per-model metadata from config enabledModels (glob key -> metadata), merged
+   *  onto each matching OfferModel. Carries disableThinking, maxOutputTokens, etc. */
+  metadataByModel?: Record<string, ModelMetadata>;
 }): UpstreamOffer[] {
   const offers: UpstreamOffer[] = [];
   const channelType = opts.channelType ?? CHANNEL_TYPES.OPENAI;
   const modelType = opts.modelType ?? "text";
   const paidModels = opts.paidModels ?? [];
   const rateLimited = opts.rateLimited ?? new Set<string>();
+  const metadataGlobs = Object.entries(opts.metadataByModel ?? {});
+  const configMetadataFor = (exposed: string): ModelMetadata | undefined => {
+    for (const [glob, meta] of metadataGlobs) {
+      if (exposed === glob || matchesAnyPattern(exposed, [glob])) return meta;
+    }
+    return undefined;
+  };
   const isPaid = (exposed: string) =>
     paidModels.length > 0 && matchesAnyPattern(exposed, paidModels);
   const byVendor = partitionByVendor(
@@ -107,6 +124,11 @@ export function emitFreeTextOffers(opts: {
   const toOfferModel = (x: Resolution): OfferModel => {
     const upstream = opts.rev[x.exposed] ?? x.upstream;
     const maxOut = opts.maxOutputByModel.get(upstream);
+    const configMeta = configMetadataFor(x.exposed);
+    const metadata: ModelMetadata = {
+      ...(maxOut ? { maxOutputTokens: maxOut } : {}),
+      ...configMeta,
+    };
     return {
       exposed: x.exposed,
       upstream,
@@ -115,7 +137,7 @@ export function emitFreeTextOffers(opts: {
       ...(rateLimited.has(upstream) ? { rateLimited: true } : {}),
       testDetail: opts.details.find((d) => d.model === x.upstream),
       ...(opts.endpoints ? { endpoints: opts.endpoints } : {}),
-      ...(maxOut ? { metadata: { maxOutputTokens: maxOut } } : {}),
+      ...(Object.keys(metadata).length ? { metadata } : {}),
     };
   };
   const buildOffer = (
@@ -281,6 +303,9 @@ export async function processOpenAICompatibleFreeProvider(
             modelType: modality.modelType,
             endpoints: modality.endpoints,
             paidModels: providerConfig.paidModels,
+            metadataByModel: getMetadataFromEnabledModels(
+              providerConfig.enabledModels,
+            ),
           }),
         );
         continue;
@@ -339,6 +364,9 @@ export async function processOpenAICompatibleFreeProvider(
           modelType: modality.modelType,
           endpoints: modality.endpoints,
           paidModels: providerConfig.paidModels,
+          metadataByModel: getMetadataFromEnabledModels(
+            providerConfig.enabledModels,
+          ),
           rateLimited,
         }),
       );

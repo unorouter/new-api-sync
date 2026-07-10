@@ -49,23 +49,19 @@ const CLAUDE_CONTEXT_1M_PARAM_OVERRIDE = JSON.stringify({
   ],
 });
 
-// GLM (Zhipu) reasoning models spend the whole output budget on
-// reasoning_content and return empty content (finish_reason=length) unless
-// thinking is disabled. Set every known disable flag; upstreams ignore the ones
+// Opt-in (per-model, via enabledModels metadata.disableThinking) override for
+// reasoning models that spend the whole output budget on reasoning_content and
+// return empty content (finish_reason=length) on backends that don't honor an
+// OpenAI-style request. Sets every known disable flag; upstreams ignore the ones
 // they don't recognize (thinking.type for Z.AI, enable_thinking for the OpenAI
 // shim, chat_template_kwargs.enable_thinking for vLLM/sglang backends).
-const GLM_DISABLE_THINKING_PARAM_OVERRIDE = JSON.stringify({
+const DISABLE_THINKING_PARAM_OVERRIDE = JSON.stringify({
   operations: [
     { path: "thinking.type", mode: "set", value: "disabled" },
     { path: "enable_thinking", mode: "set", value: false },
     { path: "chat_template_kwargs.enable_thinking", mode: "set", value: false },
   ],
 });
-
-// glm-4.6+ / glm-5.x ship chain-of-thought on by default. Older glm-4/4.5 do not.
-function isGlmReasoningModel(exposed: string): boolean {
-  return /^glm-(4\.[6-9]|[5-9])/.test(exposed.toLowerCase());
-}
 
 function isAnthropicNativeOffer(offer: UpstreamOffer): boolean {
   return offer.vendor === "anthropic";
@@ -627,8 +623,8 @@ function pushBucketsAsTiers(
         testDetails: m.testDetail ? [m.testDetail] : undefined,
         paramOverride: hasContext1mAlias
           ? CLAUDE_CONTEXT_1M_PARAM_OVERRIDE
-          : isGlmReasoningModel(m.exposed)
-            ? GLM_DISABLE_THINKING_PARAM_OVERRIDE
+          : m.metadata?.disableThinking
+            ? DISABLE_THINKING_PARAM_OVERRIDE
             : undefined,
         // Media channels carry refs/extras (image_urls, multipart) new-api drops on
         // re-marshal; pass the raw body through. EXCEPT ALI (17): DashScope's task
