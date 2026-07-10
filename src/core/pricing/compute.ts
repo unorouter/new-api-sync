@@ -55,7 +55,7 @@ const CLAUDE_CONTEXT_1M_PARAM_OVERRIDE = JSON.stringify({
 // OpenAI-style request. Sets every known disable flag; upstreams ignore the ones
 // they don't recognize (thinking.type for Z.AI, enable_thinking for the OpenAI
 // shim, chat_template_kwargs.enable_thinking for vLLM/sglang backends).
-const DISABLE_THINKING_PARAM_OVERRIDE = JSON.stringify({
+export const DISABLE_THINKING_PARAM_OVERRIDE = JSON.stringify({
   operations: [
     { path: "thinking.type", mode: "set", value: "disabled" },
     { path: "enable_thinking", mode: "set", value: false },

@@ -32,6 +32,7 @@ import {
   buildReverseMapping,
   matchesAnyPattern,
   parseModelList,
+  sanitizeGroupName,
 } from "@core/catalog/constants/patterns";
 import {
   findVendorByAlias,
@@ -44,7 +45,11 @@ import {
   fetchOpenRouterDescriptions,
 } from "@core/catalog/metadata";
 import type { RuntimeConfig } from "@core/config";
-import { getPricingGridFromEnabledModels } from "@core/config";
+import {
+  getMetadataFromEnabledModels,
+  getPricingGridFromEnabledModels,
+} from "@core/config";
+import { DISABLE_THINKING_PARAM_OVERRIDE } from "@core/pricing/compute";
 import {
   buildModelMetadata,
   deriveTagsFromMetadata,
@@ -75,6 +80,7 @@ export interface MetadataSyncResult {
   failedModels: string[];
   renamedChannels: number;
   passThroughEnabled: number;
+  paramOverrideChanged: number;
 }
 
 // Resolve a model's canonical vendor to an existing vendor_id, creating the
@@ -268,6 +274,75 @@ async function reconcilePassThrough(
   return enabled;
 }
 
+// disableThinking is a PER-PROVIDER opt-in: a provider's enabledModels
+// metadata.disableThinking only affects THAT provider's channels. Channels are
+// named `${sanitizeGroupName(provider)}-${sanitizeGroupName(model)}`, so we scope
+// each provider's globs to channels whose name carries its sanitized prefix.
+function buildDisableThinkingByProvider(
+  config: RuntimeConfig,
+): { prefix: string; globs: string[] }[] {
+  const out: { prefix: string; globs: string[] }[] = [];
+  for (const provider of config.providers) {
+    const enabledModels = (provider as { enabledModels?: unknown })
+      .enabledModels as Parameters<typeof getMetadataFromEnabledModels>[0];
+    const metaByModel = getMetadataFromEnabledModels(enabledModels);
+    const globs = Object.entries(metaByModel)
+      .filter(([, meta]) => (meta as { disableThinking?: boolean }).disableThinking)
+      .map(([glob]) => glob);
+    if (globs.length > 0) {
+      out.push({ prefix: `${sanitizeGroupName(provider.name)}-`, globs });
+    }
+  }
+  return out;
+}
+
+async function reconcileParamOverride(
+  target: NewApiClient,
+  channels: Channel[],
+  config: RuntimeConfig,
+): Promise<number> {
+  const byProvider = buildDisableThinkingByProvider(config);
+  if (byProvider.length === 0) return 0;
+
+  let changed = 0;
+  for (const ch of channels) {
+    // Preserve any non-thinking param_override already set (e.g. Claude 1m):
+    // only channels with no override or the thinking one are ours to reconcile.
+    const current = ch.param_override?.trim() || undefined;
+    if (current && current !== DISABLE_THINKING_PARAM_OVERRIDE) continue;
+
+    // Only a provider that owns this channel (name prefix) may flag it, so
+    // lf1's glm globs never touch io1/nvy/... channels that serve GLM fine.
+    // A channel with no owner-provider wants no override, so a stale thinking
+    // override on it (e.g. from an earlier unscoped run) gets cleared.
+    const owner = byProvider.find((p) => ch.name.startsWith(p.prefix));
+    const wantsDisable =
+      owner !== undefined &&
+      parseModelList(ch.models).some(
+        (name) =>
+          !isRoutingOnlyAlias(name) && matchesAnyPattern(name, owner.globs),
+      );
+    const desired = wantsDisable ? DISABLE_THINKING_PARAM_OVERRIDE : undefined;
+    if (current === desired) continue;
+
+    const ok = await target.updateChannel({
+      ...ch,
+      param_override: desired ?? "",
+    });
+    if (ok) {
+      ch.param_override = desired;
+      changed++;
+      consola.info(
+        t("CORE.METADATA.CHANNEL_PARAM_OVERRIDE_SET", {
+          name: ch.name,
+          action: desired ? "set" : "cleared",
+        }),
+      );
+    }
+  }
+  return changed;
+}
+
 export async function runMetadataSync(
   config: RuntimeConfig,
 ): Promise<MetadataSyncResult> {
@@ -307,6 +382,11 @@ export async function runMetadataSync(
 
   // Ensure media channels forward the raw body (image_urls / vendor extras survive new-api re-marshal).
   const passThroughEnabled = await reconcilePassThrough(target, channels);
+  const paramOverrideChanged = await reconcileParamOverride(
+    target,
+    channels,
+    config,
+  );
 
   // Union of every served name and every existing models-table row.
   const existingByName = new Map<string, ModelMeta>();
@@ -340,6 +420,7 @@ export async function runMetadataSync(
     failedModels: [],
     renamedChannels,
     passThroughEnabled,
+    paramOverrideChanged,
   };
 
   for (const name of names) {
@@ -888,6 +969,10 @@ export function printMetadataSummary(result: MetadataSyncResult): void {
   if (result.passThroughEnabled > 0)
     consola.info(
       `[metadata] enabled body pass-through on ${result.passThroughEnabled} media channels`,
+    );
+  if (result.paramOverrideChanged > 0)
+    consola.info(
+      `[metadata] reconciled disable-thinking param_override on ${result.paramOverrideChanged} channels`,
     );
   if (result.failedModels.length > 0)
     consola.warn(
