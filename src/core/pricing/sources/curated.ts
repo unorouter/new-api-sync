@@ -53,6 +53,40 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   "grok-4-fast-non-reasoning": { releaseDate: iso("2025-09-19") },
   "grok-4.1-fast-reasoning": { releaseDate: iso("2025-11-01") },
   "grok-4.1-fast-non-reasoning": { releaseDate: iso("2025-11-01") },
+  "grok-4.5": {
+    releaseDate: iso("2026-07-08"),
+    contextWindow: 500_000,
+    series: "Grok",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // GPT-5.6 Sol/Terra/Luna: 3 durable tiers, 1.05M ctx / 128K out, GA 2026-07-09.
+  // bare gpt-5.6 aliases to sol (mapped in config.yml modelMapping). Sol's xhigh +
+  // ultra map onto "max" (top of the ladder in this enum).
+  "gpt-5.6-sol": {
+    releaseDate: iso("2026-07-09"),
+    contextWindow: 1_050_000,
+    series: "GPT",
+    isReasoning: true,
+    supportsTools: true,
+    reasoningEfforts: ["none", "low", "medium", "high", "max"],
+  },
+  "gpt-5.6-terra": {
+    releaseDate: iso("2026-07-09"),
+    contextWindow: 1_050_000,
+    series: "GPT",
+    isReasoning: true,
+    supportsTools: true,
+    reasoningEfforts: ["none", "low", "medium", "high", "max"],
+  },
+  "gpt-5.6-luna": {
+    releaseDate: iso("2026-07-09"),
+    contextWindow: 1_050_000,
+    series: "GPT",
+    isReasoning: true,
+    supportsTools: true,
+    reasoningEfforts: ["none", "low", "medium", "high", "max"],
+  },
   "gemini-2.5-computer-use-preview-10-2025": {
     releaseDate: iso("2025-10-07"),
   },
