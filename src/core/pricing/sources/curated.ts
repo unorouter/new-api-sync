@@ -45,6 +45,12 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   "flux-1.1-pro": { releaseDate: iso("2024-10-01") },
   "bge-reranker-v2-m3": { releaseDate: iso("2024-03-18") },
   "gpt-oss-120b": { releaseDate: iso("2025-08-05") },
+  "deepseek-v3-0324": {
+    releaseDate: iso("2025-03-24"),
+    contextWindow: 128_000,
+    series: "DeepSeek",
+    supportsTools: true,
+  },
   "devstral-small-2": { releaseDate: iso("2025-07-11") },
   "grok-4": { releaseDate: iso("2025-07-09") },
   "grok-code-fast-1": { releaseDate: iso("2025-08-28") },
@@ -1390,6 +1396,13 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2026-03-09"),
     contextWindow: 1_000_000,
     series: "Grok",
+    supportsTools: true,
+  },
+  "grok-4.20-reasoning": {
+    releaseDate: iso("2026-03-09"),
+    contextWindow: 1_000_000,
+    series: "Grok",
+    isReasoning: true,
     supportsTools: true,
   },
   // net-new SOTA paid adds
