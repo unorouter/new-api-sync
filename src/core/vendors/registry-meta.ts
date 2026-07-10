@@ -396,6 +396,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-proj-... (platform.openai.com/api-keys, data-sharing on)",
   },
   {
+    kind: "typhoon",
+    label: "Typhoon",
+    // api.opentyphoon.ai/v1 - SCB 10X's Thai-first LLM (Thailand). Free tier RPS/RPM-limited, no
+    // card (429 -> acceptRateLimited). typhoon-v2.5-30b Thai + SEA multilingual chat (unique niche).
+    // OCR/ASR endpoints skipped. Base is root; new-api appends /v1.
+    defaultBaseUrl: "https://api.opentyphoon.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (playground.opentyphoon.ai/settings/api-key)",
+  },
+  {
     kind: "sarvam",
     label: "Sarvam",
     // api.sarvam.ai/v1 - India's sovereign LLM platform. Rs.100-1000 free signup credits (never

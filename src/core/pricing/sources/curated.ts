@@ -2227,6 +2227,14 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // Typhoon (SCB 10X, Thai-first)
+  "typhoon-v2.5-30b-a3b-instruct": {
+    releaseDate: iso("2026-01-15"),
+    contextWindow: 131_072,
+    series: "Typhoon",
+    isReasoning: true,
+    supportsTools: true,
+  },
 };
 
 export function buildCuratedSource(): PricingSource {

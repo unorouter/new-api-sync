@@ -62,6 +62,7 @@ import { discoverVercelModels } from "./vercel/discovery";
 import { discoverRegoloModels } from "./regolo/discovery";
 import { discoverCometApiModels } from "./cometapi/discovery";
 import { discoverSarvamModels } from "./sarvam/discovery";
+import { discoverTyphoonModels } from "./typhoon/discovery";
 import { discoverCloudFerroModels } from "./cloudferro/discovery";
 import { discoverInceptionModels } from "./inception/discovery";
 import { discoverJiekouModels } from "./jiekou/discovery";
@@ -149,6 +150,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   regolo: discoverRegoloModels,
   cometapi: discoverCometApiModels,
   sarvam: discoverSarvamModels,
+  typhoon: discoverTyphoonModels,
   cloudferro: discoverCloudFerroModels,
   inception: discoverInceptionModels,
   jiekou: discoverJiekouModels,
