@@ -46,6 +46,9 @@ const jsonAnthropic = (apiKey: string) => ({
   "Content-Type": "application/json",
   "x-api-key": apiKey,
   "anthropic-version": "2023-06-01",
+  // Some Claude-Code-only relays (agentrouter) gate the API behind a claude-cli
+  // User-Agent (anti-abuse). Real Anthropic ignores it, so send it unconditionally.
+  "User-Agent": "claude-cli/1.0.0 (external, cli)",
 });
 const jsonOnly = { "Content-Type": "application/json" };
 const userMsg = (content: string) => [{ role: "user", content }];

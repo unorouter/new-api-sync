@@ -347,6 +347,20 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-orca-... (orcarouter.ai/console/token)",
   },
   {
+    kind: "agentrouter",
+    label: "AgentRouter",
+    // agentrouter.org - new-api fork, Claude-Code-only credit relay. $150 one-time signup
+    // credit (no card). ANTHROPIC channel type (14): the OpenAI /v1/chat/completions path is
+    // hard-blocked ("unauthorized client"), only the anthropic /v1/messages path works, and it
+    // is UA-gated (needs claude-cli User-Agent - the probe sends it; the runtime channel needs a
+    // header_override set post-sync in the DB). Free default group = 4 frontier models (hardcoded
+    // in discovery). Base is root; new-api appends /v1/messages.
+    defaultBaseUrl: "https://agentrouter.org",
+    defaultRatio: 0,
+    channelType: 14,
+    apiKeyPlaceholder: "sk-... (agentrouter.org/console/token, linux.do OAuth)",
+  },
+  {
     kind: "thegrid",
     label: "TheGrid",
     // api.thegrid.ai/v1 - rate-limited free tier (5/window no card), 307-redirect flow. Text tiers
