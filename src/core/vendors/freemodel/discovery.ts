@@ -7,7 +7,7 @@ import { consola } from "consola";
 // routed to gpt-5.4 (the response `model` field gives it away, and the sync's
 // authenticity probe rejects them anyway). So we expose ONLY the names that return
 // themselves - the honest, distinct GPT-5.x rows. 1-month Pro trial then tightens.
-const CURATED = ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini"];
+const CURATED = ["gpt-5.6", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini"];
 
 export async function discoverFreeModelModels(
   _baseUrl: string,
