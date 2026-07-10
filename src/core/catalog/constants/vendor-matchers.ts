@@ -96,6 +96,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   orcarouter: { modelPatterns: ["orca-router","orca-fusion"], strongPatterns: ["orca-fusion","orca-router"], nameAliases: ["orcarouter","orca router"], displayName: "OrcaRouter" },
   swissai: { modelPatterns: ["apertus"], strongPatterns: ["apertus"], nameAliases: ["swiss ai","swiss-ai","swissai","eth zurich","epfl"], displayName: "Swiss AI" },
   regolo: { modelPatterns: ["brick"], strongPatterns: ["brick-complexity","brick-v1"], nameAliases: ["regolo","regolo.ai"], displayName: "Regolo" },
+  sarvam: { modelPatterns: ["sarvam"], strongPatterns: ["sarvam"], nameAliases: ["sarvam","sarvam ai","sarvam.ai"], displayName: "Sarvam" },
   utterproject: { modelPatterns: ["eurollm"], strongPatterns: ["eurollm"], nameAliases: ["utter-project","utter project","eurollm"], displayName: "EuroLLM" },
   dictail: { modelPatterns: ["dictalm"], strongPatterns: ["dictalm"], nameAliases: ["dicta-il","dicta","dictalm"], displayName: "Dicta" },
   allenai: { modelPatterns: ["olmo"], strongPatterns: ["olmo"], nameAliases: ["allenai","allen ai","ai2","olmo"], displayName: "Allen AI" },

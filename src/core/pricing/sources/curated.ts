@@ -2212,6 +2212,21 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // Sarvam AI (India sovereign LLM, Indian-language)
+  "sarvam-105b": {
+    releaseDate: iso("2026-03-01"),
+    contextWindow: 131_072,
+    series: "Sarvam",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "sarvam-30b": {
+    releaseDate: iso("2026-03-01"),
+    contextWindow: 131_072,
+    series: "Sarvam",
+    isReasoning: true,
+    supportsTools: true,
+  },
 };
 
 export function buildCuratedSource(): PricingSource {

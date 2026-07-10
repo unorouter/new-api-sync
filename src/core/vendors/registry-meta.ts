@@ -396,6 +396,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-proj-... (platform.openai.com/api-keys, data-sharing on)",
   },
   {
+    kind: "sarvam",
+    label: "Sarvam",
+    // api.sarvam.ai/v1 - India's sovereign LLM platform. Rs.100-1000 free signup credits (never
+    // expire, no card; PAYG after no auto-charge). sarvam-105b + sarvam-30b Indian-language chat
+    // (10 languages, unique niche). Base is root; new-api appends /v1.
+    defaultBaseUrl: "https://api.sarvam.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk_... (dashboard.sarvam.ai/key-management)",
+  },
+  {
     kind: "cometapi",
     label: "CometAPI",
     // api.cometapi.com/v1 - unified relay, 606 models, $3 free signup credit (no card, PAYG after).
