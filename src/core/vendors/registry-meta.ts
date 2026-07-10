@@ -396,6 +396,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-proj-... (platform.openai.com/api-keys, data-sharing on)",
   },
   {
+    kind: "cometapi",
+    label: "CometAPI",
+    // api.cometapi.com/v1 - unified relay, 606 models, $3 free signup credit (no card, PAYG after).
+    // Real upstreams (fingerprint-verified). Curated frontier chat subset; $3 drains then 402-auto-
+    // disables. Base is root; new-api appends /v1/chat/completions.
+    defaultBaseUrl: "https://api.cometapi.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (cometapi.com/console/token)",
+  },
+  {
     kind: "regolo",
     label: "Regolo",
     // api.regolo.ai/v1 - EU/green LLM API, 30-day free trial (1M tok/day, all Core Models, no
