@@ -51,14 +51,13 @@ const CLAUDE_CONTEXT_1M_PARAM_OVERRIDE = JSON.stringify({
 
 // Opt-in (per-model, via enabledModels metadata.disableThinking) override for
 // reasoning models that spend the whole output budget on reasoning_content and
-// return empty content (finish_reason=length) on backends that don't honor an
-// OpenAI-style request. Sets every known disable flag; upstreams ignore the ones
-// they don't recognize (thinking.type for Z.AI, enable_thinking for the OpenAI
-// shim, chat_template_kwargs.enable_thinking for vLLM/sglang backends).
+// return empty content (finish_reason=length). Sends ONLY the vLLM/sglang form
+// (chat_template_kwargs.enable_thinking): logfare validates strictly and 400s
+// (wrong_api_format) if the request carries unknown top-level thinking/
+// enable_thinking props, so a "set all flags" override breaks it. This is the
+// form logfare (and other vLLM-backed relays) actually honors.
 export const DISABLE_THINKING_PARAM_OVERRIDE = JSON.stringify({
   operations: [
-    { path: "thinking.type", mode: "set", value: "disabled" },
-    { path: "enable_thinking", mode: "set", value: false },
     { path: "chat_template_kwargs.enable_thinking", mode: "set", value: false },
   ],
 });
