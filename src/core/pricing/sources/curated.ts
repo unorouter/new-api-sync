@@ -51,6 +51,13 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
     series: "DeepSeek",
     supportsTools: true,
   },
+  "deepseek-r1-0528": {
+    releaseDate: iso("2025-05-28"),
+    contextWindow: 128_000,
+    series: "DeepSeek",
+    isReasoning: true,
+    supportsTools: true,
+  },
   "devstral-small-2": { releaseDate: iso("2025-07-11") },
   "grok-4": { releaseDate: iso("2025-07-09") },
   "grok-code-fast-1": { releaseDate: iso("2025-08-28") },

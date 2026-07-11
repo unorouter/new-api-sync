@@ -24,6 +24,7 @@ interface ComputeArgs {
   pricingSources: PricingSource[];
   reverseMapping: Map<string, string>;
   modelMapping: Record<string, string>;
+  modelAlias?: Record<string, string[]>;
 }
 
 const PAID_GROUP_RATIO_CANDIDATES = [1, 0.5, 0.25, 0.1, 0.05, 0.01] as const;
@@ -602,6 +603,16 @@ function pushBucketsAsTiers(
         modelMapping[alias] = m.upstream;
         mirrorAliasRatio(modelRatios, publishedName, alias);
         hasContext1mAlias = true;
+      }
+
+      // Config-driven pure aliases: publish extra names on THIS channel, all routing
+      // to the same upstream + sharing pricing (one model, N names). For rebrands with
+      // no independent upstream source (e.g. deepseek-v3.2-exp == deepseek-v3.2).
+      for (const alias of args?.modelAlias?.[publishedName] ?? []) {
+        if (models.includes(alias)) continue;
+        models.push(alias);
+        modelMapping[alias] = m.upstream;
+        mirrorAliasRatio(modelRatios, publishedName, alias);
       }
 
       tiers.push({

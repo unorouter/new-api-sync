@@ -195,6 +195,11 @@ export const ConfigSchema = T.Object({
   perUpstreamConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),
   blacklist: Opt(T.Array(str)),
   modelMapping: Opt(T.Record(T.String(), T.String())),
+  // Publish a paid model under EXTRA names on the SAME channels (one channel, N
+  // published names, all routing to the same upstream + sharing pricing). For
+  // pure rebrands/aliases (e.g. deepseek-v3.2-exp == deepseek-v3.2) where the alias
+  // has no independent upstream source. Keyed by the base PUBLISHED name.
+  modelAlias: Opt(T.Record(T.String(), T.Array(str))),
   // prettier-ignore
   rateLimit: Opt(T.Object({
     // success = successful requests per window; total = attempts incl. failures

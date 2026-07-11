@@ -175,6 +175,7 @@ export async function runProviderPipeline(
     pricingSources,
     reverseMapping,
     modelMapping: config.modelMapping,
+    modelAlias: config.modelAlias,
   });
 
   for (const drop of plan.drops)
