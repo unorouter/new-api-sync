@@ -94,7 +94,9 @@ const TOKEN_BATCH_MAX = 100;
 
 /**
  * Bulk-reveal full keys for up to 100 tokens per call via /api/token/batch/keys.
- * Avoids the per-token rate-limit on /api/token/{id}/key.
+ * Avoids the per-token rate-limit on /api/token/{id}/key. The batch route is a
+ * fork extension; stock relays (fishx) lack it, so ids it doesn't answer for
+ * fall back to the per-token endpoint.
  */
 export async function getTokenFullKeysBatch(
   ctx: ClientContext,
@@ -119,6 +121,11 @@ export async function getTokenFullKeysBatch(
       const id = Number(k);
       if (Number.isFinite(id) && v) result.set(id, v);
     }
+  }
+  for (const id of ids) {
+    if (result.has(id)) continue;
+    const key = await getTokenFullKey(ctx, id);
+    if (key) result.set(id, key);
   }
   return result;
 }
