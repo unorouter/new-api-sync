@@ -176,6 +176,7 @@ export async function runProviderPipeline(
     reverseMapping,
     modelMapping: config.modelMapping,
     modelAlias: config.modelAlias,
+    systemPrompt: config.systemPrompt,
   });
 
   for (const drop of plan.drops)

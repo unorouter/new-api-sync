@@ -48,13 +48,32 @@ function extractPassThrough(setting?: string): boolean | undefined {
   }
 }
 
+function extractSystemPrompt(
+  setting?: string,
+): { prompt: string; override: boolean } | undefined {
+  if (!setting) return undefined;
+  try {
+    const s = JSON.parse(setting);
+    if (typeof s?.system_prompt !== "string" || !s.system_prompt)
+      return undefined;
+    return {
+      prompt: s.system_prompt,
+      override: s.system_prompt_override === true,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 function mergeSettingCapabilities(
   existingSetting?: string,
   desiredSetting?: string,
 ): string | undefined {
   const desiredCaps = extractCapabilities(desiredSetting);
   const desiredPassThrough = extractPassThrough(desiredSetting);
-  if (!desiredCaps && desiredPassThrough === undefined) return undefined;
+  const desiredSysPrompt = extractSystemPrompt(desiredSetting);
+  if (!desiredCaps && desiredPassThrough === undefined && !desiredSysPrompt)
+    return undefined;
   let existing: Record<string, unknown> = {};
   if (existingSetting) {
     try {
@@ -70,18 +89,29 @@ function mergeSettingCapabilities(
   if (desiredCaps) existing.capabilities = desiredCaps;
   if (desiredPassThrough !== undefined)
     existing.pass_through_body_enabled = desiredPassThrough;
+  if (desiredSysPrompt) {
+    existing.system_prompt = desiredSysPrompt.prompt;
+    existing.system_prompt_override = desiredSysPrompt.override;
+  }
   return JSON.stringify(existing);
 }
 
-// Diff key: capabilities + passthrough are the only setting fields the sync owns.
+// Diff key: capabilities + passthrough + system_prompt are the setting fields the sync owns.
 function normalizeCapabilities(setting?: string): string | undefined {
   const caps = extractCapabilities(setting);
   const passThrough = extractPassThrough(setting);
-  if (!caps && passThrough === undefined) return undefined;
+  const sysPrompt = extractSystemPrompt(setting);
+  if (!caps && passThrough === undefined && !sysPrompt) return undefined;
   return JSON.stringify({
     ...(caps ? { capabilities: caps } : {}),
     ...(passThrough !== undefined
       ? { pass_through_body_enabled: passThrough }
+      : {}),
+    ...(sysPrompt
+      ? {
+          system_prompt: sysPrompt.prompt,
+          system_prompt_override: sysPrompt.override,
+        }
       : {}),
   });
 }

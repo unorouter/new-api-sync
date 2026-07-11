@@ -3,6 +3,7 @@ import {
   getTaskModelOverride,
 } from "@core/catalog/constants/channel-types";
 import {
+  matchesAnyPattern,
   parseModelList,
   sanitizeGroupName,
 } from "@core/catalog/constants/patterns";
@@ -25,6 +26,7 @@ interface ComputeArgs {
   reverseMapping: Map<string, string>;
   modelMapping: Record<string, string>;
   modelAlias?: Record<string, string[]>;
+  systemPrompt?: { models: string[]; prompt: string; override?: boolean }[];
 }
 
 const PAID_GROUP_RATIO_CANDIDATES = [1, 0.5, 0.25, 0.1, 0.05, 0.01] as const;
@@ -615,6 +617,10 @@ function pushBucketsAsTiers(
         mirrorAliasRatio(modelRatios, publishedName, alias);
       }
 
+      const sysPromptRule = args?.systemPrompt?.find((r) =>
+        matchesAnyPattern(publishedName, r.models),
+      );
+
       tiers.push({
         channelName: `${offer.sanitizedBase}-${sanitizeGroupName(publishedName)}`,
         vendor: offer.vendor,
@@ -645,6 +651,12 @@ function pushBucketsAsTiers(
           ? { passThroughBody: true }
           : {}),
         ...(m.rateLimited ? { disabled: true } : {}),
+        ...(sysPromptRule
+          ? {
+              systemPrompt: sysPromptRule.prompt,
+              systemPromptOverride: sysPromptRule.override ?? false,
+            }
+          : {}),
       });
     }
   }

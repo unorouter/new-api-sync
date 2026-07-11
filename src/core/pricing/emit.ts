@@ -101,5 +101,10 @@ function buildSettingJson(tier: PricedTier): string | undefined {
 
   if (tier.passThroughBody) setting.pass_through_body_enabled = true;
 
+  if (tier.systemPrompt) {
+    setting.system_prompt = tier.systemPrompt;
+    if (tier.systemPromptOverride) setting.system_prompt_override = true;
+  }
+
   return Object.keys(setting).length > 0 ? JSON.stringify(setting) : undefined;
 }

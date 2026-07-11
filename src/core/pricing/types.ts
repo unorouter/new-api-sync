@@ -46,6 +46,12 @@ export interface PricedTier {
    *  Media channels need it so non-struct fields (image_urls, vendor extras) survive new-api's
    *  ImageRequest re-marshal, which drops unknown fields. */
   passThroughBody?: boolean;
+  /** Channel-level system prompt (channel.setting.system_prompt) injected on every
+   *  request. Lifts CN-model soft refusals. */
+  systemPrompt?: string;
+  /** When true, prepend systemPrompt to a user-supplied system message; when false,
+   *  inject only if the request has none (channel.setting.system_prompt_override). */
+  systemPromptOverride?: boolean;
 }
 
 type PricedDropReason = "cap-exceeded" | "no-fit" | "collision";

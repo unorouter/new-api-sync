@@ -200,6 +200,12 @@ export const ConfigSchema = T.Object({
   // pure rebrands/aliases (e.g. deepseek-v3.2-exp == deepseek-v3.2) where the alias
   // has no independent upstream source. Keyed by the base PUBLISHED name.
   modelAlias: Opt(T.Record(T.String(), T.Array(str))),
+  // Inject a channel-level system prompt on every channel whose PUBLISHED model
+  // matches the glob. `override` (default false) prepends ours to a user-supplied
+  // system message; false only injects when the request carries none. Keyed by
+  // model glob (micromatch). Used to lift soft refusals on CN models (deepseek/glm).
+  // prettier-ignore
+  systemPrompt: Opt(T.Array(T.Object({ models: T.Array(str, { minItems: 1 }), prompt: str, override: Opt(T.Boolean()) }))),
   // prettier-ignore
   rateLimit: Opt(T.Object({
     // success = successful requests per window; total = attempts incl. failures
