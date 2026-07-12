@@ -21,7 +21,11 @@ import type {
   ProviderReport,
   TargetSnapshot,
 } from "@core/types";
-import type { ComfyUiProviderConfig } from "@core/validations/config";
+import type {
+  AIHordeProviderConfig,
+  ComfyUiProviderConfig,
+} from "@core/validations/config";
+import { buildAIHordeChannels } from "@core/vendors/aihorde-image/provider";
 import { buildComfyUiChannels } from "@core/vendors/comfyui/provider";
 import { scrapeYunwuGeminiImageGrids } from "@core/vendors/newapi/yunwu-grid-scraper";
 import { t } from "@server/i18n";
@@ -214,6 +218,26 @@ export async function runProviderPipeline(
       });
   }
 
+  for (const provider of config.providers) {
+    if (provider.type !== "aihorde") continue;
+    const result = buildAIHordeChannels(provider as AIHordeProviderConfig);
+    providerReports.push(result.report);
+    if (!result.report.success) {
+      consola.warn(
+        `aihorde provider ${provider.name} failed: ${result.report.error ?? ""}`,
+      );
+      continue;
+    }
+    channels.push(...result.channels);
+    for (const channel of result.channels)
+      mergedGroups.push({
+        name: channel.group,
+        ratio: 1,
+        description: `AI Horde via ${provider.name}`,
+        provider: channel.tag ?? provider.name,
+      });
+  }
+
   const allPricingGrids: Record<string, Record<string, string | number>[]> = {};
   const allMetadata: Record<string, Record<string, unknown>> = {};
   // Provider-decoded resolution grids (ephone image models priced per resolution). Keyed by the
@@ -288,6 +312,16 @@ export async function runProviderPipeline(
     for (const [modelName, tpl] of Object.entries(cfg.templates)) {
       const mapped = config.modelMapping?.[modelName] ?? modelName;
       optionMaps.modelPrice[mapped] = Math.round(tpl.price * 10000) / 10000;
+      optionMaps.modelQuotaType[mapped] = 1;
+    }
+  }
+
+  for (const provider of config.providers) {
+    if (provider.type !== "aihorde") continue;
+    const cfg = provider as AIHordeProviderConfig;
+    for (const [modelName, m] of Object.entries(cfg.models)) {
+      const mapped = config.modelMapping?.[modelName] ?? modelName;
+      optionMaps.modelPrice[mapped] = Math.round(m.price * 10000) / 10000;
       optionMaps.modelQuotaType[mapped] = 1;
     }
   }

@@ -813,6 +813,47 @@ const CURATED: Record<string, SourceMetadata> = {
   "gpt-image-1-mini": { releaseDate: iso("2025-10-06"), mode: "image" },
   "gpt-image-1.5": { releaseDate: iso("2025-12-16"), mode: "image" },
   "gpt-image-2": { releaseDate: iso("2026-04-21"), mode: "image" },
+  // AI Horde uncensored image finetunes (bare names after :free strip + lowercase)
+  deliberate: {
+    releaseDate: iso("2023-01-01"),
+    series: "Stable Diffusion",
+    mode: "image",
+  },
+  stable_diffusion: {
+    releaseDate: iso("2022-08-22"),
+    series: "Stable Diffusion",
+    mode: "image",
+  },
+  "albedobase-xl-3.1": {
+    releaseDate: iso("2024-06-01"),
+    series: "SDXL",
+    mode: "image",
+  },
+  "juggernaut-xl": {
+    releaseDate: iso("2024-02-01"),
+    series: "SDXL",
+    mode: "image",
+  },
+  "wai-nsfw-illustrious-sdxl": {
+    releaseDate: iso("2024-11-01"),
+    series: "SDXL",
+    mode: "image",
+  },
+  "pony-realism": {
+    releaseDate: iso("2024-08-01"),
+    series: "Pony",
+    mode: "image",
+  },
+  "nova-anime-xl": {
+    releaseDate: iso("2024-09-01"),
+    series: "Pony",
+    mode: "image",
+  },
+  "nova-furry-pony": {
+    releaseDate: iso("2024-10-01"),
+    series: "Pony",
+    mode: "image",
+  },
   // Stability AI / ByteDance SDXL
   "stable-diffusion-xl-base-1.0": {
     releaseDate: iso("2023-07-26"),
@@ -1664,11 +1705,11 @@ const CURATED: Record<string, SourceMetadata> = {
     contextWindow: 131_072,
     series: "Grok",
   },
-  "schizogpt": {
+  schizogpt: {
     releaseDate: iso("2025-09-18"),
     contextWindow: 32_768,
   },
-  "umbra": {
+  umbra: {
     releaseDate: iso("2025-11-20"),
     contextWindow: 32_768,
   },
@@ -1704,16 +1745,16 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "FLUX",
   },
   // Stability SDXL
-  "sdxl": {
+  sdxl: {
     releaseDate: iso("2023-07-26"),
     series: "Stable Diffusion",
   },
   // ElevenLabs audio (dubbing + Scribe STT)
-  "dubbing": {
+  dubbing: {
     releaseDate: iso("2023-10-10"),
     series: "ElevenLabs",
   },
-  "scribe_v2": {
+  scribe_v2: {
     releaseDate: iso("2025-11-11"),
     series: "Scribe",
   },

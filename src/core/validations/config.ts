@@ -108,6 +108,20 @@ const ComfyUiProviderSchema = T.Object({
   templates: T.Record(str, ComfyUiTemplateSchema),
 });
 
+// AI Horde image model: published id -> per-call price + default gen params. The
+// Go adapter (channel type AIHorde) merges these under client size/metadata.
+// prettier-ignore
+const AIHordeModelSchema = T.Object({ price: T.Number({ minimum: 0 }), hordeModel: Opt(str), width: Opt(T.Integer({ minimum: 64, maximum: 3072 })), height: Opt(T.Integer({ minimum: 64, maximum: 3072 })), steps: Opt(T.Integer({ minimum: 1 })), cfgScale: Opt(T.Number({ minimum: 0 })), samplerName: Opt(str), karras: Opt(T.Boolean()), clipSkip: Opt(T.Integer({ minimum: 1, maximum: 12 })) });
+const AIHordeProviderSchema = T.Object({
+  type: T.Literal("aihorde"),
+  ...ProviderCommonProps,
+  baseUrl: Opt(uri),
+  apiKey: str,
+  channelName: Opt(str),
+  channelTag: Opt(str),
+  models: T.Record(str, AIHordeModelSchema),
+});
+
 // A private channel: a routing group NOT added to the global usable list, granted
 // only to the provider's identity group via group_special_usable_group, so only
 // users whose account group equals that identity may pass X-Group: <group>.
@@ -138,7 +152,7 @@ const PrivateProviderSchema = T.Object({
 export type PrivateProviderConfig = Static<typeof PrivateProviderSchema>;
 
 // prettier-ignore
-const AnyProviderSchema = T.Union([NewApiProviderSchema, Sub2ApiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, SimpleFreeProviderSchema, ComfyUiProviderSchema, PrivateProviderSchema]);
+const AnyProviderSchema = T.Union([NewApiProviderSchema, Sub2ApiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, SimpleFreeProviderSchema, ComfyUiProviderSchema, AIHordeProviderSchema, PrivateProviderSchema]);
 
 export type ProviderConfig = Static<typeof NewApiProviderSchema>;
 export type Sub2ApiProviderConfig = Static<typeof Sub2ApiProviderSchema>;
@@ -161,8 +175,9 @@ export type SimpleFreeProviderConfig = Static<
   ratio: number;
 };
 export type ComfyUiProviderConfig = Static<typeof ComfyUiProviderSchema>;
+export type AIHordeProviderConfig = Static<typeof AIHordeProviderSchema>;
 // prettier-ignore
-export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | SimpleFreeProviderConfig | ComfyUiProviderConfig | PrivateProviderConfig;
+export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | SimpleFreeProviderConfig | ComfyUiProviderConfig | AIHordeProviderConfig | PrivateProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
 const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);
