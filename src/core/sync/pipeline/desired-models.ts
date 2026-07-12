@@ -112,7 +112,7 @@ export function buildDesiredModels(opts: {
       if (aiHordeModels.has(modelName)) {
         models.set(modelName, {
           model_name: modelName,
-          vendor,
+          vendor: "aihorde",
           endpoints: JSON.stringify({ aihorde: "/v1/videos" }),
         });
         continue;
