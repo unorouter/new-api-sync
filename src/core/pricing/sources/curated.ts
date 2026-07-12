@@ -819,7 +819,7 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Stable Diffusion",
     mode: "image",
   },
-  stable_diffusion: {
+  "stable-diffusion": {
     releaseDate: iso("2022-08-22"),
     series: "Stable Diffusion",
     mode: "image",
