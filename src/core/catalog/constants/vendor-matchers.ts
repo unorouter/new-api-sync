@@ -42,7 +42,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   tencent: { modelPatterns: ["hunyuan","hy3","hy4","hy-mt"], strongPatterns: ["hy3","hy4","hy-mt"], nameAliases: ["腾讯","混元"], displayName: "Tencent", icon: "Hunyuan" },
   bytedance: { modelPatterns: ["doubao-","seed-","sdxl-lightning"], strongPatterns: ["sdxl-lightning"], nameAliases: ["字节","豆包","doubao","bytedance"], displayName: "ByteDance", icon: "Doubao.Color" },
   stabilityai: { modelPatterns: ["stable-diffusion","stability","sdxl"], nameAliases: ["stability ai","stabilityai"], displayName: "Stability AI", icon: "Stability" },
-  aihorde: { modelPatterns: ["deliberate","albedobase-xl","juggernaut-xl","wai-nsfw-illustrious","pony-realism","nova-anime-xl","nova-furry-pony","cyberrealistic-pony","icbinp"], nameAliases: ["ai horde","aihorde","stable horde"], displayName: "AI Horde", icon: "Stability" },
+  aihorde: { modelPatterns: ["deliberate","albedobase-xl","juggernaut-xl","wai-nsfw-illustrious","pony-realism","nova-anime-xl","nova-furry-pony","cyberrealistic-pony","icbinp"], nameAliases: ["ai horde","aihorde","stable horde"], displayName: "AI Horde", icon: "AIHorde" },
   elevenlabs: { modelPatterns: ["eleven-","eleven_","elevenlabs","eleven-multilingual","eleven-turbo","eleven-flash","scribe","dubbing"], nameAliases: ["elevenlabs","eleven labs"], displayName: "ElevenLabs", icon: "ElevenLabs" },
   midjourney: { modelPatterns: ["midjourney","mj_","mj-"], nameAliases: ["midjourney","mj"], displayName: "Midjourney", icon: "Midjourney" },
   speechify: { modelPatterns: ["speechify"], nameAliases: ["speechify"], displayName: "Speechify" },
