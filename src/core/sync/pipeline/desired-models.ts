@@ -160,6 +160,7 @@ export function buildDesiredModels(opts: {
     const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
     const isTaskModel =
       eps?.includes("openai-video") ||
+      eps?.includes("aihorde") ||
       (!eps && getTaskModelOverride(modelName) !== undefined);
     const prefix = isTaskModel ? `${typeTag},Task` : typeTag;
     const sourceTags = deriveTagsFromMetadata(
