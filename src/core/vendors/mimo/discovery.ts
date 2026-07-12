@@ -17,7 +17,9 @@ export async function discoverMimoModels(
 ): Promise<OpenAIFreeDiscovery> {
   const base = baseUrl.replace(/\/$/, "");
   const url = `${base}/v1/models`;
-  consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Xiaomi MiMo", url }));
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Xiaomi MiMo", url }),
+  );
 
   const data = await tryFetchJson<MimoModel[] | { data: MimoModel[] }>(url, {
     headers: {

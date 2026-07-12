@@ -19,7 +19,9 @@ export async function discoverWandbModels(
 ): Promise<OpenAIFreeDiscovery> {
   const base = baseUrl.replace(/\/$/, "");
   const url = `${base}/v1/models`;
-  consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "W&B Inference", url }));
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "W&B Inference", url }),
+  );
 
   const data = await tryFetchJson<WandbModel[] | { data: WandbModel[] }>(url, {
     headers: {

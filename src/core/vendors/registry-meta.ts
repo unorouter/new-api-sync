@@ -407,7 +407,8 @@ export const SIMPLE_PROVIDER_META = [
     // usage bills the card - the rateLimit block + a hard per-day guard keep total under 250k/day.
     defaultBaseUrl: "https://api.openai.com",
     defaultRatio: 0,
-    apiKeyPlaceholder: "sk-proj-... (platform.openai.com/api-keys, data-sharing on)",
+    apiKeyPlaceholder:
+      "sk-proj-... (platform.openai.com/api-keys, data-sharing on)",
   },
   {
     kind: "typhoon",

@@ -287,7 +287,9 @@ function buildDisableThinkingByProvider(
       .enabledModels as Parameters<typeof getMetadataFromEnabledModels>[0];
     const metaByModel = getMetadataFromEnabledModels(enabledModels);
     const globs = Object.entries(metaByModel)
-      .filter(([, meta]) => (meta as { disableThinking?: boolean }).disableThinking)
+      .filter(
+        ([, meta]) => (meta as { disableThinking?: boolean }).disableThinking,
+      )
       .map(([glob]) => glob);
     if (globs.length > 0) {
       out.push({ prefix: `${sanitizeGroupName(provider.name)}-`, globs });
@@ -359,14 +361,19 @@ export async function runMetadataSync(
   const inScope = (name: string) =>
     filter.length === 0 || matchesAnyPattern(name, filter);
 
-  const [basellmEntries, openRouterDescriptions, existingModels, vendors, channels] =
-    await Promise.all([
-      fetchBasellmEntries(),
-      fetchOpenRouterDescriptions(),
-      target.listModels(),
-      target.listVendors(),
-      target.listChannels(),
-    ]);
+  const [
+    basellmEntries,
+    openRouterDescriptions,
+    existingModels,
+    vendors,
+    channels,
+  ] = await Promise.all([
+    fetchBasellmEntries(),
+    fetchOpenRouterDescriptions(),
+    target.listModels(),
+    target.listVendors(),
+    target.listChannels(),
+  ]);
   const sources = await fetchAllPricingSources(basellmEntries);
   const reverseMapping = buildReverseMapping(config.modelMapping);
   const vendorIdCache = new Map<string, number | undefined>();
@@ -498,7 +505,12 @@ export async function runMetadataSync(
     const wantFirstTag = tags.split(",")[0];
     const tagsChanged = !!wantFirstTag && liveFirstTag !== wantFirstTag;
 
-    if (!metadataChanged && !vendorChanged && !tagsChanged && !descriptionChanged) {
+    if (
+      !metadataChanged &&
+      !vendorChanged &&
+      !tagsChanged &&
+      !descriptionChanged
+    ) {
       result.skipped++;
       continue;
     }

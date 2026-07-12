@@ -16,7 +16,9 @@ export async function discoverAbliterationModels(
 ): Promise<OpenAIFreeDiscovery> {
   const base = baseUrl.replace(/\/$/, "");
   const url = `${base}/v1/models`;
-  consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Abliteration", url }));
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Abliteration", url }),
+  );
 
   const data = await tryFetchJson<
     AbliterationModel[] | { data: AbliterationModel[] }

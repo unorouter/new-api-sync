@@ -17,6 +17,11 @@ export async function discoverOrcaRouterModels(
   _baseUrl: string,
   _apiKey: string,
 ): Promise<OpenAIFreeDiscovery> {
-  consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "OrcaRouter", url: "(fixed free routers)" }));
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERY_FETCH", {
+      label: "OrcaRouter",
+      url: "(fixed free routers)",
+    }),
+  );
   return { models: FREE_ROUTERS, maxOutputByModel: new Map() };
 }

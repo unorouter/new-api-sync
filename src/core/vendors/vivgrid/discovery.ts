@@ -12,6 +12,11 @@ export async function discoverVivgridModels(
   _baseUrl: string,
   _apiKey: string,
 ): Promise<OpenAIFreeDiscovery> {
-  consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Vivgrid", url: "(deepseek-v4-flash only)" }));
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERY_FETCH", {
+      label: "Vivgrid",
+      url: "(deepseek-v4-flash only)",
+    }),
+  );
   return { models: HONEST, maxOutputByModel: new Map() };
 }

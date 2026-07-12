@@ -14,6 +14,11 @@ export async function discoverTheGridModels(
   _baseUrl: string,
   _apiKey: string,
 ): Promise<OpenAIFreeDiscovery> {
-  consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "TheGrid", url: "(fixed text tiers)" }));
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERY_FETCH", {
+      label: "TheGrid",
+      url: "(fixed text tiers)",
+    }),
+  );
   return { models: TEXT_TIERS, maxOutputByModel: new Map() };
 }

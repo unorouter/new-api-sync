@@ -19,13 +19,16 @@ export async function discoverJiekouModels(
   const url = `${base}/v1/models`;
   consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Jiekou", url }));
 
-  const data = await tryFetchJson<JiekouModel[] | { data: JiekouModel[] }>(url, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
+  const data = await tryFetchJson<JiekouModel[] | { data: JiekouModel[] }>(
+    url,
+    {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      timeoutMs: 15_000,
     },
-    timeoutMs: 15_000,
-  });
+  );
 
   const list = Array.isArray(data) ? data : (data?.data ?? []);
   return { models: list.map((m) => m.id), maxOutputByModel: new Map() };

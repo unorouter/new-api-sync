@@ -82,7 +82,9 @@ export async function fetchEphoneMetadataSource(): Promise<PricingSource | null>
     if (Object.keys(md).length === 0) continue;
     if (!metadataMap.has(m.model_name)) metadataMap.set(m.model_name, md);
   }
-  consola.info(t("CORE.METADATA.OPENROUTER_FETCHED", { count: metadataMap.size }));
+  consola.info(
+    t("CORE.METADATA.OPENROUTER_FETCHED", { count: metadataMap.size }),
+  );
 
   return {
     name: "ephone",
