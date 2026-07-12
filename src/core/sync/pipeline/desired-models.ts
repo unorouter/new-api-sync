@@ -184,9 +184,11 @@ export function buildDesiredModels(opts: {
         ? opts.normalizedEndpointsByName.get(upstreamFromChannel)
         : undefined) ??
       opts.normalizedEndpointsByName.get(originalName);
-    const modelType = inferModelType(modelName, eps);
+    const isAiHorde = aiHordeModels.has(modelName);
+    const modelType = isAiHorde ? "image" : inferModelType(modelName, eps);
     const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
     const isTaskModel =
+      isAiHorde ||
       eps?.includes("openai-video") ||
       eps?.includes("aihorde") ||
       (!eps && getTaskModelOverride(modelName) !== undefined);
