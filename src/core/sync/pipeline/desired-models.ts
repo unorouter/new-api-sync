@@ -1,5 +1,8 @@
 import { toBareName } from "@core/catalog/bare-name";
-import { getTaskModelOverride } from "@core/catalog/constants/channel-types";
+import {
+  CHANNEL_TYPES,
+  getTaskModelOverride,
+} from "@core/catalog/constants/channel-types";
 import {
   ENDPOINT_DEFAULT_PATHS,
   MODEL_TYPE_CANONICAL_ENDPOINT,
@@ -55,6 +58,19 @@ function buildChannelModelUpstream(channels: Channel[]): Map<string, string> {
   return map;
 }
 
+// Model names served by an AIHORDE-type channel. These need the `aihorde`
+// endpoint (async task, POST /v1/videos), NOT the sync `image-generation` the
+// image model-type would otherwise pick.
+function buildAiHordeModels(channels: Channel[]): Set<string> {
+  const set = new Set<string>();
+  for (const ch of channels) {
+    if (ch.type !== CHANNEL_TYPES.AIHORDE) continue;
+    for (const m of parseModelList(ch.models))
+      if (!isRoutingOnlyAlias(m)) set.add(m);
+  }
+  return set;
+}
+
 export function isRoutingOnlyAlias(modelName: string): boolean {
   return modelName.endsWith(CLAUDE_CONTEXT_1M_SUFFIX);
 }
@@ -83,12 +99,24 @@ export function buildDesiredModels(opts: {
   const models = new Map<string, DesiredModelSpec>();
 
   const channelModelUpstream = buildChannelModelUpstream(opts.channels);
+  const aiHordeModels = buildAiHordeModels(opts.channels);
 
   for (const channel of opts.channels) {
     for (const modelName of parseModelList(channel.models)) {
       if (isRoutingOnlyAlias(modelName)) continue;
       const vendor = inferVendorFromModelName(modelName);
       const upstreamFromChannel = channelModelUpstream.get(modelName);
+      // AIHORDE models are async image tasks: pin the aihorde endpoint so
+      // new-api's metadata-endpoint override doesn't publish a sync image
+      // endpoint the model can't serve.
+      if (aiHordeModels.has(modelName)) {
+        models.set(modelName, {
+          model_name: modelName,
+          vendor,
+          endpoints: JSON.stringify({ aihorde: "/v1/videos" }),
+        });
+        continue;
+      }
       const originalEps =
         opts.originalEndpointsByName.get(modelName) ??
         (upstreamFromChannel
