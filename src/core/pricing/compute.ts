@@ -1,3 +1,4 @@
+import { consola } from "consola";
 import {
   CHANNEL_TYPES,
   getTaskModelOverride,
@@ -392,6 +393,12 @@ function capAbove1x(
       costRatio < 1
         ? costRatio + (1 - costRatio) * adj
         : costRatio * MAX_ABOVE_1X;
+    const usdM = (r: number) => (r * unit * 2).toFixed(4);
+    consola.info(
+      `[pricing] reprice ${model} on ${cheapest.tier.channelName}: adj=${adj} ` +
+        `cost=${costRatio.toFixed(4)} (\$${usdM(costRatio)}/M) -> ` +
+        `new=${target.toFixed(4)} (\$${usdM(target)}/M) | list=${unit} \$${usdM(1)}/M`,
+    );
     if (Math.abs(cheapest.tier.groupRatio - target) > 1e-9)
       clampTierForModel(tiers, cheapest.tier, model, target);
   }
