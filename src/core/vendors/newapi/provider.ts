@@ -518,6 +518,7 @@ export async function processNewApiProvider(
                   models: vendorModels,
                   modelEndpoints: localNormalizedEndpoints,
                   logPrefix: probeLabel,
+                  accept429: providerConfig.acceptRateLimited,
                 });
             if (!probe) {
               consola.warn(
@@ -577,6 +578,13 @@ export async function processNewApiProvider(
                   providerLabel: `${probeLabel}/${vendor}`,
                   testableModelTypes: getTestModelTypes(config, providerConfig),
                   modelEndpoints: localNormalizedEndpoints,
+                  // 429 on a free-lane model = capacity throttle, keep it; paid
+                  // models must genuinely pass.
+                  acceptRateLimited: providerConfig.acceptRateLimited
+                    ? (m: string) =>
+                        (pricingByName.get(m)?.ratio ?? 1) === 0 ||
+                        m.endsWith("-free")
+                    : undefined,
                   capabilities: buildCapabilityMap(
                     gatedModels,
                     lowercaseExposed(config),

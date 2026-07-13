@@ -39,6 +39,8 @@ export interface ProbeOpts {
   modelEndpoints?: Map<string, string[]>;
   logPrefix: string;
   timeoutMs?: number;
+  /** Treat a persistent 429 as shape-pass (endpoint understood the request). */
+  accept429?: boolean;
 }
 
 export async function probeChannelType(
@@ -114,7 +116,7 @@ async function runShapeProbe(
 
   const tryShape = async (channelType: number): Promise<ShapeResult> => {
     let last: ShapeResult = { pass: false };
-    for (const delay of [0, 3_000, 10_000, 30_000]) {
+    for (const delay of [0, 3_000]) {
       if (delay > 0) await new Promise((r) => setTimeout(r, delay));
       last = await probeOnce(channelType);
       if (last.pass) return last;
@@ -128,6 +130,8 @@ async function runShapeProbe(
 
   const nativeResult = await tryShape(native);
   if (nativeResult.pass) return { channelType: native, shape: "native" };
+  if (opts.accept429 && nativeResult.status === 429)
+    return { channelType: native, shape: "native" };
 
   if (native === SHAPE_TYPES.OPENAI) {
     const blockReason = nativeResult.billingBlockReason;

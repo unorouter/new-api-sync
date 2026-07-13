@@ -227,7 +227,7 @@ async function testModels(opts: {
   logPrefix?: string;
   modelEndpoints?: Map<string, string[]>;
   retryPolicy?: RetryPolicy<TestExchange>;
-  acceptRateLimited?: boolean;
+  acceptRateLimited?: boolean | ((model: string) => boolean);
   capabilities?: Map<string, ModelCapabilityHint>;
 }): Promise<{
   workingModels: string[];
@@ -441,8 +441,12 @@ async function testModels(opts: {
 
   const reallyPassed = (r: (typeof results)[number]) =>
     r.success || r.streamSuccess === true;
+  const accepts429 = (model: string) =>
+    typeof opts.acceptRateLimited === "function"
+      ? opts.acceptRateLimited(model)
+      : opts.acceptRateLimited === true;
   const acceptedOn429 = (r: (typeof results)[number]) =>
-    opts.acceptRateLimited === true && r.httpStatus === 429 && !reallyPassed(r);
+    r.httpStatus === 429 && !reallyPassed(r) && accepts429(r.model);
 
   return {
     workingModels: results
@@ -525,7 +529,7 @@ export async function testAndFilterModels(opts: {
   useResponsesAPI?: boolean;
   timeoutMs?: number;
   retryPolicy?: RetryPolicy<TestExchange>;
-  acceptRateLimited?: boolean;
+  acceptRateLimited?: boolean | ((model: string) => boolean);
   capabilities?: Map<string, ModelCapabilityHint>;
 }): Promise<{
   workingModels: string[];
