@@ -61,6 +61,7 @@ import type { PricingSource } from "@core/pricing/sources/types";
 import { updateGuestTokenFromNames } from "@core/sync/guest-token";
 import { runProviderPipeline } from "@core/sync/pipeline";
 import {
+  buildAiHordeModels,
   isRoutingOnlyAlias,
   pickBetterDescription,
 } from "@core/sync/pipeline/desired-models";
@@ -138,8 +139,12 @@ function buildTags(
   name: string,
   sources: PricingSource[],
   reverseMapping: Map<string, string>,
+  aiHordeModels: Set<string>,
 ): string {
-  const modelType = inferModelType(name);
+  // AIHORDE-channel models are image tasks; their names (tunix-pony, anything-v5,
+  // absolutereality...) carry no image keyword, so name-inference would wrongly
+  // tag them Text. Force image for anything an aihorde channel serves.
+  const modelType = aiHordeModels.has(name) ? "image" : inferModelType(name);
   const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
   const sourceTags = deriveTagsFromMetadata(
     resolveSourceMetadata(name, sources, reverseMapping),
@@ -499,6 +504,8 @@ export async function runMetadataSync(
     systemPromptChanged,
   };
 
+  const aiHordeModels = buildAiHordeModels(channels);
+
   for (const name of names) {
     // `{model}:free` published names have no `:free` key in the pricing sources;
     // fall back to the bare base so the alias inherits the real metadata.
@@ -517,7 +524,7 @@ export async function runMetadataSync(
 
     const existing = existingByName.get(name);
 
-    const tags = buildTags(name, sources, reverseMapping);
+    const tags = buildTags(name, sources, reverseMapping, aiHordeModels);
 
     // Prefer the fuller of OpenRouter-frontend (descriptionMap) vs the pricing
     // sources (ePhone), matching the full-sync desired-models logic.

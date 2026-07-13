@@ -61,7 +61,7 @@ function buildChannelModelUpstream(channels: Channel[]): Map<string, string> {
 // Model names served by an AIHORDE-type channel. These need the `aihorde`
 // endpoint (async task, POST /v1/videos), NOT the sync `image-generation` the
 // image model-type would otherwise pick.
-function buildAiHordeModels(channels: Channel[]): Set<string> {
+export function buildAiHordeModels(channels: Channel[]): Set<string> {
   const set = new Set<string>();
   for (const ch of channels) {
     if (ch.type !== CHANNEL_TYPES.AIHORDE) continue;
