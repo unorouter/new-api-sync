@@ -10,6 +10,7 @@ import { logsDir } from "@core/infra/paths";
 import { applySyncDiff } from "@core/sync/apply";
 import { buildSyncDiff } from "@core/sync/diff";
 import { updateGuestTokenIfConfigured } from "@core/sync/guest-token";
+import { reconcileSystemPrompt } from "@core/sync/metadata";
 import { runProviderPipeline } from "@core/sync/pipeline";
 import type { ResetResult } from "@core/sync/reset";
 import { loadVerdictCache } from "@core/testing/verdict-cache";
@@ -194,6 +195,18 @@ export async function runSync(
     const diff = buildSyncDiff(config, desired, liveSnap);
     const apply = await applySyncDiff(target, diff);
     applyErrors = apply.errors;
+
+    // systemPrompt injection is written on channel CREATE via the diff, but an
+    // existing channel whose model wasn't re-tiered this run keeps a stale/absent
+    // prompt. Reconcile it onto ALL current channels so a prompt/scope edit
+    // propagates without recreating them (mirrors the metadata-sync reconcile).
+    const spChanged = await reconcileSystemPrompt(
+      target,
+      await target.listChannels(),
+      config,
+    );
+    if (spChanged > 0) await target.updateCache();
+
     if (apply.options.updated.length > 0) await target.updateCache();
 
     throwIfRunAborted();

@@ -81,6 +81,7 @@ export interface MetadataSyncResult {
   renamedChannels: number;
   passThroughEnabled: number;
   paramOverrideChanged: number;
+  systemPromptChanged: number;
 }
 
 // Resolve a model's canonical vendor to an existing vendor_id, creating the
@@ -345,6 +346,68 @@ async function reconcileParamOverride(
   return changed;
 }
 
+// systemPrompt injection (channel.setting.system_prompt) is otherwise written
+// only when a channel is CREATED by a full sync run. Reconcile it onto EXISTING
+// channels too: match each channel's published model names against the config
+// globs and set/clear the prompt to match. Runs on every metadata + full sync so
+// editing the prompt/scope propagates without recreating channels.
+export async function reconcileSystemPrompt(
+  target: NewApiClient,
+  channels: Channel[],
+  config: RuntimeConfig,
+): Promise<number> {
+  const rules = config.systemPrompt ?? [];
+  if (rules.length === 0) return 0;
+
+  let changed = 0;
+  for (const ch of channels) {
+    const rule = rules.find((r) =>
+      parseModelList(ch.models).some(
+        (name) =>
+          !isRoutingOnlyAlias(name) && matchesAnyPattern(name, r.models),
+      ),
+    );
+
+    let setting: Record<string, unknown> = {};
+    if (ch.setting) {
+      try {
+        setting = JSON.parse(ch.setting);
+      } catch {
+        // Unparseable existing setting: skip rather than clobber other fields.
+        continue;
+      }
+    }
+
+    const curPrompt =
+      typeof setting.system_prompt === "string" ? setting.system_prompt : "";
+    const curOverride = setting.system_prompt_override === true;
+    const wantPrompt = rule?.prompt ?? "";
+    const wantOverride = rule ? rule.override === true : false;
+    if (curPrompt === wantPrompt && curOverride === wantOverride) continue;
+
+    if (wantPrompt) {
+      setting.system_prompt = wantPrompt;
+      setting.system_prompt_override = wantOverride;
+    } else {
+      delete setting.system_prompt;
+      delete setting.system_prompt_override;
+    }
+    const nextSetting = JSON.stringify(setting);
+    const ok = await target.updateChannel({ ...ch, setting: nextSetting });
+    if (ok) {
+      ch.setting = nextSetting;
+      changed++;
+      consola.info(
+        t("CORE.METADATA.CHANNEL_SYSTEM_PROMPT_SET", {
+          name: ch.name,
+          action: wantPrompt ? "set" : "cleared",
+        }),
+      );
+    }
+  }
+  return changed;
+}
+
 export async function runMetadataSync(
   config: RuntimeConfig,
 ): Promise<MetadataSyncResult> {
@@ -394,6 +457,11 @@ export async function runMetadataSync(
     channels,
     config,
   );
+  const systemPromptChanged = await reconcileSystemPrompt(
+    target,
+    channels,
+    config,
+  );
 
   // Union of every served name and every existing models-table row.
   const existingByName = new Map<string, ModelMeta>();
@@ -428,6 +496,7 @@ export async function runMetadataSync(
     renamedChannels,
     passThroughEnabled,
     paramOverrideChanged,
+    systemPromptChanged,
   };
 
   for (const name of names) {
@@ -985,6 +1054,10 @@ export function printMetadataSummary(result: MetadataSyncResult): void {
   if (result.paramOverrideChanged > 0)
     consola.info(
       `[metadata] reconciled disable-thinking param_override on ${result.paramOverrideChanged} channels`,
+    );
+  if (result.systemPromptChanged > 0)
+    consola.info(
+      `[metadata] reconciled system_prompt on ${result.systemPromptChanged} channels`,
     );
   if (result.failedModels.length > 0)
     consola.warn(
