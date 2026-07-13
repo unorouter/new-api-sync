@@ -52,6 +52,10 @@ export interface PricedTier {
   /** When true, prepend systemPrompt to a user-supplied system message; when false,
    *  inject only if the request has none (channel.setting.system_prompt_override). */
   systemPromptOverride?: boolean;
+  /** Intentional same-model failover channel (e.g. an OpenRouter pricier upstream
+   *  host pinned via provider.only). Exempt from the cross-provider dedup drop in
+   *  capAbove1x so it survives as a redundancy lane at its own group ratio. */
+  failoverDuplicate?: boolean;
 }
 
 type PricedDropReason = "cap-exceeded" | "no-fit" | "collision";

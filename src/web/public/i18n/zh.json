@@ -568,6 +568,7 @@
       "PROBING": "[{name}] 正在探测 {count} 个模型",
       "FAILED": "[{name}] 失败：{models}",
       "WORKING": "[{name}] {working}/{total} 个模型可用（429 视为可用）",
+      "PAID_NO_PRICING": "[{name}] 付费模型 {model} 无上游端点定价，已跳过",
       "SUMMARY": "[{name}] {total} 个模型（免费 {free} 个，付费 {paid} 个），跨 {vendors} 个供应商渠道"
     },
     "PRICING": {

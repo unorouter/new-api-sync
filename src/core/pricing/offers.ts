@@ -23,6 +23,10 @@ export interface OfferModel {
   /** 1=per-request, 3=flat custom, 4=grid. ≥1 bypasses ratio. */
   quotaType?: number;
   testDetail?: ModelTestDetail;
+  /** Channel-scoped param_override JSON (e.g. OpenRouter provider.only host pin). */
+  paramOverride?: string;
+  /** Intentional same-model failover channel; exempt from capAbove1x dedup drop. */
+  failoverDuplicate?: boolean;
   /** Forces ratio=0 + group_ratio=0; cap check skipped. (OpenRouter free, NVIDIA) */
   isFree?: boolean;
   /** Kept only via a 429 accept (capacity throttle, not a real pass). The

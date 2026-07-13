@@ -610,7 +610,15 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // Nex AGI N2 (MoE 397B/17B on Qwen3.5)
   "nex-n2-pro": {
-    releaseDate: iso("2026-06-02"),
+    releaseDate: iso("2026-06-08"),
+    contextWindow: 262_144,
+    series: "Nex N2",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "nex-n2-mini": {
+    releaseDate: iso("2026-06-24"),
     contextWindow: 262_144,
     series: "Nex N2",
     isReasoning: true,
@@ -855,23 +863,119 @@ const CURATED: Record<string, SourceMetadata> = {
     mode: "image",
   },
   // AI Horde full image catalog (auto-generated from AI-Horde-image-model-reference)
-  "albedobase-xl-31": { releaseDate: iso("2023-09-05"), series: "SDXL", mode: "image", description: "SDXL Model that doesn't require a refiner. This is the 3.1 version." },
-  "albedobase-xl-sdxl": { releaseDate: iso("2023-09-05"), series: "SDXL", mode: "image", description: "SDXL Model that doesn't require a refiner." },
-  "icbinp-i-cant-believe-its-not-photography": { releaseDate: iso("2023-04-02"), series: "Stable Diffusion", mode: "image", description: "Following on from Gorilla With A Brick, merged in 10 more photorealistic models at various weights, and some more noise offset to create something that when prompted for photorealism will make you ..." },
-  "absolutereality": { releaseDate: iso("2023-05-31"), series: "Stable Diffusion", mode: "image", description: "That feeling when you wake up after a dream.  This is a fantastic sd1.5 realism bought to you by the creator of DreamShaper" },
-  "dreamshaper": { releaseDate: iso("2023-01-12"), series: "Stable Diffusion", mode: "image", description: "Merged model mix of Midnight mixer, roboEtics, f222, elldrethSLucidMix, Seek.ART Mega, rpg, hassanBlend, modelshoot and roboDiffusion" },
-  "rev-animated": { releaseDate: iso("2023-03-06"), series: "Stable Diffusion", mode: "image", description: "This model is mainly intended for Portraits and Full Body Anime-like pictures. Fantasy landscapes are decent." },
-  "cyberrealistic-pony": { releaseDate: iso("2024-05-08"), series: "Pony", mode: "image", description: "Cyberrealistic Pony is a semi-realistic Pony model capable of SFW and NSFW portraits as well as scenery." },
-  "anything-v5": { releaseDate: iso("2023-02-16"), series: "Stable Diffusion", mode: "image", description: "Anything V5, see the project homepage" },
-  "amponyxl": { releaseDate: iso("2024-02-02"), series: "Pony", mode: "image", description: "Anime model based on Pony Diffusion XL - remember to use the score prompts to get this to go properly" },
-  "prefect-pony": { releaseDate: iso("2024-05-06"), series: "Pony", mode: "image", description: "Anime Pony model with an emphasis on NSFW and LoRA support" },
-  "flat-2d-animerge": { releaseDate: iso("2023-04-10"), series: "Stable Diffusion", mode: "image", description: "This is a merge of some random anime based and cartoon based models to achieve a somewhat cartoony anime style, more similar to what you would actually see in anime as opposed to the more common hy..." },
-  "quiet-goodnight-xl": { releaseDate: iso("2024-03-05"), series: "SDXL", mode: "image", description: "SDXL Model for anime, bought to you from the maker of ICBINP" },
-  "tunix-pony": { releaseDate: iso("2024-07-05"), series: "Pony", mode: "image", description: "Semi-realistic stylized PonyXL finetune" },
-  "fustercluck": { releaseDate: iso("2023-12-12"), series: "SDXL", mode: "image", description: "SDXL Model for cartoony style. If it's not cartoony enough, you may need to add 'anime, cartoon' to the front of the positive prompt to push the image in the right direction" },
-  "swamponyxl": { releaseDate: iso("2024-04-23"), series: "Pony", mode: "image", description: "Realistic finetune of Pony Diffusion V6, with an emphasis on asian likeness." },
-  "wai-cute-pony": { releaseDate: iso("2024-05-12"), series: "Pony", mode: "image", description: "Anime Pony model, with an emphasis on cute female figures" },
-  "ntr-mix-il-noob-xl": { releaseDate: iso("2024-11-07"), series: "SDXL", mode: "image", description: "NTR Mix Illustrious Noob XL is a anime model that can generate stylized anime images, both SFW and NSFW. It can generate both singular portraits and images with multiple characters in them." },
+  "albedobase-xl-31": {
+    releaseDate: iso("2023-09-05"),
+    series: "SDXL",
+    mode: "image",
+    description:
+      "SDXL Model that doesn't require a refiner. This is the 3.1 version.",
+  },
+  "albedobase-xl-sdxl": {
+    releaseDate: iso("2023-09-05"),
+    series: "SDXL",
+    mode: "image",
+    description: "SDXL Model that doesn't require a refiner.",
+  },
+  "icbinp-i-cant-believe-its-not-photography": {
+    releaseDate: iso("2023-04-02"),
+    series: "Stable Diffusion",
+    mode: "image",
+    description:
+      "Following on from Gorilla With A Brick, merged in 10 more photorealistic models at various weights, and some more noise offset to create something that when prompted for photorealism will make you ...",
+  },
+  absolutereality: {
+    releaseDate: iso("2023-05-31"),
+    series: "Stable Diffusion",
+    mode: "image",
+    description:
+      "That feeling when you wake up after a dream.  This is a fantastic sd1.5 realism bought to you by the creator of DreamShaper",
+  },
+  dreamshaper: {
+    releaseDate: iso("2023-01-12"),
+    series: "Stable Diffusion",
+    mode: "image",
+    description:
+      "Merged model mix of Midnight mixer, roboEtics, f222, elldrethSLucidMix, Seek.ART Mega, rpg, hassanBlend, modelshoot and roboDiffusion",
+  },
+  "rev-animated": {
+    releaseDate: iso("2023-03-06"),
+    series: "Stable Diffusion",
+    mode: "image",
+    description:
+      "This model is mainly intended for Portraits and Full Body Anime-like pictures. Fantasy landscapes are decent.",
+  },
+  "cyberrealistic-pony": {
+    releaseDate: iso("2024-05-08"),
+    series: "Pony",
+    mode: "image",
+    description:
+      "Cyberrealistic Pony is a semi-realistic Pony model capable of SFW and NSFW portraits as well as scenery.",
+  },
+  "anything-v5": {
+    releaseDate: iso("2023-02-16"),
+    series: "Stable Diffusion",
+    mode: "image",
+    description: "Anything V5, see the project homepage",
+  },
+  amponyxl: {
+    releaseDate: iso("2024-02-02"),
+    series: "Pony",
+    mode: "image",
+    description:
+      "Anime model based on Pony Diffusion XL - remember to use the score prompts to get this to go properly",
+  },
+  "prefect-pony": {
+    releaseDate: iso("2024-05-06"),
+    series: "Pony",
+    mode: "image",
+    description: "Anime Pony model with an emphasis on NSFW and LoRA support",
+  },
+  "flat-2d-animerge": {
+    releaseDate: iso("2023-04-10"),
+    series: "Stable Diffusion",
+    mode: "image",
+    description:
+      "This is a merge of some random anime based and cartoon based models to achieve a somewhat cartoony anime style, more similar to what you would actually see in anime as opposed to the more common hy...",
+  },
+  "quiet-goodnight-xl": {
+    releaseDate: iso("2024-03-05"),
+    series: "SDXL",
+    mode: "image",
+    description: "SDXL Model for anime, bought to you from the maker of ICBINP",
+  },
+  "tunix-pony": {
+    releaseDate: iso("2024-07-05"),
+    series: "Pony",
+    mode: "image",
+    description: "Semi-realistic stylized PonyXL finetune",
+  },
+  fustercluck: {
+    releaseDate: iso("2023-12-12"),
+    series: "SDXL",
+    mode: "image",
+    description:
+      "SDXL Model for cartoony style. If it's not cartoony enough, you may need to add 'anime, cartoon' to the front of the positive prompt to push the image in the right direction",
+  },
+  swamponyxl: {
+    releaseDate: iso("2024-04-23"),
+    series: "Pony",
+    mode: "image",
+    description:
+      "Realistic finetune of Pony Diffusion V6, with an emphasis on asian likeness.",
+  },
+  "wai-cute-pony": {
+    releaseDate: iso("2024-05-12"),
+    series: "Pony",
+    mode: "image",
+    description: "Anime Pony model, with an emphasis on cute female figures",
+  },
+  "ntr-mix-il-noob-xl": {
+    releaseDate: iso("2024-11-07"),
+    series: "SDXL",
+    mode: "image",
+    description:
+      "NTR Mix Illustrious Noob XL is a anime model that can generate stylized anime images, both SFW and NSFW. It can generate both singular portraits and images with multiple characters in them.",
+  },
   // Stability AI / ByteDance SDXL
   "stable-diffusion-xl-base-1.0": {
     releaseDate: iso("2023-07-26"),

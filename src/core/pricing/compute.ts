@@ -373,9 +373,15 @@ function capAbove1x(
     // 1x ceiling = multi-source canonical, else the model's own sticker (the natural 1x).
     const ceiling = canonical.get(model) ?? unit;
     // Keep the cheapest, drop every pricier duplicate (cross-provider dedupe).
+    // Failover channels (intentional same-model redundancy, e.g. an OpenRouter
+    // pricier upstream host) are exempt: they survive at their own group ratio.
     const cheapest = entries.reduce((a, b) => (b.retail < a.retail ? b : a));
     for (const e of entries)
-      if (e !== cheapest && e.retail > ceiling + 1e-9)
+      if (
+        e !== cheapest &&
+        e.retail > ceiling + 1e-9 &&
+        !e.tier.failoverDuplicate
+      )
         removeModelFromTier(e.tier, model);
     // Re-price the surviving cheapest from its cost_ratio = groupRatio/(1+adj):
     //   - discounted lane (cost_ratio < 1): sit `adj` of the way from cost to 1x list, i.e.
@@ -628,6 +634,12 @@ function pushBucketsAsTiers(
         matchesAnyPattern(publishedName, r.models),
       );
 
+      let paramOverride = m.paramOverride;
+      if (!paramOverride && hasContext1mAlias)
+        paramOverride = CLAUDE_CONTEXT_1M_PARAM_OVERRIDE;
+      else if (!paramOverride && m.metadata?.disableThinking)
+        paramOverride = DISABLE_THINKING_PARAM_OVERRIDE;
+
       tiers.push({
         channelName: `${offer.sanitizedBase}-${sanitizeGroupName(publishedName)}`,
         vendor: offer.vendor,
@@ -644,11 +656,8 @@ function pushBucketsAsTiers(
           ? modelMapping
           : undefined,
         testDetails: m.testDetail ? [m.testDetail] : undefined,
-        paramOverride: hasContext1mAlias
-          ? CLAUDE_CONTEXT_1M_PARAM_OVERRIDE
-          : m.metadata?.disableThinking
-            ? DISABLE_THINKING_PARAM_OVERRIDE
-            : undefined,
+        paramOverride,
+        ...(m.failoverDuplicate ? { failoverDuplicate: true } : {}),
         // Media channels carry refs/extras (image_urls, multipart) new-api drops on
         // re-marshal; pass the raw body through. EXCEPT ALI (17): DashScope's task
         // API needs the gateway's native-shape conversion (input.messages, model

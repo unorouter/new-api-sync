@@ -37,8 +37,19 @@ interface OpenRouterEndpointsResponse {
   data?: { endpoints?: OpenRouterEndpoint[] };
 }
 
+export interface OpenRouterPaidEndpoint {
+  provider: string;
+  tag: string;
+  prompt: number;
+  completion: number;
+  cacheRead?: number;
+  status: number;
+}
+
 export interface OpenRouterCatalogue {
   freeIds: string[];
+  /** Per-model upstream-host pricing for explicitly-requested paid ids. */
+  paidEndpoints: Map<string, OpenRouterPaidEndpoint[]>;
 }
 
 const ENDPOINT_PROBE_CONCURRENCY = 8;
@@ -72,6 +83,7 @@ async function fetchModelEndpoints(
 export async function discoverOpenRouterFreeModels(
   baseUrl: string,
   apiKey: string,
+  paidIds: string[] = [],
 ): Promise<OpenRouterCatalogue> {
   const url = `${baseUrl.replace(/\/$/, "")}/v1/models`;
   consola.info(
@@ -89,7 +101,7 @@ export async function discoverOpenRouterFreeModels(
     timeoutMs: 15_000,
   });
 
-  if (!raw?.data?.length) return { freeIds: [] };
+  if (!raw?.data?.length) return { freeIds: [], paidEndpoints: new Map() };
 
   const candidates = raw.data.filter((m) => isZeroPricing(m.pricing));
   consola.info(
@@ -111,5 +123,32 @@ export async function discoverOpenRouterFreeModels(
 
   const freeIds: string[] = [];
   for (const r of results) if (r.hasFree) freeIds.push(r.id);
-  return { freeIds };
+
+  const paidEndpoints = new Map<string, OpenRouterPaidEndpoint[]>();
+  await Promise.all(
+    paidIds.map((id) =>
+      limit(async () => {
+        const endpoints = await fetchModelEndpoints(baseUrl, apiKey, id);
+        const hosts: OpenRouterPaidEndpoint[] = [];
+        for (const ep of endpoints) {
+          const prompt = Number(ep.pricing?.prompt);
+          const completion = Number(ep.pricing?.completion);
+          if (!Number.isFinite(prompt) || prompt <= 0) continue;
+          if ((ep.status ?? 0) < 0) continue;
+          const cacheReadRaw = Number(ep.pricing?.input_cache_read);
+          hosts.push({
+            provider: ep.provider_name ?? "",
+            tag: ep.tag ?? "",
+            prompt,
+            completion: Number.isFinite(completion) ? completion : prompt,
+            cacheRead: Number.isFinite(cacheReadRaw) ? cacheReadRaw : undefined,
+            status: ep.status ?? 0,
+          });
+        }
+        if (hosts.length > 0) paidEndpoints.set(id, hosts);
+      }),
+    ),
+  );
+
+  return { freeIds, paidEndpoints };
 }
