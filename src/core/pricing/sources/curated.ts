@@ -23,6 +23,11 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // dateless, so plain CURATED (gap-fill) can't set them; hard-pin here.
   // Google Nano Banana Pro (Gemini 3 Pro Image Preview), launched 2025-11-20.
   "nano-banana-pro-preview": { releaseDate: iso("2025-11-20") },
+  // Nex N2: OpenRouter reports max_completion_tokens == full 262144 context, so
+  // an unset max_tokens defaults to the whole window and leaves no room for input
+  // (1 in + 262144 out > 262144 -> HTTP 400). Hard-cap output so input fits.
+  "nex-n2-pro": { maxOutputTokens: 65_536 },
+  "nex-n2-mini": { maxOutputTokens: 65_536 },
   // Rolling alias to the latest Gemini Flash (approximate; tracks 2.5 Flash GA).
   "gemini-flash-latest": { releaseDate: iso("2025-09-25") },
   // Google Lyria 3 music gen: base 2026-02-18, Pro 2026-03-25.
