@@ -615,10 +615,17 @@ export async function processNewApiProvider(
               const tieredEff = m?.billingExpr
                 ? effectiveTieredOrWarn(m.billingExpr, upstreamName)
                 : undefined;
+              // A relay model priced at zero (ratio 0 AND no per-call price) is a
+              // genuine free lane: mark it so the pricing engine emits groupRatio 0
+              // and publishes it as `{name}:free`, not a bare paid-looking name.
+              const effRatio = tieredEff?.modelRatio ?? m?.ratio;
+              const isFree =
+                effRatio === 0 && (m?.modelPrice ?? 0) === 0 ? true : undefined;
               dedupedOfferModels.push({
                 exposed,
                 upstream: upstreamName,
                 modelType,
+                ...(isFree ? { isFree: true } : {}),
                 upstreamRatio: tieredEff?.modelRatio ?? m?.ratio,
                 upstreamCompletionRatio:
                   tieredEff?.completionRatio ?? m?.completionRatio,
