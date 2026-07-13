@@ -612,6 +612,7 @@ const CURATED: Record<string, SourceMetadata> = {
   "nex-n2-pro": {
     releaseDate: iso("2026-06-08"),
     contextWindow: 262_144,
+    maxOutputTokens: 65_536,
     series: "Nex N2",
     isReasoning: true,
     supportsVision: true,
@@ -620,6 +621,7 @@ const CURATED: Record<string, SourceMetadata> = {
   "nex-n2-mini": {
     releaseDate: iso("2026-06-24"),
     contextWindow: 262_144,
+    maxOutputTokens: 65_536,
     series: "Nex N2",
     isReasoning: true,
     supportsVision: true,
