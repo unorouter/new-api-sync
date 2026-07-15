@@ -147,9 +147,15 @@ export const SIMPLE_PROVIDER_META = [
     // Sapiens AI omni-modal gateway (apihub.agnes-ai.com/v1); base is the host,
     // runner + discovery append /v1. Free RPM 20, no card, GitHub OAuth key.
     // House models only (agnes-2.0-flash 256K/tools/vision, agnes-1.5-flash).
+    // agnes-image-*-flash are standard OpenAI /v1/images/generations (OPENAI ch).
+    // agnes-video-* is a task API (POST /v1/videos -> poll); rides the new AGNES
+    // channel (62) whose new-api task adaptor drives the submit/poll. Video emits
+    // UNPROBED (config testModelTypes omits video); no OpenAI-compat probe shape.
     defaultBaseUrl: "https://apihub.agnes-ai.com",
     defaultRatio: 0,
     apiKeyPlaceholder: "sk-…",
+    imageChannelType: 1,
+    videoChannelType: 62,
   },
   {
     kind: "requesty",
