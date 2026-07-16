@@ -62,6 +62,7 @@ import { discoverOpenAiModels } from "./openai/discovery";
 import { discoverVercelModels } from "./vercel/discovery";
 import { discoverRegoloModels } from "./regolo/discovery";
 import { discoverCometApiModels } from "./cometapi/discovery";
+import { discoverNemoRouterModels } from "./nemorouter/discovery";
 import { discoverSarvamModels } from "./sarvam/discovery";
 import { discoverTyphoonModels } from "./typhoon/discovery";
 import { discoverCloudFerroModels } from "./cloudferro/discovery";
@@ -151,6 +152,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   vercel: discoverVercelModels,
   regolo: discoverRegoloModels,
   cometapi: discoverCometApiModels,
+  nemorouter: discoverNemoRouterModels,
   sarvam: discoverSarvamModels,
   typhoon: discoverTyphoonModels,
   cloudferro: discoverCloudFerroModels,

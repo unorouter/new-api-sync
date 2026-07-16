@@ -447,6 +447,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-... (cometapi.com/console/token)",
   },
   {
+    kind: "nemorouter",
+    label: "NemoRouter",
+    // api.nemorouter.ai/v1 - LiteLLM-backed unified gateway, official list price (no discount),
+    // $10 signup credit. Only the cheap open models (Kimi-K2.6, DeepSeek-V4-Flash) pulled to
+    // stretch the credit; glm-5.2 listed but 500s (Vertex ADC). Base is root; new-api appends
+    // /v1/chat/completions.
+    defaultBaseUrl: "https://api.nemorouter.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (nemorouter.ai onboarding)",
+  },
+  {
     kind: "regolo",
     label: "Regolo",
     // api.regolo.ai/v1 - EU/green LLM API, 30-day free trial (1M tok/day, all Core Models, no
