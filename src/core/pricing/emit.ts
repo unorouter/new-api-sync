@@ -97,6 +97,11 @@ function buildSettingJson(tier: PricedTier): string | undefined {
     if (http !== undefined) capabilities.http = http;
     if (Object.keys(capabilities).length > 0)
       setting.capabilities = capabilities;
+
+    // Any probe that emitted reasoning_content -> convert thinking to visible content so a
+    // reasoning-only turn is not billed as an empty (content-less) upstream 502.
+    if (tier.testDetails.some((d) => d.thinkingDetected))
+      setting.thinking_to_content = true;
   }
 
   if (tier.passThroughBody) setting.pass_through_body_enabled = true;

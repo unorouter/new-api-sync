@@ -214,7 +214,21 @@ const HTTP_CONFIG_BY_TYPE = {
 } as const;
 
 // prettier-ignore
-const mkDetail = (model: string, channelType: number, success: boolean, streamSuccess: boolean | null, toolCallSuccess: boolean | null, toolParallel: boolean | null, authenticityProbed: boolean, httpStatus?: number): ModelTestDetail => ({ model, success, streamSuccess, toolCallSuccess, toolParallel, authenticityProbed, channelType, ...(httpStatus !== undefined && { httpStatus }) });
+const mkDetail = (model: string, channelType: number, success: boolean, streamSuccess: boolean | null, toolCallSuccess: boolean | null, toolParallel: boolean | null, authenticityProbed: boolean, httpStatus?: number, thinkingDetected?: boolean): ModelTestDetail => ({ model, success, streamSuccess, toolCallSuccess, toolParallel, authenticityProbed, channelType, ...(httpStatus !== undefined && { httpStatus }), ...(thinkingDetected && { thinkingDetected }) });
+
+// A probe carried non-empty reasoning_content -> the model emits thinking. new-api bills a
+// stream that produced ONLY reasoning_content (no content/tool_calls) as an empty 502, so such a
+// channel needs thinking_to_content. Detected at probe time because "is this a thinking model" is
+// not statically known (reasoning is often per-request, not a fixed model property).
+function probeShowedReasoning(...exchanges: (TestExchange | null)[]): boolean {
+  for (const ex of exchanges) {
+    if (!ex) continue;
+    const blob = typeof ex.response === "string" ? ex.response : JSON.stringify(ex.response ?? "");
+    // match reasoning_content:"<non-empty>" (JSON) or reasoning_content in raw SSE text
+    if (/"reasoning_content"\s*:\s*"[^"]/.test(blob)) return true;
+  }
+  return false;
+}
 
 async function testModels(opts: {
   baseUrl: string;
@@ -434,6 +448,7 @@ async function testModels(opts: {
           toolParallel,
           isClaude && (success || streamSuccess === true),
           httpResult.status,
+          probeShowedReasoning(httpResult, streamResult),
         );
       }),
     ),

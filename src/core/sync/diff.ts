@@ -48,6 +48,16 @@ function extractPassThrough(setting?: string): boolean | undefined {
   }
 }
 
+function extractThinkingToContent(setting?: string): boolean | undefined {
+  if (!setting) return undefined;
+  try {
+    const v = JSON.parse(setting)?.thinking_to_content;
+    return typeof v === "boolean" ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function extractSystemPrompt(
   setting?: string,
 ): { prompt: string; override: boolean } | undefined {
@@ -72,7 +82,13 @@ function mergeSettingCapabilities(
   const desiredCaps = extractCapabilities(desiredSetting);
   const desiredPassThrough = extractPassThrough(desiredSetting);
   const desiredSysPrompt = extractSystemPrompt(desiredSetting);
-  if (!desiredCaps && desiredPassThrough === undefined && !desiredSysPrompt)
+  const desiredThinking = extractThinkingToContent(desiredSetting);
+  if (
+    !desiredCaps &&
+    desiredPassThrough === undefined &&
+    !desiredSysPrompt &&
+    desiredThinking === undefined
+  )
     return undefined;
   let existing: Record<string, unknown> = {};
   if (existingSetting) {
@@ -93,6 +109,7 @@ function mergeSettingCapabilities(
     existing.system_prompt = desiredSysPrompt.prompt;
     existing.system_prompt_override = desiredSysPrompt.override;
   }
+  if (desiredThinking) existing.thinking_to_content = true;
   return JSON.stringify(existing);
 }
 
