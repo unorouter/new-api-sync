@@ -2157,6 +2157,20 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Mistral",
     supportsTools: true,
   },
+  // Original Codestral 22B (bare slug, no source carries a date)
+  codestral: {
+    releaseDate: iso("2024-05-29"),
+    contextWindow: 32_000,
+    series: "Mistral",
+    supportsTools: true,
+  },
+  // Ministral 3B (Les Ministraux launch; bare slug distinct from 2512 refresh)
+  "ministral-3b": {
+    releaseDate: iso("2024-10-16"),
+    contextWindow: 131_072,
+    series: "Mistral",
+    supportsTools: true,
+  },
   // Mistral Small dated slugs (2506 = Small 3.2, 2603 = Small 4)
   "mistral-small-2506": {
     releaseDate: iso("2025-06-20"),
