@@ -28,6 +28,9 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // (1 in + 262144 out > 262144 -> HTTP 400). Hard-cap output so input fits.
   "nex-n2-pro": { maxOutputTokens: 65_536 },
   "nex-n2-mini": { maxOutputTokens: 65_536 },
+  // Sources report 262144, but GLM-5.2 serving stacks enforce max_tokens in
+  // [1, 131072] (poloai/tokenreply return HTTP 400 above it).
+  "glm-5.2": { maxOutputTokens: 131_072 },
   // Rolling alias to the latest Gemini Flash (approximate; tracks 2.5 Flash GA).
   "gemini-flash-latest": { releaseDate: iso("2025-09-25") },
   // Google Lyria 3 music gen: base 2026-02-18, Pro 2026-03-25.
