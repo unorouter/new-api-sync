@@ -39,6 +39,7 @@
     "ERROR": "错误：{error}"
   },
   "SYNC": {
+    "DEAD_GROUPS_PRUNED": "已从 UserUsableGroups/AutoGroups 清理 {count} 个失效分组",
     "TITLE": "同步流水线",
     "DESCRIPTION": "执行完整同步或重置已管理的资源。",
     "RUN": "运行",
@@ -465,7 +466,8 @@
       "VENDOR_UPDATED": "已更新供应商 \"{name}\"（id={id}，图标={icon}）",
       "VENDOR_CREATED": "已创建供应商 \"{name}\"（id={id}，图标={icon}）",
       "VENDOR_CREATE_FAILED": "创建供应商 \"{name}\" 失败",
-      "ICON_NONE": "无"
+      "ICON_NONE": "无",
+      "DEAD_GROUPS_PRUNED": "已从 UserUsableGroups/AutoGroups 清理 {count} 个失效分组"
     },
     "PIPELINE": {
       "BASELLM_NO_ENTRIES": "没有可用于倍率回填的 basellm 条目",
