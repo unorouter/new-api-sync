@@ -8,7 +8,7 @@ import { consola } from "consola";
 // premium). glm-5.2 is listed but 500s (upstream Vertex ADC misconfig), so excluded. Frontier
 // (opus/gpt-5.5) burns $10 in ~300 turns - not worth it. Upstream names are mixed-case; exposed
 // canonical dot-form maps back via modelMapping. Credit drains then 402-auto-disables.
-const MODELS = ["Kimi-K2.6", "DeepSeek-V4-Flash"];
+const MODELS = ["Kimi-K2.6", "Kimi-K2.7-Code", "DeepSeek-V4-Flash"];
 
 export async function discoverNemoRouterModels(
   _baseUrl: string,

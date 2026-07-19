@@ -302,19 +302,31 @@ export async function updateVendor(
 // Rebuild the abilities table from the channels table (new-api FixAbility:
 // truncate + re-add + channel cache reload). Heals enabled-state drift and
 // orphaned abilities left by out-of-band channel edits (raw SQL, crashes).
-export async function fixAbilities(ctx: ClientContext): Promise<boolean> {
-  const data = await tryFetchJson<ApiResponse>(
-    `${ctx.baseUrl}/api/channel/fix`,
-    {
-      method: "POST",
-      headers: ctx.headers,
-    },
-  );
+// Returns clean=true ONLY on a fully-successful rebuild (fails=0): a partial
+// rebuild leaves failed channels with ZERO ability rows, and a subsequent
+// orphaned-model cleanup would then delete their models as "unbound".
+export async function fixAbilities(
+  ctx: ClientContext,
+): Promise<{ clean: boolean }> {
+  const data = await tryFetchJson<
+    ApiResponse<{ success?: number; fails?: number }>
+  >(`${ctx.baseUrl}/api/channel/fix`, {
+    method: "POST",
+    headers: ctx.headers,
+    timeoutMs: 120_000,
+  });
   if (!data?.success) {
     consola.warn(t("CORE.NEWAPI.FIX_ABILITIES_FAILED", { name: ctx.name }));
-    return false;
+    return { clean: false };
   }
-  return true;
+  const fails = data.data?.fails ?? 0;
+  if (fails > 0) {
+    consola.warn(
+      t("CORE.NEWAPI.FIX_ABILITIES_PARTIAL", { name: ctx.name, fails }),
+    );
+    return { clean: false };
+  }
+  return { clean: true };
 }
 
 export async function cleanupOrphanedModels(
