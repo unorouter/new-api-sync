@@ -457,6 +457,7 @@
       "ORPHAN_CLEANUP_DONE": "[{name}] Cleaned up {deleted} orphaned models",
       "ORPHAN_ABILITY_CLEANUP_FAILED": "[{name}] Orphaned-ability cleanup failed or not supported",
       "ORPHAN_ABILITY_CLEANUP_DONE": "[{name}] Cleaned up {deleted} orphaned abilities (dead routes)",
+      "FIX_ABILITIES_FAILED": "[{name}] Ability rebuild (channel/fix) failed or not supported",
       "GUEST_TOKEN_UPDATED": "Guest token \"{name}\" updated: {count} truly-free model(s)"
     },
     "SYNC": {

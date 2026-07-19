@@ -182,7 +182,6 @@ export interface SyncDiff {
   channels: DiffOperation<Channel>[];
   models: DiffOperation<ModelMeta>[];
   options: DiffOperation<string>[];
-  cleanupOrphans: boolean;
 }
 
 export interface ApplyError {

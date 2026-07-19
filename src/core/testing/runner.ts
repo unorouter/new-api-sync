@@ -223,7 +223,10 @@ const mkDetail = (model: string, channelType: number, success: boolean, streamSu
 function probeShowedReasoning(...exchanges: (TestExchange | null)[]): boolean {
   for (const ex of exchanges) {
     if (!ex) continue;
-    const blob = typeof ex.response === "string" ? ex.response : JSON.stringify(ex.response ?? "");
+    const blob =
+      typeof ex.response === "string"
+        ? ex.response
+        : JSON.stringify(ex.response ?? "");
     // match reasoning_content:"<non-empty>" (JSON) or reasoning_content in raw SSE text
     if (/"reasoning_content"\s*:\s*"[^"]/.test(blob)) return true;
   }

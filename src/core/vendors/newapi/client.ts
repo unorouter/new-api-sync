@@ -4,8 +4,8 @@ import { t } from "@server/i18n";
 import type { ClientContext } from "./context";
 import { fetchPricing } from "./pricing";
 import {
-  cleanupOrphanedAbilities,
   cleanupOrphanedModels,
+  fixAbilities,
   createChannel,
   createModel,
   createVendor,
@@ -144,5 +144,5 @@ export class NewApiClient {
   updateVendor = (vendor: { id: number; name: string; icon?: string }) =>
     updateVendor(this.ctx, vendor);
   cleanupOrphanedModels = () => cleanupOrphanedModels(this.ctx);
-  cleanupOrphanedAbilities = () => cleanupOrphanedAbilities(this.ctx);
+  fixAbilities = () => fixAbilities(this.ctx);
 }

@@ -123,26 +123,28 @@ export async function applySyncDiff(
     report.errors,
   );
 
-  if (diff.cleanupOrphans) {
-    try {
-      report.models.orphansDeleted = await target.cleanupOrphanedModels();
-    } catch (error) {
-      report.errors.push({
-        phase: "cleanup",
-        key: "orphaned-models",
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-    try {
-      report.channels.orphanAbilitiesDeleted =
-        await target.cleanupOrphanedAbilities();
-    } catch (error) {
-      report.errors.push({
-        phase: "cleanup",
-        key: "orphaned-abilities",
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
+  // Always-on janitor, partial-safe by construction: FixAbility rebuilds the
+  // abilities table from channels (heals enabled-drift zombies and orphaned
+  // abilities from out-of-band channel edits), then orphaned-model cleanup
+  // removes rows with no ability at all (disabled abilities count as bound, so
+  // rate-limited-preserved channels keep their models even on partial runs).
+  try {
+    await target.fixAbilities();
+  } catch (error) {
+    report.errors.push({
+      phase: "cleanup",
+      key: "fix-abilities",
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+  try {
+    report.models.orphansDeleted = await target.cleanupOrphanedModels();
+  } catch (error) {
+    report.errors.push({
+      phase: "cleanup",
+      key: "orphaned-models",
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 
   return report;

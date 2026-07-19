@@ -299,6 +299,24 @@ export async function updateVendor(
   return recordIfFailed(data, "updateVendor", vendor.name);
 }
 
+// Rebuild the abilities table from the channels table (new-api FixAbility:
+// truncate + re-add + channel cache reload). Heals enabled-state drift and
+// orphaned abilities left by out-of-band channel edits (raw SQL, crashes).
+export async function fixAbilities(ctx: ClientContext): Promise<boolean> {
+  const data = await tryFetchJson<ApiResponse>(
+    `${ctx.baseUrl}/api/channel/fix`,
+    {
+      method: "POST",
+      headers: ctx.headers,
+    },
+  );
+  if (!data?.success) {
+    consola.warn(t("CORE.NEWAPI.FIX_ABILITIES_FAILED", { name: ctx.name }));
+    return false;
+  }
+  return true;
+}
+
 export async function cleanupOrphanedModels(
   ctx: ClientContext,
 ): Promise<number> {
@@ -314,35 +332,6 @@ export async function cleanupOrphanedModels(
   if (deleted > 0)
     consola.info(
       t("CORE.NEWAPI.ORPHAN_CLEANUP_DONE", { name: ctx.name, deleted }),
-    );
-  return deleted;
-}
-
-// Remove ability (routing) rows whose channel was deleted. new-api's own delete
-// paths cascade abilities, but rows can still be orphaned when a channel is
-// removed outside that path; orphaned abilities make /v1/models advertise + route
-// to dead channels (model_not_found). Runs in the same cleanup phase as
-// cleanupOrphanedModels so a full sync self-heals.
-export async function cleanupOrphanedAbilities(
-  ctx: ClientContext,
-): Promise<number> {
-  const data = await tryFetchJson<ApiResponse<{ deleted: number }>>(
-    `${ctx.baseUrl}/api/channel/orphaned-abilities`,
-    { method: "DELETE", headers: ctx.headers },
-  );
-  if (!data) {
-    consola.warn(
-      t("CORE.NEWAPI.ORPHAN_ABILITY_CLEANUP_FAILED", { name: ctx.name }),
-    );
-    return 0;
-  }
-  const deleted = data.data?.deleted ?? 0;
-  if (deleted > 0)
-    consola.info(
-      t("CORE.NEWAPI.ORPHAN_ABILITY_CLEANUP_DONE", {
-        name: ctx.name,
-        deleted,
-      }),
     );
   return deleted;
 }

@@ -83,8 +83,10 @@ Path aliases (use these, never relative cross-package imports): `@core/*`, `@ser
 4. **Price + emit**: `computePricedPlan` (pricing/compute.ts) builds tiers under the cap, `emitChannels`
    makes channels, `buildDesiredModels` + `buildOptionMaps` make the rest. Result: `DesiredState`.
 5. **Diff** desired vs snapshot into create/update/delete ops (`sync/diff.ts`).
-6. **Apply + cleanup**: options -> channels -> models -> orphan cleanup (orphan cleanup ONLY when not
-   a partial sync), then guest token, then write logs.
+6. **Apply + cleanup**: options -> channels -> models -> always-on janitor (new-api FixAbility rebuilds
+   the abilities table from channels, healing enabled-drift and orphans from out-of-band edits; then
+   orphaned-model cleanup deletes model rows with no ability at all - disabled abilities count as
+   bound, so it is partial-safe), then guest token, then write logs.
 
 Each upstream model flows: provider row -> `OfferModel{exposed, upstream, upstreamRatio}` -> canonical
 vote -> `MergedModel` + `PricedTier` -> `Channel` (with `model_mapping: {exposed -> upstream}`) ->
@@ -139,9 +141,9 @@ and the partial-sync invariants protect everything out of scope.
    - `--only <csv>` narrows to those provider NAMES (`applyOnlyProviders`); `--models <globs>` narrows
      to matching model names (`applyModelFilter`, micromatch). They COMBINE (intersection): only those
      providers, only those models. Both accept repeats or comma-separated lists.
-   - This sets `isPartialSync` -> orphan cleanup is DISABLED and out-of-scope ratios are preserved
-     (`mergeProtected`), so the run never clobbers other providers/models. A clean provider that
-     passes testing for the model is recreated as a channel; a failing one stays absent.
+   - This sets `isPartialSync` -> out-of-scope ratios are preserved (`mergeProtected`), so the run
+     never clobbers other providers/models. A clean provider that passes testing for the model is
+     recreated as a channel; a failing one stays absent.
 
 5. **Verify**: re-query the `channels` table for the model; confirm only clean upstreams remain and
    the bad ids did not reappear. If a deleted channel reappears, its provider still passed the
@@ -153,9 +155,12 @@ recreate with precision; never a full `sync run` to fix one model.
 ### Invariants that MUST hold (do not break these)
 
 - **Partial syncs never clobber.** `isPartialSync = onlyProviders || modelFilter.length > 0`. In
-  partial mode, out-of-scope ratios are preserved (`mergeProtected`) and orphan cleanup is disabled
-  (`cleanupOrphans = !isPartialSync`). A `--only openrouter` run must not touch other providers'
-  pricing. Any pipeline change must keep this true.
+  partial mode, out-of-scope ratios are preserved (`mergeProtected`). A `--only openrouter` run must
+  not touch other providers' pricing. Any pipeline change must keep this true. The apply-phase
+  janitor (FixAbility + orphaned-model cleanup) runs on EVERY sync because it is partial-safe by
+  construction: abilities rebuild from whatever channels exist, and a model row only counts as
+  orphaned with zero ability rows (disabled ones from rate-limited-preserved channels count as
+  bound - requires new-api >= a0f589a1).
 - **Pricing cap is hard.** No offer may charge more than 1x canonical retail. The cap is
   `modelRatio * candidate <= (canonical ?? ratio)` in `compute.ts`. There is no user knob to relax it.
 - **priceAdjustment is schema-bounded** to `(-1, 1)` (record form `(-1, 1]`) in
