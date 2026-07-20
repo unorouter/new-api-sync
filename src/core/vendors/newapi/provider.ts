@@ -702,7 +702,13 @@ export async function processNewApiProvider(
       offers.push(...gr.offers);
       if (!gr.hadAnyOffer) groupsWithNoWorkingModels.push(gr.group.name);
     }
-    if (!config.isTestMode)
+    // NEVER under a model/type filter: a filtered run tests only the matching
+    // models, so a healthy group whose models are all out of scope produces
+    // zero offers and reads as "empty" - deleting its upstream token then
+    // 401-kills every out-of-scope channel still carrying that key (live
+    // incident: a mimo-only fishx run deleted china-prod/default-prod and
+    // auto-disabled all 30 glm/kimi/deepseek lanes).
+    if (!config.isTestMode && !config.modelFilter && !config.modelTypeFilter)
       await cleanupEmptyGroupTokens(
         upstream,
         groupsWithNoWorkingModels,

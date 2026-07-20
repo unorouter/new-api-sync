@@ -161,6 +161,12 @@ recreate with precision; never a full `sync run` to fix one model.
   construction: abilities rebuild from whatever channels exist, and a model row only counts as
   orphaned with zero ability rows (disabled ones from rate-limited-preserved channels count as
   bound - requires new-api >= a0f589a1).
+- **Upstream token deletion only on FULL provider runs.** `cleanupEmptyGroupTokens` deletes a
+  provider's `<group>-<prefix>` token when the group produced zero working offers - under a
+  `--models`/`--type` filter that conflates "dead group" with "group's models were filtered out",
+  and the deleted key 401-kills every out-of-scope channel still carrying it (live incident: a
+  mimo-only fishx run deleted china-prod/default-prod, auto-disabling all 30 glm/kimi/deepseek
+  lanes). The call is gated on `!modelFilter && !modelTypeFilter`; keep it that way.
 - **Pricing cap is hard.** No offer may charge more than 1x canonical retail. The cap is
   `modelRatio * candidate <= (canonical ?? ratio)` in `compute.ts`. There is no user knob to relax it.
 - **priceAdjustment is schema-bounded** to `(-1, 1)` (record form `(-1, 1]`) in
