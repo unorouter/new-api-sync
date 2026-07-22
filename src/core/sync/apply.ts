@@ -153,7 +153,17 @@ export async function applySyncDiff(
   }
 
   try {
-    await pruneDeadOptionGroups(target);
+    // Groups the sync just wrote this run are guaranteed-live even if the admin
+    // channel list (in-memory cache) has not caught up yet - protect them from the
+    // prune so a freshly-created group is never pruned back out on the same run
+    // (the "new channel needs two syncs to become visible" regression).
+    const desiredGroups = new Set<string>();
+    for (const op of diff.channels) {
+      if (op.type === "delete") continue;
+      for (const g of (op.value.group ?? "").split(","))
+        if (g.trim()) desiredGroups.add(g.trim());
+    }
+    await pruneDeadOptionGroups(target, desiredGroups);
   } catch (error) {
     report.errors.push({
       phase: "cleanup",
@@ -173,9 +183,12 @@ export async function applySyncDiff(
 // without owning any channel.
 const BASE_GROUPS = new Set(["default", "auto", "vip", "svip"]);
 
-async function pruneDeadOptionGroups(target: NewApiClient): Promise<void> {
+async function pruneDeadOptionGroups(
+  target: NewApiClient,
+  protectedGroups: Set<string> = new Set(),
+): Promise<void> {
   const channels = await target.listChannels();
-  const live = new Set<string>();
+  const live = new Set<string>(protectedGroups);
   for (const ch of channels)
     for (const g of (ch.group ?? "").split(","))
       if (g.trim()) live.add(g.trim());
