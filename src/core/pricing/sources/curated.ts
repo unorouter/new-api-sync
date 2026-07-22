@@ -528,6 +528,29 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Agnes",
     supportsTools: true,
   },
+  // Agnes 2.5 + async image/video lanes (provider publishes no dates; estimated)
+  "agnes-2.5-flash": {
+    releaseDate: iso("2026-07-01"),
+    contextWindow: 262_144,
+    series: "Agnes",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "agnes-image-2.0-flash": {
+    releaseDate: iso("2026-06-01"),
+    series: "Agnes",
+    mode: "image",
+  },
+  "agnes-image-2.1-flash": {
+    releaseDate: iso("2026-07-01"),
+    series: "Agnes",
+    mode: "image",
+  },
+  "agnes-video-v2.0": {
+    releaseDate: iso("2026-06-01"),
+    series: "Agnes",
+    mode: "video",
+  },
   // Mistral Leanstral (served free via Requesty). 262K context, tool calling.
   "leanstral-1-5": {
     releaseDate: iso("2026-05-01"),
@@ -691,6 +714,31 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Llama",
     supportsVision: true,
     supportsTools: true,
+  },
+  "llama-3.2-11b-vision": {
+    releaseDate: iso("2024-09-25"),
+    contextWindow: 131_072,
+    series: "Llama",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // Meta Llama Prompt Guard 2 (jailbreak classifiers, LlamaCon launch)
+  "llama-prompt-guard-2-22m": {
+    releaseDate: iso("2025-04-29"),
+    series: "Llama",
+  },
+  "llama-prompt-guard-2-86m": {
+    releaseDate: iso("2025-04-29"),
+    series: "Llama",
+  },
+  // NVIDIA Nemotron Super 49B (Llama 3.3 distill; v1 GTC, v1.5 July refresh)
+  "llama-3.3-nemotron-super-49b-v1": {
+    releaseDate: iso("2025-03-18"),
+    series: "Nemotron",
+  },
+  "llama-3.3-nemotron-super-49b-v1.5": {
+    releaseDate: iso("2025-07-25"),
+    series: "Nemotron",
   },
   // Mistral Small (generic :free = Small 3 24B-2501; live ctx wins if present)
   "mistral-small": {
@@ -1613,6 +1661,21 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // Combined fast aliases (single published name covering both effort lanes)
+  "grok-4.1-fast": {
+    releaseDate: iso("2025-11-01"),
+    contextWindow: 2_000_000,
+    series: "Grok",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "grok-4.20-fast": {
+    releaseDate: iso("2026-03-31"),
+    contextWindow: 1_000_000,
+    series: "Grok",
+    isReasoning: true,
+    supportsTools: true,
+  },
   // net-new SOTA paid adds
   "grok-3": {
     releaseDate: iso("2025-02-17"),
@@ -1779,6 +1842,28 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // Kimi K2.6 rebrand slugs (no "k" prefix) + coding-lane K3 alias
+  "kimi-2.6": {
+    releaseDate: iso("2026-04-20"),
+    contextWindow: 262_144,
+    series: "Kimi",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "kimi-2.6-thinking": {
+    releaseDate: iso("2026-04-20"),
+    contextWindow: 262_144,
+    series: "Kimi",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "coding-kimi-k3-free": {
+    releaseDate: iso("2026-07-16"),
+    contextWindow: 1_000_000,
+    series: "Kimi",
+    isReasoning: true,
+    supportsTools: true,
+  },
   // Alibaba Qwen3.6 Plus preview (date approximate)
   "qwen3.6-plus-preview": {
     releaseDate: iso("2026-06-10"),
@@ -1814,6 +1899,13 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2026-03-18"),
     contextWindow: 262_144,
     series: "MiMo",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // z.ai-branded GLM-4.7 thinking lane (same weights as glm-4.7)
+  "zai-glm-4.7-thinking": {
+    releaseDate: iso("2025-12-22"),
+    series: "GLM",
     isReasoning: true,
     supportsTools: true,
   },
@@ -2018,6 +2110,13 @@ const CURATED: Record<string, SourceMetadata> = {
   "deepseek-v4-flash-thinking": {
     releaseDate: iso("2026-04-22"),
     contextWindow: 200_000,
+    series: "DeepSeek",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "deepseek-v4-pro-thinking": {
+    releaseDate: iso("2026-04-24"),
+    contextWindow: 1_000_000,
     series: "DeepSeek",
     isReasoning: true,
     supportsTools: true,
@@ -2311,6 +2410,22 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsVision: true,
     supportsTools: true,
+  },
+  "gemma-4-e2b": {
+    releaseDate: iso("2026-03-31"),
+    contextWindow: 131_072,
+    series: "Gemma",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // Rolling aliases (track current GA: 2.5 Pro / Mistral Code launch)
+  "gemini-pro-latest": {
+    releaseDate: iso("2025-06-17"),
+  },
+  "mistral-code-latest": {
+    releaseDate: iso("2025-06-04"),
+    series: "Mistral",
   },
   // NVIDIA Nemotron 3 Ultra 550B-A55B (thinking mode; 1M architectural context)
   "nemotron-3-ultra-thinking": {
