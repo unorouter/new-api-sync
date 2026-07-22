@@ -17,8 +17,10 @@ const str = T.String({ minLength: 1 });
 const uri = T.String({ format: "uri" });
 const Opt = T.Optional;
 
+// adj > 0 is a position between cost and canonical (applyPriceAdjustment): 1 = sell
+// exactly at 1x. adj <= 0 is a plain cost multiplier (yuan convention).
 const PriceAdjustmentSchema = T.Union([
-  T.Number({ exclusiveMinimum: -1, exclusiveMaximum: 1 }),
+  T.Number({ exclusiveMinimum: -1, maximum: 1 }),
   T.Record(T.String(), T.Number({ exclusiveMinimum: -1, maximum: 1 })),
 ]);
 
@@ -76,8 +78,9 @@ const SimpleFreeProviderSchema = T.Object({
   apiKey: str,
   models: Opt(T.Array(str)),
   ratio: Opt(T.Number({ minimum: 0 })),
-  // Models (glob patterns) priced instead of forced-free: each is billed at
-  // canonical retail * (1 + priceAdjustment[model]). Everything else stays $0.
+  // Models (glob patterns) priced instead of forced-free: retail sits
+  // priceAdjustment of the way from the cheapest lane to canonical (adj=1 -> 1x).
+  // Everything else stays $0.
   paidModels: Opt(T.Array(str)),
   // Keep models that probe-fail with a 429 (capacity throttle / daily quota
   // spent, not breakage). Only safe where 429 = capacity. Emitted disabled so

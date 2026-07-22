@@ -93,8 +93,9 @@ export function emitFreeTextOffers(opts: {
   modelType?: ModelType;
   /** new-api endpoint tags carried on each OfferModel (e.g. ["embedding"]). */
   endpoints?: string[];
-  /** Glob patterns for models that are priced (canonical * (1+adjustment)) instead
-   *  of forced-free. Their OfferModel.isFree is false so the pricing phase prices them. */
+  /** Glob patterns for models that are priced (applyPriceAdjustment toward the
+   *  canonical ceiling) instead of forced-free. Their OfferModel.isFree is false
+   *  so the pricing phase prices them. */
   paidModels?: string[];
   /** Upstream ids kept only via a 429 accept; their channels emit disabled. */
   rateLimited?: Set<string>;

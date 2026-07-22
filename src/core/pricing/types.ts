@@ -24,10 +24,6 @@ export interface PricedTier {
   /** Final post-rescale, post-adjustment group ratio. This is what gets
    *  written to GroupRatio for this tier. */
   groupRatio: number;
-  /** The priceAdjustment applied to this tier (0 when none). The 1x-cap post-pass backs
-   *  it out (cost = groupRatio / (1 + priceAdjustment)) to clamp an all-above-1x model to
-   *  cheapest-upstream-cost + 5%, never the full markup. */
-  priceAdjustment?: number;
   groupDescription: string;
   /** Exposed model names that should be served by this channel. */
   models: string[];

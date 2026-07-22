@@ -19,16 +19,15 @@ export async function discoverDeepInfraModels(
   const url = `${base}/v1/models`;
   consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "DeepInfra", url }));
 
-  const data = await tryFetchJson<DeepInfraModel[] | { data: DeepInfraModel[] }>(
-    url,
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      timeoutMs: 15_000,
+  const data = await tryFetchJson<
+    DeepInfraModel[] | { data: DeepInfraModel[] }
+  >(url, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
     },
-  );
+    timeoutMs: 15_000,
+  });
 
   const list = Array.isArray(data) ? data : (data?.data ?? []);
   return { models: list.map((m) => m.id), maxOutputByModel: new Map() };

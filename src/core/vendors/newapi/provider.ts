@@ -12,7 +12,10 @@ import {
   getTestModelTypes,
   type RuntimeConfig,
 } from "@core/config";
-import { resolvePriceAdjustment } from "@core/pricing/index";
+import {
+  applyPriceAdjustment,
+  resolvePriceAdjustment,
+} from "@core/pricing/index";
 import { isFixed } from "@core/pricing/compute";
 import { imagePerCallUsd, isPerTokenImage } from "@core/pricing/image-per-call";
 import type {
@@ -172,8 +175,11 @@ function planPreTestDecisions(opts: {
             : rawCanonical;
         const charge =
           canonical !== undefined && canonical > 0
-            ? canonical *
-              (p.group.ratio * (1 + adjustment) * (costRatio / canonical))
+            ? applyPriceAdjustment(
+                p.group.ratio * costRatio,
+                adjustment,
+                canonical,
+              )
             : undefined;
         if (perTokenImage && canonical !== undefined && charge !== undefined) {
           consola.debug(

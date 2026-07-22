@@ -169,19 +169,25 @@ recreate with precision; never a full `sync run` to fix one model.
   lanes). The call is gated on `!modelFilter && !modelTypeFilter`; keep it that way.
 - **Pricing cap is hard.** No offer may charge more than 1x canonical retail. The cap is
   `modelRatio * candidate <= (canonical ?? ratio)` in `compute.ts`. There is no user knob to relax it.
-- **priceAdjustment is schema-bounded** to `(-1, 1)` (record form `(-1, 1]`) in
-  `validations/config.ts`, so the `(1 + adjustment)` multiplier stays in `(0, 2)`. Keep the schema bound.
+- **priceAdjustment has ONE universal rule**: `applyPriceAdjustment(cost, adj, ceiling)` in
+  `pricing/index.ts`, used by EVERY pricing decision (compute.ts standard/no-upstream paths, the
+  newapi pre-test gate). Positive adj = position between cost and the canonical ceiling
+  (`retail = cost + (ceiling - cost) * adj`; adj=1 -> exactly 1x). Cap-safe by construction: raising
+  adj approaches 1x, it never drops the lane. Cost at/above ceiling -> `cost * 1.05` (the only case
+  above 1x). adj <= 0 = plain multiplier `cost * (1 + adj)` (yuan convention). Never reintroduce a
+  path-local `(1 + adj)` markup: markup semantics made higher adj DROP lanes as cap-exceeded while
+  capAbove1x reinterpreted the same knob as interpolation (the di1/GLM-5.2 incident).
+- **priceAdjustment is schema-bounded** to `(-1, 1]` in `validations/config.ts`. Keep the schema bound.
 - **Per-request (fixed-price) group ratio tracks actual upstream cost.** Per-token models bake margin
   into `ModelRatio`, so a negative `priceAdjustment` still clears cost. Per-request (`quotaType >= 1`,
   flat `ModelPrice`) has NO ratio markup: the flat price IS the cost. In `compute.ts` `processStandardOffer`
-  the fixed branch sets `groupRatio = offer.groupRatio * (1 + adj) * (relayModelPrice / sticker)`, which
-  resolves to `retail = (relayModelPrice * relayExclusiveRatio) * (1 + adj)` per channel: each channel
-  prices off ITS OWN upstream cost, then the adjustment applies. The sticker (`ModelPrice` option) is the
-  cheapest relay's price; pricier relays get a proportionally higher group ratio so they don't bill the
-  cheap relay's sticker. Do NOT collapse this back to a flat `base` for fixed-price (that was the bug that
-  sold image models 5-17x below cost). Note: upstream relay prices are denominated in yuan but their APIs
-  label the field as USD; the yuan->USD gap is the real retail margin, so a -0.75 adjustment on the
-  yuan-number is still profitable in USD.
+  the fixed branch feeds `cost = offer.groupRatio * (relayModelPrice / sticker)` into
+  `applyPriceAdjustment`, so each channel prices off ITS OWN upstream cost. The sticker (`ModelPrice`
+  option) is the cheapest relay's price; pricier relays get a proportionally higher group ratio so they
+  don't bill the cheap relay's sticker. Do NOT collapse this back to a flat `base` for fixed-price (that
+  was the bug that sold image models 5-17x below cost). Note: upstream relay prices are denominated in
+  yuan but their APIs label the field as USD; the yuan->USD gap is the real retail margin, so a -0.75
+  adjustment on the yuan-number is still profitable in USD.
 - **Concurrency inversion is deliberate.** `ConcurrencyGate.run(key, fn)` acquires the per-upstream
   limit OUTSIDE the global limit so one slow upstream cannot starve the global pool
   (`infra/concurrency.ts`). Do not reorder.

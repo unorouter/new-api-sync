@@ -1,4 +1,3 @@
-import { consola } from "consola";
 import {
   CHANNEL_TYPES,
   getTaskModelOverride,
@@ -9,7 +8,7 @@ import {
   sanitizeGroupName,
 } from "@core/catalog/constants/patterns";
 import type { MergedModel } from "@core/types";
-import { resolvePriceAdjustment } from "./index";
+import { applyPriceAdjustment, resolvePriceAdjustment } from "./index";
 import type { OfferModel, UpstreamOffer } from "./offers";
 import { resolveBasePricing, type PricingSource } from "./resolver";
 import type {
@@ -325,16 +324,10 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
   return { tiers, modelRatios, drops };
 }
 
-// Per model, on the priced tiers:
-//   1. DEDUPE: keep the single cheapest channel, drop every pricier duplicate above 1x list.
-//   2. RE-PRICE the survivor from its cost_ratio = groupRatio / (1 + priceAdjustment):
-//      - discounted lane (cost_ratio < 1): sit `adj` of the way from cost to 1x list
-//        (target = cost_ratio + (1 - cost_ratio) * adj). adj=0.5 -> midpoint of cost and list:
-//        always below 1x, always above cost.
-//      - no-discount lane (cost_ratio >= 1, only the 1x "Official" group): no cheap group to
-//        profit on, so take just +5% over cost. The ONLY case retail exceeds 1x, and by 5%.
-const MAX_ABOVE_1X = 1.05;
-
+// Per model, on the priced tiers: DEDUPE. Keep the single cheapest channel, drop every
+// pricier duplicate above 1x list. Pricing itself is already final and cap-safe: every
+// path runs applyPriceAdjustment (positive adj interpolates cost -> canonical, so only
+// the deliberate +5%-over-cost no-discount lane and negative-adj lanes can sit above 1x).
 function capAbove1x(
   tiers: PricedTier[],
   modelRatios: Map<string, MergedModel>,
@@ -383,59 +376,9 @@ function capAbove1x(
         !e.tier.failoverDuplicate
       )
         removeModelFromTier(e.tier, model);
-    // Re-price the surviving cheapest from its cost_ratio = groupRatio/(1+adj):
-    //   - discounted lane (cost_ratio < 1): sit `adj` of the way from cost to 1x list, i.e.
-    //     target = cost_ratio + (1 - cost_ratio) * adj. With adj=0.5 that is the midpoint of our
-    //     cost and list: always below 1x, always above cost (half the discount is our margin).
-    //   - no-discount lane (cost_ratio >= 1, only the 1x "Official" group): no cheap group to
-    //     profit on, so take just +5% over cost. The ONLY case retail exceeds 1x, and by 5%.
-    // Only positive-markup (ephone-style USD) providers are re-priced. Negative/zero adjustments
-    // are the yuan convention (retail already below cost in USD terms) and paid-offer tiers, both
-    // left untouched.
-    const adj = cheapest.tier.priceAdjustment ?? 0;
-    if (adj <= 0) continue;
-    const costRatio = cheapest.tier.groupRatio / (1 + adj);
-    const target =
-      costRatio < 1
-        ? costRatio + (1 - costRatio) * adj
-        : costRatio * MAX_ABOVE_1X;
-    const usdM = (r: number) => (r * unit * 2).toFixed(4);
-    consola.info(
-      `[pricing] reprice ${model} on ${cheapest.tier.channelName}: adj=${adj} ` +
-        `cost=${costRatio.toFixed(4)} (\$${usdM(costRatio)}/M) -> ` +
-        `new=${target.toFixed(4)} (\$${usdM(target)}/M) | list=${unit} \$${usdM(1)}/M`,
-    );
-    if (Math.abs(cheapest.tier.groupRatio - target) > 1e-9)
-      clampTierForModel(tiers, cheapest.tier, model, target);
   }
   for (let i = tiers.length - 1; i >= 0; i--)
     if (tiers[i]!.models.length === 0) tiers.splice(i, 1);
-}
-
-// Set `model`'s group ratio to `newRatio` on `tier`. If the tier serves other models (which
-// keep the original ratio), move `model` onto a cloned sibling tier so only it is clamped.
-function clampTierForModel(
-  tiers: PricedTier[],
-  tier: PricedTier,
-  model: string,
-  newRatio: number,
-): void {
-  if (tier.models.length === 1) {
-    tier.groupRatio = newRatio;
-    return;
-  }
-  tier.models = tier.models.filter((m) => m !== model);
-  const mapping = tier.modelMapping?.[model]
-    ? { [model]: tier.modelMapping[model]! }
-    : undefined;
-  if (tier.modelMapping) delete tier.modelMapping[model];
-  tiers.push({
-    ...tier,
-    channelName: `${tier.channelName}-cap`,
-    groupRatio: newRatio,
-    models: [model],
-    modelMapping: mapping,
-  });
 }
 
 function processStandardOffer(
@@ -452,28 +395,33 @@ function processStandardOffer(
     if (m.isFree) groupRatio = 0;
     else {
       const adj = adjustmentFor(offer, m, args);
-      const base = offer.groupRatio * (1 + adj);
       if (!isFixed(written)) {
-        // Per-token: scale each channel's group ratio by its own upstream ratio
-        // vs the stored sticker, so a pricier relay charges proportionally more.
-        // The token ratio markup gives margin headroom, so a negative adjustment
-        // still clears cost.
-        groupRatio =
+        // Per-token: cost tracks this channel's own upstream ratio vs the stored
+        // sticker, so a pricier relay charges proportionally more.
+        const cost =
           m.upstreamRatio !== undefined && written.ratio > 0
-            ? base * (m.upstreamRatio / written.ratio)
-            : base;
+            ? offer.groupRatio * (m.upstreamRatio / written.ratio)
+            : offer.groupRatio;
+        const ceiling =
+          written.ratio > 0
+            ? (args.canonical.get(m.exposed) ?? written.ratio) / written.ratio
+            : 0;
+        groupRatio = applyPriceAdjustment(cost, adj, ceiling);
       } else {
-        // Per-request (fixed price): scale each channel's group ratio by its own
-        // per-call price vs the stored sticker (cheapest relay wins the sticker),
-        // so a pricier relay's retail tracks its own upstream price, then apply the
-        // adjustment. Net: retail = upstreamPrice * (1 + adjustment), per channel.
-        // adj -0.75 = sell 75% below the relay's upstream price.
+        // Per-request (fixed price): cost tracks this channel's own per-call price
+        // vs the stored sticker (cheapest relay wins the sticker), so a pricier
+        // relay's retail follows its own upstream price, never the cheap sticker.
         const mp = m.modelPrice ?? written.modelPrice;
         const sticker = written.modelPrice;
-        groupRatio =
+        const cost =
           mp !== undefined && sticker !== undefined && sticker > 0
-            ? base * (mp / sticker)
-            : base;
+            ? offer.groupRatio * (mp / sticker)
+            : offer.groupRatio;
+        const ceiling =
+          sticker !== undefined && sticker > 0
+            ? (args.canonical.get(m.exposed) ?? sticker) / sticker
+            : 0;
+        groupRatio = applyPriceAdjustment(cost, adj, ceiling);
       }
     }
     addToBucket(buckets, bucketKey(groupRatio), m);
@@ -545,25 +493,27 @@ function processNoUpstreamOffer(
   const channel = channelOf(offer);
   for (const m of offer.models) {
     const adj = adjustmentFor(offer, m, args);
-    // Base group ratio = an existing positive cheapest ratio, else 1.0 (full retail:
-    // the per-token price already lives in ModelRatio, so the group multiplier starts
+    // Cost basis = an existing positive cheapest lane, else 1.0 (full retail: the
+    // per-token price already lives in ModelRatio, so the group multiplier starts
     // at 1 for a freshly-priced model, e.g. a paid override in an otherwise-free
-    // provider whose own groupRatio is 0). Then apply the adjustment.
+    // provider whose own groupRatio is 0).
     const cheap = cheapestForModel.get(m.exposed);
     const base = cheap && cheap > 0 ? cheap : offer.groupRatio || 1;
-    const groupRatio = base * (1 + adj);
-    if (groupRatio > 1) {
-      const written = modelRatios.get(m.exposed)?.ratio ?? 1;
-      const ceiling = canonical.get(m.exposed) ?? written;
-      if (written * groupRatio > ceiling) {
-        drops.push({
-          model: m.exposed,
-          channel,
-          reason: "cap-exceeded",
-          effectiveRatio: groupRatio,
-        });
-        continue;
-      }
+    const written = modelRatios.get(m.exposed)?.ratio ?? 1;
+    const ceiling = canonical.get(m.exposed) ?? written;
+    const groupRatio = applyPriceAdjustment(
+      base,
+      adj,
+      written > 0 ? ceiling / written : 0,
+    );
+    if (groupRatio > 1 && written * groupRatio > ceiling + 1e-9) {
+      drops.push({
+        model: m.exposed,
+        channel,
+        reason: "cap-exceeded",
+        effectiveRatio: groupRatio,
+      });
+      continue;
     }
     addToBucket(buckets, bucketKey(groupRatio), m);
   }
@@ -651,7 +601,6 @@ function pushBucketsAsTiers(
         groupRatio,
         groupDescription: `${publishedName} via ${offer.provider} (${offer.vendor})`,
         models,
-        priceAdjustment: args ? adjustmentFor(offer, m, args) : 0,
         modelMapping: Object.keys(modelMapping).length
           ? modelMapping
           : undefined,
