@@ -81,14 +81,6 @@ export function buildOptionMaps(
     } else if (!isTiered) {
       modelRatio[mappedName] = r4(ratios.ratio);
       completionRatio[mappedName] = r4(ratios.completionRatio);
-      if (name.includes("nemotron-3-ultra"))
-        console.error(
-          "[DBG optmap]",
-          name,
-          mappedName,
-          ratios.ratio,
-          ratios.completionRatio,
-        );
     }
     if (ratios.imageRatio !== undefined && ratios.imageRatio > 0)
       imageRatio[mappedName] = r4(ratios.imageRatio);
