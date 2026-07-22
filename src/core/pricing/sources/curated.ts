@@ -1383,6 +1383,14 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // MiniMax M2.5 highspeed (aigc serving variant of M2.5, upstream carries no date)
+  "minimax-m2.5-highspeed": {
+    releaseDate: iso("2026-02-12"),
+    contextWindow: 204_800,
+    maxOutputTokens: 196_608,
+    isReasoning: true,
+    supportsTools: true,
+  },
   // Mistral Devstral / Magistral / Ministral 3
   "devstral-small-2507": {
     releaseDate: iso("2025-07-10"),
