@@ -216,17 +216,9 @@ export async function processOpenRouterProvider(
         // provider.only + no-fallback, priced off that host's real cost * markup.
         // Margin is baked into groupRatio (adj resolved to 0) so capAbove1x leaves
         // it untouched (a positive reprice would collapse to +5% since the model's
-        // own price is its 1x list).
-        const markup =
-          1 +
-          resolvePriceAdjustment({
-            adj: providerConfig.priceAdjustment,
-            model: "",
-            vendor: "",
-            modelType: "text",
-            fallback: DEFAULT_PAID_MARKUP - 1,
-            modelMapping: config.modelMapping,
-          });
+        // own price is its 1x list). Markup is resolved PER MODEL (against the
+        // exposed name) so config priceAdjustment can key individual models, e.g.
+        // a 50% (0.5) lane alongside a 55% default.
         const emitPaidPerHost = () => {
           for (const r of paidResolutions) {
             const hosts = catalogue.paidEndpoints.get(r.upstream);
@@ -239,6 +231,16 @@ export async function processOpenRouterProvider(
               );
               continue;
             }
+            const markup =
+              1 +
+              resolvePriceAdjustment({
+                adj: providerConfig.priceAdjustment,
+                model: r.exposed,
+                vendor: inferVendorFromModelName(r.exposed) ?? "",
+                modelType: "text",
+                fallback: DEFAULT_PAID_MARKUP - 1,
+                modelMapping: config.modelMapping,
+              });
             const vendor = inferVendorFromModelName(r.exposed) ?? "other";
             // Cheapest host is the primary; pricier hosts survive as failover
             // channels (exempt from the dedup drop) at their own group ratio.
