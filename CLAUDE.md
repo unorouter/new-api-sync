@@ -155,12 +155,21 @@ recreate with precision; never a full `sync run` to fix one model.
 ### Invariants that MUST hold (do not break these)
 
 - **Partial syncs never clobber.** `isPartialSync = onlyProviders || modelFilter.length > 0`. In
-  partial mode, out-of-scope ratios are preserved (`mergeProtected`). A `--only openrouter` run must
-  not touch other providers' pricing. Any pipeline change must keep this true. The apply-phase
-  janitor (FixAbility + orphaned-model cleanup) runs on EVERY sync because it is partial-safe by
-  construction: abilities rebuild from whatever channels exist, and a model row only counts as
-  orphaned with zero ability rows (disabled ones from rate-limited-preserved channels count as
-  bound - requires new-api >= a0f589a1).
+  partial mode, out-of-scope MODEL ratios are preserved (`mergeProtected` + modelGuard). A
+  `--only openrouter` run must not touch other providers' pricing. Any pipeline change must keep
+  this true. The apply-phase janitor (FixAbility + orphaned-model cleanup) runs on EVERY sync
+  because it is partial-safe by construction: abilities rebuild from whatever channels exist, and a
+  model row only counts as orphaned with zero ability rows (disabled ones from rate-limited-preserved
+  channels count as bound - requires new-api >= a0f589a1).
+- **Group options (GroupRatio/UserUsableGroups/AutoGroups) are ADDITIVE in the diff.** Desired
+  entries add/update; the merge NEVER removes existing entries. A run only computes tiers for models
+  that passed ITS OWN probe, so removal-by-omission deleted the group entries of every live channel
+  whose model merely throttled during that run's probe (free tiers throttle constantly) - the
+  recurring "channel live but model invisible/unroutable" incident (gemini groups, di1, 149 free
+  groups, 20 paid groups all hit this). The ONLY removal authority is `pruneDeadOptionGroups`
+  (apply.ts): full post-apply channel list, protects the run's own diff groups, removes a
+  usable/auto entry only when NO channel of any status carries the group. GroupRatio is never
+  pruned at all (subscription tiers bill through it). Do not reintroduce a group guard in the merge.
 - **Upstream token deletion only on FULL provider runs.** `cleanupEmptyGroupTokens` deletes a
   provider's `<group>-<prefix>` token when the group produced zero working offers - under a
   `--models`/`--type` filter that conflates "dead group" with "group's models were filtered out",

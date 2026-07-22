@@ -210,7 +210,6 @@ function buildManagedOptionValues(
   const isManaged = (ch: Channel) =>
     ch.tag && desired.managedProviders.has(ch.tag);
   const unmanagedChannels = snapshot.channels.filter((ch) => !isManaged(ch));
-  const unmanagedGroups = new Set(unmanagedChannels.map((ch) => ch.group));
   const protectedModels = collectModelsFromChannels(unmanagedChannels);
 
   const desiredModelsWithoutRatio = new Set<string>();
@@ -237,20 +236,8 @@ function buildManagedOptionValues(
     d: Record<string, T>,
   ) => mergeProtected(parse<Record<string, T>>(key, {}), guard, d);
 
-  const managedGroups = new Set(
-    snapshot.channels
-      .filter(isManaged)
-      .filter((ch) => parseModelList(ch.models).some(inFilterScope))
-      .map((ch) => ch.group),
-  );
   const partialKeys = (k: string) =>
     Object.keys(parse<Record<string, unknown>>(k, {}));
-  const groupGuard = isPartialSync
-    ? new Set([
-        ...unmanagedGroups,
-        ...partialKeys("GroupRatio").filter((g) => !managedGroups.has(g)),
-      ])
-    : unmanagedGroups;
 
   const managedModels = new Set<string>();
   for (const ch of snapshot.channels)
@@ -269,21 +256,24 @@ function buildManagedOptionValues(
       )
     : modelRatioGuard;
 
-  const mergedGroupRatio = mergeOption(
-    "GroupRatio",
-    groupGuard,
-    opts.groupRatio,
-  );
-  const mergedUserGroups = mergeProtected(
-    parse<Record<string, string>>("UserUsableGroups", {}),
-    groupGuard,
-    { auto: t("CORE.GROUPS.AUTO_LABEL"), ...opts.userUsableGroups },
-  );
+  // Group options are ADDITIVE here: desired entries add/update, existing ones
+  // are never removed by the merge. A run only computes tiers for models that
+  // passed ITS probe, so removal-by-omission deleted the usable/auto/ratio
+  // entries of every live channel whose model merely throttled during that
+  // run's probe (free tiers do constantly) - recurring "live channel, invisible
+  // model" incidents. The ONLY removal authority is pruneDeadOptionGroups in
+  // apply.ts, which sees the full post-apply channel list.
+  const mergedGroupRatio = {
+    ...parse<Record<string, number>>("GroupRatio", {}),
+    ...opts.groupRatio,
+  };
+  const mergedUserGroups = {
+    ...parse<Record<string, string>>("UserUsableGroups", {}),
+    auto: t("CORE.GROUPS.AUTO_LABEL"),
+    ...opts.userUsableGroups,
+  };
   const mergedAutoGroups = [
-    ...new Set([
-      ...parse<string[]>("AutoGroups", []).filter((g) => groupGuard.has(g)),
-      ...opts.autoGroups,
-    ]),
+    ...new Set([...parse<string[]>("AutoGroups", []), ...opts.autoGroups]),
   ].sort((a, b) => (mergedGroupRatio[a] ?? 1) - (mergedGroupRatio[b] ?? 1));
 
   // prettier-ignore
