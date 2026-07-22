@@ -40,6 +40,12 @@ export interface OpenAIFreeDiscovery {
   /** Authoritative modality per model when the provider catalog declares it
    *  (e.g. Cloudflare's task). Overrides name-based inferModelType. */
   modelTypeHints?: Map<string, ModelType>;
+  /** upstream model id -> real input cost as a new-api ratio (ratio 1 == $2/M).
+   *  Only PAID providers (DeepInfra) populate this; it becomes the upstreamRatio
+   *  of paid OfferModels so their retail tracks the actual upstream cost. */
+  ratioByModel?: Map<string, number>;
+  /** upstream model id -> completion/input cost multiplier. */
+  completionRatioByModel?: Map<string, number>;
 }
 
 export interface OpenAIFreeOpts {
@@ -102,6 +108,11 @@ export function emitFreeTextOffers(opts: {
   /** Per-model metadata from config enabledModels (glob key -> metadata), merged
    *  onto each matching OfferModel. Carries disableThinking, maxOutputTokens, etc. */
   metadataByModel?: Record<string, ModelMetadata>;
+  /** upstream id -> real input cost ratio; sets upstreamRatio on PAID models so
+   *  their retail prices off actual upstream cost (DeepInfra). */
+  ratioByModel?: Map<string, number>;
+  /** upstream id -> completion/input multiplier for paid models. */
+  completionRatioByModel?: Map<string, number>;
 }): UpstreamOffer[] {
   const offers: UpstreamOffer[] = [];
   const channelType = opts.channelType ?? CHANNEL_TYPES.OPENAI;
@@ -130,11 +141,22 @@ export function emitFreeTextOffers(opts: {
       ...(maxOut ? { maxOutputTokens: maxOut } : {}),
       ...configMeta,
     };
+    const paid = isPaid(x.exposed);
+    // Paid lanes carry the real upstream cost (keyed by the raw discovery id, which
+    // is x.upstream here) so pricing tracks actual cost instead of a $2/M default.
+    const upstreamRatio = paid ? opts.ratioByModel?.get(x.upstream) : undefined;
+    const upstreamCompletionRatio = paid
+      ? opts.completionRatioByModel?.get(x.upstream)
+      : undefined;
     return {
       exposed: x.exposed,
       upstream,
       modelType,
-      isFree: !isPaid(x.exposed),
+      isFree: !paid,
+      ...(upstreamRatio !== undefined ? { upstreamRatio } : {}),
+      ...(upstreamCompletionRatio !== undefined
+        ? { upstreamCompletionRatio }
+        : {}),
       ...(rateLimited.has(upstream) ? { rateLimited: true } : {}),
       testDetail: opts.details.find((d) => d.model === x.upstream),
       ...(opts.endpoints ? { endpoints: opts.endpoints } : {}),
@@ -197,6 +219,8 @@ export async function processOpenAICompatibleFreeProvider(
     let allModels: string[];
     let maxOutputByModel = new Map<string, number>();
     let typeHints: Map<string, ModelType> | undefined;
+    let ratioByModel: Map<string, number> | undefined;
+    let completionRatioByModel: Map<string, number> | undefined;
     if (providerConfig.models?.length) {
       allModels = providerConfig.models;
       consola.info(
@@ -213,6 +237,8 @@ export async function processOpenAICompatibleFreeProvider(
       allModels = discovered.models;
       maxOutputByModel = discovered.maxOutputByModel;
       typeHints = discovered.modelTypeHints;
+      ratioByModel = discovered.ratioByModel;
+      completionRatioByModel = discovered.completionRatioByModel;
       consola.info(
         t("CORE.PROVIDER.DISCOVERED_MODELS", { name, count: allModels.length }),
       );
@@ -304,6 +330,8 @@ export async function processOpenAICompatibleFreeProvider(
             modelType: modality.modelType,
             endpoints: modality.endpoints,
             paidModels: providerConfig.paidModels,
+            ratioByModel,
+            completionRatioByModel,
             metadataByModel: getMetadataFromEnabledModels(
               providerConfig.enabledModels,
             ),
@@ -365,6 +393,8 @@ export async function processOpenAICompatibleFreeProvider(
           modelType: modality.modelType,
           endpoints: modality.endpoints,
           paidModels: providerConfig.paidModels,
+          ratioByModel,
+          completionRatioByModel,
           metadataByModel: getMetadataFromEnabledModels(
             providerConfig.enabledModels,
           ),

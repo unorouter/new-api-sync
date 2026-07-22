@@ -8,7 +8,13 @@ import {
   sanitizeGroupName,
 } from "@core/catalog/constants/patterns";
 import type { MergedModel } from "@core/types";
-import { applyPriceAdjustment, resolvePriceAdjustment } from "./index";
+import {
+  applyMarkupOverride,
+  applyPriceAdjustment,
+  resolvePriceAdjustment,
+  resolvePriceAdjustmentDetailed,
+  type ResolvedAdjustment,
+} from "./index";
 import type { OfferModel, UpstreamOffer } from "./offers";
 import { resolveBasePricing, type PricingSource } from "./resolver";
 import type {
@@ -160,8 +166,14 @@ const adjustmentFor = (
   offer: UpstreamOffer,
   m: OfferModel,
   args: ComputeArgs,
-): number =>
-  resolvePriceAdjustment({
+): number => resolveAdjustmentDetailed(offer, m, args).value;
+
+const resolveAdjustmentDetailed = (
+  offer: UpstreamOffer,
+  m: OfferModel,
+  args: ComputeArgs,
+): ResolvedAdjustment =>
+  resolvePriceAdjustmentDetailed({
     adj: offer.priceAdjustment,
     model: m.exposed,
     vendor: offer.vendor,
@@ -228,17 +240,37 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
         : undefined;
 
     let co: OfferModel | undefined;
+    let coOffer: UpstreamOffer | undefined;
     for (const occ of occurrences) {
       const om = occ.model;
       if (om.isFree || om.upstreamRatio === undefined) continue;
-      if (co === undefined || om.upstreamRatio < co.upstreamRatio!) co = om;
+      if (co === undefined || om.upstreamRatio < co.upstreamRatio!) {
+        co = om;
+        coOffer = occ.offer;
+      }
     }
+
+    // Explicit per-model positive adj = a cost+markup lane: its sticker MUST be
+    // the real upstream cost, not a pricing-source hit, or the source's completion
+    // ratio skews the out-price away from cost * (1 + adj).
+    const markupLane =
+      co !== undefined &&
+      coOffer !== undefined &&
+      (() => {
+        const r = resolveAdjustmentDetailed(coOffer, co, args);
+        return r.perModel && r.value > 0;
+      })();
 
     let writtenRatio: number;
     let completionRatio: number;
     let cacheRatio: number | undefined;
     let createCacheRatio: number | undefined;
-    if (sourceHit) {
+    if (markupLane) {
+      writtenRatio = co!.upstreamRatio!;
+      completionRatio = co!.upstreamCompletionRatio ?? 1;
+      cacheRatio = co!.cacheRatio;
+      createCacheRatio = co!.createCacheRatio;
+    } else if (sourceHit) {
       writtenRatio = sourceHit.modelRatio;
       completionRatio = sourceHit.completionRatio;
       cacheRatio = sourceHit.cacheRatio;
@@ -394,7 +426,8 @@ function processStandardOffer(
     let groupRatio: number;
     if (m.isFree) groupRatio = 0;
     else {
-      const adj = adjustmentFor(offer, m, args);
+      const resolved = resolveAdjustmentDetailed(offer, m, args);
+      const adj = resolved.value;
       if (!isFixed(written)) {
         // Per-token: cost tracks this channel's own upstream ratio vs the stored
         // sticker, so a pricier relay charges proportionally more.
@@ -406,7 +439,17 @@ function processStandardOffer(
           written.ratio > 0
             ? (args.canonical.get(m.exposed) ?? written.ratio) / written.ratio
             : 0;
-        groupRatio = applyPriceAdjustment(cost, adj, ceiling);
+        // Explicit per-model positive adj = deliberate cost + markup, cap-EXEMPT.
+        // Markup is off the model's OWN upstream cost (upstreamRatio) vs its sticker,
+        // so retail = upstreamRatio * (1 + adj) even when offer.groupRatio is the
+        // provider's free-tier 0 (a paid model in an otherwise-free provider).
+        const markupBase =
+          m.upstreamRatio !== undefined && written.ratio > 0
+            ? m.upstreamRatio / written.ratio
+            : cost;
+        groupRatio =
+          applyMarkupOverride(markupBase, resolved) ??
+          applyPriceAdjustment(cost, adj, ceiling);
       } else {
         // Per-request (fixed price): cost tracks this channel's own per-call price
         // vs the stored sticker (cheapest relay wins the sticker), so a pricier
@@ -421,7 +464,9 @@ function processStandardOffer(
           sticker !== undefined && sticker > 0
             ? (args.canonical.get(m.exposed) ?? sticker) / sticker
             : 0;
-        groupRatio = applyPriceAdjustment(cost, adj, ceiling);
+        groupRatio =
+          applyMarkupOverride(cost, resolved) ??
+          applyPriceAdjustment(cost, adj, ceiling);
       }
     }
     addToBucket(buckets, bucketKey(groupRatio), m);
@@ -492,15 +537,29 @@ function processNoUpstreamOffer(
   const buckets = new Map<number, OfferModel[]>();
   const channel = channelOf(offer);
   for (const m of offer.models) {
-    const adj = adjustmentFor(offer, m, args);
-    // Cost basis = an existing positive cheapest lane, else 1.0 (full retail: the
-    // per-token price already lives in ModelRatio, so the group multiplier starts
-    // at 1 for a freshly-priced model, e.g. a paid override in an otherwise-free
-    // provider whose own groupRatio is 0).
-    const cheap = cheapestForModel.get(m.exposed);
-    const base = cheap && cheap > 0 ? cheap : offer.groupRatio || 1;
+    const resolved = resolveAdjustmentDetailed(offer, m, args);
+    const adj = resolved.value;
     const written = modelRatios.get(m.exposed)?.ratio ?? 1;
     const ceiling = canonical.get(m.exposed) ?? written;
+    // Cost basis (group-ratio space). A paid lane that carries its real upstream
+    // cost (DeepInfra) prices off that cost vs the stored sticker; otherwise fall
+    // back to an existing cheapest lane, else 1.0 (full sticker: the per-token
+    // price already lives in ModelRatio).
+    const cheap = cheapestForModel.get(m.exposed);
+    const base =
+      m.upstreamRatio !== undefined && written > 0
+        ? m.upstreamRatio / written
+        : cheap && cheap > 0
+          ? cheap
+          : offer.groupRatio || 1;
+    // Explicit per-model positive adj = deliberate cost + markup, cap-EXEMPT: the
+    // operator is pricing this model at cost*(1+adj) regardless of canonical (its
+    // only market comparison sits below the target markup).
+    const override = applyMarkupOverride(base, resolved);
+    if (override !== undefined) {
+      addToBucket(buckets, bucketKey(override), m);
+      continue;
+    }
     const groupRatio = applyPriceAdjustment(
       base,
       adj,

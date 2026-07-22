@@ -27,7 +27,49 @@ export function applyPriceAdjustment(
   return cost + (ceiling - cost) * adj;
 }
 
+export interface ResolvedAdjustment {
+  value: number;
+  /** True when the value came from a per-model GLOB key (this exact model, via its
+   *  exposed or pre-mapping name), NOT from a vendor / modelType / "default" /
+   *  fallback. A per-model explicit POSITIVE adj is a deliberate cost+markup that
+   *  is allowed to price ABOVE canonical (applyMarkupOverride / cap-exempt). */
+  perModel: boolean;
+}
+
 /** First-match: glob → vendor → modelType → "default". With modelMapping, original (pre-mapping) names also checked. */
+export function resolvePriceAdjustmentDetailed(opts: {
+  adj: ProviderConfig["priceAdjustment"];
+  model: string;
+  vendor: string;
+  modelType: string;
+  fallback: number;
+  modelMapping?: Record<string, string>;
+}): ResolvedAdjustment {
+  if (opts.adj === undefined) return { value: opts.fallback, perModel: false };
+  if (typeof opts.adj === "number") return { value: opts.adj, perModel: false };
+
+  const adj = opts.adj;
+  const keys = Object.keys(adj);
+
+  const match = keys.find((k) => matchesAnyPattern(opts.model, [k]));
+  if (match) return { value: adj[match]!, perModel: true };
+
+  if (opts.modelMapping) {
+    for (const [original, mapped] of Object.entries(opts.modelMapping)) {
+      if (mapped === opts.model) {
+        const origMatch = keys.find((k) => matchesAnyPattern(original, [k]));
+        if (origMatch) return { value: adj[origMatch]!, perModel: true };
+      }
+    }
+  }
+
+  const fallbackKeyed =
+    adj[opts.vendor.toLowerCase()] ?? adj[opts.modelType] ?? adj["default"];
+  if (fallbackKeyed !== undefined)
+    return { value: fallbackKeyed, perModel: false };
+  return { value: opts.fallback, perModel: false };
+}
+
 export function resolvePriceAdjustment(opts: {
   adj: ProviderConfig["priceAdjustment"];
   model: string;
@@ -36,28 +78,20 @@ export function resolvePriceAdjustment(opts: {
   fallback: number;
   modelMapping?: Record<string, string>;
 }): number {
-  if (opts.adj === undefined) return opts.fallback;
-  if (typeof opts.adj === "number") return opts.adj;
+  return resolvePriceAdjustmentDetailed(opts).value;
+}
 
-  const adj = opts.adj;
-  const keys = Object.keys(adj);
-
-  const match = keys.find((k) => matchesAnyPattern(opts.model, [k]));
-  if (match) return adj[match]!;
-
-  if (opts.modelMapping) {
-    for (const [original, mapped] of Object.entries(opts.modelMapping)) {
-      if (mapped === opts.model) {
-        const origMatch = keys.find((k) => matchesAnyPattern(original, [k]));
-        if (origMatch) return adj[origMatch]!;
-      }
-    }
-  }
-
-  return (
-    adj[opts.vendor.toLowerCase()] ??
-    adj[opts.modelType] ??
-    adj["default"] ??
-    opts.fallback
-  );
+/**
+ * Cost + explicit markup, cap-EXEMPT. Used only when a per-model positive
+ * priceAdjustment is set: the operator is deliberately pricing this one model at
+ * cost * (1 + adj) regardless of canonical (e.g. a paid lane whose only market
+ * comparison is below the target markup). Returns undefined when the adj is not a
+ * per-model positive override, so the caller falls back to applyPriceAdjustment.
+ */
+export function applyMarkupOverride(
+  cost: number,
+  resolved: ResolvedAdjustment,
+): number | undefined {
+  if (!resolved.perModel || resolved.value <= 0) return undefined;
+  return cost * (1 + resolved.value);
 }
