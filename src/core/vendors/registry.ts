@@ -39,6 +39,7 @@ import { discoverMegaNovaModels } from "./meganova/discovery";
 import { discoverAionLabsModels } from "./aionlabs/discovery";
 import { discoverIoNetModels } from "./ionet/discovery";
 import { discoverAkashMlModels } from "./akashml/discovery";
+import { discoverDeepInfraModels } from "./deepinfra/discovery";
 import { discoverNscaleModels } from "./nscale/discovery";
 import { discoverNagaModels } from "./naga/discovery";
 import { discoverPoolsideModels } from "./poolside/discovery";
@@ -129,6 +130,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   aionlabs: discoverAionLabsModels,
   ionet: discoverIoNetModels,
   akashml: discoverAkashMlModels,
+  deepinfra: discoverDeepInfraModels,
   nscale: discoverNscaleModels,
   naga: discoverNagaModels,
   poolside: discoverPoolsideModels,

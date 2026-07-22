@@ -222,6 +222,18 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "akml-... (akashml.com)",
   },
   {
+    kind: "deepinfra",
+    label: "DeepInfra",
+    // api.deepinfra.com - PAID PAYG inference (card-backed), standard OpenAI shape at
+    // /v1/chat/completions + /v1/models. Wired as a reliable paid GLM-5.2 lane (enabledModels
+    // narrows to it); canonical retail caps the exposed price, netting margin over the ~$0.93/
+    // $3.00 per-M upstream cost. Unlike the flaky reverse GLM lanes (duck/pol), this is a real
+    // first-party paid backend.
+    defaultBaseUrl: "https://api.deepinfra.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "... (deepinfra.com/dash/keys)",
+  },
+  {
     kind: "naga",
     label: "NagaAI",
     // api.naga.ac - multi-vendor gateway. Base is root; runner + discovery append /v1.
