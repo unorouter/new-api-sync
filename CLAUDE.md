@@ -117,13 +117,16 @@ and the partial-sync invariants protect everything out of scope.
    (query each provider's `/api/pricing_new` then `/api/pricing` for the model name; see
    `vendors/newapi/pricing.ts`).
 2. **Delete the bad channels in the DB by id** (they are recreated only if a provider still passes
-   testing for that model). The target gateway DB runs on don's server (access over don's SSH); the
-   Postgres container is `unorouter-new-api-postgres` (db `newapi`):
+   testing for that model). The target gateway DB is the CloudNativePG `newapi` cluster on the k3s
+   cluster (namespace `databases`, db `newapi`); reach it via kubectl, not don SSH
+   (`KUBECONFIG=infra/kubeconfig`; primary pod = `newapi-pg-1`, confirm with
+   `kubectl get cluster -n databases`):
    ```bash
-   ssh don "docker exec unorouter-new-api-postgres psql -U newapi -d newapi -c \"DELETE FROM channels WHERE id IN (5487,5488,...);\""
+   kubectl -n databases exec newapi-pg-1 -c postgres -- \
+     psql -U postgres -d newapi -c "DELETE FROM channels WHERE id IN (5487,5488,...);"
    ```
    Direct DB deletes bypass the in-memory channel cache; the runtime may keep serving the old
-   channel until the next sync reload or a container restart.
+   channel until the next sync reload or a `kubectl -n services rollout restart deploy/new-api-master`.
 3. **Clear stale verdicts** for the affected provider+model keys in `logs/verdict-cache.json`
    (back it up first). This is the UNIVERSAL permanent verdict file: one entry per
    `provider|model` pair holding http/stream/tool verdicts AND claude authenticity. Verdicts
