@@ -31,6 +31,9 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // Sources report 262144, but GLM-5.2 serving stacks enforce max_tokens in
   // [1, 131072] (poloai/tokenreply return HTTP 400 above it).
   "glm-5.2": { maxOutputTokens: 131_072 },
+  // Poolside Laguna S 2.1 ships a 1M window; an early OR /models snapshot reported
+  // 256K and stuck. Hard-pin the real context.
+  "laguna-s-2.1": { contextWindow: 1_048_576, maxInputTokens: 1_048_576 },
   // Rolling alias to the latest Gemini Flash (approximate; tracks 2.5 Flash GA).
   "gemini-flash-latest": { releaseDate: iso("2025-09-25") },
   // Google Lyria 3 music gen: base 2026-02-18, Pro 2026-03-25.
