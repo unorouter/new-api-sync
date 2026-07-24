@@ -11,10 +11,26 @@ const NAME_PATTERN_TYPES: [string, ModelType][] = [["dall-e","image"],["dalle","
 
 const NON_TEXT_MODEL_PATTERNS = NAME_PATTERN_TYPES.map(([p]) => p);
 
+// A bare-word pattern (only [a-z0-9], no separator like '-'/'_'/'.') must match on
+// a token boundary, not as a raw substring: "kling" inside "inkling" or "sora"
+// inside "sorachio" is a false positive that mis-typed a text model as video/image
+// (live: poolside "inkling" landed under Video). Patterns that already carry a
+// separator (mj_, -i2v, wan2.6-image, gpt-image) stay plain-substring - the
+// separator is the boundary. A boundary = string start/end or a non-alphanumeric.
+function matchesNamePattern(name: string, pattern: string): boolean {
+  if (/[^a-z0-9]/.test(pattern)) return name.includes(pattern);
+  const i = name.indexOf(pattern);
+  if (i === -1) return false;
+  const before = i === 0 ? "" : name[i - 1]!;
+  const after = name[i + pattern.length] ?? "";
+  const boundary = (c: string) => c === "" || /[^a-z0-9]/.test(c);
+  return boundary(before) && boundary(after);
+}
+
 function inferModelTypeFromName(name: string): ModelType {
   const n = name.toLowerCase();
   for (const [pattern, type] of NAME_PATTERN_TYPES) {
-    if (n.includes(pattern)) return type;
+    if (matchesNamePattern(n, pattern)) return type;
   }
   return "text";
 }
@@ -53,5 +69,5 @@ export function isTestableModel(
     }
   }
   const n = name.toLowerCase();
-  return !NON_TEXT_MODEL_PATTERNS.some((p) => n.includes(p));
+  return !NON_TEXT_MODEL_PATTERNS.some((p) => matchesNamePattern(n, p));
 }
