@@ -379,6 +379,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-... (agentrouter.org/console/token, linux.do OAuth)",
   },
   {
+    kind: "lumosel",
+    label: "Lumosel",
+    // api.lumosel.vip - free credit relay. ANTHROPIC channel type (14): only the
+    // anthropic /v1/messages path works (x-api-key auth), /v1/chat/completions 404s.
+    // /api/models lists the free catalog. Base is root; new-api appends /v1/messages.
+    defaultBaseUrl: "https://api.lumosel.vip",
+    defaultRatio: 0,
+    channelType: 14,
+    apiKeyPlaceholder: "lumo_live_... (lumosel.vip/dashboard/api-keys)",
+  },
+  {
     kind: "thegrid",
     label: "TheGrid",
     // api.thegrid.ai/v1 - rate-limited free tier (5/window no card), 307-redirect flow. Text tiers

@@ -54,6 +54,7 @@ import { discoverLlmtrModels } from "./llmtr/discovery";
 import { discoverMixlayerModels } from "./mixlayer/discovery";
 import { discoverMorphModels } from "./morph/discovery";
 import { discoverAgentRouterModels } from "./agentrouter/discovery";
+import { discoverLumoselModels } from "./lumosel/discovery";
 import { discoverOrcaRouterModels } from "./orcarouter/discovery";
 import { discoverTheGridModels } from "./thegrid/discovery";
 import { discoverVivgridModels } from "./vivgrid/discovery";
@@ -145,6 +146,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   mixlayer: discoverMixlayerModels,
   morph: discoverMorphModels,
   agentrouter: discoverAgentRouterModels,
+  lumosel: discoverLumoselModels,
   orcarouter: discoverOrcaRouterModels,
   thegrid: discoverTheGridModels,
   vivgrid: discoverVivgridModels,
