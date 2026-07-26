@@ -459,21 +459,29 @@ async function testModels(opts: {
 
   const reallyPassed = (r: (typeof results)[number]) =>
     r.success || r.streamSuccess === true;
-  const accepts429 = (model: string) =>
+  const acceptsTransient = (model: string) =>
     typeof opts.acceptRateLimited === "function"
       ? opts.acceptRateLimited(model)
       : opts.acceptRateLimited === true;
-  const acceptedOn429 = (r: (typeof results)[number]) =>
-    r.httpStatus === 429 && !reallyPassed(r) && accepts429(r.model);
+  // Transient upstream statuses that mean "try again later", not "broken": rate
+  // limits (429) + gateway/timeout 5xx + the 405 upstream_error a reverse relay
+  // (z.ai captcha pool) returns when the pool is momentarily drained.
+  const TRANSIENT_STATUS = new Set([405, 408, 425, 429, 500, 502, 503, 504, 520, 522, 524]);
+  const acceptedTransient = (r: (typeof results)[number]) =>
+    r.httpStatus != null &&
+    TRANSIENT_STATUS.has(r.httpStatus) &&
+    !reallyPassed(r) &&
+    acceptsTransient(r.model);
 
   return {
     workingModels: results
-      .filter((r) => reallyPassed(r) || acceptedOn429(r))
+      .filter((r) => reallyPassed(r) || acceptedTransient(r))
       .map((r) => r.model),
-    // Models kept ONLY because of a 429 (capacity throttle, not a real pass).
-    // Channels for these are emitted disabled so new-api's auto-test enables
-    // them once the limit clears, instead of serving guaranteed-429 requests.
-    rateLimitedModels: results.filter(acceptedOn429).map((r) => r.model),
+    // Models kept ONLY because of a transient status (throttle / gateway blip,
+    // not a real pass). Channels for these are emitted disabled so new-api's
+    // auto-test enables them once the upstream clears, instead of serving a
+    // guaranteed-failing request.
+    rateLimitedModels: results.filter(acceptedTransient).map((r) => r.model),
     details: results,
   };
 }
