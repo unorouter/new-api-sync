@@ -33,6 +33,7 @@ import { discoverOpenRouterFreeModels } from "./discovery";
 const USD_PER_M_PER_RATIO = 2;
 // Cost + 50% when a provider's priceAdjustment default is unset.
 const DEFAULT_PAID_MARKUP = 1.5;
+const MIN_HOST_UPTIME_PCT = 90;
 
 async function fetchOpenRouterBalance(
   baseUrl: string,
@@ -242,10 +243,31 @@ export async function processOpenRouterProvider(
                 modelMapping: config.modelMapping,
               });
             const vendor = inferVendorFromModelName(r.exposed) ?? "other";
-            // Cheapest host is the primary; pricier hosts survive as failover
-            // channels (exempt from the dedup drop) at their own group ratio.
-            const sortedHosts = [...hosts].sort((a, b) => a.prompt - b.prompt);
-            sortedHosts.forEach((host, hostIndex) => {
+            // Skip hosts OpenRouter reports as unreliable (GMICloud-class ~18%
+            // uptime slips past our own probe when transiently up). null uptime =
+            // too new for stats, kept. Threshold is OR's 1-day uptime %.
+            const reliableHosts = hosts.filter(
+              (h) => h.uptime == null || h.uptime >= MIN_HOST_UPTIME_PCT,
+            );
+            for (const h of hosts) {
+              if (h.uptime != null && h.uptime < MIN_HOST_UPTIME_PCT) {
+                consola.warn(
+                  t("CORE.OPENROUTER.HOST_LOW_UPTIME", {
+                    name,
+                    model: r.exposed,
+                    host: h.provider,
+                    uptime: h.uptime.toFixed(1),
+                  }),
+                );
+              }
+            }
+            if (reliableHosts.length === 0) continue;
+            // One channel per model: the cheapest reliable host only (pinned via
+            // provider.only), instead of fanning out a channel per host.
+            const cheapestHost = [...reliableHosts].sort(
+              (a, b) => a.prompt - b.prompt,
+            )[0]!;
+            [cheapestHost].forEach((host, hostIndex) => {
               const m: OfferModel = {
                 exposed: r.exposed,
                 upstream: reverseMapping[r.exposed] ?? r.upstream,

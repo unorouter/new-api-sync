@@ -574,6 +574,7 @@
       "FAILED": "[{name}] Failed: {models}",
       "WORKING": "[{name}] {working}/{total} model(s) working (429 counts as working)",
       "PAID_NO_PRICING": "[{name}] paid model {model} has no upstream endpoint pricing; skipping",
+      "HOST_LOW_UPTIME": "[{name}] {model}: skipping host {host} ({uptime}% 1d uptime, below threshold)",
       "SUMMARY": "[{name}] {total} model(s) ({free} free, {paid} paid) across {vendors} vendor channel(s)"
     },
     "PRICING": {

@@ -28,6 +28,7 @@ interface OpenRouterEndpoint {
   tag?: string;
   status?: number;
   pricing?: OpenRouterPricing;
+  uptime_last_1d?: number | null;
 }
 
 interface OpenRouterModelList {
@@ -44,6 +45,8 @@ export interface OpenRouterPaidEndpoint {
   completion: number;
   cacheRead?: number;
   status: number;
+  /** OpenRouter's 1-day uptime %, null when the host is too new to have stats. */
+  uptime?: number | null;
 }
 
 export interface OpenRouterCatalogue {
@@ -143,6 +146,7 @@ export async function discoverOpenRouterFreeModels(
             completion: Number.isFinite(completion) ? completion : prompt,
             cacheRead: Number.isFinite(cacheReadRaw) ? cacheReadRaw : undefined,
             status: ep.status ?? 0,
+            uptime: ep.uptime_last_1d ?? null,
           });
         }
         if (hosts.length > 0) paidEndpoints.set(id, hosts);
