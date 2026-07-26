@@ -917,6 +917,27 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     apiKeyPlaceholder: "keyless",
   },
+  {
+    kind: "glmcg",
+    label: "GLM-CG",
+    // glm.coding-global.com - z.ai reverse (chat.z.ai via captcha pool), OpenAI-compat
+    // /v1/chat/completions, free GLM. NOT native z.ai (channelType stays OPENAI, not
+    // ZHIPU_V4 - the proxy owns the path). -thinking/-search are real behavior variants.
+    defaultBaseUrl: "https://glm.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "glm key",
+  },
+  {
+    kind: "mikiko",
+    label: "Mikiko",
+    // api.mikiko.cc - group-gated reverse gateway, OpenAI-compat for every platform
+    // (claude/gpt/grok all answer /v1/chat/completions). Each key binds one server-side
+    // routing group -> /v1/models returns only that group's models. One config entry per
+    // key. Cheap reverse channels (0.001x-0.012x mult), not free -> price via paidModels.
+    defaultBaseUrl: "https://api.mikiko.cc",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-…",
+  },
 ] as const satisfies readonly SimpleProviderMeta[];
 
 export type SimpleProviderKind = (typeof SIMPLE_PROVIDER_META)[number]["kind"];

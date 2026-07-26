@@ -34,6 +34,12 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // Poolside Laguna S 2.1 ships a 1M window; an early OR /models snapshot reported
   // 256K and stuck. Hard-pin the real context.
   "laguna-s-2.1": { contextWindow: 1_048_576, maxInputTokens: 1_048_576 },
+  "ling-3.0-flash": {
+    releaseDate: iso("2026-07-22"),
+    contextWindow: 262_144,
+    maxInputTokens: 262_144,
+    series: "Ling",
+  },
   // Rolling alias to the latest Gemini Flash (approximate; tracks 2.5 Flash GA).
   "gemini-flash-latest": { releaseDate: iso("2025-09-25") },
   // Google Lyria 3 music gen: base 2026-02-18, Pro 2026-03-25.
