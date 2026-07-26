@@ -1,3 +1,4 @@
+import { inferModelType } from "@core/catalog/constants/inference";
 import type { RuntimeConfig } from "@core/config";
 import type {
   GridPricingInfo,
@@ -9,26 +10,37 @@ import { t } from "@server/i18n";
 import micromatch from "micromatch";
 
 // Per-model rate limits apply ONLY to `:free` published names; paid models are
-// never limited. Expands config globs to the exact `:free` names present.
+// never limited. Two layers: `modality` is the default cap per model type
+// (resolved by inferModelType so new models inherit with no config edit), and
+// `models` globs OVERRIDE it (first match wins, config order). A name with
+// neither a modality default nor a glob match stays unlimited.
 export function expandRateLimitModels(
   names: Iterable<string>,
   rateLimit: RuntimeConfig["rateLimit"],
 ): Record<string, number[]> {
   const out: Record<string, number[]> = {};
-  const limitGlobs = Object.entries(rateLimit?.models ?? {});
-  if (limitGlobs.length === 0) return out;
+  const modality = rateLimit?.modality;
+  const globs = Object.entries(rateLimit?.models ?? {});
+  if (!modality && globs.length === 0) return out;
   for (const name of names) {
     if (!name.endsWith(":free")) continue;
-    for (const [glob, limits] of limitGlobs) {
+    // 1. modality default (unknown -> text, which inferModelType returns for
+    //    unrecognized names). Strip :free so classification is name-based.
+    const type = inferModelType(name.slice(0, -":free".length));
+    let limits = modality?.[type] ?? modality?.text;
+    // 2. glob override wins.
+    for (const [glob, g] of globs) {
       if (micromatch.isMatch(name, glob)) {
-        // Gateway option format is [totalAttempts, successCount] or
-        // [totalAttempts, successCount, windowMinutes].
-        out[name] = limits.windowMinutes
-          ? [limits.total ?? 0, limits.success, limits.windowMinutes]
-          : [limits.total ?? 0, limits.success];
+        limits = g;
         break;
       }
     }
+    if (!limits) continue;
+    // Gateway option format is [totalAttempts, successCount] or
+    // [totalAttempts, successCount, windowMinutes].
+    out[name] = limits.windowMinutes
+      ? [limits.total ?? 0, limits.success, limits.windowMinutes]
+      : [limits.total ?? 0, limits.success];
   }
   return out;
 }

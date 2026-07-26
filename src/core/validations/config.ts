@@ -229,11 +229,18 @@ export const ConfigSchema = T.Object({
     // success = successful requests per window; total = attempts incl. failures
     // (0/absent = unlimited attempts, failures never burn the budget). windowMinutes
     // overrides the global window per model (scarce media: e.g. 60 = 1/hour).
-    models: T.Record(T.String(), T.Object({
+    // modality = default cap per model type (resolved by inferModelType); new models
+    // inherit it with no config edit. models globs OVERRIDE the modality default.
+    modality: Opt(T.Record(ModelTypeEnum, T.Object({
       success: T.Integer({ minimum: 1 }),
       total: Opt(T.Integer({ minimum: 0 })),
       windowMinutes: Opt(T.Integer({ minimum: 1, maximum: 10080 })),
-    })),
+    }))),
+    models: Opt(T.Record(T.String(), T.Object({
+      success: T.Integer({ minimum: 1 }),
+      total: Opt(T.Integer({ minimum: 0 })),
+      windowMinutes: Opt(T.Integer({ minimum: 1, maximum: 10080 })),
+    }))),
   })),
   providers: T.Array(AnyProviderSchema, { minItems: 1 }),
 });
