@@ -956,6 +956,15 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     apiKeyPlaceholder: "sk-…",
   },
+  {
+    kind: "hetzner",
+    label: "Hetzner",
+    // inference.hetzner.com/api/v1 - Hetzner's experimental free inference (vLLM).
+    // Base carries /api; discovery + runtime append /v1/... 1 model so far (Qwen3.6-35B FP8).
+    defaultBaseUrl: "https://inference.hetzner.com/api",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "hetzner token",
+  },
 ] as const satisfies readonly SimpleProviderMeta[];
 
 export type SimpleProviderKind = (typeof SIMPLE_PROVIDER_META)[number]["kind"];

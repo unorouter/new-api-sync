@@ -192,6 +192,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   glmcg: discoverGlmCgModels,
   bynara: discoverBynaraModels,
   hcnsec: discoverBynaraModels,
+  hetzner: discoverBynaraModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {
