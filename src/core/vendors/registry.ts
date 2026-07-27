@@ -10,6 +10,7 @@ import {
   processOpenAICompatibleFreeProvider,
   type OpenAIFreeDiscovery,
 } from "./shared/openai-free-provider";
+import { discoverBynaraModels } from "./bynara/discovery";
 import { discoverGlmCgModels } from "./glmcg/discovery";
 import { discoverGroqModels } from "./groq/discovery";
 import { discoverMikikoModels } from "./mikiko/discovery";
@@ -189,6 +190,8 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   sealion: discoverSeaLionModels,
   mikiko: discoverMikikoModels,
   glmcg: discoverGlmCgModels,
+  bynara: discoverBynaraModels,
+  hcnsec: discoverBynaraModels,
 };
 
 export interface SimpleProviderDef extends SimpleProviderMeta {

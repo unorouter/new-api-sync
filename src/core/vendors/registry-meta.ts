@@ -938,6 +938,24 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     apiKeyPlaceholder: "sk-…",
   },
+  {
+    kind: "bynara",
+    label: "byNara",
+    // router.bynara.id - free aggregator, OpenAI-compat /v1/models + /v1/chat/completions.
+    // Big frontier catalog (claude-opus-5, gpt-5.6, glm-5.2, kimi-k3, deepseek-v4, ...) at $0.
+    defaultBaseUrl: "https://router.bynara.id",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-nry-…",
+  },
+  {
+    kind: "hcnsec",
+    label: "HCNSec",
+    // api.hcnsec.cn - new-api fork, OpenAI-compat, free. Small catalog (kat-coder-pro,
+    // Qwen3.5-397B, Qwen3.6-35B).
+    defaultBaseUrl: "https://api.hcnsec.cn",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-…",
+  },
 ] as const satisfies readonly SimpleProviderMeta[];
 
 export type SimpleProviderKind = (typeof SIMPLE_PROVIDER_META)[number]["kind"];
