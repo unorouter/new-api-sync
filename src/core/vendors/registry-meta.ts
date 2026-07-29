@@ -928,6 +928,20 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "glm key",
   },
   {
+    kind: "chatglm",
+    label: "ChatGLM",
+    // chatglm1.coding-global.com - chatglm.cn web-chat reverse (Go, behind gluetun).
+    // Guest mode: no account, no captcha, unlike the glmcg z.ai lane. Separate kind
+    // from glmcg because it also serves images (cogView-4 + glm-image-1) on an
+    // OpenAI-shaped /v1/images/generations, so they ride the OPENAI channel type.
+    // The 19 base model names are one upstream backend; -think/-search are the real
+    // behaviour variants.
+    defaultBaseUrl: "https://chatglm1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-glm-...",
+    imageChannelType: 1,
+  },
+  {
     kind: "mikiko",
     label: "Mikiko",
     // api.mikiko.cc - group-gated reverse gateway, OpenAI-compat for every platform

@@ -881,6 +881,18 @@ const CURATED: Record<string, SourceMetadata> = {
   "flux-kontext-max": { releaseDate: iso("2025-05-29"), mode: "image" },
   "flux-dev": { releaseDate: iso("2024-08-01"), mode: "image" },
   "flux.1-schnell": { releaseDate: iso("2024-08-01"), mode: "image" },
+  // Zhipu image (chatglm.cn guest lane). The -250304 suffix is 6 digits, so no
+  // DATE_SUFFIX_PATTERN strips it and the bare name keeps it.
+  "cogview-4-250304": {
+    releaseDate: iso("2025-03-04"),
+    series: "GLM",
+    mode: "image",
+  },
+  "glm-image-1": {
+    releaseDate: iso("2026-01-13"),
+    series: "GLM",
+    mode: "image",
+  },
   // OpenAI image
   "dall-e-3": { releaseDate: iso("2023-10-19"), mode: "image" },
   "gpt-4o-image": { releaseDate: iso("2025-03-25"), mode: "image" },
