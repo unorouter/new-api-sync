@@ -23,6 +23,29 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // dateless, so plain CURATED (gap-fill) can't set them; hard-pin here.
   // Google Nano Banana Pro (Gemini 3 Pro Image Preview), launched 2025-11-20.
   "nano-banana-pro-preview": { releaseDate: iso("2025-11-20") },
+  // OpenAI web-search models, launched with search in the Chat Completions API.
+  // The date is in the snapshot id itself (gpt-4o-mini-search-preview-2025-03-11).
+  // Sources disagree and one is wrong by four months: relay copies carry
+  // 2025-03-12, and one gpt-4o-search-preview row reports 2024-11-20, which
+  // predates the model. Override rather than gap-fill so the bad date loses.
+  "gpt-4o-search-preview": {
+    releaseDate: iso("2025-03-11"),
+    contextWindow: 128_000,
+    maxInputTokens: 128_000,
+    maxOutputTokens: 16_384,
+    knowledgeCutoff: iso("2023-10-01"),
+    series: "GPT",
+    supportsWebSearch: true,
+  },
+  "gpt-4o-mini-search-preview": {
+    releaseDate: iso("2025-03-11"),
+    contextWindow: 128_000,
+    maxInputTokens: 128_000,
+    maxOutputTokens: 16_384,
+    knowledgeCutoff: iso("2023-10-01"),
+    series: "GPT",
+    supportsWebSearch: true,
+  },
   // Nex N2: OpenRouter reports max_completion_tokens == full 262144 context, so
   // an unset max_tokens defaults to the whole window and leaves no room for input
   // (1 in + 262144 out > 262144 -> HTTP 400). Hard-cap output so input fits.
