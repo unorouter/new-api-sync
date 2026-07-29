@@ -2615,6 +2615,38 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsVision: true,
     supportsTools: true,
   },
+  // A "<model>-<tier>-thinking" name cannot fuzzy-match its own base: the base ends
+  // in a TIER_SUFFIX (-air/-flash/-turbo) and the -thinking name does not, so
+  // tierSuffixMismatch rejects the candidate before similarity is scored. Names
+  // without a tier suffix (glm-4.7-thinking -> glm-4.7) resolve fine. Pin the
+  // affected variants to their base's specs.
+  "glm-4-air-thinking": {
+    releaseDate: iso("2024-06-05"),
+    contextWindow: 128_000,
+    series: "GLM",
+    isReasoning: true,
+  },
+  "glm-4-flash-thinking": {
+    releaseDate: iso("2025-08-26"),
+    contextWindow: 128_000,
+    series: "GLM",
+    isReasoning: true,
+  },
+  "glm-5-turbo-thinking": {
+    releaseDate: iso("2026-01-15"),
+    contextWindow: 128_000,
+    series: "GLM",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "glm-5v-turbo-thinking": {
+    releaseDate: iso("2026-01-15"),
+    contextWindow: 128_000,
+    series: "GLM",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
   // Zanity grok-fun: Grok-styled RP finetune (base undisclosed; specs ESTIMATED).
   "grok-fun": {
     releaseDate: iso("2026-01-01"),
