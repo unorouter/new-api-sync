@@ -2558,6 +2558,63 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // Zhipu legacy GLM-4 line, served free by the chatglm.cn guest lane. No live
+  // source carries these (they predate OpenRouter's GLM listings and Zhipu retired
+  // most of them from the paid catalog), so they publish dateless and contextless
+  // without this block. Dates + windows from the bigmodel.cn model cards.
+  "glm-4": {
+    releaseDate: iso("2024-01-16"),
+    contextWindow: 128_000,
+    series: "GLM",
+  },
+  "glm-4-air": {
+    releaseDate: iso("2024-06-05"),
+    contextWindow: 128_000,
+    series: "GLM",
+  },
+  "glm-4v": {
+    releaseDate: iso("2024-01-16"),
+    contextWindow: 8_192,
+    series: "GLM",
+    supportsVision: true,
+  },
+  // The 0414 line: GLM-4-Flash/FlashX refreshed 2025-04-14 alongside GLM-Z1.
+  "glm-4-flash-250414": {
+    releaseDate: iso("2025-04-14"),
+    contextWindow: 128_000,
+    series: "GLM",
+    supportsTools: true,
+  },
+  "glm-4-flashx-250414": {
+    releaseDate: iso("2025-04-14"),
+    contextWindow: 128_000,
+    series: "GLM",
+    supportsTools: true,
+  },
+  // First Zhipu RL reasoning model, launched 2024-12-31. 16K window, not the 8K
+  // that fuzzy-matching to glm-4v-9b would suggest.
+  "glm-zero-preview": {
+    releaseDate: iso("2024-12-31"),
+    contextWindow: 16_000,
+    series: "GLM",
+    isReasoning: true,
+  },
+  // Agentic research model: runs a search/browse loop rather than a plain chat turn.
+  "glm-deep-research": {
+    releaseDate: iso("2025-03-21"),
+    contextWindow: 128_000,
+    series: "GLM",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "glm-5v-turbo": {
+    releaseDate: iso("2026-01-15"),
+    contextWindow: 128_000,
+    series: "GLM",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
   // Zanity grok-fun: Grok-styled RP finetune (base undisclosed; specs ESTIMATED).
   "grok-fun": {
     releaseDate: iso("2026-01-01"),
