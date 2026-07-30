@@ -13,6 +13,7 @@ import {
 import { discoverBynaraModels } from "./bynara/discovery";
 import { discoverGlmCgModels } from "./glmcg/discovery";
 import { discoverChatGlmModels } from "./chatglm/discovery";
+import { discoverKimiModels } from "./kimi/discovery";
 import { discoverGroqModels } from "./groq/discovery";
 import { discoverMikikoModels } from "./mikiko/discovery";
 import { discoverGeminiModels } from "./gemini/discovery";
@@ -192,6 +193,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   mikiko: discoverMikikoModels,
   glmcg: discoverGlmCgModels,
   chatglm: discoverChatGlmModels,
+  kimi: discoverKimiModels,
   bynara: discoverBynaraModels,
   hcnsec: discoverBynaraModels,
   hetzner: discoverBynaraModels,

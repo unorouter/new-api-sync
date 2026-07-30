@@ -942,6 +942,17 @@ export const SIMPLE_PROVIDER_META = [
     imageChannelType: 1,
   },
   {
+    kind: "kimi",
+    label: "Kimi",
+    // kimi1.coding-global.com - www.kimi.com web reverse (Go, behind gluetun).
+    // Needs real accounts (no guest mode); the proxy pools their refresh tokens
+    // and rotates. Publishes only the two SCENARIO_K2D5 chat models: the agent
+    // models answer a different protocol and return empty over the chat path.
+    defaultBaseUrl: "https://kimi1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-glm-...",
+  },
+  {
     kind: "mikiko",
     label: "Mikiko",
     // api.mikiko.cc - group-gated reverse gateway, OpenAI-compat for every platform
