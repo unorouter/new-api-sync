@@ -5,6 +5,7 @@ import {
   loadConfig,
 } from "@core/config";
 import { runImageProbe } from "@core/probes/images/pipeline";
+import { checkBalances, printBalanceSummary } from "@core/sync/balance";
 import { printMetadataSummary, runMetadataSync } from "@core/sync/metadata";
 import { runReset } from "@core/sync/reset";
 import { printResetSummary, printRunSummary, runSync } from "@core/sync/run";
@@ -160,6 +161,37 @@ program
         dryRun: options.dryRun,
         step: options.step,
       });
+    },
+  );
+
+program
+  .command("balance")
+  .description(t("CLI.COMMAND.BALANCE_DESC"))
+  .option("-c, --config <path>", t("CLI.OPTION.CONFIG_PATH"))
+  .option(
+    "--only <providers>",
+    t("CLI.OPTION.ONLY_PROVIDERS"),
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[],
+  )
+  .option("--json", t("CLI.OPTION.BALANCE_JSON"))
+  .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
+  .action(
+    async (options: {
+      config?: string;
+      only: string[];
+      json?: boolean;
+      verbose?: boolean;
+    }) => {
+      if (options.verbose) consola.level = 4;
+      if (options.json) consola.level = 0;
+      const config = applyOnlyProviders(
+        await loadConfig(options.config),
+        options.only,
+      );
+      const result = await checkBalances(config);
+      if (options.json) console.log(JSON.stringify(result, null, 2));
+      else printBalanceSummary(result);
     },
   );
 
