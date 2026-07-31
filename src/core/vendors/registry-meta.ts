@@ -993,6 +993,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-…",
   },
   {
+    kind: "tokenrouter",
+    label: "TokenRouter",
+    // api.tokenrouter.com - new-api fork, OpenAI-compat, 118-model catalog but only
+    // kimi-k3-free is actually $0: everything else rejects with "credit limit is
+    // insufficient" at zero balance, so the config pins `models` rather than taking
+    // whatever /v1/models lists.
+    defaultBaseUrl: "https://api.tokenrouter.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-…",
+  },
+  {
     kind: "hetzner",
     label: "Hetzner",
     // inference.hetzner.com/api/v1 - Hetzner's experimental free inference (vLLM).
