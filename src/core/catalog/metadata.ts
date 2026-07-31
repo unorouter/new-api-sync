@@ -226,8 +226,14 @@ function fuzzyLookup<T>(
   };
   for (const [cNorm, keys] of index.normalized) {
     for (const variant of strippedVariants(cNorm)) {
+      // Exact match on the candidate's own stripped form, so this is the same model by
+      // construction and the tier guard in score() would only reject it: our name can carry
+      // a tier the candidate hides behind a suffix (gemini-flash-lite vs
+      // gemini-flash-lite-latest read as -lite against none).
       if (variant === norm) {
-        consider(score(keys));
+        const k = keys?.[0];
+        const v = k ? index.candidates.get(k) : undefined;
+        if (k && v !== undefined) consider({ key: k, value: v, score: 1.0 });
         break;
       }
     }

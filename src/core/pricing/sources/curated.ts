@@ -764,6 +764,13 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Llama",
   },
   // NVIDIA Nemotron Super 49B (Llama 3.3 distill; v1 GTC, v1.5 July refresh)
+  // Relay spells it 3.3.70b (dot, not dash), which matches no source entry.
+  "llama-3.3.70b-instruct": {
+    releaseDate: iso("2024-12-06"),
+    contextWindow: 131_072,
+    series: "Llama",
+    supportsTools: true,
+  },
   "llama-3.3-nemotron-super-49b-v1": {
     releaseDate: iso("2025-03-18"),
     series: "Nemotron",
@@ -1994,6 +2001,22 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsTools: true,
   },
   "coding-kimi-k3-free": {
+    releaseDate: iso("2026-07-16"),
+    contextWindow: 1_000_000,
+    series: "Kimi",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // Relay-side aliases for Kimi K3. Neither strips to a name any source carries, so
+  // without these they resolve to nothing at all.
+  k3: {
+    releaseDate: iso("2026-07-16"),
+    contextWindow: 1_000_000,
+    series: "Kimi",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "kimi-for-coding-highspeed": {
     releaseDate: iso("2026-07-16"),
     contextWindow: 1_000_000,
     series: "Kimi",
