@@ -149,8 +149,13 @@ function buildTags(
     ? "image"
     : inferModelType(name);
   const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
+  const sourceMeta = resolveSourceMetadata(name, sources, reverseMapping);
+  // Same fuzzy-match hazard as the metadata above: without this a checkpoint that
+  // matched a text model's entry is tagged with a context window it does not have.
   const sourceTags = deriveTagsFromMetadata(
-    resolveSourceMetadata(name, sources, reverseMapping),
+    imageChannelModels.has(name)
+      ? { ...sourceMeta, contextWindow: undefined, maxInputTokens: undefined }
+      : sourceMeta,
   );
   const seen = new Set<string>();
   return [typeTag, ...sourceTags]
@@ -511,10 +516,20 @@ export async function runMetadataSync(
     systemPromptChanged,
   };
 
-  const imageChannelModels = new Set([
-    ...buildAiHordeModels(channels),
-    ...buildRunwareModels(channels),
-  ]);
+  const aiHordeModels = buildAiHordeModels(channels);
+  const runwareModels = buildRunwareModels(channels);
+  const imageChannelModels = new Set([...aiHordeModels, ...runwareModels]);
+
+  // Diffusion checkpoints are named after the checkpoint, not its host, so name
+  // inference mis-attributes them to whichever brand the name happens to contain:
+  // nova-furry-xl reads as Amazon, autismmix-sdxl as Stability AI, juggernaut-xl as
+  // AI Horde. The serving channel is the only reliable signal for these.
+  // First writer wins, so a checkpoint served by both channels keeps one stable label
+  // rather than flipping with channel order.
+  const vendorByChannel = new Map<string, string>();
+  for (const name of aiHordeModels) vendorByChannel.set(name, "aihorde");
+  for (const name of runwareModels)
+    if (!vendorByChannel.has(name)) vendorByChannel.set(name, "runware");
 
   for (const name of names) {
     // `{model}:free` published names have no `:free` key in the pricing sources;
@@ -527,7 +542,18 @@ export async function runMetadataSync(
         reverseMapping,
       });
 
-    const canonical = inferVendorFromModelName(name);
+    // A checkpoint name can fuzzy-match a text model in the pricing sources
+    // (flux-1-dev-runware picks up flux-1-dev's chat entry), which then renders a
+    // context window on a model that has no such thing.
+    if (merged && imageChannelModels.has(name)) {
+      delete merged.maxInputTokens;
+      delete merged.contextWindow;
+      delete merged.maxOutputTokens;
+      if (merged.mode === "chat") merged.mode = "image";
+    }
+
+    const canonical =
+      vendorByChannel.get(name) ?? inferVendorFromModelName(name);
     const vendorId = canonical
       ? await resolveVendorId(target, vendors, vendorIdCache, canonical)
       : undefined;
@@ -589,7 +615,15 @@ export async function runMetadataSync(
     // never clobber a good full-sync tag set.
     const liveFirstTag = (existing.tags ?? "").split(",")[0]?.trim();
     const wantFirstTag = tags.split(",")[0];
-    const tagsChanged = !!wantFirstTag && liveFirstTag !== wantFirstTag;
+    // A context-size tag on an image model is always wrong and the full sync will not
+    // remove it, since only the leading tag is compared.
+    const staleContextTag =
+      imageChannelModels.has(name) &&
+      (existing.tags ?? "")
+        .split(",")
+        .some((tag) => /^\d+(\.\d+)?[KM]?$/.test(tag.trim()));
+    const tagsChanged =
+      staleContextTag || (!!wantFirstTag && liveFirstTag !== wantFirstTag);
 
     if (
       !metadataChanged &&

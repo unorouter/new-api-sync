@@ -903,6 +903,15 @@ const CURATED: Record<string, SourceMetadata> = {
   "flux-2-flex": { releaseDate: iso("2025-11-25"), mode: "image" },
   "flux-kontext-max": { releaseDate: iso("2025-05-29"), mode: "image" },
   "flux-dev": { releaseDate: iso("2024-08-01"), mode: "image" },
+  // FLUX.1 [dev] served over Runware; the suffix keeps it distinct from the entry
+  // above, which fuzzy-matches the text FLUX and picks up a context window.
+  "flux-1-dev-runware": {
+    releaseDate: iso("2024-08-01"),
+    series: "FLUX",
+    mode: "image",
+    description:
+      "FLUX.1 [dev], a 12B rectified-flow transformer for high prompt-adherence text-to-image.",
+  },
   "flux.1-schnell": { releaseDate: iso("2024-08-01"), mode: "image" },
   // Zhipu image (chatglm.cn guest lane). The -250304 suffix is 6 digits, so no
   // DATE_SUFFIX_PATTERN strips it and the bare name keeps it.
@@ -939,25 +948,108 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "SDXL",
     mode: "image",
   },
+  // Dates below are each version's Civitai publishedAt for the exact version id the
+  // Runware channel pins, so they describe the weights actually served rather than
+  // the first release of the model family.
   "juggernaut-xl": {
-    releaseDate: iso("2024-02-01"),
+    releaseDate: iso("2024-08-29"),
     series: "SDXL",
     mode: "image",
+    description:
+      "Photorealistic SDXL merge tuned for portraits, cinematic lighting and product shots.",
   },
   "wai-nsfw-illustrious-sdxl": {
-    releaseDate: iso("2024-11-01"),
-    series: "SDXL",
+    releaseDate: iso("2025-05-08"),
+    series: "Illustrious",
     mode: "image",
+    description:
+      "Illustrious-based anime checkpoint with strong character knowledge and booru-style tag prompting.",
   },
   "pony-realism": {
-    releaseDate: iso("2024-08-01"),
+    releaseDate: iso("2024-10-02"),
     series: "Pony",
     mode: "image",
+    description:
+      "Pony-based checkpoint aimed at photorealistic output while keeping Pony's prompt understanding.",
   },
   "nova-anime-xl": {
     releaseDate: iso("2024-09-01"),
     series: "Pony",
     mode: "image",
+  },
+  // Runware Civitai checkpoints. No upstream pricing source lists community
+  // checkpoints, so without these they render dateless and undescribed.
+  "anything-xl": {
+    releaseDate: iso("2024-03-10"),
+    series: "SDXL",
+    mode: "image",
+    description:
+      "Anime-oriented SDXL merge (Anything XL) covering illustration and character art.",
+  },
+  "autismmix-sdxl": {
+    releaseDate: iso("2024-02-02"),
+    series: "Pony",
+    mode: "image",
+    description:
+      "Pony-based anime merge favouring clean linework and consistent character rendering.",
+  },
+  "dreamshaper-v8": {
+    releaseDate: iso("2023-07-29"),
+    series: "Stable Diffusion",
+    mode: "image",
+    description:
+      "General-purpose SD 1.5 merge covering photoreal, art and illustration styles.",
+  },
+  "dreamshaper-xl": {
+    releaseDate: iso("2023-07-26"),
+    series: "SDXL",
+    mode: "image",
+    description: "SDXL edition of DreamShaper, a broad general-purpose merge.",
+  },
+  epicrealism: {
+    releaseDate: iso("2023-08-22"),
+    series: "Stable Diffusion",
+    mode: "image",
+    description:
+      "SD 1.5 photorealism checkpoint (Natural Sin) tuned for skin detail and natural light.",
+  },
+  "hassaku-xl-illustrious": {
+    releaseDate: iso("2025-04-03"),
+    series: "Illustrious",
+    mode: "image",
+    description:
+      "Illustrious-based anime checkpoint with a bold, high-contrast style.",
+  },
+  "majicmix-realistic": {
+    releaseDate: iso("2023-10-05"),
+    series: "Stable Diffusion",
+    mode: "image",
+    description:
+      "SD 1.5 realism merge best known for East Asian portrait photography.",
+  },
+  "nova-furry-xl": {
+    releaseDate: iso("2025-02-11"),
+    series: "Illustrious",
+    mode: "image",
+    description:
+      "Illustrious-based checkpoint specialising in anthro and furry character art.",
+  },
+  // Civitai reports publishedAt 2026-04-29 for version 290640, but that is a later
+  // re-publish: its sibling versions date to January 2024 and Pony V6 XL shipped
+  // then. Pinned to the real release so it does not sort as the newest model.
+  "pony-diffusion-v6-xl": {
+    releaseDate: iso("2024-01-07"),
+    series: "Pony",
+    mode: "image",
+    description:
+      "The Pony base checkpoint, tuned for prompt adherence and character control via score tags.",
+  },
+  "realistic-vision-v6": {
+    releaseDate: iso("2023-07-31"),
+    series: "Stable Diffusion",
+    mode: "image",
+    description:
+      "SD 1.5 photorealism checkpoint aimed at portraits and lifelike detail.",
   },
   "nova-furry-pony": {
     releaseDate: iso("2024-10-01"),
@@ -1000,14 +1092,14 @@ const CURATED: Record<string, SourceMetadata> = {
       "Merged model mix of Midnight mixer, roboEtics, f222, elldrethSLucidMix, Seek.ART Mega, rpg, hassanBlend, modelshoot and roboDiffusion",
   },
   "rev-animated": {
-    releaseDate: iso("2023-03-06"),
+    releaseDate: iso("2023-04-16"),
     series: "Stable Diffusion",
     mode: "image",
     description:
       "This model is mainly intended for Portraits and Full Body Anime-like pictures. Fantasy landscapes are decent.",
   },
   "cyberrealistic-pony": {
-    releaseDate: iso("2024-05-08"),
+    releaseDate: iso("2025-03-01"),
     series: "Pony",
     mode: "image",
     description:
