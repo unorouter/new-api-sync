@@ -502,6 +502,7 @@
       "RESEED_FAILED_LIST": "[metadata] 更新失败：{items}",
       "CHANNEL_RENAMED": "[metadata] 已重命名发布模型「{from}」->「{to}」",
       "CHANNEL_PASSTHROUGH_ENABLED": "[metadata] 已为媒体渠道「{name}」启用请求体透传",
+      "CHANNEL_PASSTHROUGH_DISABLED": "[metadata] 已为对话补全媒体渠道「{name}」禁用请求体透传",
       "CHANNEL_PARAM_OVERRIDE_SET": "[metadata] 已{action}渠道「{name}」的禁用思考 param_override",
       "CHANNEL_SYSTEM_PROMPT_SET": "[metadata] 已{action}渠道「{name}」的 system_prompt",
       "FREE_PRICING_SYNCED": "[metadata] 已将 {count} 个 :free 模型定价为倍率 0（更新 {changed} 个）",

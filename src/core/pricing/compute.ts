@@ -669,9 +669,17 @@ function pushBucketsAsTiers(
         // Media channels carry refs/extras (image_urls, multipart) new-api drops on
         // re-marshal; pass the raw body through. EXCEPT ALI (17): DashScope's task
         // API needs the gateway's native-shape conversion (input.messages, model
-        // rewrite), which pass-through would bypass -> 400/404.
+        // rewrite), which pass-through would bypass -> 400/404. And EXCEPT
+        // chat-completions image models on GEMINI (24) channels (gemini-*-image, no task
+        // override): they are sent an OpenAI `messages` body, so pass-through skips the
+        // gateway's messages -> contents conversion and the native API answers
+        // "contents is required". Task-routed Gemini models (veo/imagen) still need it.
         ...(m.modelType !== "text" &&
-        (override?.channelType ?? offer.channelType) !== CHANNEL_TYPES.ALI
+        (override?.channelType ?? offer.channelType) !== CHANNEL_TYPES.ALI &&
+        !(
+          (override?.channelType ?? offer.channelType) ===
+            CHANNEL_TYPES.GEMINI && !override
+        )
           ? { passThroughBody: true }
           : {}),
         ...(m.rateLimited ? { disabled: true } : {}),

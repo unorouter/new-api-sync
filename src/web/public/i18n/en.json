@@ -502,6 +502,7 @@
       "RESEED_FAILED_LIST": "[metadata] failed to update: {items}",
       "CHANNEL_RENAMED": "[metadata] renamed published model \"{from}\" -> \"{to}\"",
       "CHANNEL_PASSTHROUGH_ENABLED": "[metadata] enabled body pass-through on media channel \"{name}\"",
+      "CHANNEL_PASSTHROUGH_DISABLED": "[metadata] disabled body pass-through on chat-completions media channel \"{name}\"",
       "CHANNEL_PARAM_OVERRIDE_SET": "[metadata] {action} disable-thinking param_override on channel \"{name}\"",
       "CHANNEL_SYSTEM_PROMPT_SET": "[metadata] {action} system_prompt on channel \"{name}\"",
       "FREE_PRICING_SYNCED": "[metadata] priced {count} :free models at ratio 0 ({changed} updated)",

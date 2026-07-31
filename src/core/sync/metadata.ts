@@ -25,7 +25,10 @@ import {
   MODEL_TYPE_CANONICAL_ENDPOINT,
   normalizeEndpointType,
 } from "@core/catalog/constants/endpoints";
-import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
+import {
+  CHANNEL_TYPES,
+  getTaskModelOverride,
+} from "@core/catalog/constants/channel-types";
 import { scrapeYunwuGeminiImageGrids } from "@core/vendors/newapi/yunwu-grid-scraper";
 import { inferModelType } from "@core/catalog/constants/inference";
 import {
@@ -252,7 +255,7 @@ async function reconcilePassThrough(
   target: NewApiClient,
   channels: Channel[],
 ): Promise<number> {
-  let enabled = 0;
+  let changed = 0;
   for (const ch of channels) {
     // ALI (17) DashScope channels need the gateway's native-shape conversion
     // (input.messages, model rewrite); pass-through would forward the raw OpenAI
@@ -262,10 +265,19 @@ async function reconcilePassThrough(
     // raw body through skips the adaptor's conversion and the upstream answers
     // invalidPayloadFormat for every generation.
     if (ch.type === CHANNEL_TYPES.RUNWARE) continue;
-    const isMedia = parseModelList(ch.models).some(
-      (name) => !isRoutingOnlyAlias(name) && inferModelType(name) !== "text",
+    const served = parseModelList(ch.models).filter(
+      (name) => !isRoutingOnlyAlias(name),
     );
+    const isMedia = served.some((name) => inferModelType(name) !== "text");
     if (!isMedia) continue;
+    // Gemini (24) covers BOTH task models (veo/imagen, native-shape bodies that need
+    // pass-through) and chat-completions image models (gemini-*-image), which are sent as an
+    // OpenAI `messages` body. Passing that through skips the gateway's messages -> contents
+    // conversion and the native API rejects it with "contents is required". Only task-routed
+    // Gemini channels get pass-through.
+    const wantPassThrough =
+      ch.type !== CHANNEL_TYPES.GEMINI ||
+      served.some((name) => getTaskModelOverride(name));
 
     let setting: Record<string, unknown> = {};
     if (ch.setting) {
@@ -276,20 +288,25 @@ async function reconcilePassThrough(
         continue;
       }
     }
-    if (setting.pass_through_body_enabled === true) continue;
+    if (setting.pass_through_body_enabled === wantPassThrough) continue;
 
-    setting.pass_through_body_enabled = true;
+    setting.pass_through_body_enabled = wantPassThrough;
     const nextSetting = JSON.stringify(setting);
     const ok = await target.updateChannel({ ...ch, setting: nextSetting });
     if (ok) {
       ch.setting = nextSetting;
-      enabled++;
+      changed++;
       consola.info(
-        t("CORE.METADATA.CHANNEL_PASSTHROUGH_ENABLED", { name: ch.name }),
+        t(
+          wantPassThrough
+            ? "CORE.METADATA.CHANNEL_PASSTHROUGH_ENABLED"
+            : "CORE.METADATA.CHANNEL_PASSTHROUGH_DISABLED",
+          { name: ch.name },
+        ),
       );
     }
   }
-  return enabled;
+  return changed;
 }
 
 // disableThinking is a PER-PROVIDER opt-in: a provider's enabledModels
