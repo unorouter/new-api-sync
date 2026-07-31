@@ -35,7 +35,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   cohere: { modelPatterns: ["command-","c4ai-","cohere","aya-","tiny-aya","north-mini","embed-english-","embed-multilingual-","embed-v4"], displayName: "Cohere", icon: "Cohere.Color" },
   minimax: { modelPatterns: ["abab","minimax-"], displayName: "MiniMax", icon: "Minimax.Color" },
   moonshot: { modelPatterns: ["moonshot-","kimi-","kimi","k2.6","k2-"], nameAliases: ["月之暗面","kimi"], displayName: "Moonshot", icon: "Moonshot" },
-  zhipu: { modelPatterns: ["glm-","glm4","glm5","glm6","chatglm"], nameAliases: ["智谱","zhipu ai","chatglm","z.ai","z-ai","zai"], displayName: "Zhipu", icon: "Zhipu.Color" },
+  zhipu: { modelPatterns: ["glm-","glm4","glm5","glm6","chatglm","cogview","cogvideo","cogagent"], nameAliases: ["智谱","zhipu ai","chatglm","z.ai","z-ai","zai"], displayName: "Zhipu", icon: "Zhipu.Color" },
   perplexity: { modelPatterns: ["sonar"], displayName: "Perplexity", icon: "Perplexity.Color" },
   baidu: { modelPatterns: ["ernie-","qianfan-","embedding-v1"], nameAliases: ["百度","文心"], displayName: "Baidu", icon: "Wenxin" },
   xunfei: { modelPatterns: ["sparkdesk"], nameAliases: ["讯飞","spark"], displayName: "Xunfei", icon: "Spark.Color" },
