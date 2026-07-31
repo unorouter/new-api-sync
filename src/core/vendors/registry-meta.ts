@@ -953,6 +953,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-glm-...",
   },
   {
+    kind: "gemini2api",
+    label: "Gemini2API",
+    // gemini1.coding-global.com - gemini.google.com web reverse (Go, behind gluetun).
+    // Anonymous: no account, no cookie, nothing bannable. Google meters per EXIT IP,
+    // so throughput scales with shards rather than credentials. Flash only - PRO mode
+    // silently routes to Flash without a paid Advanced cookie.
+    defaultBaseUrl: "https://gemini1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-glm-...",
+  },
+  {
     kind: "mikiko",
     label: "Mikiko",
     // api.mikiko.cc - group-gated reverse gateway, OpenAI-compat for every platform
