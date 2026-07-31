@@ -17,7 +17,9 @@ export async function discoverGemini2ApiModels(
 ): Promise<OpenAIFreeDiscovery> {
   const base = baseUrl.replace(/\/$/, "");
   const url = `${base}/v1/models`;
-  consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Gemini2API", url }));
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Gemini2API", url }),
+  );
 
   const data = await tryFetchJson<Gemini2ApiModelList>(url, {
     headers: {
