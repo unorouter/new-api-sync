@@ -85,7 +85,7 @@ export async function fetchBasellmEntries(): Promise<BasellmEntry[]> {
 }
 
 // prettier-ignore
-const STRIPPABLE_SUFFIXES = ["-latest","-preview","-instruct","-thinking","-free","-online","-nightly","-beta","-exp","-experimental","-search","-search-preview","-search-api","-openai-compact"];
+const STRIPPABLE_SUFFIXES = ["-latest","-preview","-instruct","-thinking","-think","-free","-online","-nightly","-beta","-exp","-experimental","-search","-search-preview","-search-api","-openai-compact"];
 // prettier-ignore
 const TIER_SUFFIXES = ["-highspeed","-fast","-pro","-air","-flash","-mini","-nano","-turbo","-lite","-max","-ultra","-plus","-standard","-economy","-coder","-code","-vision","-image","-audio"];
 // prettier-ignore
@@ -129,8 +129,14 @@ function strippedVariants(name: string): string[] {
     current = current.slice(0, -len).replace(/-$/, "");
     variants.push(current);
   };
-  for (const suffix of STRIPPABLE_SUFFIXES)
-    if (current.endsWith(suffix)) trim(suffix.length);
+  // Repeat until nothing matches: these suffixes stack. A single pass over the list left
+  // glm-5-turbo-think-search at "glm-5-turbo-think", which matches no known model, so the
+  // whole GLM search/thinking family resolved to no metadata at all.
+  for (let pass = 0; pass < STRIPPABLE_SUFFIXES.length; pass++) {
+    const hit = STRIPPABLE_SUFFIXES.find((s) => current.endsWith(s));
+    if (!hit) break;
+    trim(hit.length);
+  }
   for (const pattern of DATE_SUFFIX_PATTERNS) {
     const match = current.match(pattern);
     if (match) {
@@ -202,7 +208,12 @@ function fuzzyLookup<T>(
     // collapse in the token Set, dropping dice below threshold).
     const keys = index.normalized.get(variant);
     const directKey = keys?.[0];
-    if (directKey && !tierSuffixMismatch(norm, variant)) {
+    // No tier check here: the variant IS this name with its suffixes removed, so it can
+    // only ever carry the same tier. Comparing the ORIGINAL against it rejected the right
+    // answer, because a suffix hides the tier - glm-5-turbo-search reads as tier-less next
+    // to glm-5-turbo and looked like a -turbo/none mismatch. The guard still applies to the
+    // similarity path below, where the two names are genuinely unrelated.
+    if (directKey) {
       const v = index.candidates.get(directKey);
       if (v !== undefined) return { key: directKey, value: v, score: 1.0 };
     }
