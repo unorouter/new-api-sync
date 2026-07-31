@@ -125,6 +125,21 @@ const AIHordeProviderSchema = T.Object({
   models: T.Record(str, AIHordeModelSchema),
 });
 
+// Runware image model: published id -> per-call price + the AIR identifier the
+// upstream is addressed by (civitai:257749@290640). The AIR travels as a model
+// mapping rather than a params blob, since Runware takes it as the model name.
+// prettier-ignore
+const RunwareModelSchema = T.Object({ price: T.Number({ minimum: 0 }), air: str, width: Opt(T.Integer({ minimum: 64, maximum: 3072 })), height: Opt(T.Integer({ minimum: 64, maximum: 3072 })) });
+const RunwareProviderSchema = T.Object({
+  type: T.Literal("runware"),
+  ...ProviderCommonProps,
+  baseUrl: Opt(uri),
+  apiKey: str,
+  channelName: Opt(str),
+  channelTag: Opt(str),
+  models: T.Record(str, RunwareModelSchema),
+});
+
 // A private channel: a routing group NOT added to the global usable list, granted
 // only to the provider's identity group via group_special_usable_group, so only
 // users whose account group equals that identity may pass X-Group: <group>.
@@ -155,7 +170,7 @@ const PrivateProviderSchema = T.Object({
 export type PrivateProviderConfig = Static<typeof PrivateProviderSchema>;
 
 // prettier-ignore
-const AnyProviderSchema = T.Union([NewApiProviderSchema, Sub2ApiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, SimpleFreeProviderSchema, ComfyUiProviderSchema, AIHordeProviderSchema, PrivateProviderSchema]);
+const AnyProviderSchema = T.Union([NewApiProviderSchema, Sub2ApiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, SimpleFreeProviderSchema, ComfyUiProviderSchema, AIHordeProviderSchema, RunwareProviderSchema, PrivateProviderSchema]);
 
 export type ProviderConfig = Static<typeof NewApiProviderSchema>;
 export type Sub2ApiProviderConfig = Static<typeof Sub2ApiProviderSchema>;
@@ -179,8 +194,9 @@ export type SimpleFreeProviderConfig = Static<
 };
 export type ComfyUiProviderConfig = Static<typeof ComfyUiProviderSchema>;
 export type AIHordeProviderConfig = Static<typeof AIHordeProviderSchema>;
+export type RunwareProviderConfig = Static<typeof RunwareProviderSchema>;
 // prettier-ignore
-export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | SimpleFreeProviderConfig | ComfyUiProviderConfig | AIHordeProviderConfig | PrivateProviderConfig;
+export type AnyProviderConfig = ProviderConfig | Sub2ApiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | SimpleFreeProviderConfig | ComfyUiProviderConfig | AIHordeProviderConfig | RunwareProviderConfig | PrivateProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
 const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);

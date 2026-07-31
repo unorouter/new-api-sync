@@ -71,6 +71,19 @@ export function buildAiHordeModels(channels: Channel[]): Set<string> {
   return set;
 }
 
+// Model names served by a RUNWARE-type channel. Runware image inference is
+// synchronous, so unlike aihorde these pin the sync image endpoint. They are
+// named by AIR alias (wai-illustrious), which infers no model type on its own.
+export function buildRunwareModels(channels: Channel[]): Set<string> {
+  const set = new Set<string>();
+  for (const ch of channels) {
+    if (ch.type !== CHANNEL_TYPES.RUNWARE) continue;
+    for (const m of parseModelList(ch.models))
+      if (!isRoutingOnlyAlias(m)) set.add(m);
+  }
+  return set;
+}
+
 export function isRoutingOnlyAlias(modelName: string): boolean {
   return modelName.endsWith(CLAUDE_CONTEXT_1M_SUFFIX);
 }
@@ -100,6 +113,7 @@ export function buildDesiredModels(opts: {
 
   const channelModelUpstream = buildChannelModelUpstream(opts.channels);
   const aiHordeModels = buildAiHordeModels(opts.channels);
+  const runwareModels = buildRunwareModels(opts.channels);
 
   for (const channel of opts.channels) {
     for (const modelName of parseModelList(channel.models)) {
@@ -114,6 +128,16 @@ export function buildDesiredModels(opts: {
           model_name: modelName,
           vendor: "aihorde",
           endpoints: JSON.stringify({ aihorde: "/v1/videos" }),
+        });
+        continue;
+      }
+      if (runwareModels.has(modelName)) {
+        models.set(modelName, {
+          model_name: modelName,
+          vendor: "runware",
+          endpoints: JSON.stringify({
+            "image-generation": "/v1/images/generations",
+          }),
         });
         continue;
       }

@@ -62,6 +62,7 @@ import { updateGuestTokenFromNames } from "@core/sync/guest-token";
 import { runProviderPipeline } from "@core/sync/pipeline";
 import {
   buildAiHordeModels,
+  buildRunwareModels,
   isRoutingOnlyAlias,
   pickBetterDescription,
 } from "@core/sync/pipeline/desired-models";
@@ -139,12 +140,14 @@ function buildTags(
   name: string,
   sources: PricingSource[],
   reverseMapping: Map<string, string>,
-  aiHordeModels: Set<string>,
+  imageChannelModels: Set<string>,
 ): string {
-  // AIHORDE-channel models are image tasks; their names (tunix-pony, anything-v5,
-  // absolutereality...) carry no image keyword, so name-inference would wrongly
-  // tag them Text. Force image for anything an aihorde channel serves.
-  const modelType = aiHordeModels.has(name) ? "image" : inferModelType(name);
+  // Image-channel models (aihorde, runware) have names like tunix-pony,
+  // anything-v5 or wai-illustrious that carry no image keyword, so
+  // name-inference would wrongly tag them Text. Force image for those.
+  const modelType = imageChannelModels.has(name)
+    ? "image"
+    : inferModelType(name);
   const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
   const sourceTags = deriveTagsFromMetadata(
     resolveSourceMetadata(name, sources, reverseMapping),
@@ -504,7 +507,10 @@ export async function runMetadataSync(
     systemPromptChanged,
   };
 
-  const aiHordeModels = buildAiHordeModels(channels);
+  const imageChannelModels = new Set([
+    ...buildAiHordeModels(channels),
+    ...buildRunwareModels(channels),
+  ]);
 
   for (const name of names) {
     // `{model}:free` published names have no `:free` key in the pricing sources;
@@ -524,7 +530,7 @@ export async function runMetadataSync(
 
     const existing = existingByName.get(name);
 
-    const tags = buildTags(name, sources, reverseMapping, aiHordeModels);
+    const tags = buildTags(name, sources, reverseMapping, imageChannelModels);
 
     // Prefer the fuller of OpenRouter-frontend (descriptionMap) vs the pricing
     // sources (ePhone), matching the full-sync desired-models logic.
