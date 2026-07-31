@@ -17,9 +17,7 @@ export async function discoverMikikoModels(
 ): Promise<OpenAIFreeDiscovery> {
   const base = baseUrl.replace(/\/$/, "");
   const url = `${base}/v1/models`;
-  consola.info(
-    t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Mikiko", url }),
-  );
+  consola.info(t("CORE.PROVIDER.DISCOVERY_FETCH", { label: "Mikiko", url }));
 
   const data = await tryFetchJson<MikikoModelList>(url, {
     headers: {

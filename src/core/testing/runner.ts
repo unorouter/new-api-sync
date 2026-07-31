@@ -466,7 +466,9 @@ async function testModels(opts: {
   // Transient upstream statuses that mean "try again later", not "broken": rate
   // limits (429) + gateway/timeout 5xx + the 405 upstream_error a reverse relay
   // (z.ai captcha pool) returns when the pool is momentarily drained.
-  const TRANSIENT_STATUS = new Set([405, 408, 425, 429, 500, 502, 503, 504, 520, 522, 524]);
+  const TRANSIENT_STATUS = new Set([
+    405, 408, 425, 429, 500, 502, 503, 504, 520, 522, 524,
+  ]);
   const acceptedTransient = (r: (typeof results)[number]) =>
     r.httpStatus != null &&
     TRANSIENT_STATUS.has(r.httpStatus) &&
