@@ -13,6 +13,37 @@ const BASELLM_MODELS_URL =
   "https://basellm.github.io/llm-metadata/api/newapi/models.json";
 const TEMPLATE_DESCRIPTION_RE = /^.+ is an AI model provided by .+\.$/;
 
+// basellm carries one entry per model PER VENDOR, and the relays that resell a model
+// frequently ship a generic category blurb instead of a real description ("Compact GPT
+// model for low-latency assistance...", reused across 286 distinct model names covering
+// Claude, DeepSeek and GLM alike). Picking the first entry per key therefore mislabels
+// whichever model the bad vendor happens to be listed under first.
+// prettier-ignore
+const DESCRIPTION_FAMILIES: ReadonlyArray<readonly [string, RegExp]> = [
+  ["gpt", /\bgpt\b/i], ["claude", /\bclaude\b/i], ["gemini", /\bgemini\b/i],
+  ["glm", /\bglm\b/i], ["qwen", /\bqwen\b/i], ["llama", /\bllama\b/i],
+  ["deepseek", /\bdeepseek\b/i], ["mistral", /\bmistral\b/i], ["kimi", /\bkimi\b/i],
+  ["gemma", /\bgemma\b/i], ["ernie", /\bernie\b/i], ["minimax", /\bminimax\b/i],
+  ["grok", /\bgrok\b/i], ["nova", /\bnova\b/i], ["phi", /\bphi\b/i],
+  ["doubao", /\bdoubao\b/i], ["command", /\bcommand\b/i], ["seedance", /\bseedance\b/i],
+  ["venice", /\bvenice\b/i], ["kat", /\bkat\b/i], ["hunyuan", /\bhunyuan\b/i],
+  ["yi", /\byi\b/i], ["step", /\bstep\b/i], ["moonshot", /\bmoonshot\b/i],
+];
+
+const familiesIn = (text: string): string[] =>
+  DESCRIPTION_FAMILIES.filter(([, re]) => re.test(text)).map(([name]) => name);
+
+// A description that names a model family the model name contradicts is always wrong,
+// however specific it reads: "Chat-tuned GPT model" on deepseek-chat outranks the correct
+// DeepSeek blurb on reuse count alone.
+function contradictsFamily(modelName: string, description: string): boolean {
+  const nameFamilies = familiesIn(modelName);
+  if (nameFamilies.length === 0) return false;
+  const descFamilies = familiesIn(description);
+  if (descFamilies.length === 0) return false;
+  return !descFamilies.some((f) => nameFamilies.includes(f));
+}
+
 const stripMarkdown = (text: string): string =>
   removeMd(text)
     .replace(/\n{3,}/g, "\n\n")
@@ -263,7 +294,31 @@ export function buildMetadataMap(opts: {
   openRouterDescriptions: Map<string, string>;
   modelMapping: Record<string, string>;
 }): Map<string, ModelMetadata> {
+  // How many distinct models each description is attached to. A blurb shared by hundreds
+  // of unrelated models says nothing about any one of them, so it loses to a rarer one.
+  const descriptionReuse = new Map<string, Set<string>>();
+  for (const entry of opts.basellmEntries) {
+    const description = entry.description?.trim();
+    if (!description || !entry.model_name) continue;
+    let models = descriptionReuse.get(description);
+    if (!models) descriptionReuse.set(description, (models = new Set()));
+    models.add(entry.model_name);
+  }
+  const reuseCount = (description: string): number =>
+    descriptionReuse.get(description.trim())?.size ?? Number.MAX_SAFE_INTEGER;
+
+  // Lower is better. Template and family-contradicting text is disqualified outright
+  // rather than merely ranked down, so a model with only bad candidates gets no
+  // description at all instead of a confidently wrong one.
+  const rank = (key: string, description: string): number => {
+    if (TEMPLATE_DESCRIPTION_RE.test(description))
+      return Number.MAX_SAFE_INTEGER;
+    if (contradictsFamily(key, description)) return Number.MAX_SAFE_INTEGER;
+    return reuseCount(description);
+  };
+
   const basellmMap = new Map<string, { description?: string; tags?: string }>();
+  const bestRank = new Map<string, number>();
   for (const entry of opts.basellmEntries) {
     if (!entry.model_name) continue;
     const slashIdx = entry.model_name.indexOf("/");
@@ -272,23 +327,24 @@ export function buildMetadataMap(opts: {
         ? [entry.model_name, entry.model_name.slice(slashIdx + 1)]
         : [entry.model_name];
     for (const key of keys) {
-      const existing = basellmMap.get(key);
+      // Only materialise a key once it has something worth carrying: an entry holding
+      // neither a usable description nor tags still occupies the fuzzy index and shadows
+      // a later entry that does.
+      const candidate = entry.description?.trim();
+      const usable =
+        candidate && rank(key, candidate) !== Number.MAX_SAFE_INTEGER;
+      let existing = basellmMap.get(key);
       if (!existing) {
-        basellmMap.set(key, {
-          description: entry.description
-            ? stripMarkdown(entry.description)
-            : undefined,
-          tags: entry.tags,
-        });
-        continue;
+        if (!usable && !entry.tags) continue;
+        basellmMap.set(key, (existing = {}));
       }
-      if (
-        existing.description &&
-        TEMPLATE_DESCRIPTION_RE.test(existing.description) &&
-        entry.description &&
-        !TEMPLATE_DESCRIPTION_RE.test(entry.description)
-      ) {
-        existing.description = stripMarkdown(entry.description);
+      if (candidate) {
+        const candidateRank = rank(key, candidate);
+        const currentRank = bestRank.get(key) ?? Number.MAX_SAFE_INTEGER;
+        if (candidateRank < currentRank) {
+          bestRank.set(key, candidateRank);
+          existing.description = stripMarkdown(candidate);
+        }
       }
       if (!existing.tags && entry.tags) existing.tags = entry.tags;
     }
