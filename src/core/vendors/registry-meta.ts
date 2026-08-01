@@ -1030,7 +1030,9 @@ export const SIMPLE_PROVIDER_META = [
     // aiwave.live - new-api fork, OpenAI-compat, Singapore. 59 models but only
     // glm-4.7-flash is ratio 0; the rest bill against a $1 trial balance, so the config
     // pins enabledModels. Upstream throttles the free model hard (code 1305, roughly
-    // 2 in 5 calls), hence acceptRateLimited.
+    // 2 in 5 calls), hence acceptRateLimited. Cloudflare 403s any Go-http-client/* UA, so
+    // the runtime channels need header_override {"User-Agent":"new-api"} set in the DB
+    // post-sync or every relay fails; discovery is unaffected (bun sends its own UA).
     defaultBaseUrl: "https://aiwave.live",
     defaultRatio: 0,
     apiKeyPlaceholder: "sk-...",
