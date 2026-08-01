@@ -1015,6 +1015,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "wk-<id>.ws-<secret>",
   },
   {
+    kind: "chinaapi",
+    label: "ChinaAPI",
+    // api.chinaapi.ai - new-api fork, OpenAI-compat. NOT a free tier: kimi-k3 bills at
+    // ratio 1.37 (~$2.74/MTok in, ~$13.70/MTok out) against the key's own balance, so the
+    // config pins enabledModels rather than publishing the whole 58-model catalog.
+    defaultBaseUrl: "https://api.chinaapi.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-...",
+  },
+  {
     kind: "hetzner",
     label: "Hetzner",
     // inference.hetzner.com/api/v1 - Hetzner's experimental free inference (vLLM).
