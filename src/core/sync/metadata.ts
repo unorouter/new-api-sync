@@ -44,6 +44,7 @@ import {
 } from "@core/catalog/constants/vendor-matchers";
 import {
   buildMetadataMap,
+  contradictsFamily,
   fetchBasellmEntries,
   fetchOpenRouterDescriptions,
 } from "@core/catalog/metadata";
@@ -626,6 +627,15 @@ export async function runMetadataSync(
         !looksTruncated(existing.description)
       );
 
+    // Rows seeded before the description ranker landed can hold a blurb belonging to a
+    // different model family. Re-seeding alone never heals them: the sources no longer
+    // offer that text, and "no description now" cannot overwrite a stored one. Clear it
+    // so the row falls back to blank rather than staying confidently wrong.
+    const staleDescription =
+      !descriptionChanged &&
+      !!existing.description &&
+      contradictsFamily(name, existing.description);
+
     // The first tag drives the UI modality tab. A full sync builds the richest
     // tags; only correct the row when its leading tag is missing or the WRONG
     // type (e.g. an audio model left untagged -> mis-filed under Text), so we
@@ -646,7 +656,8 @@ export async function runMetadataSync(
       !metadataChanged &&
       !vendorChanged &&
       !tagsChanged &&
-      !descriptionChanged
+      !descriptionChanged &&
+      !staleDescription
     ) {
       result.skipped++;
       continue;
@@ -658,6 +669,7 @@ export async function runMetadataSync(
       ...(vendorId != null ? { vendor_id: vendorId } : {}),
       ...(tagsChanged ? { tags } : {}),
       ...(descriptionChanged ? { description } : {}),
+      ...(staleDescription ? { description: "" } : {}),
     };
     if (await target.updateModel(patched)) {
       result.patched++;

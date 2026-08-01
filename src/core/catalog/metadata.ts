@@ -36,7 +36,10 @@ const familiesIn = (text: string): string[] =>
 // A description that names a model family the model name contradicts is always wrong,
 // however specific it reads: "Chat-tuned GPT model" on deepseek-chat outranks the correct
 // DeepSeek blurb on reuse count alone.
-function contradictsFamily(modelName: string, description: string): boolean {
+export function contradictsFamily(
+  modelName: string,
+  description: string,
+): boolean {
   const nameFamilies = familiesIn(modelName);
   if (nameFamilies.length === 0) return false;
   const descFamilies = familiesIn(description);

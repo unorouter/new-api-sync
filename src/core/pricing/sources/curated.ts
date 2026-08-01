@@ -19,6 +19,99 @@ const iso = (d: string) => `${d}T00:00:00.000Z`;
 // these fields win over ALL sources. Keyed by BARE name. Use ONLY when a live
 // source is factually wrong and verified against the official model card.
 export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
+  // Baidu ERNIE. No live source carries these at all, so without an entry the models
+  // publish with no date and no context. Figures from Baidu's own docs: the V2 model
+  // list (cloud.baidu.com/doc/qianfan/s/rmh4stp0j) for the 5.x/X1.1 line, and the V1
+  // per-model pages mirrored at ai.baidu.com/ai-doc/WENXINWORKSHOP for the 3.5/4.0 line.
+  // Knowledge cutoffs are deliberately absent: Baidu publishes none for any ERNIE model,
+  // relying on an auto-attached Baidu Search plugin instead.
+  //
+  // The V1 pages never print a single context number. They cap input at "20000 characters
+  // and 5120 tokens" and output at [2, 2048], which is what the "-8k" in the name adds up
+  // to, so contextWindow is that sum rather than a figure Baidu states outright.
+  "ernie-5.0": {
+    // Baidu World 2025. The 2.4T technical report is dated 2026-02-06, so GA likely
+    // trails the announcement; the announcement date is the one users recognise.
+    releaseDate: iso("2025-11-13"),
+    contextWindow: 128_000,
+    maxOutputTokens: 65_536,
+    series: "ERNIE",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "ernie-5.0-thinking-preview": {
+    releaseDate: iso("2025-11-13"),
+    contextWindow: 128_000,
+    maxOutputTokens: 65_536,
+    series: "ERNIE",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "ernie-5.1": {
+    // Baidu's blog slug says 0508, the rendered page says May 9.
+    releaseDate: iso("2026-05-08"),
+    contextWindow: 128_000,
+    maxOutputTokens: 65_536,
+    series: "ERNIE",
+    supportsTools: true,
+  },
+  "ernie-x1.1": {
+    // WAVE SUMMIT 2025. 64k, not the 128k the rest of the 5.x line carries.
+    releaseDate: iso("2025-09-09"),
+    contextWindow: 64_000,
+    maxOutputTokens: 65_536,
+    series: "ERNIE",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "ernie-3.5-128k": {
+    releaseDate: iso("2024-05-16"),
+    contextWindow: 128_000,
+    series: "ERNIE",
+    supportsTools: true,
+  },
+  "ernie-3.5-8k-preview": {
+    releaseDate: iso("2024-10-29"),
+    contextWindow: 8_192,
+    maxInputTokens: 5_120,
+    maxOutputTokens: 2_048,
+    series: "ERNIE",
+    supportsTools: true,
+  },
+  "ernie-4.0-8k-latest": {
+    releaseDate: iso("2024-06-13"),
+    contextWindow: 8_192,
+    maxInputTokens: 5_120,
+    maxOutputTokens: 2_048,
+    series: "ERNIE",
+    supportsTools: true,
+  },
+  "ernie-4.0-8k-preview": {
+    releaseDate: iso("2024-05-21"),
+    contextWindow: 8_192,
+    maxInputTokens: 5_120,
+    maxOutputTokens: 2_048,
+    series: "ERNIE",
+    supportsTools: true,
+  },
+  "ernie-4.0-turbo-8k-latest": {
+    releaseDate: iso("2024-10-11"),
+    contextWindow: 8_192,
+    maxInputTokens: 5_120,
+    maxOutputTokens: 2_048,
+    series: "ERNIE",
+    supportsTools: true,
+  },
+  "ernie-4.0-turbo-8k-preview": {
+    releaseDate: iso("2024-07-04"),
+    contextWindow: 8_192,
+    maxInputTokens: 5_120,
+    maxOutputTokens: 2_048,
+    series: "ERNIE",
+    supportsTools: true,
+  },
   // Verified release dates (official sources) for models a live source carries
   // dateless, so plain CURATED (gap-fill) can't set them; hard-pin here.
   // Google Nano Banana Pro (Gemini 3 Pro Image Preview), launched 2025-11-20.
