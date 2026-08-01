@@ -1004,6 +1004,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-…",
   },
   {
+    kind: "modal",
+    label: "Modal",
+    // inference.us-west.modal.direct - Modal Auto Endpoints (Shared API). Not a hosted
+    // catalog: each model is an endpoint you create, and its ID is the endpoint hostname
+    // (don-49101--ep-kimi-k3-server.us-west.modal.direct). Billed per token against the
+    // workspace credit, so enabledModels pins what we actually pay for.
+    defaultBaseUrl: "https://inference.us-west.modal.direct",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "wk-<id>.ws-<secret>",
+  },
+  {
     kind: "hetzner",
     label: "Hetzner",
     // inference.hetzner.com/api/v1 - Hetzner's experimental free inference (vLLM).

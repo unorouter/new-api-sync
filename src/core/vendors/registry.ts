@@ -199,6 +199,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   bynara: discoverBynaraModels,
   hcnsec: discoverBynaraModels,
   tokenrouter: discoverBynaraModels,
+  modal: discoverBynaraModels,
   hetzner: discoverBynaraModels,
 };
 
