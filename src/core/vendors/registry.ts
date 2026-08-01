@@ -201,6 +201,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   tokenrouter: discoverBynaraModels,
   modal: discoverBynaraModels,
   chinaapi: discoverBynaraModels,
+  aiwave: discoverBynaraModels,
   hetzner: discoverBynaraModels,
 };
 

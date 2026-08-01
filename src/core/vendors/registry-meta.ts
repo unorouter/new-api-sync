@@ -1025,6 +1025,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-...",
   },
   {
+    kind: "aiwave",
+    label: "AIWave",
+    // aiwave.live - new-api fork, OpenAI-compat, Singapore. 59 models but only
+    // glm-4.7-flash is ratio 0; the rest bill against a $1 trial balance, so the config
+    // pins enabledModels. Upstream throttles the free model hard (code 1305, roughly
+    // 2 in 5 calls), hence acceptRateLimited.
+    defaultBaseUrl: "https://aiwave.live",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-...",
+  },
+  {
     kind: "hetzner",
     label: "Hetzner",
     // inference.hetzner.com/api/v1 - Hetzner's experimental free inference (vLLM).
