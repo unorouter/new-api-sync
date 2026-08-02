@@ -34,6 +34,13 @@ const USD_PER_M_PER_RATIO = 2;
 // Cost + 50% when a provider's priceAdjustment default is unset.
 const DEFAULT_PAID_MARKUP = 1.5;
 const MIN_HOST_UPTIME_PCT = 90;
+// fp8 is the floor. Anything coarser trades output quality for a price we are not
+// short of alternatives at, and "unknown" covers the full-precision hosts, so only
+// the explicitly-lower tiers are named here.
+const SUB_FP8_QUANTIZATIONS = new Set(["fp4", "int4", "nf4", "fp6", "int8"]);
+// Hosts we already relay directly. Routing to them via OpenRouter pays OR's cut for
+// a lane we own, so they never win the cheapest-host pick.
+const EXCLUDED_HOSTS = new Set(["deepinfra"]);
 
 async function fetchOpenRouterBalance(
   baseUrl: string,
@@ -135,26 +142,38 @@ export async function processOpenRouterProvider(
           return;
         }
 
-        consola.info(
-          t("CORE.OPENROUTER.PROBING", { name, count: filtered.length }),
-        );
+        // Only the free tier is probed. A paid probe is a billed request per model per
+        // run, and OpenRouter already removes a model from its own catalog when the
+        // upstream drops it; the free tier has no such guarantee and throttles constantly,
+        // so it still earns the test. Paid models pass through untested.
+        const toProbe = filtered.filter((id) => freeSet.has(id));
+        const untested = filtered.filter((id) => !freeSet.has(id));
 
-        const filterResult = await testAndFilterModels({
-          allModels: filtered,
-          baseUrl: providerConfig.baseUrl,
-          apiKey: providerConfig.apiKey,
-          channelType: CHANNEL_TYPES.OPENAI,
-          providerLabel: name,
-          testableModelTypes: new Set(["text"]),
-          acceptRateLimited: providerConfig.acceptRateLimited ?? false,
-          capabilities: buildCapabilityMap(
-            filtered,
-            lowercaseExposed(config),
-            ctx,
-          ),
-        });
-        const working = filterResult.workingModels;
-        const details = filterResult.details ?? [];
+        let working = untested;
+        let details: Awaited<
+          ReturnType<typeof testAndFilterModels>
+        >["details"] = [];
+        if (toProbe.length > 0) {
+          consola.info(
+            t("CORE.OPENROUTER.PROBING", { name, count: toProbe.length }),
+          );
+          const filterResult = await testAndFilterModels({
+            allModels: toProbe,
+            baseUrl: providerConfig.baseUrl,
+            apiKey: providerConfig.apiKey,
+            channelType: CHANNEL_TYPES.OPENAI,
+            providerLabel: name,
+            testableModelTypes: new Set(["text"]),
+            acceptRateLimited: providerConfig.acceptRateLimited ?? false,
+            capabilities: buildCapabilityMap(
+              toProbe,
+              lowercaseExposed(config),
+              ctx,
+            ),
+          });
+          working = [...untested, ...filterResult.workingModels];
+          details = filterResult.details ?? [];
+        }
 
         consola.info(
           t("CORE.OPENROUTER.WORKING", {
@@ -247,7 +266,10 @@ export async function processOpenRouterProvider(
             // uptime slips past our own probe when transiently up). null uptime =
             // too new for stats, kept. Threshold is OR's 1-day uptime %.
             const reliableHosts = hosts.filter(
-              (h) => h.uptime == null || h.uptime >= MIN_HOST_UPTIME_PCT,
+              (h) =>
+                (h.uptime == null || h.uptime >= MIN_HOST_UPTIME_PCT) &&
+                !SUB_FP8_QUANTIZATIONS.has((h.quantization ?? "").toLowerCase()) &&
+                !EXCLUDED_HOSTS.has(h.provider.toLowerCase()),
             );
             for (const h of hosts) {
               if (h.uptime != null && h.uptime < MIN_HOST_UPTIME_PCT) {
@@ -262,12 +284,20 @@ export async function processOpenRouterProvider(
               }
             }
             if (reliableHosts.length === 0) continue;
-            // One channel per model: the cheapest reliable host only (pinned via
-            // provider.only), instead of fanning out a channel per host.
-            const cheapestHost = [...reliableHosts].sort(
-              (a, b) => a.prompt - b.prompt,
-            )[0]!;
-            [cheapestHost].forEach((host, hostIndex) => {
+            // The N cheapest reliable hosts, each pinned via provider.only, instead of
+            // fanning out a channel per host. Extras are failoverDuplicate so they do not
+            // re-enter tier selection: the cheapest sets the published price and the rest
+            // only catch the overflow when it is down or rate-limited.
+            // Keyed by glob against the exposed name, matching priceAdjustment. Absent
+            // key = 1 host, so fanning out stays opt-in per model.
+            const hostsWanted =
+              Object.entries(providerConfig.hostsPerModel ?? {}).find(([glob]) =>
+                matchesAnyPattern(r.exposed, [glob]),
+              )?.[1] ?? 1;
+            const cheapestHosts = [...reliableHosts]
+              .sort((a, b) => a.prompt - b.prompt)
+              .slice(0, hostsWanted);
+            cheapestHosts.forEach((host, hostIndex) => {
               const m: OfferModel = {
                 exposed: r.exposed,
                 upstream: reverseMapping[r.exposed] ?? r.upstream,
