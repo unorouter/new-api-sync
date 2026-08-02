@@ -37,6 +37,25 @@ async function fetchOpenRouterBalance(
   return credits === undefined || usage === undefined ? null : credits - usage;
 }
 
+// DeepInfra bills through Stripe: stripe_balance is a Stripe customer balance, so it
+// is NEGATIVE when funds are available and positive when money is owed. `recent` is
+// usage accrued since the last invoice, not yet billed, so spendable credit is
+// -stripe_balance - recent. The route is absent from the prose docs but declared
+// Bearer-auth in the live OpenAPI spec, and /v1/me returns it inline with ?checklist=true.
+async function fetchDeepInfraBalance(
+  baseUrl: string,
+  apiKey: string,
+): Promise<number | null> {
+  const data = await tryFetchJson<{
+    checklist?: { stripe_balance?: number; recent?: number };
+  }>(`${baseUrl.replace(/\/$/, "")}/v1/me?checklist=true`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  const checklist = data?.checklist;
+  if (typeof checklist?.stripe_balance !== "number") return null;
+  return -checklist.stripe_balance - (checklist.recent ?? 0);
+}
+
 /** Group keys without model discovery: balance needs the key, not the catalogue. */
 async function sub2apiGroupKeys(
   client: Sub2ApiClient,
@@ -79,6 +98,13 @@ async function providerBalance(
       case "openrouter": {
         entry.balance = await fetchOpenRouterBalance(
           provider.baseUrl ?? "https://openrouter.ai/api",
+          provider.apiKey,
+        );
+        break;
+      }
+      case "deepinfra": {
+        entry.balance = await fetchDeepInfraBalance(
+          provider.baseUrl ?? "https://api.deepinfra.com",
           provider.apiKey,
         );
         break;
