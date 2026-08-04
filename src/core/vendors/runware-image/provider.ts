@@ -50,6 +50,9 @@ export function buildRunwareChannels(providerConfig: RunwareProviderConfig): {
     priority: 0,
     weight: 1,
     status: 1,
+    // auto_ban=0: upstream 504s and NSFW trips must not self-disable the channel. A disabled
+    // channel drops every model it serves out of the catalog, so the picker loses them entirely.
+    auto_ban: 0,
     tag,
     remark: `Runware image via ${providerConfig.name}`,
   };
