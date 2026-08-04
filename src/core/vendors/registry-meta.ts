@@ -953,6 +953,25 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-glm-...",
   },
   {
+    kind: "windsurf",
+    label: "Windsurf",
+    // windsurfN.coding-global.com - Windsurf/Devin reverse (dwgx/WindsurfAPI).
+    // Auth is one OAuth account added through the proxy's dashboard; metered
+    // per ACCOUNT, so shards do not multiply throughput.
+    //
+    // Two upstream namespaces with ZERO overlap, one per shard:
+    //   DEVIN_CONNECT=1 -> swe-1-6-slow      (Codeium's own model)
+    //   DEVIN_CONNECT=0 -> gemini-2.5-flash  (Cascade path)
+    // Everything else on either path 403s on a free account.
+    //
+    // swe-1-6-slow is the only lane here that does real tool_calls AND keeps a
+    // caller system prompt, and it bills creditCost 0 - it does not touch the
+    // 25-prompt allowance.
+    defaultBaseUrl: "https://windsurf1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-glm-...",
+  },
+  {
     kind: "kiro",
     label: "Kiro",
     // kiro1.coding-global.com - Kiro IDE (AWS CodeWhisperer) reverse, Go, behind

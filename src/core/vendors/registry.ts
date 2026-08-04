@@ -16,6 +16,7 @@ import { discoverChatGlmModels } from "./chatglm/discovery";
 import { discoverGemini2ApiModels } from "./gemini2api/discovery";
 import { discoverKimiModels } from "./kimi/discovery";
 import { discoverKiroModels } from "./kiro/discovery";
+import { discoverWindsurfModels } from "./windsurf/discovery";
 import { discoverGroqModels } from "./groq/discovery";
 import { discoverMikikoModels } from "./mikiko/discovery";
 import { discoverGeminiModels } from "./gemini/discovery";
@@ -198,6 +199,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   gemini2api: discoverGemini2ApiModels,
   kimi: discoverKimiModels,
   kiro: discoverKiroModels,
+  windsurf: discoverWindsurfModels,
   bynara: discoverBynaraModels,
   hcnsec: discoverBynaraModels,
   tokenrouter: discoverBynaraModels,
