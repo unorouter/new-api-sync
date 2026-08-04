@@ -245,6 +245,9 @@ async function testModels(opts: {
   modelEndpoints?: Map<string, string[]>;
   retryPolicy?: RetryPolicy<TestExchange>;
   acceptRateLimited?: boolean | ((model: string) => boolean);
+  // Set only for a hand-verified first-party Claude whose upstream persona
+  // trips the probe; see skipAuthenticity in validations/config.ts.
+  skipAuthenticity?: boolean;
   capabilities?: Map<string, ModelCapabilityHint>;
 }): Promise<{
   workingModels: string[];
@@ -278,6 +281,7 @@ async function testModels(opts: {
         if (
           opts.channelType === CHANNEL_TYPES.ANTHROPIC &&
           isClaude &&
+          !opts.skipAuthenticity &&
           isAuthenticityBlacklisted(blacklistKey)
         ) {
           const http: TestExchange = {
@@ -386,7 +390,7 @@ async function testModels(opts: {
             : null;
 
         let authentic = true;
-        if (isClaude && (success || streamSuccess)) {
+        if (isClaude && !opts.skipAuthenticity && (success || streamSuccess)) {
           // A cached pass verdict means the 4 generative probes were already paid
           // for; trust it until the entry is manually pruned.
           authentic = isAuthenticityPassCached(blacklistKey)
@@ -558,6 +562,7 @@ export async function testAndFilterModels(opts: {
   timeoutMs?: number;
   retryPolicy?: RetryPolicy<TestExchange>;
   acceptRateLimited?: boolean | ((model: string) => boolean);
+  skipAuthenticity?: boolean;
   capabilities?: Map<string, ModelCapabilityHint>;
 }): Promise<{
   workingModels: string[];

@@ -953,6 +953,22 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-glm-...",
   },
   {
+    kind: "kiro",
+    label: "Kiro",
+    // kiro1.coding-global.com - Kiro IDE (AWS CodeWhisperer) reverse, Go, behind
+    // gluetun. Auth is a refresh token lifted once from the IDE's
+    // ~/.aws/sso/cache/kiro-auth-token.json, so no browser in the serving path.
+    //
+    // Metered per ACCOUNT, not per exit IP: the free tier is 50 credits/month
+    // (Sonnet 4.5 + open-weight models). Shards do NOT multiply that - a shard
+    // exists to pin one account to one exit and one machineId, because AWS
+    // fingerprints client identity and the April 2026 ban wave hit setups that
+    // looked unlike the real IDE.
+    defaultBaseUrl: "https://kiro1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-glm-...",
+  },
+  {
     kind: "gemini2api",
     label: "Gemini2API",
     // gemini1.coding-global.com - gemini.google.com web reverse (Go, behind gluetun).

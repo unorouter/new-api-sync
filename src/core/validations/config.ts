@@ -86,6 +86,19 @@ const SimpleFreeProviderSchema = T.Object({
   // spent, not breakage). Only safe where 429 = capacity. Emitted disabled so
   // new-api's auto-test re-enables them once the limit clears.
   acceptRateLimited: Opt(T.Boolean()),
+  // Skip the claude authenticity probe for this provider only. Set it when the
+  // upstream is a VERIFIED first-party Claude that fails the probe for a known
+  // reason, not to silence a suspicious relay: the probe exists to catch a
+  // cheap model wearing an expensive label, and blanket-disabling it is how a
+  // fake gets sold as real. Record the verification in the provider comment.
+  skipAuthenticity: Opt(T.Boolean()),
+  // Model globs exempted from the blacklist for THIS provider only. The
+  // blacklist fences a name everywhere because some relay was reselling it
+  // dishonestly; this readmits it for the one provider known to serve it
+  // legitimately, without reopening the name globally. Narrower than deleting
+  // the fence and narrower than scoping it per offender, since a new offender
+  // is still blocked by default.
+  allowBlacklisted: Opt(T.Array(str)),
 });
 const ComfyUiTemplateSchema = T.Object(
   {

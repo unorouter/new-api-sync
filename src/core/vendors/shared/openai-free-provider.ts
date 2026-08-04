@@ -74,6 +74,7 @@ export interface OpenAIFreeOpts {
   /** Keep 429-failing models as working (Cloudflare neuron-cap: 429 = free model,
    *  budget spent, not broken). Only where 429 means capacity. */
   acceptRateLimited?: boolean;
+  skipAuthenticity?: boolean;
 }
 
 type Resolution = ReturnType<typeof resolveBareNames>[number];
@@ -361,6 +362,7 @@ export async function processOpenAICompatibleFreeProvider(
         // reranker, wrong endpoint) -> drop it, never list it.
         acceptRateLimited:
           modality.modelType === "embedding" ? false : opts.acceptRateLimited,
+        skipAuthenticity: opts.skipAuthenticity,
         capabilities: buildCapabilityMap(models, mapExposed, ctx),
       });
       const working = r.workingModels;

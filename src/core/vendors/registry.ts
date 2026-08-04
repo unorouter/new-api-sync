@@ -15,6 +15,7 @@ import { discoverGlmCgModels } from "./glmcg/discovery";
 import { discoverChatGlmModels } from "./chatglm/discovery";
 import { discoverGemini2ApiModels } from "./gemini2api/discovery";
 import { discoverKimiModels } from "./kimi/discovery";
+import { discoverKiroModels } from "./kiro/discovery";
 import { discoverGroqModels } from "./groq/discovery";
 import { discoverMikikoModels } from "./mikiko/discovery";
 import { discoverGeminiModels } from "./gemini/discovery";
@@ -196,6 +197,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   chatglm: discoverChatGlmModels,
   gemini2api: discoverGemini2ApiModels,
   kimi: discoverKimiModels,
+  kiro: discoverKiroModels,
   bynara: discoverBynaraModels,
   hcnsec: discoverBynaraModels,
   tokenrouter: discoverBynaraModels,
@@ -234,5 +236,6 @@ export function processSimpleProvider(
     audioChannelType: def.audioChannelType,
     videoChannelType: def.videoChannelType,
     acceptRateLimited: providerConfig.acceptRateLimited ?? false,
+    skipAuthenticity: providerConfig.skipAuthenticity ?? false,
   });
 }
