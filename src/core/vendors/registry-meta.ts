@@ -972,6 +972,32 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-glm-...",
   },
   {
+    kind: "qwen2api",
+    label: "Qwen",
+    // qwenN.coding-global.com - chat.qwen.ai reverse via OpenGate
+    // (youssefvdel/opengate). Auth is email+password per account, added through
+    // the proxy's dashboard; the JWT it holds refreshes on every upstream call,
+    // so unlike the grok lane this one renews itself indefinitely.
+    //
+    // The upstream sits behind Alibaba Baxia. Read endpoints answer a plain
+    // HTTP client, but writes (chats/new, completions) are challenged even with
+    // genuine browser cookies, so OpenGate logs in with a real browser once and
+    // then serves over a TLS-impersonating client.
+    //
+    // Free tier is generous - 18 models on tier "normal", including
+    // qwen3.8-max, qwen3-coder-plus, qwen3-vl-plus and the omni models, with
+    // t2i/t2v/image_edit alongside text.
+    //
+    // WATCH FOR SILENT DEGRADATION: operators on the qoder lane report the
+    // upstream quietly substituting weaker models under the requested name
+    // while the usage log still shows the original. Probe answers, not just
+    // status codes.
+    defaultBaseUrl: "https://qwen1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-qwen-...",
+    imageChannelType: 1,
+  },
+  {
     kind: "grok",
     label: "Grok",
     // grok1.coding-global.com - grok.com web reverse (chenyme/grok2api, Go,
