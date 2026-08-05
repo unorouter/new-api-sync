@@ -24,6 +24,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   meta: { modelPatterns: ["llama"], displayName: "Meta", icon: "Meta.Color" },
   nvidia: { modelPatterns: ["nemotron"], strongPatterns: ["nemotron"], displayName: "NVIDIA", icon: "Nvidia.Color" },
   liquid: { modelPatterns: ["lfm-","lfm2"], nameAliases: ["liquid"], displayName: "Liquid", icon: "Liquid" },
+  codeium: { modelPatterns: ["swe-1","swe-2","cascade"], strongPatterns: ["swe-1","swe-2"], nameAliases: ["codeium","windsurf"], displayName: "Codeium" },
   inclusionai: { modelPatterns: ["ling-","ring-"], nameAliases: ["inclusionai"], displayName: "InclusionAI" },
   nousresearch: { modelPatterns: ["hermes-"], nameAliases: ["nous","nousresearch"], displayName: "Nous Research", icon: "NousResearch" },
   gryphe: { modelPatterns: ["mythomax","mythomist","mythalion","mytho-"], strongPatterns: ["mythomax","mythalion"], nameAliases: ["gryphe"], displayName: "Gryphe" },
