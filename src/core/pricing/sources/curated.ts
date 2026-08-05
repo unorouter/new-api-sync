@@ -226,6 +226,38 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // grok.com web reverse. The published names are the proxy's mode names, not
+  // xAI model ids, so nothing upstream carries metadata for them and they
+  // publish blank without an entry here.
+  //
+  // Fast mode is Grok 4.5 (confirmed in the web model selector), so it inherits
+  // that release and context. isReasoning is deliberately absent: the free tier
+  // has no reasoning path at all - Expert/Heavy are SuperGrok-only, and
+  // completions come back with reasoning_content empty.
+  "grok-chat-fast": {
+    releaseDate: iso("2026-07-08"),
+    contextWindow: 500_000,
+    series: "Grok",
+    supportsTools: true,
+  },
+  // Cognition SWE-1.6, served through the windsurf1 lane. Proprietary and absent
+  // from every live pricing source, so it publishes bare without an entry here.
+  // Date from Cognition's own post (cognition.com/blog/swe-1-6, dated 04.07.26).
+  //
+  // supportsTools/isReasoning are corrections, not guesses: the discovered
+  // metadata said supportsTools false, but a live call returns real tool_calls
+  // (proper call_ ids) AND a populated reasoning_content. Parallel tool calls
+  // are the headline change in that release post.
+  //
+  // Cognition publishes no context window anywhere, so none is asserted - the
+  // discovered 6.4K stands rather than inventing a figure.
+  "swe-1-6-slow": {
+    releaseDate: iso("2026-04-07"),
+    series: "SWE",
+    supportsTools: true,
+    supportsParallelTools: true,
+    isReasoning: true,
+  },
   // GPT-5.6 Sol/Terra/Luna: 3 durable tiers, 1.05M ctx / 128K out, GA 2026-07-09.
   // bare gpt-5.6 aliases to sol (mapped in config.yml modelMapping). Sol's xhigh +
   // ultra map onto "max" (top of the ladder in this enum).
@@ -1300,6 +1332,10 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // xAI Grok Imagine video (original feature launch)
   "grok-imagine-video": { releaseDate: iso("2025-08-07"), mode: "video" },
+  // Grok Imagine image, via the grok.com web reverse. Same feature launch as the
+  // video model; "-lite" is the free tier's variant, and it is the only Imagine
+  // model a free account is entitled to.
+  "grok-imagine-image-lite": { releaseDate: iso("2025-08-07"), mode: "image" },
   // Kuaishou Kling Motion Control (shipped with Kling 2.6)
   "kling-motion-control": { releaseDate: iso("2025-12-03"), mode: "video" },
   // Kuaishou Kling 3.0 Turbo (t2v/i2v task variants share the base launch).
