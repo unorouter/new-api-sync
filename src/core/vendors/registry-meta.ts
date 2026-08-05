@@ -972,6 +972,28 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-glm-...",
   },
   {
+    kind: "grok",
+    label: "Grok",
+    // grok1.coding-global.com - grok.com web reverse (chenyme/grok2api, Go,
+    // behind gluetun). Auth is the `sso` cookie from a logged-in browser; there
+    // is no refresh path for this lane (RefreshCredential exists only on the
+    // Build/CLI adapter, which needs entitlement a free account lacks), so a
+    // dead session is a manual browser re-login.
+    //
+    // Metered per ACCOUNT: 30 Grok 4.5 Fast calls/24h each. The gluetun tunnel
+    // is not for throughput - grok.com sits behind Cloudflare and cf_clearance
+    // binds to the exit that solved it.
+    //
+    // Free tier serves grok-chat-fast and grok-imagine-image-lite ONLY.
+    // /rest/rate-limits reports 7/day for expert, but expert is a SuperGrok
+    // ($10/mo) feature and the UI redirects to #subscribe; the proxy's own
+    // capability detection agrees (avail=false). Do not trust that endpoint.
+    defaultBaseUrl: "https://grok1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-glm-...",
+    imageChannelType: 1,
+  },
+  {
     kind: "kiro",
     label: "Kiro",
     // kiro1.coding-global.com - Kiro IDE (AWS CodeWhisperer) reverse, Go, behind
