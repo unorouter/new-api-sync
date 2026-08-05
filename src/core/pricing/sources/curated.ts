@@ -249,10 +249,12 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // (proper call_ ids) AND a populated reasoning_content. Parallel tool calls
   // are the headline change in that release post.
   //
-  // Cognition publishes no context window anywhere, so none is asserted - the
-  // discovered 6.4K stands rather than inventing a figure.
+  // Cognition publishes no context window for SWE-1.6 anywhere. 6.4K is what the
+  // catalog already carried before this entry and it is preserved rather than
+  // replaced, since no better-sourced figure exists to put in its place.
   "swe-1-6-slow": {
     releaseDate: iso("2026-04-07"),
+    contextWindow: 6_400,
     series: "SWE",
     supportsTools: true,
     supportsParallelTools: true,
