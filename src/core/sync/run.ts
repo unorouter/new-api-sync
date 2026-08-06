@@ -210,8 +210,7 @@ export async function runSync(
     if (apply.options.updated.length > 0) await target.updateCache();
 
     throwIfRunAborted();
-    const postApplyPricing = await target.fetchPricing();
-    await updateGuestTokenIfConfigured(target, postApplyPricing);
+    await updateGuestTokenIfConfigured(target, await target.listChannels());
 
     const successfulProviders = providerReports.filter((p) => p.success).length;
     const hasProviderSuccess =

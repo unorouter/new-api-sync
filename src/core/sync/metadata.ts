@@ -62,7 +62,7 @@ import {
   resolveSourceMetadata,
 } from "@core/pricing/resolver";
 import type { PricingSource } from "@core/pricing/sources/types";
-import { updateGuestTokenFromNames } from "@core/sync/guest-token";
+import { updateGuestTokenIfConfigured } from "@core/sync/guest-token";
 import { runProviderPipeline } from "@core/sync/pipeline";
 import {
   buildAiHordeModels,
@@ -709,10 +709,10 @@ export async function runMetadataSync(
   await syncFreePricing(target, freeNames, channels, inScope);
 
   // Keep the guest token's allowed-models in step with the served `:free`
-  // catalog. Status-agnostic by design: a free model whose channel is currently
-  // disabled/banned stays in the allowlist so it works the instant the channel
-  // recovers, without waiting for a full `sync run`.
-  await updateGuestTokenFromNames(target, freeNames);
+  // catalog. Deliberately NOT freeNames: that list is inScope-filtered, and
+  // model_limits is a wholesale overwrite, so a scoped run would evict every
+  // free model outside its scope.
+  await updateGuestTokenIfConfigured(target, channels);
 
   return result;
 }

@@ -1,5 +1,7 @@
+import { parseModelList } from "@core/catalog/constants/patterns";
+import { isRoutingOnlyAlias } from "@core/sync/pipeline/desired-models";
+import type { Channel } from "@core/types";
 import type { NewApiClient } from "@core/vendors/newapi/client";
-import type { UpstreamPricing } from "@core/vendors/newapi/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 
@@ -15,29 +17,35 @@ const SKIPPED: GuestTokenUpdateResult = {
   freeModelCount: 0,
 };
 
-/** GUEST_API_KEY: refresh token's model_limits to only-truly-free models. No-op when unset. */
+/**
+ * GUEST_API_KEY: refresh token's model_limits from the FULL served `:free`
+ * catalog. No-op when unset.
+ *
+ * Derived from every channel's published names, not from the run's priced plan:
+ * `model_limits` is a wholesale overwrite, so computing it from one run's scope
+ * silently evicted every free model outside it. A `--only qwen1` run dropped 175
+ * live free models (claude-sonnet-5, the whole image catalog, grok) and each one
+ * then 403'd with "This token has no access to model ...".
+ *
+ * Status-agnostic on purpose, matching the metadata path: a free model whose
+ * channel is currently disabled or banned stays allowed so it works the instant
+ * the channel recovers. Listing a model that cannot serve costs nothing - it
+ * fails at routing instead of at auth.
+ */
 export async function updateGuestTokenIfConfigured(
   target: NewApiClient,
-  pricing: UpstreamPricing,
+  channels: Channel[],
 ): Promise<GuestTokenUpdateResult> {
-  const guestKey = Bun.env.GUEST_API_KEY;
-  if (!guestKey) return SKIPPED;
+  return updateGuestTokenFromNames(target, collectFreeNames(channels));
+}
 
-  const token = await target.findTokenByKey(guestKey);
-  if (!token) return SKIPPED;
-
-  const freeModels = collectTrulyFreeModels(pricing);
-  const modelLimits = freeModels.join(",");
-  const ok = await target.updateTokenModelLimits(token, modelLimits);
-  if (!ok) return { configured: true, updated: false, freeModelCount: 0 };
-
-  consola.info(
-    t("CORE.NEWAPI.GUEST_TOKEN_UPDATED", {
-      name: token.name,
-      count: freeModels.length,
-    }),
-  );
-  return { configured: true, updated: true, freeModelCount: freeModels.length };
+/** Every published `:free` name across all channels, regardless of status. */
+export function collectFreeNames(channels: Channel[]): string[] {
+  const names = new Set<string>();
+  for (const ch of channels)
+    for (const name of parseModelList(ch.models))
+      if (name.endsWith(":free") && !isRoutingOnlyAlias(name)) names.add(name);
+  return [...names].sort();
 }
 
 /**
@@ -69,38 +77,4 @@ export async function updateGuestTokenFromNames(
     }),
   );
   return { configured: true, updated: true, freeModelCount: freeNames.length };
-}
-
-/** Reachable free if ANY group is zero-priced. Guest has 0 balance so the paid groups are unreachable; listing the model only ever resolves to its free group. */
-function collectTrulyFreeModels(pricing: UpstreamPricing): string[] {
-  const free: string[] = [];
-  for (const model of pricing.models) {
-    if (model.groups.length === 0) continue;
-    const isFree = model.groups.some((g) =>
-      isGroupPriceZero(pricing, model, g),
-    );
-    if (isFree) free.push(model.name);
-  }
-  free.sort();
-  return free;
-}
-
-function isGroupPriceZero(
-  pricing: UpstreamPricing,
-  model: {
-    name: string;
-    ratio: number;
-    modelPrice?: number;
-    quotaType?: number;
-  },
-  groupName: string,
-): boolean {
-  // Any per-call price > 0 is not free regardless of group ratio.
-  if (model.modelPrice !== undefined && model.modelPrice > 0) return false;
-
-  const groupRatio = pricing.groupRatios[groupName] ?? 1;
-  if (groupRatio === 0) return true;
-
-  const modelRatio = pricing.modelRatios[model.name] ?? model.ratio ?? 0;
-  return modelRatio === 0;
 }
