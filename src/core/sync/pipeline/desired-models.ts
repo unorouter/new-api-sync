@@ -9,6 +9,7 @@ import {
   normalizeEndpointType,
 } from "@core/catalog/constants/endpoints";
 import { inferModelType } from "@core/catalog/constants/inference";
+import type { ModelType } from "@core/types";
 import { parseModelList } from "@core/catalog/constants/patterns";
 import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
 import { type BasellmEntry, buildMetadataMap } from "@core/catalog/metadata";
@@ -199,6 +200,7 @@ export function buildDesiredModels(opts: {
     if (chosen) spec.description = chosen;
   }
 
+  const modelTypeByName = new Map<string, ModelType>();
   for (const [modelName, spec] of models) {
     const upstreamFromChannel = channelModelUpstream.get(modelName);
     const originalName = opts.reverseMapping.get(modelName) ?? modelName;
@@ -210,6 +212,7 @@ export function buildDesiredModels(opts: {
       opts.normalizedEndpointsByName.get(originalName);
     const isAiHorde = aiHordeModels.has(modelName);
     const modelType = isAiHorde ? "image" : inferModelType(modelName, eps);
+    modelTypeByName.set(modelName, modelType);
     const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
     const isTaskModel =
       isAiHorde ||
@@ -249,6 +252,7 @@ export function buildDesiredModels(opts: {
         sources: opts.pricingSources,
         reverseMapping: opts.reverseMapping,
         override,
+        modelType: modelTypeByName.get(modelName),
       }) ?? {};
     // Tool-capability policy: live probe evidence beats source CLAIMS; without fresh
     // evidence, keep the target's existing verdict (prior probe/backfill) so a

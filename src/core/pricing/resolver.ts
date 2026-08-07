@@ -1,5 +1,7 @@
 import { toBareName } from "@core/catalog/bare-name";
+import { inferModelType } from "@core/catalog/constants/inference";
 import { type BasellmEntry, lookup } from "@core/catalog/metadata";
+import type { ModelType } from "@core/types";
 import { t } from "@server/i18n";
 import { fetchAipricingSource } from "./sources/aipricing";
 import { buildBasellmCanonicalSource } from "./sources/basellm";
@@ -145,11 +147,24 @@ export function resolveSourceMetadata(
   );
 }
 
+// Only OpenRouter publishes output_modalities, so the ~55% of models resolved
+// from other sources reach consumers with nothing to filter on. Derive it from
+// the model type, which every model has, so downstream never has to re-infer
+// modality from the name.
+const TYPE_OUTPUT_MODALITY: Record<ModelType, string> = {
+  text: "text",
+  image: "image",
+  video: "video",
+  audio: "audio",
+  embedding: "embedding",
+};
+
 export function buildModelMetadata(opts: {
   modelName: string;
   sources: PricingSource[];
   reverseMapping: Map<string, string>;
   override?: Record<string, unknown>;
+  modelType?: ModelType;
 }): Record<string, unknown> | undefined {
   const merged: Record<string, unknown> = {
     ...resolveSourceMetadata(opts.modelName, opts.sources, opts.reverseMapping),
@@ -157,6 +172,14 @@ export function buildModelMetadata(opts: {
   if (opts.override) {
     for (const [k, v] of Object.entries(opts.override))
       if (v !== undefined) merged[k] = v;
+  }
+  // After the override so a curated correction wins, and never over a real
+  // source value: an embedding mistyped as text upstream is a type bug to fix at
+  // the source, not something to paper over per-consumer.
+  const existing = merged.outputModalities;
+  if (!Array.isArray(existing) || existing.length === 0) {
+    const type = opts.modelType ?? inferModelType(opts.modelName);
+    merged.outputModalities = [TYPE_OUTPUT_MODALITY[type]];
   }
   return Object.keys(merged).length > 0 ? merged : undefined;
 }

@@ -552,12 +552,21 @@ export async function runMetadataSync(
   for (const name of names) {
     // `{model}:free` published names have no `:free` key in the pricing sources;
     // fall back to the bare base so the alias inherits the real metadata.
+    const modelType = imageChannelModels.has(name)
+      ? "image"
+      : inferModelType(name);
     const merged =
-      buildModelMetadata({ modelName: name, sources, reverseMapping }) ??
+      buildModelMetadata({
+        modelName: name,
+        sources,
+        reverseMapping,
+        modelType,
+      }) ??
       buildModelMetadata({
         modelName: toBareName(name),
         sources,
         reverseMapping,
+        modelType,
       });
 
     // A checkpoint name can fuzzy-match a text model in the pricing sources
