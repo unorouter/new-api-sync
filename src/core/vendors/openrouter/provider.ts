@@ -268,7 +268,9 @@ export async function processOpenRouterProvider(
             const reliableHosts = hosts.filter(
               (h) =>
                 (h.uptime == null || h.uptime >= MIN_HOST_UPTIME_PCT) &&
-                !SUB_FP8_QUANTIZATIONS.has((h.quantization ?? "").toLowerCase()) &&
+                !SUB_FP8_QUANTIZATIONS.has(
+                  (h.quantization ?? "").toLowerCase(),
+                ) &&
                 !EXCLUDED_HOSTS.has(h.provider.toLowerCase()),
             );
             for (const h of hosts) {
@@ -291,8 +293,8 @@ export async function processOpenRouterProvider(
             // Keyed by glob against the exposed name, matching priceAdjustment. Absent
             // key = 1 host, so fanning out stays opt-in per model.
             const hostsWanted =
-              Object.entries(providerConfig.hostsPerModel ?? {}).find(([glob]) =>
-                matchesAnyPattern(r.exposed, [glob]),
+              Object.entries(providerConfig.hostsPerModel ?? {}).find(
+                ([glob]) => matchesAnyPattern(r.exposed, [glob]),
               )?.[1] ?? 1;
             const cheapestHosts = [...reliableHosts]
               .sort((a, b) => a.prompt - b.prompt)
