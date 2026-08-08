@@ -251,8 +251,9 @@ export const ConfigSchema = T.Object({
   // matches the glob. `override` (default false) prepends ours to a user-supplied
   // system message; false only injects when the request carries none. Keyed by
   // model glob (micromatch). Used to lift soft refusals on CN models (deepseek/glm).
+  // Empty prompt = clear a previously synced prompt from matching channels.
   // prettier-ignore
-  systemPrompt: Opt(T.Array(T.Object({ models: T.Array(str, { minItems: 1 }), prompt: str, override: Opt(T.Boolean()) }))),
+  systemPrompt: Opt(T.Array(T.Object({ models: T.Array(str, { minItems: 1 }), prompt: T.String(), override: Opt(T.Boolean()) }))),
   // prettier-ignore
   rateLimit: Opt(T.Object({
     // success = successful requests per window; total = attempts incl. failures

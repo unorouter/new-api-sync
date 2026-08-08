@@ -96,7 +96,11 @@ function filterGroupModels(
 }
 
 const CHEAPEST_FALLBACK_MAX = 3;
-type GateDecisionMap = Map<string, "keep" | "drop">;
+// "drop-noscreen": dropped AND exempt from the dropped-claude authenticity screen.
+// Screening probes bill at the group's real ratio, so a far-over-canonical group
+// (claudemax_x5 at 500x) burns real money verifying a lane that can never serve.
+const SCREEN_DROPPED_MAX = 2;
+type GateDecisionMap = Map<string, "keep" | "drop" | "drop-noscreen">;
 
 function softCanonical(vote: PricingVoteResult): number | undefined {
   const ratios = vote.candidates
@@ -264,7 +268,12 @@ function planPreTestDecisions(opts: {
     if (atOrBelow.length > 0) {
       for (const c of candidates) {
         if (c.charge !== undefined && c.charge > canonical) {
-          decisions.set(c.key, "drop");
+          decisions.set(
+            c.key,
+            c.charge <= canonical * SCREEN_DROPPED_MAX
+              ? "drop"
+              : "drop-noscreen",
+          );
           consola.info(
             t("CORE.PRICING.PRE_TEST_DROP", {
               model: exposed,
@@ -299,7 +308,13 @@ function planPreTestDecisions(opts: {
           ratio: ratio.toFixed(1),
         }),
       );
-      for (const c of candidates) decisions.set(c.key, "drop");
+      for (const c of candidates)
+        decisions.set(
+          c.key,
+          (c.charge ?? Infinity) <= canonical * SCREEN_DROPPED_MAX
+            ? "drop"
+            : "drop-noscreen",
+        );
       continue;
     }
     consola.info(
@@ -317,7 +332,10 @@ function planPreTestDecisions(opts: {
         decisions.set(c.key, "keep");
         continue;
       }
-      decisions.set(c.key, "drop");
+      decisions.set(
+        c.key,
+        c.charge! <= canonical * SCREEN_DROPPED_MAX ? "drop" : "drop-noscreen",
+      );
       consola.info(
         t("CORE.PRICING.PRE_TEST_DROP_NOT_CHEAPEST", {
           model: exposed,
@@ -543,8 +561,9 @@ export async function processNewApiProvider(
             const gatedModels = gateDecisions
               ? vendorModels.filter(
                   (m) =>
-                    gateDecisions.get(`${p.group.name}|${vendor}|${m}`) !==
-                    "drop",
+                    !gateDecisions
+                      .get(`${p.group.name}|${vendor}|${m}`)
+                      ?.startsWith("drop"),
                 )
               : vendorModels;
             const droppedModels = gateDecisions
@@ -584,13 +603,7 @@ export async function processNewApiProvider(
                   providerLabel: `${probeLabel}/${vendor}`,
                   testableModelTypes: getTestModelTypes(config, providerConfig),
                   modelEndpoints: localNormalizedEndpoints,
-                  // 429 on a free-lane model = capacity throttle, keep it; paid
-                  // models must genuinely pass.
-                  acceptRateLimited: providerConfig.acceptRateLimited
-                    ? (m: string) =>
-                        (pricingByName.get(m)?.ratio ?? 1) === 0 ||
-                        m.endsWith("-free")
-                    : undefined,
+                  acceptRateLimited: providerConfig.acceptRateLimited,
                   capabilities: buildCapabilityMap(
                     gatedModels,
                     lowercaseExposed(config),
