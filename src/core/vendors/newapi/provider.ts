@@ -593,6 +593,7 @@ export async function processNewApiProvider(
               ? {
                   workingModels: gatedModels,
                   testedCount: gatedModels.length,
+                  rateLimitedModels: [] as string[],
                   details: undefined,
                 }
               : await testAndFilterModels({
@@ -618,6 +619,7 @@ export async function processNewApiProvider(
                 offer: null,
               };
             const seen = new Set<string>();
+            const rateLimitedSet = new Set(filterResult.rateLimitedModels);
             const dedupedOfferModels: OfferModel[] = [];
             for (const upstreamName of workingUpstream) {
               const exposed = (
@@ -645,6 +647,9 @@ export async function processNewApiProvider(
                 upstream: upstreamName,
                 modelType,
                 ...(isFree ? { isFree: true } : {}),
+                ...(rateLimitedSet.has(upstreamName)
+                  ? { rateLimited: true }
+                  : {}),
                 upstreamRatio: tieredEff?.modelRatio ?? m?.ratio,
                 upstreamCompletionRatio:
                   tieredEff?.completionRatio ?? m?.completionRatio,
