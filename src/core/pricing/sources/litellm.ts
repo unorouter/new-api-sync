@@ -75,6 +75,10 @@ function toPricing(
   return pricing;
 }
 
+// Above this, an output cap that merely echoes the context window is a data artifact:
+// the largest real single-response ceiling any vendor publishes is ~128k.
+const MAX_PLAUSIBLE_OUTPUT_TOKENS = 200_000;
+
 // prettier-ignore
 const BOOL_FIELD_MAP: Array<[keyof LiteLLMEntry, keyof SourceMetadata]> = [["supports_reasoning","isReasoning"],["supports_function_calling","supportsTools"],["supports_parallel_function_calling","supportsParallelTools"],["supports_audio_input","supportsAudio"],["supports_video_input","supportsVideo"],["supports_pdf_input","supportsPdf"],["supports_prompt_caching","supportsCache"],["supports_response_schema","supportsResponseFormat"],["supports_web_search","supportsWebSearch"],["supports_computer_use","supportsComputerUse"],["supports_assistant_prefill","supportsAssistantPrefill"],["supports_code_execution","supportsCodeExecution"],["supports_file_search","supportsFileSearch"],["supports_service_tier","supportsServiceTier"],["supports_url_context","supportsUrlContext"],["supports_audio_output","supportsAudioOutput"],["supports_native_streaming","supportsNativeStreaming"],["supports_native_structured_output","supportsNativeStructuredOutput"],["supports_system_messages","supportsSystemMessages"]];
 
@@ -84,9 +88,24 @@ function toMetadata(entry: LiteLLMEntry): SourceMetadata {
     md.maxInputTokens = entry.max_input_tokens;
     md.contextWindow = entry.max_input_tokens;
   }
-  if (entry.max_output_tokens != null)
+  // An "output cap" equal to the context window AND implausibly large is litellm
+  // mirroring one published number into both fields, not a real ceiling (every xAI
+  // grok entry claims 2M output tokens this way). Small equal values are genuine -
+  // a 4k-context llama really does allow 4k out - so only drop above the threshold,
+  // where no model actually generates that much in one response.
+  const mirroredContext =
+    entry.max_input_tokens != null &&
+    entry.max_input_tokens > MAX_PLAUSIBLE_OUTPUT_TOKENS;
+  if (
+    entry.max_output_tokens != null &&
+    !(mirroredContext && entry.max_output_tokens === entry.max_input_tokens)
+  )
     md.maxOutputTokens = entry.max_output_tokens;
-  else if (entry.max_tokens != null) md.maxOutputTokens = entry.max_tokens;
+  else if (
+    entry.max_tokens != null &&
+    !(mirroredContext && entry.max_tokens === entry.max_input_tokens)
+  )
+    md.maxOutputTokens = entry.max_tokens;
   if (entry.supports_vision != null) md.supportsVision = entry.supports_vision;
   else if (entry.supports_image_input != null)
     md.supportsVision = entry.supports_image_input;
