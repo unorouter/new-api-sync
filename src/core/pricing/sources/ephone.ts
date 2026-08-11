@@ -3,6 +3,7 @@ import { tryFetchJson } from "@core/infra/http";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 
+import { isImplausibleOutputCap } from "./build";
 import {
   type BaseModelPricing,
   type PricingSource,
@@ -54,7 +55,11 @@ function toMetadata(m: EphoneModelInfo): SourceMetadata {
   if (cutoff) md.knowledgeCutoff = cutoff;
   if (typeof m.limit?.context === "number" && m.limit.context > 0)
     md.contextWindow = m.limit.context;
-  if (typeof m.limit?.output === "number" && m.limit.output > 0)
+  if (
+    typeof m.limit?.output === "number" &&
+    m.limit.output > 0 &&
+    !isImplausibleOutputCap(m.limit.output, md.contextWindow)
+  )
     md.maxOutputTokens = m.limit.output;
   const inputs = m.modalities?.input ?? [];
   if (inputs.includes("image")) md.supportsVision = true;

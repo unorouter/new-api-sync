@@ -15,6 +15,25 @@ import type { BaseModelPricing, SourceMetadata } from "./types";
  * basellm has its own loop because it filters by canonical vendor and merges
  * across rows; it does NOT use this helper.
  */
+// Above this, an "output cap" is a data artifact rather than a real ceiling: the
+// largest single-response limit any vendor publishes is ~128k. Sources mirror the
+// context window into the output field when a vendor publishes only one number
+// (litellm does it for every xAI entry, ephone reports 2M out on a 500k context),
+// and publishing that lets a client request an impossible max_tokens.
+export const MAX_PLAUSIBLE_OUTPUT_TOKENS = 200_000;
+
+// An output cap is implausible when it exceeds the plausibility ceiling AND is not
+// smaller than the context window it belongs to. Below the ceiling a value equal to
+// context is genuine (a 4k-context llama really does allow 4k out).
+export function isImplausibleOutputCap(
+  maxOutput: number | undefined,
+  contextWindow: number | undefined,
+): boolean {
+  if (maxOutput === undefined || maxOutput <= MAX_PLAUSIBLE_OUTPUT_TOKENS)
+    return false;
+  return contextWindow === undefined || maxOutput >= contextWindow;
+}
+
 export function buildPricingMaps<T>(opts: {
   entries: Iterable<[string, T]>;
   toPricing: (key: string, entry: T) => BaseModelPricing | undefined;
