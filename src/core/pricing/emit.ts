@@ -106,6 +106,9 @@ function buildSettingJson(tier: PricedTier): string | undefined {
 
   if (tier.passThroughBody) setting.pass_through_body_enabled = true;
 
+  if (tier.autoTestIntervalMinutes)
+    setting.auto_test_interval_minutes = tier.autoTestIntervalMinutes;
+
   if (tier.systemPrompt) {
     setting.system_prompt = tier.systemPrompt;
     if (tier.systemPromptOverride) setting.system_prompt_override = true;

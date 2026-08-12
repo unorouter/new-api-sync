@@ -42,6 +42,10 @@ export interface PricedTier {
    *  Media channels need it so non-struct fields (image_urls, vendor extras) survive new-api's
    *  ImageRequest re-marshal, which drops unknown fields. */
   passThroughBody?: boolean;
+  /** Scheduled-test cadence in minutes (channel.setting.auto_test_interval_minutes).
+   *  Set for exit-IP-metered lanes, where each probe spends part of a small per-IP
+   *  request budget that real traffic needs. */
+  autoTestIntervalMinutes?: number;
   /** Channel-level system prompt (channel.setting.system_prompt) injected on every
    *  request. Lifts CN-model soft refusals. */
   systemPrompt?: string;

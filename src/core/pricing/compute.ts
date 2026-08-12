@@ -33,6 +33,8 @@ interface ComputeArgs {
   modelMapping: Record<string, string>;
   modelAlias?: Record<string, string[]>;
   systemPrompt?: { models: string[]; prompt: string; override?: boolean }[];
+  /** Per-provider scheduled-test cadence, keyed by provider name. */
+  autoTestIntervalByProvider?: Map<string, number>;
 }
 
 const PAID_GROUP_RATIO_CANDIDATES = [1, 0.5, 0.25, 0.1, 0.05, 0.01] as const;
@@ -665,6 +667,13 @@ function pushBucketsAsTiers(
           : undefined,
         testDetails: m.testDetail ? [m.testDetail] : undefined,
         paramOverride,
+        ...(args?.autoTestIntervalByProvider?.get(offer.provider)
+          ? {
+              autoTestIntervalMinutes: args.autoTestIntervalByProvider.get(
+                offer.provider,
+              ),
+            }
+          : {}),
         ...(m.failoverDuplicate ? { failoverDuplicate: true } : {}),
         // Media channels carry refs/extras (image_urls, multipart) new-api drops on
         // re-marshal; pass the raw body through. EXCEPT ALI (17): DashScope's task
