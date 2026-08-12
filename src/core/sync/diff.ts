@@ -48,6 +48,16 @@ function extractPassThrough(setting?: string): boolean | undefined {
   }
 }
 
+function extractAutoTestInterval(setting?: string): number | undefined {
+  if (!setting) return undefined;
+  try {
+    const v = JSON.parse(setting)?.auto_test_interval_minutes;
+    return typeof v === "number" && v > 0 ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function extractThinkingToContent(setting?: string): boolean | undefined {
   if (!setting) return undefined;
   try {
@@ -83,11 +93,13 @@ function mergeSettingCapabilities(
   const desiredPassThrough = extractPassThrough(desiredSetting);
   const desiredSysPrompt = extractSystemPrompt(desiredSetting);
   const desiredThinking = extractThinkingToContent(desiredSetting);
+  const desiredAutoTestInterval = extractAutoTestInterval(desiredSetting);
   if (
     !desiredCaps &&
     desiredPassThrough === undefined &&
     !desiredSysPrompt &&
-    desiredThinking === undefined
+    desiredThinking === undefined &&
+    desiredAutoTestInterval === undefined
   )
     return undefined;
   let existing: Record<string, unknown> = {};
@@ -110,6 +122,8 @@ function mergeSettingCapabilities(
     existing.system_prompt_override = desiredSysPrompt.override;
   }
   if (desiredThinking) existing.thinking_to_content = true;
+  if (desiredAutoTestInterval !== undefined)
+    existing.auto_test_interval_minutes = desiredAutoTestInterval;
   return JSON.stringify(existing);
 }
 
@@ -118,7 +132,14 @@ function normalizeCapabilities(setting?: string): string | undefined {
   const caps = extractCapabilities(setting);
   const passThrough = extractPassThrough(setting);
   const sysPrompt = extractSystemPrompt(setting);
-  if (!caps && passThrough === undefined && !sysPrompt) return undefined;
+  const autoTestInterval = extractAutoTestInterval(setting);
+  if (
+    !caps &&
+    passThrough === undefined &&
+    !sysPrompt &&
+    autoTestInterval === undefined
+  )
+    return undefined;
   return JSON.stringify({
     ...(caps ? { capabilities: caps } : {}),
     ...(passThrough !== undefined
@@ -129,6 +150,9 @@ function normalizeCapabilities(setting?: string): string | undefined {
           system_prompt: sysPrompt.prompt,
           system_prompt_override: sysPrompt.override,
         }
+      : {}),
+    ...(autoTestInterval !== undefined
+      ? { auto_test_interval_minutes: autoTestInterval }
       : {}),
   });
 }

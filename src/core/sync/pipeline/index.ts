@@ -134,7 +134,7 @@ export async function runProviderPipeline(
   for (const p of config.providers) {
     if ("baseUrl" in p && p.baseUrl && p.perUpstreamConcurrency)
       overrides.set(p.baseUrl, p.perUpstreamConcurrency);
-    if (p.autoTestIntervalMinutes)
+    if ("autoTestIntervalMinutes" in p && p.autoTestIntervalMinutes)
       autoTestIntervalByProvider.set(p.name, p.autoTestIntervalMinutes);
   }
   setConcurrencyGate(
