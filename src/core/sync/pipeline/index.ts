@@ -40,7 +40,7 @@ import {
   isRoutingOnlyAlias,
   type ToolEvidence,
 } from "./desired-models";
-import { buildOptionMaps } from "./option-maps";
+import { buildOptionMaps, buildSurvivingGroups } from "./option-maps";
 import { buildPrivateGroups } from "./private-groups";
 import { runAllProviders } from "./providers";
 
@@ -331,6 +331,13 @@ export async function runProviderPipeline(
     config.modelMapping,
     allPricingGrids,
     config.rateLimit,
+    targetSnapshot
+      ? buildSurvivingGroups(
+          targetSnapshot.channels,
+          targetSnapshot.options,
+          new Set(priv.mergedGroups.map((g) => g.name)),
+        )
+      : undefined,
   );
 
   for (const provider of config.providers) {

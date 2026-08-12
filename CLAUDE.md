@@ -173,6 +173,16 @@ recreate with precision; never a full `sync run` to fix one model.
   (apply.ts): full post-apply channel list, protects the run's own diff groups, removes a
   usable/auto entry only when NO channel of any status carries the group. GroupRatio is never
   pruned at all (subscription tiers bill through it). Do not reintroduce a group guard in the merge.
+  The prune also logs the group NAMES it removed, not just a count - a bare count left the
+  sail-research incident undiagnosable.
+- **A published group with an ENABLED channel is re-asserted every run** (`buildSurvivingGroups` ->
+  `buildOptionMaps`). Additive-merge alone was not enough: the entries only ever came from THIS run's
+  offers, so an upstream blip (an OpenRouter host dipping under `MIN_HOST_UPTIME_PCT`, a free tier
+  throttling mid-probe) dropped the group from the run's maps, the prune then deleted it, and nothing
+  restored it when the upstream recovered - removal was one-way. Live incident: `sail-research`, the
+  CHEAPEST glm-5.2 host, sat enabled+priced but invisible for two days. Recovery is deliberately
+  narrower than the prune: it needs `status === 1` (never resurrects a disabled lane) and only
+  re-publishes groups ALREADY in `UserUsableGroups` (never publishes a private or brand-new group).
 - **Upstream token deletion only on FULL provider runs.** `cleanupEmptyGroupTokens` deletes a
   provider's `<group>-<prefix>` token when the group produced zero working offers - under a
   `--models`/`--type` filter that conflates "dead group" with "group's models were filtered out",

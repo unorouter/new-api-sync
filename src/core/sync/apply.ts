@@ -196,6 +196,10 @@ async function pruneDeadOptionGroups(
 
   const opts = await target.getOptions(["UserUsableGroups", "AutoGroups"]);
   let pruned = 0;
+  // Named, not just counted: a transient upstream blip (an OpenRouter host dipping
+  // under MIN_HOST_UPTIME_PCT for one run) silently cost the cheapest glm-5.2 lane
+  // its visibility for two days, and a bare count left nothing to diagnose from.
+  const prunedNames = new Set<string>();
 
   const usable = JSON.parse(opts["UserUsableGroups"] ?? "{}") as Record<
     string,
@@ -204,7 +208,10 @@ async function pruneDeadOptionGroups(
   const keptUsable: Record<string, string> = {};
   for (const [g, label] of Object.entries(usable)) {
     if (BASE_GROUPS.has(g) || live.has(g)) keptUsable[g] = label;
-    else pruned++;
+    else {
+      pruned++;
+      prunedNames.add(g);
+    }
   }
   if (Object.keys(keptUsable).length !== Object.keys(usable).length)
     await target.updateOption("UserUsableGroups", JSON.stringify(keptUsable));
@@ -213,9 +220,16 @@ async function pruneDeadOptionGroups(
   const keptAuto = auto.filter((g) => BASE_GROUPS.has(g) || live.has(g));
   if (keptAuto.length !== auto.length) {
     pruned += auto.length - keptAuto.length;
+    for (const g of auto)
+      if (!BASE_GROUPS.has(g) && !live.has(g)) prunedNames.add(g);
     await target.updateOption("AutoGroups", JSON.stringify(keptAuto));
   }
 
   if (pruned > 0)
-    consola.info(t("CORE.SYNC.DEAD_GROUPS_PRUNED", { count: pruned }));
+    consola.info(
+      t("CORE.SYNC.DEAD_GROUPS_PRUNED", {
+        count: pruned,
+        names: [...prunedNames].sort().join(", "),
+      }),
+    );
 }

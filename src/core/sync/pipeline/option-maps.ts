@@ -9,6 +9,46 @@ import type {
 import { t } from "@server/i18n";
 import micromatch from "micromatch";
 
+// Groups that still have an enabled channel in the target, with the labels/ratios
+// already published for them, so a run that failed to re-offer one can restore it
+// instead of letting the prune drop it.
+export interface SurvivingGroups {
+  labels: Map<string, string>;
+  ratios: Map<string, number>;
+  private: Set<string>;
+}
+
+export function buildSurvivingGroups(
+  channels: { group?: string; status?: number }[],
+  options: Record<string, string>,
+  privateGroups: Set<string>,
+): SurvivingGroups {
+  const parse = <T>(key: string, fallback: T): T => {
+    try {
+      return JSON.parse(options[key] ?? "") as T;
+    } catch {
+      return fallback;
+    }
+  };
+  const publishedLabels = parse<Record<string, string>>("UserUsableGroups", {});
+  const publishedRatios = parse<Record<string, number>>("GroupRatio", {});
+
+  const labels = new Map<string, string>();
+  const ratios = new Map<string, number>();
+  for (const ch of channels) {
+    if (ch.status !== 1) continue;
+    for (const raw of (ch.group ?? "").split(",")) {
+      const g = raw.trim();
+      // Only groups the gateway ALREADY published: this restores what a blip
+      // dropped, it does not publish a group that was never user-visible.
+      if (!g || !(g in publishedLabels)) continue;
+      labels.set(g, publishedLabels[g]!);
+      if (publishedRatios[g] !== undefined) ratios.set(g, publishedRatios[g]!);
+    }
+  }
+  return { labels, ratios, private: privateGroups };
+}
+
 // Per-model rate limits apply ONLY to `:free` published names; paid models are
 // never limited. Two layers: `modality` is the default cap per model type
 // (resolved by inferModelType so new models inherit with no config edit), and
@@ -51,6 +91,7 @@ export function buildOptionMaps(
   modelMapping: Record<string, string>,
   configGridPricing: Record<string, Record<string, string | number>[]>,
   rateLimit: RuntimeConfig["rateLimit"],
+  survivingGroups?: SurvivingGroups,
 ): Omit<ManagedOptionMaps, "responsesApiModels" | "defaultUseAutoGroup"> {
   const r4 = (n: number) => Math.round(n * 10000) / 10000;
   const groupRatio: Record<string, number> = {};
@@ -63,10 +104,25 @@ export function buildOptionMaps(
     if (!group.private) userUsableGroups[group.name] = group.description;
   }
 
-  const autoGroups = [...mergedGroups]
-    .filter((g) => !g.private)
-    .sort((a, b) => a.ratio - b.ratio)
-    .map((g) => g.name);
+  // A group only enters the maps above when THIS run produced an offer for it, and
+  // the prune then drops anything absent. So a lane whose upstream merely blipped
+  // (an OpenRouter host under MIN_HOST_UPTIME_PCT, a free tier throttling mid-probe)
+  // lost its visibility and never got it back once the upstream recovered - the
+  // removal was one-way. Re-assert groups that still have an enabled channel so a
+  // transient miss costs nothing permanent.
+  const recovered: string[] = [];
+  for (const [name, label] of survivingGroups?.labels ?? []) {
+    if (name in userUsableGroups || survivingGroups?.private.has(name))
+      continue;
+    userUsableGroups[name] = label;
+    recovered.push(name);
+    groupRatio[name] ??= survivingGroups?.ratios.get(name) ?? 1;
+  }
+
+  const autoGroups = [
+    ...[...mergedGroups].filter((g) => !g.private).map((g) => g.name),
+    ...recovered,
+  ].sort((a, b) => (groupRatio[a] ?? 1) - (groupRatio[b] ?? 1));
 
   const modelRatio: Record<string, number> = {};
   const completionRatio: Record<string, number> = {};

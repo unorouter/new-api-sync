@@ -39,7 +39,7 @@
     "ERROR": "Error: {error}"
   },
   "SYNC": {
-    "DEAD_GROUPS_PRUNED": "Pruned {count} dead group(s) from UserUsableGroups/AutoGroups",
+    "DEAD_GROUPS_PRUNED": "Pruned {count} dead group(s) from UserUsableGroups/AutoGroups: {names}",
     "TITLE": "Sync pipeline",
     "DESCRIPTION": "Run a full sync or reset managed resources.",
     "RUN": "Run",
@@ -478,7 +478,7 @@
       "VENDOR_CREATED": "Created vendor \"{name}\" (id={id}, icon={icon})",
       "VENDOR_CREATE_FAILED": "Failed to create vendor \"{name}\"",
       "ICON_NONE": "none",
-      "DEAD_GROUPS_PRUNED": "Pruned {count} dead group(s) from UserUsableGroups/AutoGroups"
+      "DEAD_GROUPS_PRUNED": "Pruned {count} dead group(s) from UserUsableGroups/AutoGroups: {names}"
     },
     "PIPELINE": {
       "BASELLM_NO_ENTRIES": "No basellm entries available for ratio backfill",
