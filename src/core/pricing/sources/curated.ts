@@ -156,6 +156,18 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
     maxInputTokens: 262_144,
     series: "Ling",
   },
+  // The model card's config.json caps max_position_embeddings at 131072; the 262144
+  // window OpenRouter serves needs the YaRN override (factor 2.0) from the card's own
+  // SGLang recipe. Matching what upstream actually serves, as ling-3.0-flash does.
+  "ling-3.0-tiny": {
+    releaseDate: iso("2026-08-10"),
+    contextWindow: 262_144,
+    maxInputTokens: 262_144,
+    maxOutputTokens: 32_768,
+    series: "Ling",
+    isReasoning: true,
+    supportsTools: true,
+  },
   // Rolling alias to the latest Gemini Flash (approximate; tracks 2.5 Flash GA).
   "gemini-flash-latest": { releaseDate: iso("2025-09-25") },
   // Google Lyria 3 music gen: base 2026-02-18, Pro 2026-03-25.
@@ -171,6 +183,30 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   "qwen3-coder-480b-a35b-instruct": { releaseDate: iso("2025-07-22") },
   "qwen3-embedding-4b": { releaseDate: iso("2025-06-05") },
   "qwen3-embedding-8b": { releaseDate: iso("2025-06-05") },
+  // litellm reports 1024 for the bare Embed v3 keys, which is the EMBEDDING DIMENSION,
+  // not the context length. Cohere's model table gives 512 max tokens for the whole
+  // Embed v3 family, and litellm's own bedrock/oci keys for these models agree on 512.
+  // (embed-v4.0 really is 128k and is left alone.)
+  "embed-english-v3.0": {
+    contextWindow: 512,
+    maxInputTokens: 512,
+    maxOutputTokens: 512,
+  },
+  "embed-english-light-v3.0": {
+    contextWindow: 512,
+    maxInputTokens: 512,
+    maxOutputTokens: 512,
+  },
+  "embed-multilingual-v3.0": {
+    contextWindow: 512,
+    maxInputTokens: 512,
+    maxOutputTokens: 512,
+  },
+  "embed-multilingual-light-v3.0": {
+    contextWindow: 512,
+    maxInputTokens: 512,
+    maxOutputTokens: 512,
+  },
   "qwen3-reranker-0.6b": { releaseDate: iso("2025-06-05") },
   "qwen3-reranker-8b": { releaseDate: iso("2025-06-05") },
   "whisper-large-v3": { releaseDate: iso("2023-11-07") },
@@ -1113,6 +1149,13 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // Runware Civitai checkpoints. No upstream pricing source lists community
   // checkpoints, so without these they render dateless and undescribed.
+  // Passthrough lane: the checkpoint is chosen per request, so it has no single
+  // release date or architecture to report.
+  "custom-civitai": {
+    mode: "image",
+    description:
+      "Passthrough lane for any Civitai checkpoint: paste a model URL and it renders on that checkpoint.",
+  },
   "anything-xl": {
     releaseDate: iso("2024-03-10"),
     series: "SDXL",
@@ -1514,6 +1557,14 @@ const CURATED: Record<string, SourceMetadata> = {
     mode: "embedding",
   },
   "embed-multilingual-light-v3.0": {
+    releaseDate: iso("2023-11-02"),
+    contextWindow: 512,
+    mode: "embedding",
+  },
+  // Duplicate of embed-multilingual-v3.0 under the vendor-prefixed id. toBareName
+  // keeps a `cohere-` prefix (it is not a known host/org prefix it strips), so the
+  // unprefixed key above never matches the published cohere-embed-* name.
+  "cohere-embed-multilingual-v3.0": {
     releaseDate: iso("2023-11-02"),
     contextWindow: 512,
     mode: "embedding",
