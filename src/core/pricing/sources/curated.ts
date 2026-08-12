@@ -563,6 +563,14 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2026-01-20"),
     contextWindow: 32_768,
   },
+  "lfm-2.5-2.6b": {
+    releaseDate: iso("2026-08-11"),
+    contextWindow: 128_000,
+    maxInputTokens: 128_000,
+    maxOutputTokens: 32_768,
+    isReasoning: true,
+    supportsTools: true,
+  },
   // H Company
   "holo2-30b-a3b": {
     releaseDate: iso("2025-11-10"),
@@ -1149,6 +1157,73 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // Runware Civitai checkpoints. No upstream pricing source lists community
   // checkpoints, so without these they render dateless and undescribed.
+  // NVIDIA build.nvidia.com models no upstream source carries: the NIM /v1/models
+  // response returns only id + owned_by (its `created` is a constant stub), so context
+  // and dates come from each model's HuggingFace card config.json.
+  "nemotron-3.5-lightning-30b-a3b": {
+    releaseDate: iso("2026-08-01"),
+    contextWindow: 262_144,
+    maxInputTokens: 262_144,
+    series: "Nemotron",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "nemotron-3-embed-1b": {
+    releaseDate: iso("2026-07-14"),
+    contextWindow: 262_144,
+    mode: "embedding",
+  },
+  // OpenRouter's alias for the 30b-a3b build; it serves 1M on the free lane.
+  "nemotron-3.5-lightning": {
+    releaseDate: iso("2026-08-01"),
+    contextWindow: 1_000_000,
+    maxInputTokens: 1_000_000,
+    maxOutputTokens: 65_536,
+    series: "Nemotron",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // gemma-4-31b derivative, image-text-to-text.
+  "ising-calibration-1.5-31b": {
+    releaseDate: iso("2026-07-13"),
+    contextWindow: 262_144,
+    maxInputTokens: 262_144,
+    supportsVision: true,
+  },
+  "riva-translate-4b-instruct-v2": {
+    releaseDate: iso("2026-04-15"),
+    contextWindow: 8_192,
+    maxInputTokens: 8_192,
+  },
+  // Meta Superintelligence Labs, distilled from Muse Spark. Multimodal.
+  "muse-glimmer-30b": {
+    releaseDate: iso("2026-08-09"),
+    contextWindow: 131_072,
+    maxInputTokens: 131_072,
+    series: "Muse",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // Thinking Machines Lab MoE: 41B active of 975B. The :batch and -small variants
+  // report 512K; the base lane is 1M.
+  inkling: {
+    releaseDate: iso("2026-07-17"),
+    contextWindow: 1_048_576,
+    maxInputTokens: 1_048_576,
+    maxOutputTokens: 262_144,
+    series: "Inkling",
+    supportsVision: true,
+    supportsTools: true,
+  },
+  "inkling-small": {
+    releaseDate: iso("2026-07-30"),
+    contextWindow: 524_288,
+    maxInputTokens: 524_288,
+    maxOutputTokens: 262_144,
+    series: "Inkling",
+    supportsVision: true,
+    supportsTools: true,
+  },
   // Passthrough lane: the checkpoint is chosen per request, so it has no single
   // release date or architecture to report.
   "custom-civitai": {
