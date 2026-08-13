@@ -252,15 +252,46 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   "grok-4": { releaseDate: iso("2025-07-09") },
   "grok-code-fast-1": { releaseDate: iso("2025-08-28") },
   "voyage-context-3": { releaseDate: iso("2025-07-23") },
-  "grok-4-fast-reasoning": { releaseDate: iso("2025-09-19") },
-  "grok-4-fast-non-reasoning": { releaseDate: iso("2025-09-19") },
-  "grok-4.1-fast-reasoning": { releaseDate: iso("2025-11-01") },
-  "grok-4.1-fast-non-reasoning": { releaseDate: iso("2025-11-01") },
+  // litellm carries two figures per fast model: xai/* and vertex_ai/xai/* report
+  // 2000000 (xAI's real window) while azure_ai/* and oci/* report 131072 (their own
+  // deployment caps). The resolver picked the capped variant, so the 2M figure in
+  // CURATED never applied - pin it here.
+  "grok-4-fast-reasoning": {
+    releaseDate: iso("2025-09-19"),
+    contextWindow: 2_000_000,
+    maxInputTokens: 2_000_000,
+  },
+  "grok-4-fast-non-reasoning": {
+    releaseDate: iso("2025-09-19"),
+    contextWindow: 2_000_000,
+    maxInputTokens: 2_000_000,
+  },
+  "grok-4.1-fast-reasoning": {
+    releaseDate: iso("2025-11-01"),
+    contextWindow: 2_000_000,
+    maxInputTokens: 2_000_000,
+  },
+  "grok-4.1-fast-non-reasoning": {
+    releaseDate: iso("2025-11-01"),
+    contextWindow: 2_000_000,
+    maxInputTokens: 2_000_000,
+  },
   "grok-4.5": {
     releaseDate: iso("2026-07-08"),
     contextWindow: 500_000,
     series: "Grok",
     isReasoning: true,
+    supportsTools: true,
+  },
+  // Relays report 131072 (and echo it as maxOutputTokens); xAI and OpenRouter both
+  // serve the 500K window, same as 4.5.
+  "grok-4.6": {
+    releaseDate: iso("2026-08-12"),
+    contextWindow: 500_000,
+    maxInputTokens: 500_000,
+    series: "Grok",
+    isReasoning: true,
+    supportsVision: true,
     supportsTools: true,
   },
   // grok.com web reverse. The published names are the proxy's mode names, not
