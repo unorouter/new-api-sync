@@ -918,6 +918,19 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "keyless",
   },
   {
+    kind: "vertexcg",
+    label: "Vertex-CG",
+    // vertexN.coding-global.com - Google's ANONYMOUS Agent Platform Studio endpoint
+    // reversed (Go, behind gluetun). No account, no cookie, no card: the request
+    // carries only a per-request reCAPTCHA token, so there is nothing to bill and
+    // nothing to ban. Upstream throttles it on a global time window rather than per
+    // caller, so ~30% of attempts 429 no matter how many exits front it -
+    // acceptRateLimited is mandatory or the tester disables every shard.
+    defaultBaseUrl: "https://vertex1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "vertex key",
+  },
+  {
     kind: "glmcg",
     label: "GLM-CG",
     // glm.coding-global.com - z.ai reverse (chat.z.ai via captcha pool), OpenAI-compat

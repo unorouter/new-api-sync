@@ -12,6 +12,7 @@ import {
 } from "./shared/openai-free-provider";
 import { discoverBynaraModels } from "./bynara/discovery";
 import { discoverGlmCgModels } from "./glmcg/discovery";
+import { discoverVertexCgModels } from "./vertexcg/discovery";
 import { discoverChatGlmModels } from "./chatglm/discovery";
 import { discoverGemini2ApiModels } from "./gemini2api/discovery";
 import { discoverKimiModels } from "./kimi/discovery";
@@ -197,6 +198,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   sealion: discoverSeaLionModels,
   mikiko: discoverMikikoModels,
   glmcg: discoverGlmCgModels,
+  vertexcg: discoverVertexCgModels,
   chatglm: discoverChatGlmModels,
   gemini2api: discoverGemini2ApiModels,
   kimi: discoverKimiModels,
