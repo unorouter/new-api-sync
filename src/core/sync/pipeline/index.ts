@@ -131,11 +131,14 @@ export async function runProviderPipeline(
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
   const overrides = new Map<string, number>();
   const autoTestIntervalByProvider = new Map<string, number>();
+  const autoTestIntervalMaxByProvider = new Map<string, number>();
   for (const p of config.providers) {
     if ("baseUrl" in p && p.baseUrl && p.perUpstreamConcurrency)
       overrides.set(p.baseUrl, p.perUpstreamConcurrency);
     if ("autoTestIntervalMinutes" in p && p.autoTestIntervalMinutes)
       autoTestIntervalByProvider.set(p.name, p.autoTestIntervalMinutes);
+    if ("autoTestIntervalMaxMinutes" in p && p.autoTestIntervalMaxMinutes)
+      autoTestIntervalMaxByProvider.set(p.name, p.autoTestIntervalMaxMinutes);
   }
   setConcurrencyGate(
     new ConcurrencyGate({
@@ -188,6 +191,7 @@ export async function runProviderPipeline(
     modelAlias: config.modelAlias,
     systemPrompt: config.systemPrompt,
     autoTestIntervalByProvider,
+    autoTestIntervalMaxByProvider,
   });
 
   for (const drop of plan.drops)

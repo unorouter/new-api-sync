@@ -35,6 +35,7 @@ interface ComputeArgs {
   systemPrompt?: { models: string[]; prompt: string; override?: boolean }[];
   /** Per-provider scheduled-test cadence, keyed by provider name. */
   autoTestIntervalByProvider?: Map<string, number>;
+  autoTestIntervalMaxByProvider?: Map<string, number>;
 }
 
 const PAID_GROUP_RATIO_CANDIDATES = [1, 0.5, 0.25, 0.1, 0.05, 0.01] as const;
@@ -672,6 +673,12 @@ function pushBucketsAsTiers(
               autoTestIntervalMinutes: args.autoTestIntervalByProvider.get(
                 offer.provider,
               ),
+            }
+          : {}),
+        ...(args?.autoTestIntervalMaxByProvider?.get(offer.provider)
+          ? {
+              autoTestIntervalMaxMinutes:
+                args.autoTestIntervalMaxByProvider.get(offer.provider),
             }
           : {}),
         ...(m.failoverDuplicate ? { failoverDuplicate: true } : {}),

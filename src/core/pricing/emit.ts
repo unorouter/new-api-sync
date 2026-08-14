@@ -108,6 +108,8 @@ function buildSettingJson(tier: PricedTier): string | undefined {
 
   if (tier.autoTestIntervalMinutes)
     setting.auto_test_interval_minutes = tier.autoTestIntervalMinutes;
+  if (tier.autoTestIntervalMaxMinutes)
+    setting.auto_test_interval_max_minutes = tier.autoTestIntervalMaxMinutes;
 
   if (tier.systemPrompt) {
     setting.system_prompt = tier.systemPrompt;

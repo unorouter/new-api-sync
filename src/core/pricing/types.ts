@@ -46,6 +46,10 @@ export interface PricedTier {
    *  Set for exit-IP-metered lanes, where each probe spends part of a small per-IP
    *  request budget that real traffic needs. */
   autoTestIntervalMinutes?: number;
+  /** Upper bound of the scheduled-test window. Above autoTestIntervalMinutes the
+   *  gateway spreads sibling channels across [min,max] by channel id instead of
+   *  letting them all come due in the same cycle. */
+  autoTestIntervalMaxMinutes?: number;
   /** Channel-level system prompt (channel.setting.system_prompt) injected on every
    *  request. Lifts CN-model soft refusals. */
   systemPrompt?: string;
