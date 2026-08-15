@@ -72,9 +72,13 @@ async function paginate<T>(
   return all;
 }
 
+// id_sort forces a stable key: the default ordering ties on priority/weight, so
+// rows shuffle between pages mid-walk and fall through the boundaries. Measured
+// 1667 of 1677 channels returned without it - the 10 lost ones then read as dead
+// groups and pruneDeadOptionGroups deleted their visibility.
 export async function listChannels(ctx: ClientContext): Promise<Channel[]> {
   return paginate(async (page) => {
-    const url = `${ctx.baseUrl}/api/channel/?p=${page}&page_size=${PS}`;
+    const url = `${ctx.baseUrl}/api/channel/?p=${page}&page_size=${PS}&id_sort=true`;
     type R = {
       success: boolean;
       data: { data?: Channel[]; items?: Channel[] } | Channel[];
