@@ -74,6 +74,9 @@ export interface OpenAIFreeOpts {
   /** Keep 429-failing models as working (Cloudflare neuron-cap: 429 = free model,
    *  budget spent, not broken). Only where 429 means capacity. */
   acceptRateLimited?: boolean;
+  /** channel param_override JSON carried on every emitted OfferModel (kind-wide
+   *  field stripping, e.g. Gemini's OpenAI-compat rejecting top_k). */
+  paramOverride?: string;
   skipAuthenticity?: boolean;
 }
 
@@ -114,6 +117,8 @@ export function emitFreeTextOffers(opts: {
   ratioByModel?: Map<string, number>;
   /** upstream id -> completion/input multiplier for paid models. */
   completionRatioByModel?: Map<string, number>;
+  /** channel param_override JSON set on every OfferModel (kind-wide). */
+  paramOverride?: string;
 }): UpstreamOffer[] {
   const offers: UpstreamOffer[] = [];
   const channelType = opts.channelType ?? CHANNEL_TYPES.OPENAI;
@@ -162,6 +167,7 @@ export function emitFreeTextOffers(opts: {
       testDetail: opts.details.find((d) => d.model === x.upstream),
       ...(opts.endpoints ? { endpoints: opts.endpoints } : {}),
       ...(Object.keys(metadata).length ? { metadata } : {}),
+      ...(opts.paramOverride ? { paramOverride: opts.paramOverride } : {}),
     };
   };
   const buildOffer = (
@@ -333,6 +339,7 @@ export async function processOpenAICompatibleFreeProvider(
             paidModels: providerConfig.paidModels,
             ratioByModel,
             completionRatioByModel,
+            paramOverride: opts.paramOverride,
             metadataByModel: getMetadataFromEnabledModels(
               providerConfig.enabledModels,
             ),
@@ -397,6 +404,7 @@ export async function processOpenAICompatibleFreeProvider(
           paidModels: providerConfig.paidModels,
           ratioByModel,
           completionRatioByModel,
+          paramOverride: opts.paramOverride,
           metadataByModel: getMetadataFromEnabledModels(
             providerConfig.enabledModels,
           ),

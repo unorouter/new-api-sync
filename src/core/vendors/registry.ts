@@ -245,5 +245,6 @@ export function processSimpleProvider(
     videoChannelType: def.videoChannelType,
     acceptRateLimited: providerConfig.acceptRateLimited ?? false,
     skipAuthenticity: providerConfig.skipAuthenticity ?? false,
+    paramOverride: def.paramOverride,
   });
 }

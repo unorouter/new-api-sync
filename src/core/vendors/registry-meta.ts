@@ -19,6 +19,9 @@ export interface SimpleProviderMeta {
   /** If set, video models are emitted with this channel type. Omit to skip video.
    *  Bailian = ALI (17) for the DashScope video-synthesis task surface. */
   videoChannelType?: number;
+  /** channel param_override JSON applied to every emitted channel of this kind
+   *  (e.g. Gemini's OpenAI-compat endpoint 400s on unknown sampler fields). */
+  paramOverride?: string;
 }
 
 export const SIMPLE_PROVIDER_META = [
@@ -36,6 +39,21 @@ export const SIMPLE_PROVIDER_META = [
     defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
     defaultRatio: 0,
     apiKeyPlaceholder: "AIza… / AQ.…",
+    // Google's OpenAI-compat surface 400s on unknown fields ("Invalid JSON
+    // payload received. Unknown name top_k"); clients like JanitorAI send them
+    // unconditionally, so every gemini/gemma lane must strip them. List is the
+    // set actually rejected in prod logs; presence_penalty IS accepted.
+    paramOverride: JSON.stringify({
+      operations: [
+        "top_k",
+        "frequency_penalty",
+        "repetition_penalty",
+        "min_p",
+        "top_a",
+        "reasoning",
+        "logit_bias",
+      ].map((path) => ({ path, mode: "delete" })),
+    }),
   },
   {
     kind: "cerebras",
