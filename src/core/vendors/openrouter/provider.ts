@@ -38,9 +38,11 @@ const MIN_HOST_UPTIME_PCT = 90;
 // short of alternatives at, and "unknown" covers the full-precision hosts, so only
 // the explicitly-lower tiers are named here.
 const SUB_FP8_QUANTIZATIONS = new Set(["fp4", "int4", "nf4", "fp6", "int8"]);
-// Hosts we already relay directly. Routing to them via OpenRouter pays OR's cut for
-// a lane we own, so they never win the cheapest-host pick.
-const EXCLUDED_HOSTS = new Set(["deepinfra"]);
+// Hosts we already relay directly (routing via OpenRouter pays OR's cut for a lane we
+// own) plus hosts with confirmed-degraded output. akashml passes probes but its
+// glm-5.2 fp8 garbles names and loses context (user-reported, reproducible against
+// novita's fp8 of the same weights), so its cheap price never wins the host pick.
+const EXCLUDED_HOSTS = new Set(["deepinfra", "akashml"]);
 
 async function fetchOpenRouterBalance(
   baseUrl: string,
