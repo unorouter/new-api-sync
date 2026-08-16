@@ -8,7 +8,10 @@ import {
   MODEL_TYPE_CANONICAL_ENDPOINT,
   normalizeEndpointType,
 } from "@core/catalog/constants/endpoints";
-import { inferModelType } from "@core/catalog/constants/inference";
+import {
+  inferModelType,
+  isModerationModel,
+} from "@core/catalog/constants/inference";
 import type { ModelType } from "@core/types";
 import { parseModelList } from "@core/catalog/constants/patterns";
 import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
@@ -142,6 +145,17 @@ export function buildDesiredModels(opts: {
         });
         continue;
       }
+      // A classifier serves /v1/moderations and no other surface. Without the
+      // pin it inherits the upstream's chat endpoint and the catalog lists it
+      // as a chat model, which it cannot serve.
+      if (isModerationModel(modelName)) {
+        models.set(modelName, {
+          model_name: modelName,
+          vendor,
+          endpoints: JSON.stringify({ moderations: "/v1/moderations" }),
+        });
+        continue;
+      }
       const originalEps =
         opts.originalEndpointsByName.get(modelName) ??
         (upstreamFromChannel
@@ -211,7 +225,15 @@ export function buildDesiredModels(opts: {
         : undefined) ??
       opts.normalizedEndpointsByName.get(originalName);
     const isAiHorde = aiHordeModels.has(modelName);
-    const modelType = isAiHorde ? "image" : inferModelType(modelName, eps);
+    // Diffusion checkpoints are named after the checkpoint, so name inference
+    // reads them as text (epicrealism, rev-animated, pony-diffusion-v6-xl). The
+    // serving channel is the only reliable signal, and both image-only
+    // providers must be consulted: keying on AI Horde alone left every Runware
+    // checkpoint typed text whenever its endpoints were missing.
+    const modelType =
+      isAiHorde || runwareModels.has(modelName)
+        ? "image"
+        : inferModelType(modelName, eps);
     modelTypeByName.set(modelName, modelType);
     const typeTag = modelType.charAt(0).toUpperCase() + modelType.slice(1);
     const isTaskModel =

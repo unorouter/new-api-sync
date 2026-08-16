@@ -7,7 +7,7 @@ import {
 } from "./endpoints";
 
 // prettier-ignore
-const NAME_PATTERN_TYPES: [string, ModelType][] = [["dall-e","image"],["dalle","image"],["gpt-image","image"],["imagen","image"],["midjourney","image"],["mj_","image"],["mj-","image"],["stable-diffusion","image"],["sdxl","image"],["flux","image"],["deliberate","image"],["albedobase-xl","image"],["juggernaut-xl","image"],["wai-nsfw","image"],["pony-realism","image"],["nova-anime-xl","image"],["nova-furry-pony","image"],["seedream","image"],["seededit","image"],["jimeng","image"],["cogvideo","video"],["cogview","image"],["phoenix-","image"],["lucid-","image"],["dreamshaper","image"],["wan2.6-image","image"],["wan2.7-image","image"],["-t2i","image"],["-i2i","image"],["-t2i-","image"],["sora","video"],["veo","video"],["video","video"],["kling","video"],["vidu","video"],["hailuo","video"],["seedance","video"],["happyhorse","video"],["t2v-","video"],["i2v-","video"],["s2v-","video"],["-t2v","video"],["-i2v","video"],["-r2v","video"],["wan2","video"],["wanx","video"],["whisper","audio"],["tts","audio"],["speech","audio"],["text-to-speech","audio"],["speech-to-text","audio"],["eleven_","audio"],["eleven-","audio"],["scribe","audio"],["dubbing","audio"],["suno","audio"],["cosyvoice","audio"],["-asr","audio"],["fun-asr","audio"],["embeddinggemma","embedding"],["embeddings","embedding"],["embedding","embedding"],["embedder","embedding"],["embed","embedding"],["rerankers","embedding"],["reranker","embedding"],["rerank","embedding"],["bge-","embedding"],["m3e-","embedding"],["voyage-","embedding"],["image","image"],["moderation","image"]];
+const NAME_PATTERN_TYPES: [string, ModelType][] = [["dall-e","image"],["dalle","image"],["gpt-image","image"],["imagen","image"],["midjourney","image"],["mj_","image"],["mj-","image"],["stable-diffusion","image"],["sdxl","image"],["flux","image"],["deliberate","image"],["albedobase-xl","image"],["juggernaut-xl","image"],["wai-nsfw","image"],["pony-realism","image"],["nova-anime-xl","image"],["nova-furry-pony","image"],["seedream","image"],["seededit","image"],["jimeng","image"],["cogvideo","video"],["cogview","image"],["phoenix-","image"],["lucid-","image"],["dreamshaper","image"],["wan2.6-image","image"],["wan2.7-image","image"],["-t2i","image"],["-i2i","image"],["-t2i-","image"],["sora","video"],["veo","video"],["video","video"],["kling","video"],["vidu","video"],["hailuo","video"],["seedance","video"],["happyhorse","video"],["t2v-","video"],["i2v-","video"],["s2v-","video"],["-t2v","video"],["-i2v","video"],["-r2v","video"],["wan2","video"],["wanx","video"],["whisper","audio"],["tts","audio"],["speech","audio"],["text-to-speech","audio"],["speech-to-text","audio"],["eleven_","audio"],["eleven-","audio"],["scribe","audio"],["dubbing","audio"],["suno","audio"],["cosyvoice","audio"],["-asr","audio"],["fun-asr","audio"],["embeddinggemma","embedding"],["embeddings","embedding"],["embedding","embedding"],["embedder","embedding"],["embed","embedding"],["rerankers","embedding"],["reranker","embedding"],["rerank","embedding"],["bge-","embedding"],["m3e-","embedding"],["voyage-","embedding"],["image","image"]];
 
 const NON_TEXT_MODEL_PATTERNS = NAME_PATTERN_TYPES.map(([p]) => p);
 
@@ -30,6 +30,16 @@ function matchesNamePattern(name: string, pattern: string): boolean {
   const after = name[i + pattern.length] ?? "";
   const boundary = (c: string) => c === "" || /[^a-z0-9]/.test(c);
   return boundary(before) && boundary(after);
+}
+
+// Moderation classifiers serve /v1/moderations only. They used to be typed as
+// image (the "moderation" name pattern), which published them as image
+// generators; typing them text alone would swing them the other way and list
+// them as chat models. Neither is right, so they are pinned to their own
+// endpoint instead. Guard/safeguard models are deliberately NOT here: those are
+// fine-tuned LLMs that answer over chat completions.
+export function isModerationModel(name: string): boolean {
+  return /(^|[^a-z0-9])moderations?([^a-z0-9]|$)/.test(name.toLowerCase());
 }
 
 function inferModelTypeFromName(name: string): ModelType {
@@ -66,6 +76,7 @@ export function isTestableModel(
   endpoints?: string[],
   modelEndpoints?: Map<string, string[]>,
 ): boolean {
+  if (isModerationModel(name)) return false;
   const eps = endpoints ?? modelEndpoints?.get(name);
   if (eps && eps.length > 0) {
     if (eps.some((ep) => NON_TESTABLE_ENDPOINT_TYPES.has(ep))) return false;

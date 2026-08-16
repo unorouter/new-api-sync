@@ -10,6 +10,7 @@ export const ENDPOINT_DEFAULT_PATHS: Record<string, string> = {
   "image-generation": "/v1/images/generations",
   embedding: "/v1/embeddings",
   "openai-video": "/v1/videos",
+  moderations: "/v1/moderations",
 };
 
 export const MODEL_TYPE_CANONICAL_ENDPOINT: Partial<Record<ModelType, string>> =
@@ -40,7 +41,7 @@ export const ENDPOINT_TO_MODEL_TYPE: Record<string, ModelType> = {
 export const ENDPOINT_KEYWORD_TYPES: [string, ModelType][] = [["视频","video"],["video","video"],["动作","video"],["角色","video"],["首尾帧","video"],["生图","image"],["扩图","image"],["修图","image"],["image","image"],["edit","image"],["音","audio"],["tts","audio"],["嵌入","embedding"]];
 
 // prettier-ignore
-export const NON_TESTABLE_ENDPOINT_TYPES = new Set(["image-generation","dall-e-3","embeddings","openai-video","jina-rerank","aihorde"]);
+export const NON_TESTABLE_ENDPOINT_TYPES = new Set(["image-generation","dall-e-3","embeddings","openai-video","jina-rerank","aihorde","moderations"]);
 
 export function normalizeEndpointType(ep: string): string {
   if (ep in ENDPOINT_DEFAULT_PATHS) return ep;
