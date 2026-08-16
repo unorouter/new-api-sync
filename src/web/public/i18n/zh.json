@@ -519,6 +519,7 @@
       "ERR_HTTP_STATUS": "HTTP {status}",
       "ERR_BAD_RESPONSE": "响应体无效",
       "ERR_TOOL_CALL_MISSING": "响应中未发现工具调用",
+      "ERR_MODEL_SUBSTITUTED": "上游返回了不同的模型：{got}",
       "ERR_STREAM": "流式响应出错",
       "ERR_STREAM_NO_MARKER": "流式响应未出现完成标记",
       "ERR_EXTRACT_TEXT": "无法从响应中提取文本：{preview}",

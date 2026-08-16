@@ -22,6 +22,7 @@ import {
   getVerdict,
   recordTestVerdict,
   saveVerdictCache,
+  setAuthenticityVerdict,
 } from "./verdict-cache";
 import {
   testRequest,
@@ -200,6 +201,24 @@ function isTransientToolFailure(r: TestExchange): boolean {
   return r.status === undefined || r.status === 429 || r.status >= 500;
 }
 
+// The model name a response claims, when the upstream echoes one.
+function servedModel(r: TestExchange | null): string | null {
+  const data = r?.response;
+  if (!data || typeof data !== "object") return null;
+  const m = (data as { model?: unknown }).model;
+  return typeof m === "string" && m.length > 0 ? m : null;
+}
+
+// Dots and dashes are interchangeable across relays (claude-opus-4.8 vs
+// claude-opus-4-8) and dated ids are the same model as their base
+// (claude-haiku-4-5-20251001), so compare on the shared prefix.
+function modelsMatch(requested: string, served: string): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/[.]/g, "-");
+  const a = norm(requested);
+  const b = norm(served);
+  return a === b || a.startsWith(b) || b.startsWith(a);
+}
+
 export interface ModelCapabilityHint {
   supportsTools?: boolean;
   isReasoning?: boolean;
@@ -372,8 +391,22 @@ async function testModels(opts: {
             ? retryTool(() => testToolCallRequest(toolCfg, timeoutMs))
             : null,
         ]);
-        const success = httpResult.pass;
-        const streamSuccess = streamResult?.pass ?? null;
+        // A relay that answers a cheaper model than the one billed for passes
+        // every behavioural probe: the reply IS a real Claude, just not the one
+        // asked for. Only the echoed model name catches it (bcc1 "hyper" served
+        // opus-4-6 for both opus-4-8 and opus-4-7).
+        const served = servedModel(httpResult) ?? servedModel(streamResult);
+        const substituted = served !== null && !modelsMatch(model, served);
+        if (substituted) {
+          consola.warn(
+            `[${prefix}] ${model}: ${t("CORE.TESTER.ERR_MODEL_SUBSTITUTED", { got: served })}`,
+          );
+          setAuthenticityVerdict(blacklistKey, "fail", `substituted:${served}`);
+        }
+
+        const success = httpResult.pass && !substituted;
+        const streamSuccess =
+          streamResult === null ? null : streamResult.pass && !substituted;
         const toolCallSuccess: boolean | null = cachedTool
           ? cachedTool.pass
           : toolResult === null

@@ -256,8 +256,14 @@ export function getToolCallConfig(
             b.name === "get_weather" &&
             hasCity(b.input),
         );
+        // The tool_use blocks ARE the evidence. Some relays omit stop_reason
+        // entirely, which read as "no tool call" and failed lanes that had
+        // answered with two valid calls; only reject a stop_reason that is
+        // present and contradicts them.
         return {
-          pass: weather.length >= 1 && d.stop_reason === "tool_use",
+          pass:
+            weather.length >= 1 &&
+            (d.stop_reason == null || d.stop_reason === "tool_use"),
           parallel: weather.length >= 2,
         };
       },

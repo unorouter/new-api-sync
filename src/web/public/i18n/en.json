@@ -519,6 +519,7 @@
       "ERR_HTTP_STATUS": "HTTP {status}",
       "ERR_BAD_RESPONSE": "bad response body",
       "ERR_TOOL_CALL_MISSING": "no tool call in response",
+      "ERR_MODEL_SUBSTITUTED": "upstream served a different model: {got}",
       "ERR_STREAM": "error in stream",
       "ERR_STREAM_NO_MARKER": "stream ended without completion marker",
       "ERR_EXTRACT_TEXT": "failed to extract text from response: {preview}",
