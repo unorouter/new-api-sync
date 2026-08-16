@@ -115,7 +115,14 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // Verified release dates (official sources) for models a live source carries
   // dateless, so plain CURATED (gap-fill) can't set them; hard-pin here.
   // Google Nano Banana Pro (Gemini 3 Pro Image Preview), launched 2025-11-20.
-  "nano-banana-pro-preview": { releaseDate: iso("2025-11-20") },
+  // It reads images as well as writing them, and returns text alongside the
+  // image. ai.google.dev/gemini-api/docs/models/gemini-3-pro-image
+  "nano-banana-pro-preview": {
+    releaseDate: iso("2025-11-20"),
+    inputModalities: ["text", "image"],
+    outputModalities: ["text", "image"],
+    supportsVision: true,
+  },
   // OpenAI web-search models, launched with search in the Chat Completions API.
   // The date is in the snapshot id itself (gpt-4o-mini-search-preview-2025-03-11).
   // Sources disagree and one is wrong by four months: relay copies carry
@@ -407,6 +414,120 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   },
   "gpt-5.5": {
     reasoningEfforts: ["none", "low", "medium", "high", "max"],
+  },
+
+  // Modalities the type-derived fallback in resolver.ts cannot reach: the model
+  // type says which side the pipeline routes to, not what the model actually
+  // reads or emits. Each verified against the official docs linked per group.
+
+  // Omni models take every modality in and can emit speech, but audio output is
+  // opt-in per request (`modalities: ["text","audio"]`), so text is listed first.
+  // alibabacloud.com/help/en/model-studio/qwen-omni
+  "qwen3.5-omni-flash": {
+    inputModalities: ["text", "image", "audio", "video"],
+    outputModalities: ["text", "audio"],
+    supportsVision: true,
+    supportsAudio: true,
+    supportsVideo: true,
+  },
+  "qwen3.5-omni-plus": {
+    inputModalities: ["text", "image", "audio", "video"],
+    outputModalities: ["text", "audio"],
+    supportsVision: true,
+    supportsAudio: true,
+    supportsVideo: true,
+  },
+  "qwen-omni-turbo": {
+    inputModalities: ["text", "image", "audio", "video"],
+    outputModalities: ["text", "audio"],
+    supportsVision: true,
+    supportsAudio: true,
+    supportsVideo: true,
+  },
+
+  // Dedicated OCR endpoints: image or PDF in, markdown out. Not chat models, so
+  // there is no text prompt modality. docs.z.ai/guides/vlm/glm-ocr
+  "glm-ocr": {
+    inputModalities: ["image", "file"],
+    outputModalities: ["text"],
+    supportsVision: true,
+    supportsPdf: true,
+  },
+  "deepseek-ocr-2": {
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
+    supportsVision: true,
+  },
+
+  // Full-omni embedders: every modality routes through its own encoder into one
+  // vector space. huggingface.co/jinaai/jina-embeddings-v5-omni-nano
+  "jina-embeddings-v5-omni-nano": {
+    inputModalities: ["text", "image", "audio", "video", "file"],
+    outputModalities: ["embedding"],
+    supportsVision: true,
+    supportsAudio: true,
+    supportsVideo: true,
+    supportsPdf: true,
+  },
+  "jina-embeddings-v5-omni-small": {
+    inputModalities: ["text", "image", "audio", "video", "file"],
+    outputModalities: ["embedding"],
+    supportsVision: true,
+    supportsAudio: true,
+    supportsVideo: true,
+    supportsPdf: true,
+  },
+  "llama-nemotron-embed-vl-1b-v2": {
+    inputModalities: ["text", "image"],
+    outputModalities: ["embedding"],
+    supportsVision: true,
+  },
+
+  // Classifier, not an image generator: it READS images and returns a category
+  // object. The name matches the "moderation" -> image type pattern, which is
+  // what published it as image-out. developers.openai.com/api/docs/guides/moderation
+  "omni-moderation-latest": {
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
+    supportsVision: true,
+  },
+
+  // Embodied-reasoning models: multimodal in, text out (points, trajectories).
+  // ai.google.dev/gemini-api/docs/robotics-overview
+  "gemini-robotics-er-1.6-preview": {
+    inputModalities: ["text", "image", "audio", "video"],
+    outputModalities: ["text"],
+  },
+  "gemini-robotics-er-2-preview": {
+    inputModalities: ["text", "image", "audio", "video"],
+    outputModalities: ["text"],
+  },
+
+  // Despite the "omni" name this is VIDEO generation, not a speech model: audio
+  // exists only as the generated video's soundtrack, and audio input is not yet
+  // accepted by the API. ai.google.dev/gemini-api/docs/omni
+  "gemini-omni-flash": {
+    inputModalities: ["text", "image", "video"],
+    outputModalities: ["video"],
+    supportsAudio: false,
+  },
+  "gemini-omni-flash-preview": {
+    inputModalities: ["text", "image", "video"],
+    outputModalities: ["video"],
+    supportsAudio: false,
+  },
+
+  "c4ai-aya-vision-32b": {
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
+    supportsVision: true,
+  },
+  // Video input is described in Alibaba's announcement but absent from the API
+  // reference for this model id, so it is left off. alibabacloud.com/help/en/model-studio/qvq
+  "qvq-max": {
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
+    supportsVision: true,
   },
 };
 

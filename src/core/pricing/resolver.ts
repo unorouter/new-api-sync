@@ -164,6 +164,67 @@ const TYPE_OUTPUT_MODALITY: Record<ModelType, string> = {
   embedding: "embedding",
 };
 
+// The "audio" type covers both directions, so the type alone cannot say which
+// side the audio sits on: transcription takes audio and emits text, speech
+// synthesis does the reverse. Without this split every whisper/asr model was
+// published as audio-OUT, i.e. as if it generated speech.
+const SPEECH_TO_TEXT_PATTERNS = [
+  "whisper",
+  "scribe",
+  "-asr",
+  "asr-",
+  "speech-to-text",
+  "transcri",
+];
+
+const isSpeechToText = (modelName: string) => {
+  const n = modelName.toLowerCase();
+  return SPEECH_TO_TEXT_PATTERNS.some((p) => n.includes(p));
+};
+
+// An edit/i2i model takes the image it edits as input, which no source
+// publishes and no capability flag covers (supportsVision describes a chat
+// model reading an image, not an image pipeline consuming one).
+const IMAGE_INPUT_PATTERNS = [
+  "-edit",
+  "edit-",
+  "seededit",
+  "kontext",
+  "inpaint",
+  "i2i",
+  "i2v",
+  "img2img",
+];
+
+const takesImageInput = (modelName: string) => {
+  const n = modelName.toLowerCase();
+  return IMAGE_INPUT_PATTERNS.some((p) => n.includes(p));
+};
+
+// Every other modality is prompted by text (image/video gen take a prompt,
+// embeddings embed text, TTS reads text), so text is the floor when no source
+// published input_modalities. The capability flags are set from the same
+// sources, so they carry the extra inputs a multimodal chat model accepts.
+function inputFallback(
+  modelName: string,
+  type: ModelType,
+  md: Record<string, unknown>,
+): string[] {
+  if (type === "audio" && isSpeechToText(modelName)) return ["audio"];
+  const inputs = ["text"];
+  for (const [flag, modality] of [
+    ["supportsVision", "image"],
+    ["supportsAudio", "audio"],
+    ["supportsVideo", "video"],
+    ["supportsPdf", "file"],
+  ] as const) {
+    if (md[flag]) inputs.push(modality);
+  }
+  if (!inputs.includes("image") && takesImageInput(modelName))
+    inputs.push("image");
+  return inputs;
+}
+
 export function buildModelMetadata(opts: {
   modelName: string;
   sources: PricingSource[];
@@ -186,12 +247,25 @@ export function buildModelMetadata(opts: {
   // a source claims text-only for a model we classify as non-text: OpenRouter
   // publishes output_modalities ["text"] for its embedding and reranker models,
   // which reads as chat-capable downstream and put 15 of them in the chat picker.
+  // A curated entry is exempt from that correction: the whole reason a model is
+  // curated is that the type-derived guess is the thing that was wrong (an OCR
+  // model typed image emits text, a moderation classifier emits neither).
   const type = opts.modelType ?? inferModelType(opts.modelName);
+  const curatedOutputs =
+    CURATED_OVERRIDE[toBareName(opts.modelName)]?.outputModalities;
   const existing = merged.outputModalities;
   const published = Array.isArray(existing) ? existing : [];
   const textOnly = published.length === 1 && published[0] === "text";
-  if (published.length === 0 || (textOnly && type !== "text")) {
-    merged.outputModalities = [TYPE_OUTPUT_MODALITY[type]];
+  if (!Array.isArray(curatedOutputs)) {
+    if (type === "audio" && isSpeechToText(opts.modelName)) {
+      merged.outputModalities = ["text"];
+    } else if (published.length === 0 || (textOnly && type !== "text")) {
+      merged.outputModalities = [TYPE_OUTPUT_MODALITY[type]];
+    }
+  }
+  const publishedInputs = merged.inputModalities;
+  if (!Array.isArray(publishedInputs) || publishedInputs.length === 0) {
+    merged.inputModalities = inputFallback(opts.modelName, type, merged);
   }
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
