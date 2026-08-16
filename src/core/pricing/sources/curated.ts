@@ -740,6 +740,15 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Gemini",
     supportsVision: true,
   },
+  "gemini-robotics-er-2-preview": {
+    releaseDate: iso("2026-07-30"),
+    contextWindow: 1_048_576,
+    series: "Gemini",
+    supportsVision: true,
+    supportsAudio: true,
+    supportsVideo: true,
+    supportsTools: true,
+  },
   "nemotron-3-nano-omni-30b-a3b-reasoning": {
     releaseDate: iso("2026-04-28"),
     contextWindow: 262_144,
@@ -1111,6 +1120,30 @@ const CURATED: Record<string, SourceMetadata> = {
   // Black Forest Labs FLUX
   "flux-1.1-pro-ultra": { releaseDate: iso("2024-11-06"), mode: "image" },
   "flux-2-flex": { releaseDate: iso("2025-11-25"), mode: "image" },
+  // FLUX.2 launch wave (pro/flex/dev/max), announced together 2025-11-25.
+  "flux.2-dev": {
+    releaseDate: iso("2025-11-25"),
+    series: "FLUX",
+    mode: "image",
+    description:
+      "FLUX.2 [dev], a 32B flow-matching transformer for generating and editing multiple images.",
+  },
+  "flux.2-max": {
+    releaseDate: iso("2025-11-25"),
+    series: "FLUX",
+    mode: "image",
+  },
+  // FLUX.2 [klein], distilled 4B/9B variants, released 2026-01-15.
+  "flux.2-klein-4b": {
+    releaseDate: iso("2026-01-15"),
+    series: "FLUX",
+    mode: "image",
+  },
+  "flux.2-klein-9b": {
+    releaseDate: iso("2026-01-15"),
+    series: "FLUX",
+    mode: "image",
+  },
   "flux-kontext-max": { releaseDate: iso("2025-05-29"), mode: "image" },
   "flux-dev": { releaseDate: iso("2024-08-01"), mode: "image" },
   // FLUX.1 [dev] served over Runware; the suffix keeps it distinct from the entry
