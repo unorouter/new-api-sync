@@ -43,6 +43,13 @@ const SUB_FP8_QUANTIZATIONS = new Set(["fp4", "int4", "nf4", "fp6", "int8"]);
 // glm-5.2 fp8 garbles names and loses context (user-reported, reproducible against
 // novita's fp8 of the same weights), so its cheap price never wins the host pick.
 const EXCLUDED_HOSTS = new Set(["deepinfra", "akashml"]);
+// Host exclusions that apply to ONE model rather than the whole host. gmicloud's
+// glm-5.2 does not separate reasoning from content and runs a classifier that trims
+// replies mid-response (user-reported), and it is the priciest open1 glm-5.2 lane;
+// its minimax-m3 is the cheapest lane we have and stays.
+const EXCLUDED_HOSTS_BY_MODEL: Record<string, Set<string>> = {
+  "glm-5.2": new Set(["gmicloud"]),
+};
 
 async function fetchOpenRouterBalance(
   baseUrl: string,
@@ -273,7 +280,10 @@ export async function processOpenRouterProvider(
                 !SUB_FP8_QUANTIZATIONS.has(
                   (h.quantization ?? "").toLowerCase(),
                 ) &&
-                !EXCLUDED_HOSTS.has(h.provider.toLowerCase()),
+                !EXCLUDED_HOSTS.has(h.provider.toLowerCase()) &&
+                !EXCLUDED_HOSTS_BY_MODEL[r.exposed]?.has(
+                  h.provider.toLowerCase(),
+                ),
             );
             for (const h of hosts) {
               if (h.uptime != null && h.uptime < MIN_HOST_UPTIME_PCT) {
