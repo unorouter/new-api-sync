@@ -48,7 +48,11 @@ const EXCLUDED_HOSTS = new Set(["deepinfra", "akashml"]);
 // replies mid-response (user-reported), and it is the priciest open1 glm-5.2 lane;
 // its minimax-m3 is the cheapest lane we have and stays.
 const EXCLUDED_HOSTS_BY_MODEL: Record<string, Set<string>> = {
-  "glm-5.2": new Set(["gmicloud"]),
+  // digitalocean is the only glm-5.2 host OpenRouter reports as quantization
+  // "unknown" rather than fp8, and it collapses on long context: 10.4 tps on a
+  // 32k prompt where every other lane ran 55-127. Its kimi-k2.6 and mimo lanes
+  // hold 44-51 tps and stay.
+  "glm-5.2": new Set(["gmicloud", "digitalocean"]),
 };
 
 async function fetchOpenRouterBalance(
