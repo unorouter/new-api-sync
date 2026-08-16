@@ -180,6 +180,9 @@ export function buildModelMetadata(opts: {
   const merged: Record<string, unknown> = {
     ...resolveSourceMetadata(opts.modelName, opts.sources, opts.reverseMapping),
   };
+  // The description is written to its own column by both callers; keeping it here
+  // too duplicated ~167KB across the pricing payload for a field nothing reads.
+  delete merged.description;
   if (opts.override) {
     for (const [k, v] of Object.entries(opts.override))
       if (v !== undefined) merged[k] = v;
