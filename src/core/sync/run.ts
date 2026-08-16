@@ -200,15 +200,7 @@ export async function runSync(
     // existing channel whose model wasn't re-tiered this run keeps a stale/absent
     // prompt. Reconcile it onto ALL current channels so a prompt/scope edit
     // propagates without recreating them (mirrors the metadata-sync reconcile).
-    const spChanged = await reconcileSystemPrompt(
-      target,
-      await target.listChannels(),
-      config,
-    );
-    if (spChanged > 0) await target.updateCache();
-
-    if (apply.options.updated.length > 0) await target.updateCache();
-
+    await reconcileSystemPrompt(target, await target.listChannels(), config);
     throwIfRunAborted();
     await updateGuestTokenIfConfigured(target, await target.listChannels());
 

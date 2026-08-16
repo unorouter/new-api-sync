@@ -83,14 +83,6 @@ export class NewApiClient {
     return data.data.quota / 500000;
   }
 
-  async updateCache(): Promise<boolean> {
-    const data = await tryFetchJson<{ success: boolean }>(
-      `${this.baseUrl}/api/option/update_cache`,
-      { headers: this.headers },
-    );
-    return data?.success === true;
-  }
-
   async getOptions(keys: string[]): Promise<Record<string, string>> {
     const data = await tryFetchJson<{
       data?: Array<{ key: string; value: string }>;
