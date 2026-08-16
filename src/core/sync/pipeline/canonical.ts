@@ -1,5 +1,5 @@
 import type { UpstreamOffer } from "@core/pricing/offers";
-import type { PricingSource } from "@core/pricing/resolver";
+import type { PricingSource } from "@core/pricing/sources/types";
 import type { BaselineInputs } from "@core/pricing/types";
 import { resolveCanonicalByVote } from "@core/pricing/vote";
 

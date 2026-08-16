@@ -26,7 +26,7 @@ import type {
   ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import { type PricingSource } from "@core/pricing/resolver";
+import type { PricingSource } from "@core/pricing/sources/types";
 import { effectiveRatioFromBillingExpr } from "@core/pricing/tiered-expr";
 import {
   resolveCanonicalByVote,

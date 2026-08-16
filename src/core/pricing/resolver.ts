@@ -18,12 +18,6 @@ import type {
   ResolvedMetadata,
   SourceMetadata,
 } from "./sources/types";
-export type {
-  BaseModelPricing,
-  PricingSource,
-  ResolvedMetadata,
-  SourceMetadata,
-};
 
 export async function fetchAllPricingSources(
   basellmEntries: BasellmEntry[],
@@ -187,12 +181,16 @@ export function buildModelMetadata(opts: {
     for (const [k, v] of Object.entries(opts.override))
       if (v !== undefined) merged[k] = v;
   }
-  // After the override so a curated correction wins, and never over a real
-  // source value: an embedding mistyped as text upstream is a type bug to fix at
-  // the source, not something to paper over per-consumer.
+  // After the override so a curated correction wins. Source values are kept as
+  // published (gemini image models genuinely emit ["image","text"]), EXCEPT when
+  // a source claims text-only for a model we classify as non-text: OpenRouter
+  // publishes output_modalities ["text"] for its embedding and reranker models,
+  // which reads as chat-capable downstream and put 15 of them in the chat picker.
+  const type = opts.modelType ?? inferModelType(opts.modelName);
   const existing = merged.outputModalities;
-  if (!Array.isArray(existing) || existing.length === 0) {
-    const type = opts.modelType ?? inferModelType(opts.modelName);
+  const published = Array.isArray(existing) ? existing : [];
+  const textOnly = published.length === 1 && published[0] === "text";
+  if (published.length === 0 || (textOnly && type !== "text")) {
     merged.outputModalities = [TYPE_OUTPUT_MODALITY[type]];
   }
   return Object.keys(merged).length > 0 ? merged : undefined;

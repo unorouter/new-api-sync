@@ -16,7 +16,8 @@ import {
   type ResolvedAdjustment,
 } from "./index";
 import type { OfferModel, UpstreamOffer } from "./offers";
-import { resolveBasePricing, type PricingSource } from "./resolver";
+import { resolveBasePricing } from "./resolver";
+import type { PricingSource } from "./sources/types";
 import type {
   BaselineInputs,
   PricedDrop,

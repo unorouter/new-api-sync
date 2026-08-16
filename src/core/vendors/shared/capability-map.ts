@@ -1,8 +1,6 @@
 import type { RuntimeConfig } from "@core/config";
-import {
-  resolveSourceMetadata,
-  type PricingSource,
-} from "@core/pricing/resolver";
+import { resolveSourceMetadata } from "@core/pricing/resolver";
+import type { PricingSource } from "@core/pricing/sources/types";
 import type { ModelCapabilityHint } from "@core/testing/runner";
 
 /**

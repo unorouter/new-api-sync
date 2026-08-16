@@ -17,9 +17,9 @@ import {
   buildModelMetadata,
   deriveTagsFromMetadata,
   looksTruncated,
-  type PricingSource,
   resolveSourceMetadata,
 } from "@core/pricing/resolver";
+import type { PricingSource } from "@core/pricing/sources/types";
 import type { Channel, DesiredModelSpec } from "@core/types";
 import { consola } from "consola";
 
