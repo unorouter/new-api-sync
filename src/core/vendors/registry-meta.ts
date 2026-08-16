@@ -795,6 +795,7 @@ export const SIMPLE_PROVIDER_META = [
     defaultBaseUrl: "https://logfare.ai",
     defaultRatio: 0,
     apiKeyPlaceholder: "lfu_... (logfare.ai/register)",
+    imageChannelType: 1,
   },
   {
     kind: "opencodezen",
