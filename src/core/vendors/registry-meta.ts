@@ -32,6 +32,19 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     apiKeyPlaceholder: "gsk_…",
     audioChannelType: 1,
+    // 400s on these ("property 'x' is unsupported") rather than ignoring them,
+    // and clients send them by default. Sampling/reasoning knobs only: 'system'
+    // is also rejected here but stripping it would silently drop the caller's
+    // system prompt, which is a behaviour change, not a compatibility fix.
+    paramOverride: JSON.stringify({
+      operations: [
+        "top_k",
+        "reasoning",
+        "reasoning_content",
+        "think",
+        "thinking",
+      ].map((path) => ({ path, mode: "delete" })),
+    }),
   },
   {
     kind: "gemini",
@@ -61,6 +74,16 @@ export const SIMPLE_PROVIDER_META = [
     defaultBaseUrl: "https://api.cerebras.ai",
     defaultRatio: 0,
     apiKeyPlaceholder: "csk-…",
+    // Same rejection style as Groq; top_k alone accounted for 564 failures in a
+    // week across glm-4.7 and gemma-4-31b.
+    paramOverride: JSON.stringify({
+      operations: [
+        "top_k",
+        "reasoning",
+        "thinking",
+        "chat_template_kwargs",
+      ].map((path) => ({ path, mode: "delete" })),
+    }),
   },
   {
     kind: "sambanova",
