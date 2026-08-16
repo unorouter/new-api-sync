@@ -40,6 +40,8 @@ export interface SourceMetadata {
   knowledgeCutoff?: string;
   /** ISO string, model release date (OpenRouter `created`) */
   releaseDate?: string;
+  /** Epoch ms derived from releaseDate at resolve time; consumers sort on this. */
+  releaseTs?: number;
   /** Model family/series, e.g. "Claude" / "GPT" / "Gemini" (OpenRouter `group`). */
   series?: string;
   /** Usage categories, e.g. ["programming","roleplay"] (OpenRouter cards). */

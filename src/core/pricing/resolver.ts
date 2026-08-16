@@ -119,6 +119,13 @@ function resolveOneName(
   // Corrections that win over every live source (verified known-wrong upstreams).
   const override = CURATED_OVERRIDE[modelName];
   if (override) Object.assign(merged, override);
+  // Sort key derived once here rather than by every consumer: releaseDate stays
+  // the human-readable ISO string the model pages render, releaseTs is the epoch
+  // the catalog sorts on. Absent when the model has no release date at all.
+  if (merged.releaseDate) {
+    const ms = Date.parse(merged.releaseDate);
+    if (Number.isFinite(ms)) merged.releaseTs = ms;
+  }
   return merged;
 }
 
