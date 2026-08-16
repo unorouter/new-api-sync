@@ -301,7 +301,20 @@ export async function processOpenRouterProvider(
                 );
               }
             }
-            if (reliableHosts.length === 0) continue;
+            // Warn rather than skip silently: a paid model that stops publishing
+            // keeps whatever ratio it last had, and desiredModelsWithoutRatio
+            // guards that value on every later run. laguna-s-2.1 sat at ratio 0
+            // for weeks this way after poolside moved its only host to fp4,
+            // reading as free in the catalog while a stale channel still served it.
+            if (reliableHosts.length === 0) {
+              consola.warn(
+                t("CORE.OPENROUTER.PAID_NO_RELIABLE_HOST", {
+                  name,
+                  model: r.exposed,
+                }),
+              );
+              continue;
+            }
             // The N cheapest reliable hosts, each pinned via provider.only, instead of
             // fanning out a channel per host. Extras are failoverDuplicate so they do not
             // re-enter tier selection: the cheapest sets the published price and the rest

@@ -588,6 +588,7 @@
       "WORKING": "[{name}] {working}/{total} model(s) working (429 counts as working)",
       "PAID_NO_PRICING": "[{name}] paid model {model} has no upstream endpoint pricing; skipping",
       "HOST_LOW_UPTIME": "[{name}] {model}: skipping host {host} ({uptime}% 1d uptime, below threshold)",
+      "PAID_NO_RELIABLE_HOST": "[{name}] paid model {model}: every host was filtered out (quantization/uptime/excluded); not published",
       "SUMMARY": "[{name}] {total} model(s) ({free} free, {paid} paid) across {vendors} vendor channel(s)"
     },
     "PRICING": {
