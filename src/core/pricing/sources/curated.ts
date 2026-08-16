@@ -2837,6 +2837,16 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsTools: true,
   },
   // Meituan LongCat 2.0 Preview (closed, API-only; >1T MoE)
+  // Dots Studio Dots3-Note Preview (MoE, 16B active of 280B; lightest of Dots 3)
+  "dots-3-note-preview": {
+    releaseDate: iso("2026-08-12"),
+    contextWindow: 512_000,
+    maxOutputTokens: 512_000,
+    series: "Dots",
+    isReasoning: true,
+    supportsTools: true,
+    supportsVision: true,
+  },
   "longcat-2.0-preview": {
     releaseDate: iso("2026-04-20"),
     contextWindow: 1_000_000,
