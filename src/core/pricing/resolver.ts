@@ -15,9 +15,15 @@ import { fetchOpenRouterPricingSource } from "./sources/openrouter";
 import type {
   BaseModelPricing,
   PricingSource,
+  ResolvedMetadata,
   SourceMetadata,
 } from "./sources/types";
-export type { BaseModelPricing, PricingSource, SourceMetadata };
+export type {
+  BaseModelPricing,
+  PricingSource,
+  ResolvedMetadata,
+  SourceMetadata,
+};
 
 export async function fetchAllPricingSources(
   basellmEntries: BasellmEntry[],
@@ -95,7 +101,7 @@ function resolveOneName(
   modelName: string,
   sources: PricingSource[],
   reverseMapping: Map<string, string>,
-): SourceMetadata {
+): ResolvedMetadata {
   const merged: SourceMetadata = {};
   for (let i = sources.length - 1; i >= 0; i--) {
     const hit = lookup(modelName, sources[i]!.metadata, reverseMapping);
@@ -121,12 +127,10 @@ function resolveOneName(
   if (override) Object.assign(merged, override);
   // Sort key derived once here rather than by every consumer: releaseDate stays
   // the human-readable ISO string the model pages render, releaseTs is the epoch
-  // the catalog sorts on. Absent when the model has no release date at all.
-  if (merged.releaseDate) {
-    const ms = Date.parse(merged.releaseDate);
-    if (Number.isFinite(ms)) merged.releaseTs = ms;
-  }
-  return merged;
+  // the catalog sorts on. Always emitted, 0 when the model has no release date,
+  // so consumers read a number instead of re-deriving one.
+  const ms = merged.releaseDate ? Date.parse(merged.releaseDate) : NaN;
+  return { ...merged, releaseTs: Number.isFinite(ms) ? ms : 0 };
 }
 
 // DashScope/relay task-endpoint suffixes (kling-3.0-turbo/image-to-video,
@@ -141,7 +145,7 @@ export function resolveSourceMetadata(
   modelName: string,
   sources: PricingSource[],
   reverseMapping: Map<string, string>,
-): SourceMetadata {
+): ResolvedMetadata {
   const detasked = modelName.replace(TASK_SUFFIX, "");
   // A `{model}:free` published name has no metadata key of its own; fuzzy-matching
   // the literal `:free` lands on a wrong dateless candidate, so resolve the bare

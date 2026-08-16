@@ -40,7 +40,6 @@ export interface SourceMetadata {
   knowledgeCutoff?: string;
   /** ISO string, model release date (OpenRouter `created`) */
   releaseDate?: string;
-  /** Epoch ms derived from releaseDate at resolve time; consumers sort on this. */
   releaseTs?: number;
   /** Model family/series, e.g. "Claude" / "GPT" / "Gemini" (OpenRouter `group`). */
   series?: string;
@@ -82,6 +81,11 @@ export interface SourceMetadata {
   supportsNativeStructuredOutput?: boolean;
   supportsSystemMessages?: boolean;
 }
+
+// What resolveSourceMetadata returns: the merged source data plus releaseTs,
+// which it always derives. Sources supply releaseDate; only the resolver can
+// promise the epoch is there.
+export type ResolvedMetadata = SourceMetadata & { releaseTs: number };
 
 export interface PricingSource {
   name: PricingSourceName;
