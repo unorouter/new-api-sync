@@ -906,7 +906,6 @@ async function syncGridCollapse(
   const flat: Record<string, number> = {};
   const resolutionGrids: Record<string, Record<string, string | number>[]> = {};
   for (const provider of config.providers) {
-    if (provider.type === "private") continue;
     const grids = getPricingGridFromEnabledModels(provider.enabledModels);
     for (const [modelName, rows] of Object.entries(grids)) {
       const mapped = config.modelMapping?.[modelName] ?? modelName;

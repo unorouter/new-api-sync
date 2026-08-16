@@ -95,7 +95,6 @@ export interface MergedGroup {
   ratio: number;
   description: string;
   provider: string;
-  private?: boolean;
 }
 
 export type PricingSourceName =

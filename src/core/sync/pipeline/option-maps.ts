@@ -15,13 +15,11 @@ import micromatch from "micromatch";
 export interface SurvivingGroups {
   labels: Map<string, string>;
   ratios: Map<string, number>;
-  private: Set<string>;
 }
 
 export function buildSurvivingGroups(
   channels: { group?: string; status?: number }[],
   options: Record<string, string>,
-  privateGroups: Set<string>,
 ): SurvivingGroups {
   const parse = <T>(key: string, fallback: T): T => {
     try {
@@ -46,7 +44,7 @@ export function buildSurvivingGroups(
       if (publishedRatios[g] !== undefined) ratios.set(g, publishedRatios[g]!);
     }
   }
-  return { labels, ratios, private: privateGroups };
+  return { labels, ratios };
 }
 
 // Per-model rate limits apply ONLY to `:free` published names; paid models are
@@ -101,7 +99,7 @@ export function buildOptionMaps(
 
   for (const group of mergedGroups) {
     groupRatio[group.name] = r4(group.ratio);
-    if (!group.private) userUsableGroups[group.name] = group.description;
+    userUsableGroups[group.name] = group.description;
   }
 
   // A group only enters the maps above when THIS run produced an offer for it, and
@@ -112,15 +110,14 @@ export function buildOptionMaps(
   // transient miss costs nothing permanent.
   const recovered: string[] = [];
   for (const [name, label] of survivingGroups?.labels ?? []) {
-    if (name in userUsableGroups || survivingGroups?.private.has(name))
-      continue;
+    if (name in userUsableGroups) continue;
     userUsableGroups[name] = label;
     recovered.push(name);
     groupRatio[name] ??= survivingGroups?.ratios.get(name) ?? 1;
   }
 
   const autoGroups = [
-    ...[...mergedGroups].filter((g) => !g.private).map((g) => g.name),
+    ...[...mergedGroups].map((g) => g.name),
     ...recovered,
   ].sort((a, b) => (groupRatio[a] ?? 1) - (groupRatio[b] ?? 1));
 

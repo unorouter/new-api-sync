@@ -89,11 +89,7 @@ export async function runAllProviders(
   // comfyui + aihorde + runware build channels separately; private providers are
   // declarative-only (no discovery/testing/pricing) and handled in the pipeline.
   const pricingProviders = config.providers.filter(
-    (p) =>
-      p.type !== "comfyui" &&
-      p.type !== "aihorde" &&
-      p.type !== "runware" &&
-      p.type !== "private",
+    (p) => p.type !== "comfyui" && p.type !== "aihorde" && p.type !== "runware",
   );
   const sorted = [...pricingProviders].sort(
     (a, b) => typeOrder(a.type) - typeOrder(b.type),
