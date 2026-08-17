@@ -55,6 +55,18 @@ const EXCLUDED_HOSTS_BY_MODEL: Record<string, Set<string>> = {
   "glm-5.2": new Set(["gmicloud", "digitalocean"]),
 };
 
+// A host's published quantization, appended to its tag when OpenRouter has not
+// already put it there. OpenRouter suffixes the tag for SOME hosts (novita/fp8)
+// and not others (together, digitalocean), so without this the published name
+// says nothing about precision for exactly the hosts a caller most wants to
+// check. "unknown" is skipped: it is OpenRouter's "not declared", and spelling
+// it into a channel name reads as a precision rather than the absence of one.
+function quantTag(tag: string, quantization?: string): string {
+  const q = (quantization ?? "").trim().toLowerCase();
+  if (!q || !tag || q === "unknown") return tag;
+  return tag.includes(q) ? tag : `${tag}/${q}`;
+}
+
 async function fetchOpenRouterBalance(
   baseUrl: string,
   apiKey: string,
@@ -329,6 +341,12 @@ export async function processOpenRouterProvider(
               .sort((a, b) => a.prompt - b.prompt)
               .slice(0, hostsWanted);
             cheapestHosts.forEach((host, hostIndex) => {
+              // OpenRouter only suffixes the tag with the quantization for SOME
+              // hosts (novita/fp8), so the rest published a name that said
+              // nothing about precision and a caller could not tell an fp8 lane
+              // from an unknown one. The tag is the name users pick from, so
+              // name the quantization there rather than leaving it implied.
+              const hostTag = quantTag(host.tag, host.quantization);
               const m: OfferModel = {
                 exposed: r.exposed,
                 upstream: reverseMapping[r.exposed] ?? r.upstream,
@@ -349,8 +367,8 @@ export async function processOpenRouterProvider(
               offers.push({
                 provider: name,
                 providerKind: "openrouter",
-                group: `${vendor}-${host.tag}`,
-                sanitizedBase: sanitizeGroupName(`${name}-${host.tag}`),
+                group: `${vendor}-${hostTag}`,
+                sanitizedBase: sanitizeGroupName(`${name}-${hostTag}`),
                 vendor,
                 channelType: CHANNEL_TYPES.OPENROUTER,
                 baseUrl: providerConfig.baseUrl,
