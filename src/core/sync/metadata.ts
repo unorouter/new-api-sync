@@ -30,7 +30,10 @@ import {
   getTaskModelOverride,
 } from "@core/catalog/constants/channel-types";
 import { scrapeYunwuGeminiImageGrids } from "@core/vendors/newapi/yunwu-grid-scraper";
-import { inferModelType } from "@core/catalog/constants/inference";
+import {
+  inferModelType,
+  isModerationModel,
+} from "@core/catalog/constants/inference";
 import {
   buildReverseMapping,
   matchesAnyPattern,
@@ -129,7 +132,11 @@ async function resolveVendorId(
 }
 
 // Default endpoint JSON for a freshly-created row, inferred from the model type.
+// Moderation is keyed by name rather than type: a classifier is text-typed (it
+// emits a category object, not an image), so the type map cannot reach it.
 function inferEndpoints(name: string): string | undefined {
+  if (isModerationModel(name))
+    return JSON.stringify({ moderations: ENDPOINT_DEFAULT_PATHS.moderations });
   const canonicalEp = MODEL_TYPE_CANONICAL_ENDPOINT[inferModelType(name)];
   if (!canonicalEp) return undefined;
   const path = ENDPOINT_DEFAULT_PATHS[normalizeEndpointType(canonicalEp)];
@@ -661,12 +668,23 @@ export async function runMetadataSync(
     const tagsChanged =
       staleContextTag || (!!wantFirstTag && liveFirstTag !== wantFirstTag);
 
+    // Classifiers seeded while "moderation" still inferred as image carry an
+    // image-generation endpoint, which routes them to /v1/images/generations and
+    // lists them as an image model. Only the create path sets endpoints, so a
+    // re-seed alone never heals the row.
+    const wantEndpoints = isModerationModel(name)
+      ? inferEndpoints(name)
+      : undefined;
+    const endpointsChanged =
+      !!wantEndpoints && (existing.endpoints ?? "") !== wantEndpoints;
+
     if (
       !metadataChanged &&
       !vendorChanged &&
       !tagsChanged &&
       !descriptionChanged &&
-      !staleDescription
+      !staleDescription &&
+      !endpointsChanged
     ) {
       result.skipped++;
       continue;
@@ -679,6 +697,7 @@ export async function runMetadataSync(
       ...(tagsChanged ? { tags } : {}),
       ...(descriptionChanged ? { description } : {}),
       ...(staleDescription ? { description: "" } : {}),
+      ...(endpointsChanged ? { endpoints: wantEndpoints } : {}),
     };
     if (await target.updateModel(patched)) {
       result.patched++;
