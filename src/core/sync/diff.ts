@@ -18,7 +18,7 @@ import type {
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { deepEqual } from "fast-equals";
-import stringify from "../../../node_modules/safe-stable-stringify";
+import stringify from "safe-stable-stringify";
 
 function collectModelsFromChannels(channels: Channel[]): Set<string> {
   const models = new Set<string>();
