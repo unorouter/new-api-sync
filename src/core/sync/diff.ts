@@ -426,7 +426,13 @@ export function buildSyncDiff(
     );
   };
 
-  if (!isPartialSync) {
+  // A channel carries the tag of the provider that owns it, and managedProviders
+  // is already narrowed to --only, so a provider-scoped run can delete its OWN
+  // stale channels without reaching another provider's. A --models/--type filter
+  // cannot: it conflates "this lane is dead" with "its models were filtered out
+  // of this run", so those runs still delete nothing.
+  const skipChannelDeletes = hasModelFilter || hasTypeFilter;
+  if (!skipChannelDeletes) {
     for (const existing of snapshot.channels) {
       if (!existing.tag || !managedProviders.has(existing.tag)) continue;
       if (desiredByName.has(existing.name) || !inScope(existing)) continue;
