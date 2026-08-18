@@ -448,6 +448,12 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // Dedicated OCR endpoints: image or PDF in, markdown out. Not chat models, so
   // there is no text prompt modality. docs.z.ai/guides/vlm/glm-ocr
   "glm-ocr": {
+    releaseDate: iso("2026-02-03"),
+    // Z.AI states practical limits (PDF 50MB/100 pages, image 10MB) rather than
+    // a token context for this one, since it is an OCR pipeline and not a chat
+    // model; 128K is the figure its model cards carry.
+    contextWindow: 131_072,
+    series: "GLM",
     inputModalities: ["image", "file"],
     outputModalities: ["text"],
     supportsVision: true,
@@ -1010,6 +1016,90 @@ const CURATED: Record<string, SourceMetadata> = {
   // SenseTime SenseNova (ctx not officially published; flash line ~ 128K)
   "sensenova-6.7-flash-lite": {
     releaseDate: iso("2026-05-08"),
+    contextWindow: 131_072,
+    series: "SenseNova",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+  },
+  // 6.8 Flash Lite preview, the multimodal AGENT model of the line: SenseTime
+  // pitches it at autonomous planning over hundreds of steps rather than single
+  // answers. Context is unpublished for it too, so it inherits the flash line's
+  // 128K rather than claiming a figure nobody states.
+  // Swiss AI Initiative (ETH + EPFL). v1.5 is a bigger jump than the name: it
+  // added vision, an opt-in thinking mode and tools, and quadrupled context to
+  // 256K from v1.0's 64K.
+  "apertus-v1.5-70b": {
+    releaseDate: iso("2026-07-24"),
+    contextWindow: 262_144,
+    series: "Apertus",
+    isReasoning: true,
+    supportsTools: true,
+    supportsVision: true,
+  },
+  // Cohere Labs Tiny Aya, one family launched together at the India AI Summit.
+  // The four are region-specialised merges of the same 3.35B base rather than
+  // separate trainings: earth = West Asian + African, fire = South Asian,
+  // water = European + Asia-Pacific, global = balanced.
+  "tiny-aya-earth": {
+    releaseDate: iso("2026-02-17"),
+    contextWindow: 8_192,
+    maxOutputTokens: 8_192,
+    series: "Aya",
+  },
+  "tiny-aya-fire": {
+    releaseDate: iso("2026-02-17"),
+    contextWindow: 8_192,
+    maxOutputTokens: 8_192,
+    series: "Aya",
+  },
+  "tiny-aya-water": {
+    releaseDate: iso("2026-02-17"),
+    contextWindow: 8_192,
+    maxOutputTokens: 8_192,
+    series: "Aya",
+  },
+  "tiny-aya-global": {
+    releaseDate: iso("2026-02-17"),
+    contextWindow: 8_192,
+    maxOutputTokens: 8_192,
+    series: "Aya",
+  },
+  // The moonshot-v1 line all debuted with the open platform's public beta, so
+  // they share that date the way the existing 128k entry does.
+  "moonshot-v1-8k": {
+    releaseDate: iso("2024-02-01"),
+    contextWindow: 8_192,
+    series: "Kimi",
+    supportsTools: true,
+  },
+  "moonshot-v1-32k": {
+    releaseDate: iso("2024-02-01"),
+    contextWindow: 32_768,
+    series: "Kimi",
+    supportsTools: true,
+  },
+  // The vision variants came later and take base64 or an uploaded file id, not
+  // an image URL.
+  "moonshot-v1-32k-vision-preview": {
+    releaseDate: iso("2025-01-15"),
+    contextWindow: 32_768,
+    series: "Kimi",
+    supportsTools: true,
+    supportsVision: true,
+  },
+  // The id encodes 20241022 but general availability was 2024-11-04, which is
+  // what the Bedrock and Vertex cards carry.
+  "claude-3-5-haiku-20241022": {
+    releaseDate: iso("2024-11-04"),
+    contextWindow: 200_000,
+    maxOutputTokens: 8_192,
+    series: "Claude",
+    supportsTools: true,
+    supportsVision: true,
+  },
+  "sensenova-6.8-flash-lite": {
+    releaseDate: iso("2026-08-11"),
     contextWindow: 131_072,
     series: "SenseNova",
     isReasoning: true,
