@@ -545,6 +545,10 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
     // and the Claude Sonnet 4.5 class the free tier guarantees); the others go
     // higher, so this understates rather than overstates what a caller gets.
     contextWindow: 200_000,
+    // Kiro's own public-preview date (v0.1, kiro.dev/changelog/v0-1-0-preview).
+    // Auto itself shipped later and undated, so this is the product's date
+    // rather than the router's; without it the row renders no date at all.
+    releaseDate: iso("2025-07-14"),
     series: "Kiro",
     isReasoning: true,
     supportsTools: true,
