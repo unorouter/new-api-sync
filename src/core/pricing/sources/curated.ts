@@ -529,6 +529,40 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
     outputModalities: ["text"],
     supportsVision: true,
   },
+
+  // Three lf1 models no live source carries, so without an entry they publish
+  // with no vendor, no context and no date.
+
+  // Kiro is AWS's agentic IDE and "auto" is its model-router, not a model:
+  // kiro.dev/docs/models/available-models publishes a context window for every
+  // concrete model it routes to and NONE for auto, because the request can land
+  // on any of them. contextWindow is therefore deliberately absent rather than
+  // guessed; any single number for it would be invented.
+  "kiro-auto": {
+    series: "Kiro",
+    isReasoning: true,
+    supportsTools: true,
+  },
+  // M87 Labs (moondream.ai), a 9B MoE vision-language model. The 32K context
+  // arrived in Moondream 3 Preview (it was 2K before) and carries into 3.1.
+  "moondream3.1": {
+    releaseDate: iso("2026-07-07"),
+    contextWindow: 32_768,
+    series: "Moondream",
+    supportsVision: true,
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
+  },
+  // A Qwen3.5-27B finetune from SL-AI, an independent lab. The context is read
+  // off the repo's own config.json (max_position_embeddings), not a published
+  // claim, and the date is the HF repo creation rather than an announcement.
+  "grape-2-pro": {
+    releaseDate: iso("2026-04-19"),
+    contextWindow: 262_144,
+    series: "GRaPE",
+    isReasoning: true,
+    supportsVision: true,
+  },
 };
 
 // bare name -> curated metadata. Dates are official announcement dates.
