@@ -594,8 +594,8 @@ export const SIMPLE_PROVIDER_META = [
     kind: "sensenova",
     label: "SenseNova",
     // 商汤 SenseTime Token Plan (token.sensenova.cn). Base is root; runner + discovery append /v1.
-    // Free public beta 1500 calls/5h/model: sensenova-6.7-flash-lite, sensenova-u1-fast (multimodal),
-    // deepseek-v4-flash. +86 signup (no real-name). Dynamic discovery.
+    // Free public beta 1500 calls/5h/model: sensenova-6.7/6.8-flash-lite plus resold
+    // deepseek-v4-flash and glm-5.2. +86 signup (no real-name). Dynamic discovery.
     defaultBaseUrl: "https://token.sensenova.cn",
     defaultRatio: 0,
     apiKeyPlaceholder: "sk-... (platform.sensenova.cn token plan)",
