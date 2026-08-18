@@ -539,6 +539,12 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // on any of them. contextWindow is therefore deliberately absent rather than
   // guessed; any single number for it would be invented.
   "kiro-auto": {
+    // ESTIMATE, not a published figure: Kiro documents a context window for
+    // every concrete model auto routes to and none for auto itself, since a
+    // request can land on any of them. 200K is the floor of that set (GLM-5,
+    // and the Claude Sonnet 4.5 class the free tier guarantees); the others go
+    // higher, so this understates rather than overstates what a caller gets.
+    contextWindow: 200_000,
     series: "Kiro",
     isReasoning: true,
     supportsTools: true,
