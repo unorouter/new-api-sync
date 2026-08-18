@@ -2,15 +2,6 @@ import type { Channel, MergedGroup, MergedModel } from "@core/types";
 import { t } from "@server/i18n";
 import type { BaselineInputs, PricedPlan, PricedTier } from "./types";
 
-// Families that return reasoning_content on every request, not per-request. Deliberately narrow:
-// a false positive wraps ordinary replies in <think> tags, so a model only belongs here once it is
-// known to always reason. Anything per-request stays with probe detection.
-const ALWAYS_REASONING = [/^deepseek-v4-pro/i, /^deepseek-r1/i, /-thinking\b/i];
-
-function isKnownReasoningModel(model: string): boolean {
-  return ALWAYS_REASONING.some((re) => re.test(model));
-}
-
 interface EmitArgs {
   plan: PricedPlan;
   baseline: BaselineInputs;
@@ -107,19 +98,12 @@ function buildSettingJson(tier: PricedTier): string | undefined {
     if (Object.keys(capabilities).length > 0)
       setting.capabilities = capabilities;
 
-    // Any probe that emitted reasoning_content -> convert thinking to visible content so a
-    // reasoning-only turn is not billed as an empty (content-less) upstream 502.
+    // Any probe that emitted reasoning (either spelling of the field) -> convert thinking to
+    // visible content, so a reasoning-only turn is not billed as an empty upstream 502 and the
+    // chain of thought reaches clients as <think> tags instead of being dropped.
     if (tier.testDetails.some((d) => d.thinkingDetected))
       setting.thinking_to_content = true;
   }
-
-  // Probe evidence is unavailable for lanes that are never probed (paid OpenRouter hosts cost a
-  // billed request per model per run, so they pass through untested), which left a reasoning model
-  // emitting raw reasoning_content: no <think> tags, so clients render the chain of thought inline
-  // with the reply instead of in a thinking panel. Fall back to the model name for the families we
-  // know reason unconditionally.
-  if (!setting.thinking_to_content && tier.models.some(isKnownReasoningModel))
-    setting.thinking_to_content = true;
 
   if (tier.passThroughBody) setting.pass_through_body_enabled = true;
 

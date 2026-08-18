@@ -246,8 +246,12 @@ function probeShowedReasoning(...exchanges: (TestExchange | null)[]): boolean {
       typeof ex.response === "string"
         ? ex.response
         : JSON.stringify(ex.response ?? "");
-    // match reasoning_content:"<non-empty>" (JSON) or reasoning_content in raw SSE text
-    if (/"reasoning_content"\s*:\s*"[^"]/.test(blob)) return true;
+    // match reasoning_content:"<non-empty>" (JSON) or reasoning_content in raw SSE text.
+    // "reasoning" is the same field under OpenRouter's and logfare's naming, and matching
+    // only the underscored spelling made every model behind them look non-reasoning, so
+    // their channels shipped without thinking_to_content and rendered the chain of thought
+    // inline with the reply.
+    if (/"reasoning(_content)?"\s*:\s*"[^"]/.test(blob)) return true;
   }
   return false;
 }
