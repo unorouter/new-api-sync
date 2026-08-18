@@ -22,9 +22,11 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.production.local
 .env.local
 
-# config with secrets — commit only the example template
-config*.yml
-config*.yaml
+# config with secrets — commit only the example template.
+# The trailing * catches sidecars like config.yml.bak, which hold the same
+# secrets but did not match a pattern anchored at the extension.
+config*.yml*
+config*.yaml*
 !config.example.yml
 !config.example.yaml
 
