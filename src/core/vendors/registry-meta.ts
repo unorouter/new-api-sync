@@ -819,6 +819,23 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     apiKeyPlaceholder: "lfu_... (logfare.ai/register)",
     imageChannelType: 1,
+    // Rejection here is SILENT: the request 200s and the stream closes with no
+    // chunk and no finish_reason, so a client sampler preset reads as a reply
+    // that cut off mid-sentence. qwen-3.8-27b dies on top_k/repetition_penalty
+    // (other lf1 models tolerate both, but the strip is channel-wide and a lost
+    // sampler knob beats a dead stream). The thinking-disable forms are listed
+    // because they fail the same silent way, so no lane here can turn reasoning
+    // off. temperature/top_p/frequency_penalty/presence_penalty/seed/stop pass.
+    paramOverride: JSON.stringify({
+      operations: [
+        "top_k",
+        "repetition_penalty",
+        "enable_thinking",
+        "chat_template_kwargs",
+        "reasoning",
+        "thinking",
+      ].map((path) => ({ path, mode: "delete" })),
+    }),
   },
   {
     kind: "opencodezen",
