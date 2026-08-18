@@ -828,13 +828,32 @@ export const SIMPLE_PROVIDER_META = [
     // off. temperature/top_p/frequency_penalty/presence_penalty/seed/stop pass.
     paramOverride: JSON.stringify({
       operations: [
-        "top_k",
-        "repetition_penalty",
-        "enable_thinking",
-        "chat_template_kwargs",
-        "reasoning",
-        "thinking",
-      ].map((path) => ({ path, mode: "delete" })),
+        ...[
+          "top_k",
+          "repetition_penalty",
+          "enable_thinking",
+          "chat_template_kwargs",
+          "reasoning",
+          "thinking",
+        ].map((path) => ({ path, mode: "delete" })),
+        // Frequency/presence penalties punish repeated tokens, and reasoning is
+        // repetitive by nature ("wait, reconsider"), so a penalised qwen-3.8-27b
+        // wanders for novel tokens instead of converging: at 1.0/1.0 it spent
+        // 15k chars thinking, emitted no answer and hit finish_reason=length.
+        // reasoning_effort=low holds reasoning at ~400-600 chars and made 3/3
+        // runs answer under those same penalties. "minimal" is in the silently
+        // rejected set above, so it must not be used here. keep_origin yields to
+        // a caller that sends its own effort.
+        {
+          path: "reasoning_effort",
+          mode: "set",
+          value: "low",
+          keep_origin: true,
+          conditions: [
+            { path: "original_model", mode: "prefix", value: "qwen-3.8-27b" },
+          ],
+        },
+      ],
     }),
   },
   {
