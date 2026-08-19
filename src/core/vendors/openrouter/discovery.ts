@@ -30,6 +30,7 @@ interface OpenRouterEndpoint {
   pricing?: OpenRouterPricing;
   uptime_last_1d?: number | null;
   quantization?: string | null;
+  supported_parameters?: string[];
 }
 
 interface OpenRouterModelList {
@@ -50,6 +51,10 @@ export interface OpenRouterPaidEndpoint {
   uptime?: number | null;
   /** "fp8" / "fp4" / "unknown". Absent on hosts that do not report one. */
   quantization?: string;
+  /** What THIS host accepts. Hosts of the same model differ (GMICloud takes no
+   *  frequency_penalty/presence_penalty/stop where DeepSeek's own endpoint does),
+   *  and a pinned host 400s on a param it does not list. */
+  supportedParameters?: string[];
 }
 
 export interface OpenRouterCatalogue {
@@ -151,6 +156,9 @@ export async function discoverOpenRouterFreeModels(
             status: ep.status ?? 0,
             uptime: ep.uptime_last_1d ?? null,
             quantization: ep.quantization ?? undefined,
+            supportedParameters: Array.isArray(ep.supported_parameters)
+              ? ep.supported_parameters
+              : undefined,
           });
         }
         if (hosts.length > 0) paidEndpoints.set(id, hosts);

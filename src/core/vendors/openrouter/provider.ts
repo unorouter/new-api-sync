@@ -43,6 +43,37 @@ const SUB_FP8_QUANTIZATIONS = new Set(["fp4", "int4", "nf4", "fp6", "int8"]);
 // glm-5.2 fp8 garbles names and loses context (user-reported, reproducible against
 // novita's fp8 of the same weights), so its cheap price never wins the host pick.
 const EXCLUDED_HOSTS = new Set(["deepinfra", "akashml"]);
+
+// Sampler/format knobs a chat client sends unprompted. A host pinned via provider.only
+// gets the request verbatim, so one it does not accept fails the whole call: GMICloud
+// omits frequency_penalty/presence_penalty/stop from its supported list and answers
+// `400001 Invalid request parameters` when a preset sends them, while DeepSeek's own
+// endpoint of the SAME model takes all three. Only params in this list are ever
+// stripped, so a sparse or stale upstream list cannot delete something load-bearing.
+const CLIENT_SENT_PARAMS = [
+  "frequency_penalty",
+  "presence_penalty",
+  "repetition_penalty",
+  "top_k",
+  "min_p",
+  "top_a",
+  "stop",
+  "seed",
+  "logit_bias",
+  "response_format",
+] as const;
+
+function unsupportedParamOps(
+  supported: string[] | undefined,
+): { operations: { path: string; mode: "delete" }[] } | undefined {
+  if (!supported || supported.length === 0) return undefined;
+  const ok = new Set(supported);
+  const drop = CLIENT_SENT_PARAMS.filter((p) => !ok.has(p));
+  if (drop.length === 0) return undefined;
+  return {
+    operations: drop.map((path) => ({ path, mode: "delete" as const })),
+  };
+}
 // Host exclusions that apply to ONE model rather than the whole host. gmicloud's
 // glm-5.2 does not separate reasoning from content and runs a classifier that trims
 // replies mid-response (user-reported), and it is the priciest open1 glm-5.2 lane;
@@ -361,6 +392,7 @@ export async function processOpenRouterProvider(
                     : undefined,
                 paramOverride: JSON.stringify({
                   provider: { only: [host.provider], allow_fallbacks: false },
+                  ...unsupportedParamOps(host.supportedParameters),
                 }),
                 ...(hostIndex > 0 ? { failoverDuplicate: true } : {}),
               };
