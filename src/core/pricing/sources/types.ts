@@ -121,20 +121,9 @@ export interface ImageParams {
   outputFormatChoices?: string[];
   qualityChoices?: string[];
   backgroundChoices?: string[];
-  /**
-   * The endpoint a synchronous image request routes to, resolved once here so no
-   * caller re-derives it from the endpoint-type list. Absent when the model serves
-   * none of them (an aihorde-only row), which is what makes it unsubmittable.
-   */
-  endpoint?: "image-generation" | "openai" | "gemini";
-  /** Width/height a form starts at, and whether the model accepts them at all. */
-  supportsSize: boolean;
-  defaultWidth: number;
-  defaultHeight: number;
-  defaultSteps: number;
-  defaultCfg?: number;
-  defaultSampler: string;
 }
+// The gateway adds endpoint/supportsSize/default* on read: they depend on the
+// live channel set, which changes without a sync running.
 
 // What resolveSourceMetadata returns: the merged source data plus releaseTs,
 // which it always derives. Sources supply releaseDate; only the resolver can
