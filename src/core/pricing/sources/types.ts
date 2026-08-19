@@ -82,6 +82,58 @@ export interface SourceMetadata {
   supportsNativeStreaming?: boolean;
   supportsNativeStructuredOutput?: boolean;
   supportsSystemMessages?: boolean;
+
+  // ─── Runware (image models) ───
+  /**
+   * Which generation controls the model accepts, from Runware's own per-model
+   * schema. A param absent from the schema is rejected upstream, so a client
+   * rendering a control for it can only produce a failed generation.
+   */
+  imageParams?: ImageParams;
+}
+
+/** Slider bounds and default for one numeric generation parameter. */
+export interface ImageParamRange {
+  min?: number;
+  max?: number;
+  default?: number;
+}
+
+export interface ImageParams {
+  supportsNegativePrompt: boolean;
+  supportsCfg: boolean;
+  supportsSteps: boolean;
+  supportsSampler: boolean;
+  supportsLoraChain: boolean;
+  supportsSeed: boolean;
+  supportsStrength: boolean;
+  supportsHiresFix: boolean;
+  supportsAdetailer: boolean;
+  /** Accepted `<sampler> <schedule>` strings; Runware folds both into one field. */
+  samplers?: string[];
+  steps?: ImageParamRange;
+  cfg?: ImageParamRange;
+  /** inputs.referenceImages.maxItems: 0 means the model takes none. */
+  maxReferenceImages: number;
+  supportsSeedImage: boolean;
+  supportsMaskImage: boolean;
+  /** Provider-scoped enums, so the choices offered are the ones it accepts. */
+  outputFormatChoices?: string[];
+  qualityChoices?: string[];
+  backgroundChoices?: string[];
+  /**
+   * The endpoint a synchronous image request routes to, resolved once here so no
+   * caller re-derives it from the endpoint-type list. Absent when the model serves
+   * none of them (an aihorde-only row), which is what makes it unsubmittable.
+   */
+  endpoint?: "image-generation" | "openai" | "gemini";
+  /** Width/height a form starts at, and whether the model accepts them at all. */
+  supportsSize: boolean;
+  defaultWidth: number;
+  defaultHeight: number;
+  defaultSteps: number;
+  defaultCfg?: number;
+  defaultSampler: string;
 }
 
 // What resolveSourceMetadata returns: the merged source data plus releaseTs,

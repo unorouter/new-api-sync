@@ -12,6 +12,11 @@ import { fetchLiteLLMSource } from "./sources/litellm";
 import { fetchLlmPricesSource } from "./sources/llm-prices";
 import { fetchModelsDevSource } from "./sources/models-dev";
 import { fetchOpenRouterPricingSource } from "./sources/openrouter";
+import {
+  fetchRunwareSchemas,
+  lookupImageParams,
+  type RunwareSchemaIndex,
+} from "./sources/runware";
 import type {
   BaseModelPricing,
   PricingSource,
@@ -19,9 +24,21 @@ import type {
   SourceMetadata,
 } from "./sources/types";
 
+// Module state, declared above its first use: a `let` stays in the temporal dead
+// zone until its own line executes, so loading into it from a call higher in the
+// file leaves the value reset to null.
+let runwareSchemas: RunwareSchemaIndex | null = null;
+
+async function loadRunwareSchemas(): Promise<void> {
+  runwareSchemas = await fetchRunwareSchemas();
+}
+
 export async function fetchAllPricingSources(
   basellmEntries: BasellmEntry[],
 ): Promise<PricingSource[]> {
+  // Loaded alongside the sources so both sync entry points get it without either
+  // having to remember; image capability flags are resolved from it downstream.
+  const runwareLoad = loadRunwareSchemas();
   const [
     llmPrices,
     litellm,
@@ -40,6 +57,7 @@ export async function fetchAllPricingSources(
     fetchEphoneMetadataSource(),
   ]);
   const basellm = buildBasellmCanonicalSource(basellmEntries);
+  await runwareLoad;
 
   const empty: string[] = [];
   if (!litellm || litellm.pricing.candidates.size === 0) empty.push("LiteLLM");
@@ -266,6 +284,14 @@ export function buildModelMetadata(opts: {
   const publishedInputs = merged.inputModalities;
   if (!Array.isArray(publishedInputs) || publishedInputs.length === 0) {
     merged.inputModalities = inputFallback(opts.modelName, type, merged);
+  }
+  // Runware is the authority on which generation controls an image model accepts,
+  // so the flags are resolved once here rather than by every client that renders
+  // a form. Derived after the type checks above, which decide what `image` means.
+  if (type === "image" && runwareSchemas) {
+    const series = typeof merged.series === "string" ? merged.series : null;
+    const params = lookupImageParams(runwareSchemas, opts.modelName, series);
+    if (params) merged.imageParams = params;
   }
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
