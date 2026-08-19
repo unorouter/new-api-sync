@@ -193,18 +193,31 @@ function toMetadata(model: OpenRouterSummaryModel): SourceMetadata {
       ?.map((e) => e.supportedParameters)
       .filter((l): l is string[] => Array.isArray(l) && l.length > 0) ?? [];
   if (lists.length > 0) {
-    const union = new Set<string>(lists.flat());
-    const intersection = lists.reduce<Set<string>>(
-      (acc, l) => new Set(l.filter((p) => acc.has(p))),
-      new Set(lists[0]),
+    // Hosts of one model disagree (GMICloud takes no penalties where DeepSeek's own
+    // endpoint does), so neither extreme describes the model: a strict intersection
+    // lets ONE outlier delete a param 14 other hosts accept, and the union promises
+    // support most routes cannot honor. Publish what a MAJORITY serves, which is what
+    // an unpinned request actually lands on, and keep the union as expert mode.
+    const counts = new Map<string, number>();
+    for (const p of lists.flat()) counts.set(p, (counts.get(p) ?? 0) + 1);
+    const quorum = Math.ceil(lists.length / 2);
+    md.supportedParametersAll = [...counts.keys()].sort();
+    md.supportedParameters = [...counts.entries()]
+      .filter(([, n]) => n >= quorum)
+      .map(([p]) => p)
+      .sort();
+    md.supportedParametersByHost = Object.fromEntries(
+      trace?.endpoints
+        ?.filter((e) => Array.isArray(e.supportedParameters))
+        .map((e) => [e.provider, [...e.supportedParameters!].sort()]) ?? [],
     );
-    md.supportedParametersAll = [...union].sort();
-    md.supportedParameters = [...intersection].sort();
   }
   if (trace?.picked?.quantization) md.quantization = trace.picked.quantization;
+  // No endpoint trace: the summary list is ONE provider's view, so it cannot claim to
+  // be the cross-host answer. Record it as the union only, leaving supportedParameters
+  // absent rather than asserting an intersection we never computed.
   if (!md.supportedParameters && params.length > 0) {
-    md.supportedParameters = [...params].sort();
-    md.supportedParametersAll = md.supportedParameters;
+    md.supportedParametersAll = [...params].sort();
   }
   return md;
 }

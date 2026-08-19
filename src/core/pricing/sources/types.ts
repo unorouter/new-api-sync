@@ -52,10 +52,12 @@ export interface SourceMetadata {
   description?: string;
 
   // ─── Sampler awareness (OpenRouter) ───
-  /** Intersection across endpoints — drives UI gray-out for sliders. */
+  /** What a MAJORITY of endpoints accept - drives UI gray-out for sliders. */
   supportedParameters?: string[];
-  /** Union across endpoints — "expert mode". */
+  /** Union across endpoints - "expert mode". */
   supportedParametersAll?: string[];
+  /** Per-host lists, so a pinned lane can be checked exactly. */
+  supportedParametersByHost?: Record<string, string[]>;
   /** `null` = OR recommends NOT sending (model rejects). */
   defaultParameters?: Record<string, number | null>;
 
