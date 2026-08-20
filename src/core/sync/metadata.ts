@@ -29,7 +29,6 @@ import {
   CHANNEL_TYPES,
   getTaskModelOverride,
 } from "@core/catalog/constants/channel-types";
-import { scrapeYunwuGeminiImageGrids } from "@core/vendors/newapi/yunwu-grid-scraper";
 import {
   inferModelType,
   isModerationModel,
@@ -959,29 +958,6 @@ async function syncGridCollapse(
     "ModelQuotaType",
   ];
   const current = await target.getOptions(KEYS);
-
-  // Scrape yunwu's frontend gemini-image resolution grid (primary over config). Uses the
-  // target's existing per-model ModelPrice as the base; best-effort, never throws. Runs here
-  // too so `bun sync metadata` applies the grid without a full probe/test sync.
-  let existingPrices: Record<string, number> = {};
-  try {
-    existingPrices = JSON.parse(current.ModelPrice || "{}");
-  } catch {
-    existingPrices = {};
-  }
-  const basePrices: Record<string, number> = {};
-  for (const [name, p] of Object.entries(existingPrices))
-    if (inScope(name) && typeof p === "number" && p > 0) basePrices[name] = p;
-  const scraped = await scrapeYunwuGeminiImageGrids(basePrices);
-  for (const name of Object.keys(scraped)) {
-    const rows = scraped[name]!;
-    resolutionGrids[name] = rows;
-    const min = rows.reduce((m, row) => {
-      const p = Number(row.Pricing);
-      return Number.isFinite(p) && p > 0 && p < m ? p : m;
-    }, Infinity);
-    if (Number.isFinite(min)) flat[name] = min;
-  }
 
   const names = Object.keys(flat);
   if (names.length === 0) return;

@@ -8,12 +8,12 @@
 //
 // We resolve this by pricing a representative single generation in ACTUAL DOLLARS PER CALL, using the
 // codebase convention modelRatio*2 == $/1M tokens (see provider.ts usd()). The cap then compares
-// charge-USD vs canonical-USD: a dimensionless, cost-true number (~$0.02/call for yunwu gpt-image-2,
-// matching the live console), instead of an abstract ratio that mixes units. The token profile is
+// charge-USD vs canonical-USD: a dimensionless, cost-true number (~$0.02/call for gpt-image-2,
+// matching a live upstream console), instead of an abstract ratio that mixes units. The token profile is
 // approximate ON PURPOSE: it only tunes the cap's keep/drop decision, never the money billed (billing
 // stays the exact per-token formula above, which is size-accurate end to end).
 
-// Representative single image generation. Calibrated against the live yunwu console: gpt-image-2
+// Representative single image generation. Calibrated against a live upstream console: gpt-image-2
 // generations report ~765 output tokens regardless of prompt (the image IS the output), with a
 // small prompt. Raising OUTPUT makes the cap/derived-price treat per-token image models as costlier.
 export const IMAGE_REPRESENTATIVE_PROMPT_TOKENS = 96;
@@ -21,7 +21,7 @@ export const IMAGE_REPRESENTATIVE_OUTPUT_TOKENS = 765;
 
 // modelRatio*2 == $/1M tokens (codebase convention). Cost of one representative generation in dollars:
 //   $/call = (promptTok * modelRatio*2 + completionTok * modelRatio*2*completionRatio) / 1e6
-// e.g. yunwu gpt-image-2 (modelRatio 2.5, completionRatio 6): (96 + 765*6) * 5 / 1e6 ~= $0.0234 per
+// e.g. gpt-image-2 (modelRatio 2.5, completionRatio 6): (96 + 765*6) * 5 / 1e6 ~= $0.0234 per
 // call, matching the live console's $0.0232 (48p/765c) to the cent.
 export function imagePerCallUsd(args: {
   modelRatio: number;

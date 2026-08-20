@@ -29,7 +29,6 @@ import type {
 import { buildAIHordeChannels } from "@core/vendors/aihorde-image/provider";
 import { buildRunwareChannels } from "@core/vendors/runware-image/provider";
 import { buildComfyUiChannels } from "@core/vendors/comfyui/provider";
-import { scrapeYunwuGeminiImageGrids } from "@core/vendors/newapi/yunwu-grid-scraper";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { buildBaseline } from "./baseline";
@@ -291,21 +290,6 @@ export async function runProviderPipeline(
     Object.assign(
       allMetadata,
       getMetadataFromEnabledModels(provider.enabledModels),
-    );
-  }
-
-  // yunwu prices gemini-image by resolution (4K > 1K/2K) in a grid the gateway applies via
-  // GetGridPrice, but that grid is only in yunwu's frontend, not its API. Scrape it (primary)
-  // so 4K bills correctly; config `modelPricingGrid` stays the fallback. The scraper owns which
-  // models it grids; we just hand it every priced model. Best-effort: any failure logs and
-  // leaves the flat price. Skipped in dry-run to keep it network-free.
-  if (!opts?.dryRun) {
-    const basePrices: Record<string, number> = {};
-    for (const [name, mm] of mergedModels)
-      if ((mm.modelPrice ?? 0) > 0) basePrices[name] = mm.modelPrice!;
-    Object.assign(
-      allPricingGrids,
-      await scrapeYunwuGeminiImageGrids(basePrices),
     );
   }
 
