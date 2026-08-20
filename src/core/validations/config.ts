@@ -30,7 +30,7 @@ const GridPricingRowSchema = T.Record(
 );
 
 // prettier-ignore
-const ModelMetadataSchema = T.Object({ maxOutputTokens: Opt(T.Integer({ minimum: 1 })), isReasoning: Opt(T.Boolean()), disableThinking: Opt(T.Boolean()), maxImageInputs: Opt(T.Integer({ minimum: 1 })), supportedParams: Opt(T.Array(str, { minItems: 1 })) });
+const ModelMetadataSchema = T.Object({ maxOutputTokens: Opt(T.Integer({ minimum: 1 })), isReasoning: Opt(T.Boolean()), disableThinking: Opt(T.Boolean()), supportedParams: Opt(T.Array(str, { minItems: 1 })) });
 export type ModelMetadata = Static<typeof ModelMetadataSchema>;
 
 const EnabledModelEntrySchema = T.Union([
