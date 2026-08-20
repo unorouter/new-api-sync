@@ -63,6 +63,8 @@ const MODEL_NAME_TO_AIR: Record<string, string> = {
   "flux.2-dev": "runware:400@1",
   "flux.2-klein-9b": "runware:400@2",
   "flux.2-klein-4b": "runware:400@4",
+  "gpt-image-1": "openai:1@1",
+  "gpt-image-2": "openai:gpt-image@2",
 };
 
 type JsonObject = Record<string, unknown>;
@@ -236,7 +238,13 @@ export function lookupImageParams(
   modelName: string,
   series: string | null | undefined,
 ): ImageParams | undefined {
-  const air = MODEL_NAME_TO_AIR[modelName.trim().toLowerCase()];
+  // A ":free" lane is the same model on a free channel, so it takes the same
+  // parameters as the paid one.
+  const bare = modelName
+    .trim()
+    .toLowerCase()
+    .replace(/:free$/, "");
+  const air = MODEL_NAME_TO_AIR[bare];
   if (air && index.byAir[air]) return index.byAir[air];
   if (!series) return undefined;
   const key = series.trim().toLowerCase();
