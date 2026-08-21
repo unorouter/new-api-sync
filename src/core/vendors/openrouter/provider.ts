@@ -63,16 +63,25 @@ const CLIENT_SENT_PARAMS = [
   "response_format",
 ] as const;
 
+type OverrideOp = { mode: string; path?: string };
+
 function unsupportedParamOps(
   supported: string[] | undefined,
-): { operations: { path: string; mode: "delete" }[] } | undefined {
-  if (!supported || supported.length === 0) return undefined;
-  const ok = new Set(supported);
-  const drop = CLIENT_SENT_PARAMS.filter((p) => !ok.has(p));
-  if (drop.length === 0) return undefined;
-  return {
-    operations: drop.map((path) => ({ path, mode: "delete" as const })),
-  };
+  acceptsImages: boolean,
+): { operations: OverrideOp[] } | undefined {
+  const ops: OverrideOp[] = [];
+  if (supported && supported.length > 0) {
+    const ok = new Set(supported);
+    for (const path of CLIENT_SENT_PARAMS) {
+      if (!ok.has(path)) ops.push({ path, mode: "delete" });
+    }
+  }
+  // A text-only model rejects the entire request over one image, and the sender
+  // usually cannot tell an image was in it: iOS puts stickers and Memoji in as
+  // PNG attachments. Dropping the image costs that attachment; keeping it costs
+  // the reply.
+  if (!acceptsImages) ops.push({ mode: "strip_images" });
+  return ops.length > 0 ? { operations: ops } : undefined;
 }
 // Host exclusions that apply to ONE model rather than the whole host. gmicloud's
 // glm-5.2 does not separate reasoning from content and runs a classifier that trims
@@ -392,7 +401,10 @@ export async function processOpenRouterProvider(
                     : undefined,
                 paramOverride: JSON.stringify({
                   provider: { only: [host.provider], allow_fallbacks: false },
-                  ...unsupportedParamOps(host.supportedParameters),
+                  ...unsupportedParamOps(
+                    host.supportedParameters,
+                    !catalogue.textOnlyIds.has(r.upstream),
+                  ),
                 }),
                 ...(hostIndex > 0 ? { failoverDuplicate: true } : {}),
               };

@@ -7,10 +7,10 @@ modules:
   default:
     framework: custom
     translations:
-      glob: './src/web/public/i18n/**/*.json'
+      glob: "./src/web/public/i18n/**/*.json"
     usages:
       include:
-        - '**/*.{js,ts,jsx,tsx,vue}'
+        - "**/*.{js,ts,jsx,tsx,vue}"
 
 # styleguide:
 #   product: |

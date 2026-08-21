@@ -22,6 +22,7 @@ interface OpenRouterPricing {
 interface OpenRouterModel {
   id: string;
   pricing?: OpenRouterPricing;
+  architecture?: { input_modalities?: string[] };
 }
 interface OpenRouterEndpoint {
   provider_name?: string;
@@ -61,6 +62,9 @@ export interface OpenRouterCatalogue {
   freeIds: string[];
   /** Per-model upstream-host pricing for explicitly-requested paid ids. */
   paidEndpoints: Map<string, OpenRouterPaidEndpoint[]>;
+  /** Model ids whose input modalities do NOT include "image". A request
+   *  carrying one fails outright on these, so the channel strips it. */
+  textOnlyIds: Set<string>;
 }
 
 const ENDPOINT_PROBE_CONCURRENCY = 8;
@@ -112,7 +116,23 @@ export async function discoverOpenRouterFreeModels(
     timeoutMs: 15_000,
   });
 
-  if (!raw?.data?.length) return { freeIds: [], paidEndpoints: new Map() };
+  if (!raw?.data?.length)
+    return { freeIds: [], paidEndpoints: new Map(), textOnlyIds: new Set() };
+
+  // Modality is a property of the model, not of a host, so it is read once from
+  // the catalogue rather than per endpoint.
+  const textOnlyIds = new Set(
+    raw.data
+      .filter((m) => {
+        const inputs = m.architecture?.input_modalities;
+        return (
+          Array.isArray(inputs) &&
+          inputs.length > 0 &&
+          !inputs.includes("image")
+        );
+      })
+      .map((m) => m.id),
+  );
 
   const candidates = raw.data.filter((m) => isZeroPricing(m.pricing));
   consola.info(
@@ -166,5 +186,5 @@ export async function discoverOpenRouterFreeModels(
     ),
   );
 
-  return { freeIds, paidEndpoints };
+  return { freeIds, paidEndpoints, textOnlyIds };
 }
