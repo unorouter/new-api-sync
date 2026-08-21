@@ -99,8 +99,12 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   fallenmerick: { modelPatterns: ["violet-lotus","mn-violet"], strongPatterns: ["violet-lotus"], nameAliases: ["fallenmerick"], displayName: "FallenMerick" },
   meganova: { modelPatterns: ["manta-mini","manta-flash","manta-pro"], nameAliases: ["meganova","meganova-ai"], displayName: "MegaNova" },
   aionlabs: { modelPatterns: ["aion-rp","aion-1","aion-2","aion-3"], strongPatterns: ["aion-rp"], nameAliases: ["aion labs","aionlabs"], displayName: "Aion Labs" },
-  // OpenCode Zen house/stealth models (undisclosed base): big-pickle + opencode-branded.
+  // OpenCode Zen house models + opencode-branded.
   opencodezen: { modelPatterns: ["big-pickle","opencode"], strongPatterns: ["big-pickle"], nameAliases: ["opencode zen","opencode"], displayName: "OpenCode Zen" },
+  // Unreleased models whose developer is deliberately undisclosed during preview.
+  // The gateways that carry them (OpenCode Zen, OpenRouter's stealth/ namespace)
+  // are distributors, not the vendor, so attributing one of them would be wrong.
+  stealth: { modelPatterns: ["ox-alpha"], strongPatterns: ["ox-alpha"], nameAliases: ["stealth"], displayName: "Stealth" },
   orcarouter: { modelPatterns: ["orca-router","orca-fusion"], strongPatterns: ["orca-fusion","orca-router"], nameAliases: ["orcarouter","orca router"], displayName: "OrcaRouter" },
   swissai: { modelPatterns: ["apertus"], strongPatterns: ["apertus"], nameAliases: ["swiss ai","swiss-ai","swissai","eth zurich","epfl"], displayName: "Swiss AI" },
   regolo: { modelPatterns: ["brick"], strongPatterns: ["brick-complexity","brick-v1"], nameAliases: ["regolo","regolo.ai"], displayName: "Regolo" },

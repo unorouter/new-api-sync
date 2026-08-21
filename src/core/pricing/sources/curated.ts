@@ -3233,6 +3233,14 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // Stealth model behind OpenCode Zen's x-preview-f and OpenRouter's stealth/
+  // namespace; specs are OpenRouter's published ones, not estimates.
+  "ox-alpha": {
+    releaseDate: iso("2026-08-20"),
+    contextWindow: 1_048_576,
+    isReasoning: true,
+    supportsTools: true,
+  },
   // Z.ai GLM-4.6 Vision Flash
   "glm-4.6v-flash": {
     releaseDate: iso("2025-12-09"),
