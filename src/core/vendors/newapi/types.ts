@@ -8,7 +8,8 @@ export interface ApiResponse<T = unknown> {
 
 export interface ModelInfo {
   name: string;
-  ratio: number;
+  /** Absent when the relay publishes no price for the model at all. */
+  ratio?: number;
   completionRatio: number;
   cacheRatio?: number;
   createCacheRatio?: number;
@@ -68,9 +69,15 @@ export interface PricingResponse {
     model_name: string;
     vendor_id?: number;
     quota_type: number;
-    model_ratio: number;
-    model_price: number;
+    model_ratio?: number;
+    model_price?: number;
     completion_ratio: number;
+    // Some relays (holdai) omit the flat model_ratio entirely and publish price
+    // per group instead. `price` is the model_ratio in that group's terms.
+    group_price?: Record<
+      string,
+      { type?: number; price?: number; group_ratio?: number }
+    >;
     cache_ratio?: number;
     create_cache_ratio?: number;
     audio_ratio?: number | null;

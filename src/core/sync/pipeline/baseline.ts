@@ -78,6 +78,9 @@ export async function buildBaseline(opts: {
     }
     for (const model of targetPricing.models) {
       if (baseline.modelRatios.has(model.name)) continue;
+      // No published ratio means there is nothing to preserve; recording a
+      // fabricated one would let the guard protect a price that never existed.
+      if (model.ratio === undefined) continue;
       baseline.modelRatios.set(model.name, {
         ratio: model.ratio,
         completionRatio: model.completionRatio ?? 1,

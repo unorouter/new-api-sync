@@ -8,11 +8,11 @@ function matchBlacklistEntry(text: string, pattern: string): boolean {
 }
 
 export function matchesBlacklist(
-  text: string,
+  text: string | null | undefined,
   blacklist?: string[],
   scope?: string,
 ): boolean {
-  if (!blacklist?.length) return false;
+  if (!blacklist?.length || !text) return false;
   const t = text.toLowerCase();
   const s = scope?.toLowerCase();
   return blacklist.some((raw) => {

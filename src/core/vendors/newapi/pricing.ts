@@ -51,6 +51,22 @@ export async function fetchPricing(
   return result;
 }
 
+// The per-group `price` IS the model_ratio (upstream renders 提示/1M as
+// price * 2 * group_ratio). Take the bare price, never price * group_ratio: the
+// group ratio is applied separately downstream, so folding it in here would
+// square it. Cheapest group, to match how the flat model_ratio is read.
+function groupPriceRatio(
+  groupPrice:
+    | Record<string, { price?: number; group_ratio?: number }>
+    | undefined,
+): number | undefined {
+  if (!groupPrice) return undefined;
+  const prices = Object.values(groupPrice)
+    .map((g) => g?.price)
+    .filter((p): p is number => typeof p === "number" && p > 0);
+  return prices.length ? Math.min(...prices) : undefined;
+}
+
 function parsePricingV1(
   ctx: ClientContext,
   data: PricingResponse,
@@ -74,9 +90,11 @@ function parsePricingV1(
     data.usable_group ?? data.group_names ?? {},
   )
     .filter(([name]) => name !== "")
+    // usable_group is name -> description on most relays, but some (holdai)
+    // return name -> ratio, and a number reaching the blacklist matcher throws.
     .map(([name, description]) => ({
       name,
-      description,
+      description: typeof description === "string" ? description : name,
       ratio: data.group_ratio[name] ?? 1,
       models: Array.from(groupModels.get(name) ?? []),
       channelType: inferChannelType(Array.from(groupEndpoints.get(name) ?? [])),
@@ -84,7 +102,7 @@ function parsePricingV1(
 
   const models: ModelInfo[] = data.data.map((m) => ({
     name: m.model_name,
-    ratio: m.model_ratio,
+    ratio: m.model_ratio ?? groupPriceRatio(m.group_price),
     completionRatio: m.completion_ratio,
     cacheRatio:
       m.cache_ratio !== undefined && m.cache_ratio >= 0
@@ -98,7 +116,9 @@ function parsePricingV1(
     vendorId: m.vendor_id,
     supportedEndpoints: m.supported_endpoint_types ?? m.endpoints ?? [],
     modelPrice:
-      m.quota_type !== 0 && m.model_price > 0 ? m.model_price : undefined,
+      m.quota_type !== 0 && (m.model_price ?? 0) > 0
+        ? m.model_price
+        : undefined,
     quotaType: m.quota_type >= 2 ? m.quota_type : undefined,
     audioRatio:
       m.audio_ratio != null && m.audio_ratio > 0 ? m.audio_ratio : undefined,
@@ -119,7 +139,8 @@ function parsePricingV1(
   const billingExprs: Record<string, string> = {};
   const pricingVersions: Record<string, string> = {};
   for (const m of data.data) {
-    if (m.model_ratio > 0) modelRatios[m.model_name] = m.model_ratio;
+    const ratio = m.model_ratio ?? groupPriceRatio(m.group_price);
+    if (ratio !== undefined && ratio > 0) modelRatios[m.model_name] = ratio;
     if (m.completion_ratio > 0)
       completionRatios[m.model_name] = m.completion_ratio;
     if (m.audio_ratio != null && m.audio_ratio > 0)
@@ -502,7 +523,8 @@ function parsePricingV3(
   const audioRatios: Record<string, number> = {};
   const audioCompletionRatios: Record<string, number> = {};
   for (const info of models) {
-    if (info.ratio > 0) modelRatios[info.name] = info.ratio;
+    if (info.ratio !== undefined && info.ratio > 0)
+      modelRatios[info.name] = info.ratio;
     if (info.completionRatio > 0)
       completionRatios[info.name] = info.completionRatio;
     if (info.audioRatio != null) audioRatios[info.name] = info.audioRatio;
