@@ -471,7 +471,8 @@
       "ORPHAN_ABILITY_CLEANUP_DONE": "[{name}] 已清理 {deleted} 个孤立能力（失效路由）",
       "FIX_ABILITIES_FAILED": "[{name}] 能力表重建（channel/fix）失败或不受支持",
       "FIX_ABILITIES_PARTIAL": "[{name}] 能力表重建有 {fails} 个渠道失败，跳过孤立模型清理",
-      "GUEST_TOKEN_UPDATED": "已更新访客令牌 \"{name}\"：{count} 个完全免费模型"
+      "GUEST_TOKEN_UPDATED": "已更新访客令牌 \"{name}\"：{count} 个完全免费模型",
+      "CONDITIONAL_PRICING": "[{name}] 已将 {count} 个模型的价格提升至最高上下文阶梯（阶梯计价）"
     },
     "SYNC": {
       "VENDOR_UPDATED": "已更新供应商 \"{name}\"（id={id}，图标={icon}）",

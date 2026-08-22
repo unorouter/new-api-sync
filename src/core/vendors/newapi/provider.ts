@@ -442,11 +442,10 @@ export async function processNewApiProvider(
     for (const m of pricing.models) {
       // Tiered models ship a placeholder model_ratio (often 37.5) that would
       // trip the canonical cap. Derive the effective input ratio from the
-      // cheapest tier's `p` coefficient (same units as model_ratio).
-      // Cheapest, not most-expensive: canonical sources (litellm/openrouter)
-      // list a model's standard/lowest rate, so cheapest tier compares
-      // apples-to-apples. Using long-context premium would reject ~every
-      // multi-tier model.
+      // DEAREST tier's `p` coefficient (same units as model_ratio), which is
+      // what effectiveRatioFromBillingExpr defaults to. Dearest, not cheapest:
+      // one published price has to cover every request, and a long-context call
+      // billed at the cheap tier's rate loses money on the difference.
       const effective = m.billingExpr
         ? effectiveTieredOrWarn(m.billingExpr, m.name)
         : undefined;

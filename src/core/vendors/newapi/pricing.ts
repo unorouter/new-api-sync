@@ -41,14 +41,78 @@ export async function fetchPricing(
     string,
     { path: string; method: string }
   >;
-  if (Array.isArray(raw.data))
-    return parsePricingV1(ctx, raw as unknown as PricingResponse);
-  const data = raw.data as { model_info?: unknown };
-  if (Array.isArray(data.model_info))
-    return parsePricingV3(ctx, raw as unknown as PricingResponseV3);
-  const result = parsePricingV2(ctx, raw as unknown as PricingResponseV2);
-  result.endpointPaths = supportedEndpoint;
+  let result: UpstreamPricing;
+  if (Array.isArray(raw.data)) {
+    result = parsePricingV1(ctx, raw as unknown as PricingResponse);
+  } else {
+    const data = raw.data as { model_info?: unknown };
+    if (Array.isArray(data.model_info)) {
+      result = parsePricingV3(ctx, raw as unknown as PricingResponseV3);
+    } else {
+      result = parsePricingV2(ctx, raw as unknown as PricingResponseV2);
+      result.endpointPaths = supportedEndpoint;
+    }
+  }
+  await applyConditionalPricing(ctx, result);
   return result;
+}
+
+// Some relays (gptnb) bill per context-length tier but publish only the CHEAPEST
+// tier's ratio on /api/pricing, with no billing_expr to reveal the rest. The
+// tiers live on /api/pricing_legacy instead, so fetch them and raise the ratio to
+// the dearest tier: one published price has to cover every request, and a
+// long-context call billed at the short-context rate loses the difference.
+async function applyConditionalPricing(
+  ctx: ClientContext,
+  pricing: UpstreamPricing,
+): Promise<void> {
+  const body = await tryFetchJson<{
+    success?: boolean;
+    data?: {
+      ConditionalPricingEnabled?: boolean;
+      ModelConditionalPricing?: Record<
+        string,
+        {
+          Conditions?: Array<{ InputRatio?: number; CompletionRatio?: number }>;
+        }
+      >;
+    };
+  }>(`${ctx.baseUrl}/api/pricing_legacy`, { headers: ctx.headers });
+  const data = body?.data;
+  if (!data?.ConditionalPricingEnabled) return;
+  const conditional = data.ModelConditionalPricing;
+  if (!conditional) return;
+
+  let raised = 0;
+  for (const [name, entry] of Object.entries(conditional)) {
+    const tiers = entry?.Conditions;
+    if (!tiers?.length) continue;
+    const inputs = tiers
+      .map((c) => c.InputRatio)
+      .filter((r): r is number => typeof r === "number" && r > 0);
+    if (!inputs.length) continue;
+    const dearest = Math.max(...inputs);
+    const current = pricing.modelRatios[name];
+    if (current === undefined || dearest <= current) continue;
+    // Pair the completion ratio with the tier we priced from; the dearest input
+    // tier often carries a LOWER completion ratio, and mixing the two overstates
+    // output cost.
+    const chosen = tiers.find((c) => c.InputRatio === dearest);
+    pricing.modelRatios[name] = dearest;
+    if (typeof chosen?.CompletionRatio === "number")
+      pricing.completionRatios[name] = chosen.CompletionRatio;
+    const model = pricing.models.find((m) => m.name === name);
+    if (model) {
+      model.ratio = dearest;
+      if (typeof chosen?.CompletionRatio === "number")
+        model.completionRatio = chosen.CompletionRatio;
+    }
+    raised++;
+  }
+  if (raised > 0)
+    consola.info(
+      t("CORE.NEWAPI.CONDITIONAL_PRICING", { name: ctx.name, count: raised }),
+    );
 }
 
 // The per-group `price` IS the model_ratio (upstream renders 提示/1M as
