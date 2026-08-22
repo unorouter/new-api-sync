@@ -84,6 +84,12 @@ export interface UpstreamOffer {
   paidTier?: boolean;
   /** Free-tier offer (all models $0). Routes to pricing phase A; replaces the per-providerKind whitelist. */
   isFreeTier?: boolean;
+  /**
+   * The upstream was unreachable at probe time and these models were never
+   * tested. Channels are created DISABLED so new-api's scheduled test owns
+   * bringing them back rather than a later sync happening to catch them healthy.
+   */
+  upstreamDown?: boolean;
 }
 
 /** newapi only; empty for sub2api/nvidia/openrouter. */

@@ -52,3 +52,15 @@ providers:
   #   name: cf1
   #   apiKey: cf-...
   #   acceptRateLimited: true
+  # acceptUpstreamDown is the same idea one level up, for the channel-shape probe
+  # rather than a single model. A 5xx or a timeout there normally drops every model
+  # behind that bucket for the run; with this set the bucket is kept, its models are
+  # left untested, and the channels are emitted disabled so new-api's scheduled test
+  # brings them back when the host recovers. Set it for a known-good but flaky
+  # upstream; on a retired endpoint it parks dead channels as disabled forever.
+  # - type: newapi
+  #   name: relay1
+  #   baseUrl: https://relay.example.com
+  #   systemAccessToken: ...
+  #   userId: 1
+  #   acceptUpstreamDown: true

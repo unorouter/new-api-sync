@@ -699,7 +699,7 @@ function pushBucketsAsTiers(
         )
           ? { passThroughBody: true }
           : {}),
-        ...(m.rateLimited ? { disabled: true } : {}),
+        ...(m.rateLimited || offer.upstreamDown ? { disabled: true } : {}),
         ...(sysPromptRule
           ? {
               systemPrompt: sysPromptRule.prompt,

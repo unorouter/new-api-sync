@@ -29,6 +29,12 @@ export function nativeShapeForVendor(vendor: string): number {
 export interface ProbeOutcome {
   channelType: number;
   shape: "native" | "openai-fallback" | "no-text-models";
+  /**
+   * The probe never got a healthy reply; the bucket is only being emitted because
+   * acceptUpstreamDown is set. Callers must create these channels DISABLED so no
+   * traffic routes to an upstream that is currently down.
+   */
+  upstreamDown?: boolean;
 }
 
 export interface ProbeOpts {
@@ -41,6 +47,13 @@ export interface ProbeOpts {
   timeoutMs?: number;
   /** Treat a persistent 429 as shape-pass (endpoint understood the request). */
   accept429?: boolean;
+  /**
+   * Treat a persistent 5xx/timeout as shape-pass so the bucket is still emitted,
+   * as disabled channels for new-api's scheduled test to re-enable. Without it a
+   * provider having a bad hour drops every model behind that bucket, and they
+   * only come back when a later sync happens to catch it healthy.
+   */
+  acceptUpstreamDown?: boolean;
 }
 
 export async function probeChannelType(
@@ -163,18 +176,35 @@ async function runShapeProbe(
     consola.warn(
       t("CORE.PROBE.SKIPPED_BLOCK", { prefix, vendor, reason: blockReason }),
     );
-  } else {
+    return null;
+  }
+  consola.warn(
+    t("CORE.PROBE.BOTH_FAILED", {
+      prefix,
+      vendor,
+      native: shapeName(native),
+      ns: nativeResult.status ?? "?",
+      ne: nativeResult.error ?? "",
+      os: fallbackResult.status ?? "?",
+      oe: fallbackResult.error ?? "",
+    }),
+  );
+  // A billing block is a permanent refusal, so it never reaches here. What does
+  // is 5xx/timeout: the endpoint exists and simply is not answering right now.
+  if (opts.acceptUpstreamDown && isUpstreamDown(nativeResult)) {
     consola.warn(
-      t("CORE.PROBE.BOTH_FAILED", {
+      t("CORE.PROBE.UPSTREAM_DOWN_DISABLED", {
         prefix,
         vendor,
-        native: shapeName(native),
-        ns: nativeResult.status ?? "?",
-        ne: nativeResult.error ?? "",
-        os: fallbackResult.status ?? "?",
-        oe: fallbackResult.error ?? "",
+        status: nativeResult.status ?? "timeout",
       }),
     );
+    return { channelType: native, shape: "native", upstreamDown: true };
   }
   return null;
+}
+
+// No status at all means the request timed out before a reply.
+function isUpstreamDown(result: ShapeResult): boolean {
+  return result.status === undefined || result.status >= 500;
 }

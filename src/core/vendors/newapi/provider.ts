@@ -566,6 +566,7 @@ export async function processNewApiProvider(
                   modelEndpoints: localNormalizedEndpoints,
                   logPrefix: probeLabel,
                   accept429: providerConfig.acceptRateLimited,
+                  acceptUpstreamDown: providerConfig.acceptUpstreamDown,
                 });
             if (!probe) {
               consola.warn(
@@ -612,28 +613,35 @@ export async function processNewApiProvider(
               };
             // Dry-run: no live tests (the money). Every gate-kept model is
             // treated as working so pricing + diff compute against the full set.
-            const filterResult = ctx.dryRun
-              ? {
-                  workingModels: gatedModels,
-                  testedCount: gatedModels.length,
-                  rateLimitedModels: [] as string[],
-                  details: undefined,
-                }
-              : await testAndFilterModels({
-                  allModels: gatedModels,
-                  baseUrl,
-                  apiKey: p.apiKey,
-                  channelType: probe.channelType,
-                  providerLabel: `${probeLabel}/${vendor}`,
-                  testableModelTypes: getTestModelTypes(config, providerConfig),
-                  modelEndpoints: localNormalizedEndpoints,
-                  acceptRateLimited: providerConfig.acceptRateLimited,
-                  capabilities: buildCapabilityMap(
-                    gatedModels,
-                    lowercaseExposed(config),
-                    ctx,
-                  ),
-                });
+            // upstreamDown behaves the same way for a different reason: the host
+            // is not answering, so testing every model would just buy the same
+            // timeout N more times.
+            const filterResult =
+              ctx.dryRun || probe.upstreamDown
+                ? {
+                    workingModels: gatedModels,
+                    testedCount: 0,
+                    rateLimitedModels: [] as string[],
+                    details: undefined,
+                  }
+                : await testAndFilterModels({
+                    allModels: gatedModels,
+                    baseUrl,
+                    apiKey: p.apiKey,
+                    channelType: probe.channelType,
+                    providerLabel: `${probeLabel}/${vendor}`,
+                    testableModelTypes: getTestModelTypes(
+                      config,
+                      providerConfig,
+                    ),
+                    modelEndpoints: localNormalizedEndpoints,
+                    acceptRateLimited: providerConfig.acceptRateLimited,
+                    capabilities: buildCapabilityMap(
+                      gatedModels,
+                      lowercaseExposed(config),
+                      ctx,
+                    ),
+                  });
             const workingUpstream = filterResult.workingModels;
             if (workingUpstream.length === 0)
               return {
@@ -707,6 +715,7 @@ export async function processNewApiProvider(
               models: dedupedOfferModels,
               priceAdjustment: providerConfig.priceAdjustment,
               defaultAdjustment: 0,
+              ...(probe.upstreamDown ? { upstreamDown: true } : {}),
             };
             return {
               tested: filterResult.testedCount,

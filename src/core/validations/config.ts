@@ -47,7 +47,7 @@ const ModelTypeEnum = T.Union([T.Literal("text"), T.Literal("image"), T.Literal(
 const ProviderCommonProps = { name: str, testModelTypes: Opt(T.Array(ModelTypeEnum)), enabledVendors: Opt(T.Array(str)), enabledModels: Opt(T.Array(EnabledModelEntrySchema)), priceAdjustment: Opt(PriceAdjustmentSchema), perUpstreamConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })), autoTestIntervalMinutes: Opt(T.Integer({ minimum: 1, maximum: 10080 })), autoTestIntervalMaxMinutes: Opt(T.Integer({ minimum: 1, maximum: 10080 })) } as const;
 
 // prettier-ignore
-const NewApiProviderSchema = T.Object({ type: T.Literal("newapi"), ...ProviderCommonProps, baseUrl: uri, systemAccessToken: str, userId: T.Integer({ minimum: 1 }), acceptRateLimited: Opt(T.Boolean()) });
+const NewApiProviderSchema = T.Object({ type: T.Literal("newapi"), ...ProviderCommonProps, baseUrl: uri, systemAccessToken: str, userId: T.Integer({ minimum: 1 }), acceptRateLimited: Opt(T.Boolean()), acceptUpstreamDown: Opt(T.Boolean()) });
 const Sub2ApiProviderSchema = T.Object({
   type: T.Literal("sub2api"),
   ...ProviderCommonProps,
@@ -86,6 +86,13 @@ const SimpleFreeProviderSchema = T.Object({
   // spent, not breakage). Only safe where 429 = capacity. Emitted disabled so
   // new-api's auto-test re-enables them once the limit clears.
   acceptRateLimited: Opt(T.Boolean()),
+  // Keep a bucket whose probe got a 5xx or no reply at all, rather than dropping
+  // every model behind it for the run. The models are NOT tested (the host is not
+  // answering) and the channels are emitted disabled, so new-api's scheduled test
+  // is what brings them back. Use it for providers that are known-good but
+  // flaky; on a genuinely retired endpoint it leaves dead channels parked as
+  // disabled instead of removing them.
+  acceptUpstreamDown: Opt(T.Boolean()),
   // Skip the claude authenticity probe for this provider only. Set it when the
   // upstream is a VERIFIED first-party Claude that fails the probe for a known
   // reason, not to silence a suspicious relay: the probe exists to catch a

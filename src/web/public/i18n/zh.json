@@ -643,7 +643,8 @@
       "FALLBACK_OPENAI": "[{prefix}/probe] 供应商 {vendor} 回退到 OpenAI 形态（原生 {shape} 被上游拒绝）",
       "SKIPPED_BLOCK": "[{prefix}/probe] 供应商 {vendor} 跳过该桶——{reason}",
       "BOTH_FAILED": "[{prefix}/probe] 供应商 {vendor} 原生形态（{native}）和 OpenAI 形态均失败，跳过该桶（native：status={ns} {ne}；openai：status={os} {oe}）",
-      "BILLING_BLOCK_CLAUDE_CODE": "Claude Code 第三方计费拦截——上游账户需在 claude.ai/settings/usage 手动领取额度"
+      "BILLING_BLOCK_CLAUDE_CODE": "Claude Code 第三方计费拦截——上游账户需在 claude.ai/settings/usage 手动领取额度",
+      "UPSTREAM_DOWN_DISABLED": "[{prefix}/probe] vendor={vendor} 上游不可用（status={status}），渠道将以禁用状态创建，等待定时重测"
     },
     "APPLY": {
       "FAIL_CREATE": "创建 {entity} 失败",
