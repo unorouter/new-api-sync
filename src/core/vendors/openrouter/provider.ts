@@ -20,6 +20,7 @@ import type {
 import { resolvePriceAdjustment } from "@core/pricing";
 import { tryFetchJson } from "@core/infra/http";
 import { testAndFilterModels } from "@core/testing/runner";
+import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
 import type { OpenRouterProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
@@ -109,6 +110,33 @@ function quantTag(tag: string, quantization?: string): string {
   const q = (quantization ?? "").trim().toLowerCase();
   if (!q || !tag || q === "unknown") return tag;
   return tag.includes(q) ? tag : `${tag}/${q}`;
+}
+
+// PAID models are never probed (a probe is a billed request per model per run),
+// so thinkingDetected never fires for them and their channels shipped without
+// thinking_to_content. new-api bills a turn that produced ONLY reasoning as an
+// empty 502, which reaches the user as a blank reply: the live glm-4.7 case.
+//
+// No probe is needed here. OpenRouter publishes supported_parameters PER HOST,
+// and "reasoning" appears on exactly the reasoning models (glm-4.7 8/8 hosts,
+// kimi-k3 15/15, llama-3.3 0/13), so the host's own declaration answers it.
+function advertisedThinkingDetail(
+  upstream: string,
+  supportedParameters?: string[],
+): ModelTestDetail | undefined {
+  const params = supportedParameters ?? [];
+  if (!params.includes("reasoning") && !params.includes("include_reasoning"))
+    return undefined;
+  return {
+    model: upstream,
+    success: true,
+    streamSuccess: null,
+    toolCallSuccess: null,
+    toolParallel: null,
+    authenticityProbed: false,
+    channelType: CHANNEL_TYPES.OPENROUTER,
+    thinkingDetected: true,
+  };
 }
 
 async function fetchOpenRouterBalance(
@@ -395,7 +423,12 @@ export async function processOpenRouterProvider(
                 exposed: r.exposed,
                 upstream: reverseMapping[r.exposed] ?? r.upstream,
                 modelType: "text",
-                testDetail: details.find((d) => d.model === r.upstream),
+                testDetail:
+                  details.find((d) => d.model === r.upstream) ??
+                  advertisedThinkingDetail(
+                    r.upstream,
+                    host.supportedParameters,
+                  ),
                 upstreamRatio: (host.prompt * 1_000_000) / USD_PER_M_PER_RATIO,
                 upstreamCompletionRatio:
                   host.prompt > 0 ? host.completion / host.prompt : 1,
