@@ -324,11 +324,14 @@ export async function fetchOpenRouterPricingSource(): Promise<PricingSource | nu
     ids.map((id) =>
       limit(async () => {
         const trace = await fetchEndpointsForModel(id);
-        if (!trace) {
-          failedIds.push(id);
-          return;
-        }
-        endpointTraces.set(id, trace);
+        if (trace) endpointTraces.set(id, trace);
+        else failedIds.push(id);
+        // Kept regardless of the trace: modality, context and capability flags
+        // are properties of the MODEL and live in the summary, so tying them to
+        // a priced endpoint dropped every free model's metadata. fetchEndpoints
+        // returns null for a model whose endpoints all price at 0, which is
+        // exactly what a free model looks like. toMetadata already treats the
+        // trace as optional and falls back to the summary's own fields.
         const model = summaryById.get(id);
         if (model) validEntries.push([id, model]);
       }),
