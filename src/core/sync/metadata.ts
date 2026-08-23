@@ -89,6 +89,7 @@ export interface MetadataSyncResult {
   renamedChannels: number;
   passThroughEnabled: number;
   paramOverrideChanged: number;
+  thinkingEnabled: number;
   systemPromptChanged: number;
 }
 
@@ -340,6 +341,56 @@ function buildDisableThinkingByProvider(
   return out;
 }
 
+// A reasoning model that spends its whole max_tokens budget on chain-of-thought
+// returns content:null, which new-api bills as an empty 502 and the client shows
+// as a blank reply. thinking_to_content folds the reasoning into content so the
+// turn is never empty. It was only ever set from a probe, and paid models are
+// not probed, so every paid reasoning channel shipped without it.
+//
+// Resolved from the same pricing-source metadata this command already seeds
+// (isReasoning), so it covers every provider rather than only OpenRouter, and
+// needs no upstream traffic.
+async function reconcileThinkingToContent(
+  target: NewApiClient,
+  channels: Channel[],
+  sources: PricingSource[],
+  reverseMapping: Map<string, string>,
+): Promise<number> {
+  let changed = 0;
+  for (const ch of channels) {
+    const served = parseModelList(ch.models).filter(
+      (name) => !isRoutingOnlyAlias(name),
+    );
+    const reasons = served.some(
+      (name) =>
+        inferModelType(name) === "text" &&
+        resolveSourceMetadata(name, sources, reverseMapping).isReasoning ===
+          true,
+    );
+    // Only ever turned ON. A channel whose probe set it stays set even if the
+    // sources disagree, and clearing it would re-open the blank-reply window.
+    if (!reasons) continue;
+
+    let setting: Record<string, unknown> = {};
+    if (ch.setting) {
+      try {
+        setting = JSON.parse(ch.setting);
+      } catch {
+        continue; // unparseable: skip rather than clobber other fields
+      }
+    }
+    if (setting.thinking_to_content === true) continue;
+
+    setting.thinking_to_content = true;
+    const nextSetting = JSON.stringify(setting);
+    if (await target.updateChannel({ ...ch, setting: nextSetting })) {
+      ch.setting = nextSetting;
+      changed++;
+    }
+  }
+  return changed;
+}
+
 async function reconcileParamOverride(
   target: NewApiClient,
   channels: Channel[],
@@ -498,6 +549,12 @@ export async function runMetadataSync(
     channels,
     config,
   );
+  const thinkingEnabled = await reconcileThinkingToContent(
+    target,
+    channels,
+    sources,
+    reverseMapping,
+  );
   const systemPromptChanged = await reconcileSystemPrompt(
     target,
     channels,
@@ -537,6 +594,7 @@ export async function runMetadataSync(
     renamedChannels,
     passThroughEnabled,
     paramOverrideChanged,
+    thinkingEnabled,
     systemPromptChanged,
   };
 
@@ -1129,6 +1187,10 @@ export function printMetadataSummary(result: MetadataSyncResult): void {
   if (result.renamedChannels > 0)
     consola.info(
       `[metadata] renamed published names on ${result.renamedChannels} channels`,
+    );
+  if (result.thinkingEnabled > 0)
+    consola.info(
+      `[metadata] enabled thinking_to_content on ${result.thinkingEnabled} reasoning channels`,
     );
   if (result.passThroughEnabled > 0)
     consola.info(
