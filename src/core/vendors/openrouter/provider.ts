@@ -38,11 +38,15 @@ const MIN_HOST_UPTIME_PCT = 90;
 // short of alternatives at, and "unknown" covers the full-precision hosts, so only
 // the explicitly-lower tiers are named here.
 const SUB_FP8_QUANTIZATIONS = new Set(["fp4", "int4", "nf4", "fp6", "int8"]);
-// Hosts we already relay directly (routing via OpenRouter pays OR's cut for a lane we
-// own) plus hosts with confirmed-degraded output. akashml passes probes but its
-// glm-5.2 fp8 garbles names and loses context (user-reported, reproducible against
-// novita's fp8 of the same weights), so its cheap price never wins the host pick.
-const EXCLUDED_HOSTS = new Set(["deepinfra", "akashml"]);
+// Hosts with confirmed-degraded output. akashml passes probes but its glm-5.2 fp8
+// garbles names and loses context (user-reported, reproducible against novita's
+// fp8 of the same weights), so its cheap price never wins the host pick.
+//
+// deepinfra is NOT excluded despite the direct di1 lane: di1 only carries four
+// models, so blanket-blocking the host also cost every model it does not serve.
+// The two lanes coexist and the cheaper one wins per model; paying OR's cut is
+// better than having no host at all.
+const EXCLUDED_HOSTS = new Set(["akashml"]);
 
 // Sampler/format knobs a chat client sends unprompted. A host pinned via provider.only
 // gets the request verbatim, so one it does not accept fails the whole call: GMICloud
