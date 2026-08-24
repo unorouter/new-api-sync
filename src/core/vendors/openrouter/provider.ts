@@ -72,7 +72,12 @@ const CLIENT_SENT_PARAMS = [
   "response_format",
 ] as const;
 
-type OverrideOp = { mode: string; path?: string; value?: unknown };
+type OverrideOp = {
+  mode: string;
+  path?: string;
+  value?: unknown;
+  keep_origin?: boolean;
+};
 
 function unsupportedParamOps(
   supported: string[] | undefined,
@@ -93,10 +98,16 @@ function unsupportedParamOps(
   if (!acceptsImages) ops.push({ mode: "strip_images" });
   // Hybrid models (glm-4.7) reason by default on OpenRouter, so a chat client
   // that never asked for reasoning either loses its whole max_tokens budget to
-  // it (blank turn) or has it folded into the visible reply. The bare name is
-  // the non-thinking product; the -thinking variants keep reasoning.
+  // it (blank turn) or has it folded into the visible reply. keep_origin makes
+  // this a default, not a removal: a client that explicitly sends a reasoning
+  // object keeps it, everyone else gets the direct-answer mode.
   if (disableThinking)
-    ops.push({ path: "reasoning", mode: "set", value: { enabled: false } });
+    ops.push({
+      path: "reasoning",
+      mode: "set",
+      value: { enabled: false },
+      keep_origin: true,
+    });
   return ops.length > 0 ? { operations: ops } : undefined;
 }
 // Host exclusions that apply to ONE model rather than the whole host. gmicloud's
