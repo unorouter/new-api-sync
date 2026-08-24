@@ -77,6 +77,13 @@ type OverrideOp = {
   path?: string;
   value?: unknown;
   keep_origin?: boolean;
+  conditions?: {
+    path: string;
+    mode: string;
+    value: unknown;
+    invert?: boolean;
+  }[];
+  logic?: string;
 };
 
 function unsupportedParamOps(
@@ -100,15 +107,26 @@ function unsupportedParamOps(
   // never asked for reasoning get it folded into the visible reply (Chub
   // renders think tags raw). exclude keeps the chain of thought (the model
   // still reasons, verified: same completion_tokens) but OpenRouter drops it
-  // from the stream, so every client sees only the answer. keep_origin makes
-  // this a default, not a removal: a client that explicitly sends a reasoning
-  // object keeps full control.
+  // from the stream, so every client sees only the answer. Two escapes: an
+  // explicit client reasoning object passes (keep_origin), and a -thinking
+  // alias on the same channel skips the op entirely (original_model is the
+  // client-requested name, checked before mapping), so visible reasoning
+  // stays one model-picker choice away.
   if (disableThinking)
     ops.push({
       path: "reasoning",
       mode: "set",
       value: { exclude: true },
       keep_origin: true,
+      conditions: [
+        {
+          path: "original_model",
+          mode: "suffix",
+          value: "-thinking",
+          invert: true,
+        },
+      ],
+      logic: "AND",
     });
   return ops.length > 0 ? { operations: ops } : undefined;
 }
