@@ -10,7 +10,11 @@ import {
   sanitizeGroupName,
 } from "@core/catalog/constants/patterns";
 import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
-import { getEnabledModelGlobs, type RuntimeConfig } from "@core/config";
+import {
+  getEnabledModelGlobs,
+  getMetadataFromEnabledModels,
+  type RuntimeConfig,
+} from "@core/config";
 import type {
   OfferModel,
   ProviderResult,
@@ -68,11 +72,12 @@ const CLIENT_SENT_PARAMS = [
   "response_format",
 ] as const;
 
-type OverrideOp = { mode: string; path?: string };
+type OverrideOp = { mode: string; path?: string; value?: unknown };
 
 function unsupportedParamOps(
   supported: string[] | undefined,
   acceptsImages: boolean,
+  disableThinking?: boolean,
 ): { operations: OverrideOp[] } | undefined {
   const ops: OverrideOp[] = [];
   if (supported && supported.length > 0) {
@@ -86,6 +91,12 @@ function unsupportedParamOps(
   // PNG attachments. Dropping the image costs that attachment; keeping it costs
   // the reply.
   if (!acceptsImages) ops.push({ mode: "strip_images" });
+  // Hybrid models (glm-4.7) reason by default on OpenRouter, so a chat client
+  // that never asked for reasoning either loses its whole max_tokens budget to
+  // it (blank turn) or has it folded into the visible reply. The bare name is
+  // the non-thinking product; the -thinking variants keep reasoning.
+  if (disableThinking)
+    ops.push({ path: "reasoning", mode: "set", value: { enabled: false } });
   return ops.length > 0 ? { operations: ops } : undefined;
 }
 // Host exclusions that apply to ONE model rather than the whole host. gmicloud's
@@ -412,6 +423,14 @@ export async function processOpenRouterProvider(
             const cheapestHosts = [...reliableHosts]
               .sort((a, b) => a.prompt - b.prompt)
               .slice(0, hostsWanted);
+            const disableThinking = Object.entries(
+              getMetadataFromEnabledModels(providerConfig.enabledModels),
+            ).some(
+              ([glob, meta]) =>
+                meta.disableThinking === true &&
+                (matchesAnyPattern(r.exposed, [glob]) ||
+                  matchesAnyPattern(r.upstream, [glob])),
+            );
             cheapestHosts.forEach((host, hostIndex) => {
               // OpenRouter only suffixes the tag with the quantization for SOME
               // hosts (novita/fp8), so the rest published a name that said
@@ -425,10 +444,12 @@ export async function processOpenRouterProvider(
                 modelType: "text",
                 testDetail:
                   details.find((d) => d.model === r.upstream) ??
-                  advertisedThinkingDetail(
-                    r.upstream,
-                    host.supportedParameters,
-                  ),
+                  (disableThinking
+                    ? undefined
+                    : advertisedThinkingDetail(
+                        r.upstream,
+                        host.supportedParameters,
+                      )),
                 upstreamRatio: (host.prompt * 1_000_000) / USD_PER_M_PER_RATIO,
                 upstreamCompletionRatio:
                   host.prompt > 0 ? host.completion / host.prompt : 1,
@@ -441,6 +462,7 @@ export async function processOpenRouterProvider(
                   ...unsupportedParamOps(
                     host.supportedParameters,
                     !catalogue.textOnlyIds.has(r.upstream),
+                    disableThinking,
                   ),
                 }),
                 ...(hostIndex > 0 ? { failoverDuplicate: true } : {}),
