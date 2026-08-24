@@ -96,16 +96,18 @@ function unsupportedParamOps(
   // PNG attachments. Dropping the image costs that attachment; keeping it costs
   // the reply.
   if (!acceptsImages) ops.push({ mode: "strip_images" });
-  // Hybrid models (glm-4.7) reason by default on OpenRouter, so a chat client
-  // that never asked for reasoning either loses its whole max_tokens budget to
-  // it (blank turn) or has it folded into the visible reply. keep_origin makes
+  // Hybrid models (glm-4.7) reason by default on OpenRouter and clients that
+  // never asked for reasoning get it folded into the visible reply (Chub
+  // renders think tags raw). exclude keeps the chain of thought (the model
+  // still reasons, verified: same completion_tokens) but OpenRouter drops it
+  // from the stream, so every client sees only the answer. keep_origin makes
   // this a default, not a removal: a client that explicitly sends a reasoning
-  // object keeps it, everyone else gets the direct-answer mode.
+  // object keeps full control.
   if (disableThinking)
     ops.push({
       path: "reasoning",
       mode: "set",
-      value: { enabled: false },
+      value: { exclude: true },
       keep_origin: true,
     });
   return ops.length > 0 ? { operations: ops } : undefined;
