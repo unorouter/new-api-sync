@@ -81,8 +81,14 @@ const FAKE_RESPONSE_SIGNATURES = ["claude sonnet (4.0)"];
 
 const includesAny = (text: string, patterns: string[]) =>
   patterns.some((p) => text.includes(p));
+// Word-boundary match: these are single common-ish words, and substring matching
+// condemned a real haiku ("golden light cascades" contains "cascade") on an
+// otherwise clean opus-4.8 lane. The refusal PHRASES stay substring-matched,
+// being long enough not to collide.
+const includesAnyWord = (text: string, words: string[]) =>
+  words.some((w) => new RegExp(`\\b${w}\\b`).test(text));
 const hasCodingToolRefusal = (text: string) =>
-  includesAny(text, CODING_TOOL_NAMES) ||
+  includesAnyWord(text, CODING_TOOL_NAMES) ||
   includesAny(text, CODING_TOOL_REFUSAL_PATTERNS);
 const hasScamPage = (text: string) => includesAny(text, SCAM_PAGE_PATTERNS);
 
@@ -288,6 +294,20 @@ async function runAnthropicProbe(opts: {
         text,
         `nonce_mismatch (attempt ${attempt + 1}/${NONCE_MISMATCH_RETRIES + 1}): expected "${nonce}"`,
       );
+      // The nonce proves the reply belongs to THIS request, so a mismatch is
+      // never evidence of authenticity. It is not evidence of fakery either:
+      // across the log history 169 of these were a CORRECT answer ("i'm claude,
+      // made by anthropic. the requested model for this api call is
+      // claude-opus-4.6") from a model that ignored the tag instruction. Mark it
+      // transient so the shortfall cannot blacklist an honest lane; it stays
+      // unverified this run and is re-probed next run.
+      if (attempt === NONCE_MISMATCH_RETRIES)
+        return {
+          pass: false,
+          authenticityRefusal: false,
+          signal: null,
+          transient: true,
+        };
       continue;
     }
 
