@@ -170,7 +170,10 @@ function isTransientError(msg: string): boolean {
   );
 }
 
-const CLAUDE_TIERS = ["opus", "sonnet", "haiku"] as const;
+// fable belongs here even though it is not a size tier: without it, tierOf()
+// returns null for claude-fable-5 and detectTierMismatch exits before it can
+// compare, so a relay serving opus under a fable label was never checked at all.
+const CLAUDE_TIERS = ["opus", "sonnet", "haiku", "fable"] as const;
 type ClaudeTier = (typeof CLAUDE_TIERS)[number];
 
 function tierOf(text: string): ClaudeTier | null {
