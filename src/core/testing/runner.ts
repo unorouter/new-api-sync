@@ -213,7 +213,13 @@ function servedModel(r: TestExchange | null): string | null {
 // claude-opus-4-8) and dated ids are the same model as their base
 // (claude-haiku-4-5-20251001), so compare on the shared prefix.
 function modelsMatch(requested: string, served: string): boolean {
-  const norm = (s: string) => s.toLowerCase().replace(/[.]/g, "-");
+  // Strip a vendor prefix before comparing: plenty of relays echo the fully
+  // qualified id ("anthropic/claude-opus-5", "moonshotai/kimi-k3") for the model
+  // that was actually asked for. Comparing raw, neither string prefixes the
+  // other, so an honest upstream was recorded as a substitution and permanently
+  // blacklisted - pol/技术测试 lost all 10 of its Claude models this way.
+  const norm = (s: string) =>
+    s.toLowerCase().replace(/[.]/g, "-").split("/").pop() ?? "";
   const a = norm(requested);
   const b = norm(served);
   return a === b || a.startsWith(b) || b.startsWith(a);
