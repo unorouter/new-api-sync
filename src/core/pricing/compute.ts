@@ -36,6 +36,7 @@ interface ComputeArgs {
   systemPrompt?: { models: string[]; prompt: string; override?: boolean }[];
   /** Per-provider scheduled-test cadence, keyed by provider name. */
   autoTestIntervalByProvider?: Map<string, number>;
+  headerOverrideByProvider?: Map<string, string>;
   autoTestIntervalMaxByProvider?: Map<string, number>;
 }
 
@@ -680,6 +681,11 @@ function pushBucketsAsTiers(
           ? {
               autoTestIntervalMaxMinutes:
                 args.autoTestIntervalMaxByProvider.get(offer.provider),
+            }
+          : {}),
+        ...(args?.headerOverrideByProvider?.get(offer.provider)
+          ? {
+              headerOverride: args.headerOverrideByProvider.get(offer.provider),
             }
           : {}),
         ...(m.failoverDuplicate ? { failoverDuplicate: true } : {}),

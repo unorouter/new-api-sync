@@ -209,6 +209,7 @@ function normalizeChannel(c: Channel): Omit<Channel, "id"> {
     workflow_templates: normalizeWorkflowTemplates(c.workflow_templates),
     auto_ban: c.auto_ban,
     param_override: normalizeParamOverride(c.param_override),
+    header_override: normalizeParamOverride(c.header_override),
   };
 }
 

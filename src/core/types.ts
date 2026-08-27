@@ -76,6 +76,7 @@ export interface Channel {
   workflow_templates?: string;
   auto_ban?: number;
   param_override?: string;
+  header_override?: string;
 }
 
 export interface ModelMeta {
