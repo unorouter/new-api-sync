@@ -1383,6 +1383,14 @@ const CURATED: Record<string, SourceMetadata> = {
     description:
       "FLUX.2 [dev], a 32B flow-matching transformer for generating and editing multiple images.",
   },
+  // Hyphen spelling: logfare publishes flux-2-dev, which never matched the dotted key.
+  "flux-2-dev": {
+    releaseDate: iso("2025-11-25"),
+    series: "FLUX",
+    mode: "image",
+    description:
+      "FLUX.2 [dev], a 32B flow-matching transformer for generating and editing multiple images.",
+  },
   "flux.2-max": {
     releaseDate: iso("2025-11-25"),
     series: "FLUX",
@@ -1548,6 +1556,7 @@ const CURATED: Record<string, SourceMetadata> = {
   // release date or architecture to report.
   "custom-civitai": {
     mode: "image",
+    series: "Civitai",
     description:
       "Passthrough lane for any Civitai checkpoint: paste a model URL and it renders on that checkpoint.",
   },
