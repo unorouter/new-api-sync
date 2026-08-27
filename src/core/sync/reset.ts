@@ -100,24 +100,28 @@ export async function runReset(
     : await target.cleanupOrphanedModels();
 
   let tokensDeleted = 0;
-  let liveChannelKeys: Set<string> | null = null;
-  if (hasModels && !hasOnly) {
-    const liveChannels = await target.listChannels();
-    liveChannelKeys = new Set(liveChannels.map((c) => c.key).filter(Boolean));
-  }
+  // Guard against orphaning a live channel's key. Previously only built for
+  // `--models` runs, so an `--only` run would have deleted unguarded had the
+  // suffix ever matched; the naming bug below is the only reason it never did.
+  const liveChannels = await target.listChannels();
+  const liveChannelKeys = new Set(
+    liveChannels.map((c) => c.key).filter(Boolean),
+  );
 
   for (const provider of config.providers) {
     throwIfRunAborted();
     if (provider.type !== "newapi") continue;
     const client = new NewApiClient(provider, provider.name);
     const tokens = await client.listTokens();
-    const suffix = config.target.targetPrefix
-      ? `-${provider.name}-${config.target.targetPrefix}`
-      : `-${provider.name}`;
+    // Must mirror ensureTokens, which names tokens `<group>-<tokenPrefix>` where
+    // tokenPrefix is `target.targetPrefix ?? provider.name`. Matching on
+    // `-<provider>-<prefix>` looked plausible but no token is ever named that, so
+    // this loop silently deleted nothing and always reported `Tokens: -0`.
+    const suffix = `-${config.target.targetPrefix ?? provider.name}`;
     for (const token of tokens) {
       throwIfRunAborted();
       if (!token.name.endsWith(suffix)) continue;
-      if (liveChannelKeys && liveChannelKeys.has(token.key)) continue;
+      if (liveChannelKeys.has(token.key)) continue;
       if (await client.deleteToken(token.id)) tokensDeleted++;
     }
   }
