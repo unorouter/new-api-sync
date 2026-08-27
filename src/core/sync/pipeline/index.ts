@@ -122,6 +122,28 @@ function restoreSnapshotPrice(
   return false;
 }
 
+// Only a provider that actually reported its catalog may have channels deleted.
+// A failed discovery yields zero offers, which the diff cannot tell apart from
+// "serves nothing", so a transient stall would delete every lane the provider
+// owns: a 10s logfare response against a 15s timeout wiped all 15 of its
+// channels, 5 of them healthy and serving.
+function buildManagedProviders(
+  config: RuntimeConfig,
+  reports: ProviderReport[],
+  targetSnapshot?: TargetSnapshot,
+): Set<string> {
+  const failed = new Set(reports.filter((r) => !r.success).map((r) => r.name));
+  const managed = new Set(
+    config.providers.map((p) => p.name).filter((n) => !failed.has(n)),
+  );
+  if (targetSnapshot && !config.onlyProviders) {
+    for (const channel of targetSnapshot.channels) {
+      if (channel.tag && !failed.has(channel.tag)) managed.add(channel.tag);
+    }
+  }
+  return managed;
+}
+
 export async function runProviderPipeline(
   config: RuntimeConfig,
   targetSnapshot?: TargetSnapshot,
@@ -473,12 +495,11 @@ export async function runProviderPipeline(
         defaultUseAutoGroup: true,
         responsesApiModels: [...new Set(responsesApiModels)],
       },
-      managedProviders: new Set([
-        ...config.providers.map((p) => p.name),
-        ...(targetSnapshot && !config.onlyProviders
-          ? targetSnapshot.channels.filter((ch) => ch.tag).map((ch) => ch.tag!)
-          : []),
-      ]),
+      managedProviders: buildManagedProviders(
+        config,
+        providerReports,
+        targetSnapshot,
+      ),
       mappingSources: new Set(Object.keys(config.modelMapping)),
     },
   };
