@@ -341,47 +341,29 @@ function buildDisableThinkingByProvider(
   return out;
 }
 
-// A reasoning model that spends its whole max_tokens budget on chain-of-thought
-// returns content:null, which new-api bills as an empty 502 and the client shows
-// as a blank reply. thinking_to_content folds the reasoning into content so the
-// turn is never empty. It was only ever set from a probe, and paid models are
-// not probed, so every paid reasoning channel shipped without it.
-//
-// Resolved from the same pricing-source metadata this command already seeds
-// (isReasoning), so it covers every provider rather than only OpenRouter, and
-// needs no upstream traffic.
-async function reconcileThinkingToContent(
+// thinking_to_content folded a model's reasoning into the visible answer as
+// <think> tags, so a reasoning-only turn was never billed as an empty 502. That
+// was a workaround for new-api judging stream emptiness on the billing buffer;
+// it now judges on content and accepts reasoning when the turn finished
+// (streamHadOutput), so the flag only corrupts output for clients that read
+// reasoning_content. Cleared rather than merely no longer set, because channels
+// carrying it would otherwise keep shipping <think> tags forever.
+async function clearThinkingToContent(
   target: NewApiClient,
   channels: Channel[],
-  sources: PricingSource[],
-  reverseMapping: Map<string, string>,
 ): Promise<number> {
   let changed = 0;
   for (const ch of channels) {
-    const served = parseModelList(ch.models).filter(
-      (name) => !isRoutingOnlyAlias(name),
-    );
-    const reasons = served.some(
-      (name) =>
-        inferModelType(name) === "text" &&
-        resolveSourceMetadata(name, sources, reverseMapping).isReasoning ===
-          true,
-    );
-    // Only ever turned ON. A channel whose probe set it stays set even if the
-    // sources disagree, and clearing it would re-open the blank-reply window.
-    if (!reasons) continue;
-
+    if (!ch.setting) continue;
     let setting: Record<string, unknown> = {};
-    if (ch.setting) {
-      try {
-        setting = JSON.parse(ch.setting);
-      } catch {
-        continue; // unparseable: skip rather than clobber other fields
-      }
+    try {
+      setting = JSON.parse(ch.setting);
+    } catch {
+      continue; // unparseable: skip rather than clobber other fields
     }
-    if (setting.thinking_to_content === true) continue;
+    if (setting.thinking_to_content === undefined) continue;
 
-    setting.thinking_to_content = true;
+    delete setting.thinking_to_content;
     const nextSetting = JSON.stringify(setting);
     if (await target.updateChannel({ ...ch, setting: nextSetting })) {
       ch.setting = nextSetting;
@@ -549,12 +531,7 @@ export async function runMetadataSync(
     channels,
     config,
   );
-  const thinkingEnabled = await reconcileThinkingToContent(
-    target,
-    channels,
-    sources,
-    reverseMapping,
-  );
+  const thinkingEnabled = await clearThinkingToContent(target, channels);
   const systemPromptChanged = await reconcileSystemPrompt(
     target,
     channels,
@@ -1190,7 +1167,7 @@ export function printMetadataSummary(result: MetadataSyncResult): void {
     );
   if (result.thinkingEnabled > 0)
     consola.info(
-      `[metadata] enabled thinking_to_content on ${result.thinkingEnabled} reasoning channels`,
+      `[metadata] cleared obsolete thinking_to_content on ${result.thinkingEnabled} channels`,
     );
   if (result.passThroughEnabled > 0)
     consola.info(
