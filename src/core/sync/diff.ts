@@ -61,16 +61,6 @@ function extractPositiveNumber(
   }
 }
 
-function extractThinkingToContent(setting?: string): boolean | undefined {
-  if (!setting) return undefined;
-  try {
-    const v = JSON.parse(setting)?.thinking_to_content;
-    return typeof v === "boolean" ? v : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function extractSystemPrompt(
   setting?: string,
 ): { prompt: string; override: boolean } | undefined {
@@ -95,7 +85,6 @@ function mergeSettingCapabilities(
   const desiredCaps = extractCapabilities(desiredSetting);
   const desiredPassThrough = extractPassThrough(desiredSetting);
   const desiredSysPrompt = extractSystemPrompt(desiredSetting);
-  const desiredThinking = extractThinkingToContent(desiredSetting);
   const desiredAutoTestInterval = extractPositiveNumber(
     desiredSetting,
     "auto_test_interval_minutes",
@@ -108,7 +97,6 @@ function mergeSettingCapabilities(
     !desiredCaps &&
     desiredPassThrough === undefined &&
     !desiredSysPrompt &&
-    desiredThinking === undefined &&
     desiredAutoTestInterval === undefined &&
     desiredAutoTestIntervalMax === undefined
   )
@@ -132,7 +120,9 @@ function mergeSettingCapabilities(
     existing.system_prompt = desiredSysPrompt.prompt;
     existing.system_prompt_override = desiredSysPrompt.override;
   }
-  if (desiredThinking) existing.thinking_to_content = true;
+  // Clear the obsolete thinking_to_content workaround (see emit.ts) so a resync
+  // strips it from channels that still carry it.
+  delete existing.thinking_to_content;
   if (desiredAutoTestInterval !== undefined)
     existing.auto_test_interval_minutes = desiredAutoTestInterval;
   if (desiredAutoTestIntervalMax !== undefined)
