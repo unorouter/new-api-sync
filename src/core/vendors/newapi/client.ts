@@ -50,6 +50,11 @@ export class NewApiClient {
     };
   }
 
+  // Reachability only, deliberately not /api/user/self. The target now
+  // authenticates with a scoped service token that owns no account, so there is
+  // no "self" to read: SyncAuth reports user id 0 and GetUserById(0) errors.
+  // Balance is reporting, not a decision input, so it is dropped rather than
+  // widening the credential to recover a startup line.
   async healthCheck(): Promise<{
     ok: boolean;
     balance?: string;
@@ -58,20 +63,14 @@ export class NewApiClient {
     const data = await tryFetchJson<{
       success: boolean;
       message?: string;
-      data?: { quota?: number };
-    }>(`${this.baseUrl}/api/user/self`, { headers: this.headers });
+    }>(`${this.baseUrl}/api/status`, { headers: this.headers });
     if (!data) return { ok: false, error: t("CORE.ERROR.API_UNREACHABLE") };
     if (!data.success)
       return {
         ok: false,
         error: data.message ?? "API returned success: false",
       };
-    const quota = data.data?.quota;
-    return {
-      ok: true,
-      balance:
-        quota !== undefined ? `$${(quota / 500000).toFixed(2)}` : undefined,
-    };
+    return { ok: true };
   }
 
   async fetchBalance(): Promise<number | null> {
