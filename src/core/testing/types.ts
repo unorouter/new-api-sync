@@ -181,7 +181,4 @@ export interface ModelTestDetail {
   authenticityProbed: boolean;
   httpStatus?: number;
   channelType: number;
-  /** Probe response carried reasoning_content -> model thinks; channel needs thinking_to_content
-   *  so reasoning-only turns are not billed as an empty (content-less) 502. */
-  thinkingDetected?: boolean;
 }

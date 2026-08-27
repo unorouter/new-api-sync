@@ -155,13 +155,14 @@ function quantTag(tag: string, quantization?: string): string {
 }
 
 // PAID models are never probed (a probe is a billed request per model per run),
-// so thinkingDetected never fires for them and their channels shipped without
-// thinking_to_content. new-api bills a turn that produced ONLY reasoning as an
-// empty 502, which reaches the user as a blank reply: the live glm-4.7 case.
+// so a paid host has no test detail at all unless one is synthesised here.
+// OpenRouter publishes supported_parameters PER HOST, and "reasoning" appears on
+// exactly the reasoning models (glm-4.7 8/8 hosts, kimi-k3 15/15, llama-3.3
+// 0/13), so the host's own declaration stands in for a probe.
 //
-// No probe is needed here. OpenRouter publishes supported_parameters PER HOST,
-// and "reasoning" appears on exactly the reasoning models (glm-4.7 8/8 hosts,
-// kimi-k3 15/15, llama-3.3 0/13), so the host's own declaration answers it.
+// It no longer carries thinkingDetected: that only ever fed thinking_to_content,
+// which is obsolete now that new-api judges stream emptiness on content rather
+// than on the billing buffer.
 function advertisedThinkingDetail(
   upstream: string,
   supportedParameters?: string[],
@@ -177,7 +178,6 @@ function advertisedThinkingDetail(
     toolParallel: null,
     authenticityProbed: false,
     channelType: CHANNEL_TYPES.OPENROUTER,
-    thinkingDetected: true,
   };
 }
 
