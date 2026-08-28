@@ -31,6 +31,7 @@ import { NewApiClient } from "@core/vendors/newapi/client";
 import { drainUpstreamErrors } from "@core/vendors/newapi/resources";
 import { t } from "@server/i18n";
 import { consola } from "consola";
+import { timingMark, timingReport, timingReset } from "@core/infra/timing";
 import { join } from "path";
 
 async function ensureVendors(
@@ -106,6 +107,7 @@ export async function runSync(
   opts?: { dryRun?: boolean },
 ): Promise<SyncRunResult> {
   const start = Date.now();
+  timingReset();
   const dryRun = opts?.dryRun ?? false;
   const target = new NewApiClient(config.target, "target");
   resetTestState();
@@ -125,6 +127,7 @@ export async function runSync(
 
     throwIfRunAborted();
     const snap = await snapshot(target);
+    timingMark("snapshot");
     throwIfRunAborted();
     const { desired, providerReports } = await runProviderPipeline(
       config,
@@ -133,6 +136,7 @@ export async function runSync(
         dryRun,
       },
     );
+    timingMark("discover+price");
 
     throwIfRunAborted();
     // Dry-run: no vendor/channel/model/option writes, no guest-token update.
@@ -193,7 +197,9 @@ export async function runSync(
 
     throwIfRunAborted();
     const diff = buildSyncDiff(config, desired, liveSnap);
+    timingMark("diff");
     const apply = await applySyncDiff(target, diff);
+    timingMark("apply");
     applyErrors = apply.errors;
 
     // systemPrompt injection is written on channel CREATE via the diff, but an
@@ -203,6 +209,7 @@ export async function runSync(
     await reconcileSystemPrompt(target, await target.listChannels(), config);
     throwIfRunAborted();
     await updateGuestTokenIfConfigured(target, await target.listChannels());
+    timingMark("reconcile+token");
 
     const successfulProviders = providerReports.filter((p) => p.success).length;
     const hasProviderSuccess =
@@ -213,6 +220,7 @@ export async function runSync(
     recordRunSummary({ providerReports, apply, diff, elapsedMs, success });
     return { success, providerReports, desired, diff, apply, elapsedMs };
   } finally {
+    timingReport();
     writeTestReport();
     writeApplyErrorsLog(applyErrors);
   }
