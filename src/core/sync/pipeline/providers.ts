@@ -12,7 +12,9 @@ import type {
   ProviderConfig,
   SimpleFreeProviderConfig,
   Sub2ApiProviderConfig,
+  A7ApiProviderConfig,
 } from "@core/validations/config";
+import { processA7ApiProvider } from "@core/vendors/a7api/provider";
 import { processNewApiProvider } from "@core/vendors/newapi/provider";
 import { processNvidiaProvider } from "@core/vendors/nvidia/provider";
 import { processOpenRouterProvider } from "@core/vendors/openrouter/provider";
@@ -70,6 +72,7 @@ const BESPOKE_ORDER: Record<string, number> = {
   newapi: 0,
   nvidia: 1,
   openrouter: 2,
+  a7api: 3,
   sub2api: 100,
 };
 function typeOrder(type: string): number {
@@ -100,6 +103,12 @@ export async function runAllProviders(
       throwIfRunAborted();
       if (provider.type === "newapi")
         return processNewApiProvider(provider as ProviderConfig, config, ctx);
+      if (provider.type === "a7api")
+        return processA7ApiProvider(
+          provider as A7ApiProviderConfig,
+          config,
+          ctx,
+        );
       if (provider.type === "nvidia")
         return processNvidiaProvider(
           provider as NvidiaProviderConfig,

@@ -799,13 +799,15 @@ async function syncUpstreamPricing(
       if (!isRoutingOnlyAlias(name) && inScope(name)) served.add(name);
   if (served.size === 0) return;
 
-  // Only newapi providers expose an /api/pricing to read paid ratios from; the
-  // other provider kinds (nvidia/openrouter/sub2api) would run live probes even
-  // under dryRun (their processors don't honor the flag), so scope the pipeline
-  // to newapi providers to avoid wasted upstream test traffic.
+  // Scoped to kinds whose discovery is a read-only pricing fetch that honors
+  // dryRun end to end: newapi (/api/pricing) and a7api (one marketplace
+  // snapshot). nvidia/openrouter/sub2api still run live discovery probes even
+  // under dryRun, so including them would burn upstream test traffic.
   const newapiConfig: RuntimeConfig = {
     ...config,
-    providers: config.providers.filter((p) => p.type === "newapi"),
+    providers: config.providers.filter(
+      (p) => p.type === "newapi" || p.type === "a7api",
+    ),
   };
   if (newapiConfig.providers.length === 0) return;
 
