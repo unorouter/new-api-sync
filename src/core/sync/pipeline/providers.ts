@@ -5,6 +5,7 @@ import {
 } from "@core/pricing/image-per-call";
 import type { ProviderRunContext, UpstreamOffer } from "@core/pricing/offers";
 import { throwIfRunAborted } from "@core/infra/abort";
+import { timingTrack } from "@core/infra/timing";
 import type { ProviderReport } from "@core/types";
 import type {
   NvidiaProviderConfig,
@@ -99,44 +100,46 @@ export async function runAllProviders(
   );
 
   const settled = await Promise.all(
-    sorted.map((provider) => {
-      throwIfRunAborted();
-      if (provider.type === "newapi")
-        return processNewApiProvider(provider as ProviderConfig, config, ctx);
-      if (provider.type === "a7api")
-        return processA7ApiProvider(
-          provider as A7ApiProviderConfig,
-          config,
-          ctx,
-        );
-      if (provider.type === "nvidia")
-        return processNvidiaProvider(
-          provider as NvidiaProviderConfig,
-          config,
-          ctx,
-        );
-      if (provider.type === "openrouter")
-        return processOpenRouterProvider(
-          provider as OpenRouterProviderConfig,
-          config,
-          ctx,
-        );
-      if (provider.type === "sub2api")
-        return processSub2ApiProvider(
-          provider as Sub2ApiProviderConfig,
-          config,
-          ctx,
-        );
-      const def = SIMPLE_PROVIDER_MAP[provider.type];
-      if (def)
-        return processSimpleProvider(
-          def,
-          provider as SimpleFreeProviderConfig,
-          config,
-          ctx,
-        );
-      throw new Error(`unknown provider type: ${provider.type}`);
-    }),
+    sorted.map((provider) =>
+      timingTrack(`provider:${provider.name}`, async () => {
+        throwIfRunAborted();
+        if (provider.type === "newapi")
+          return processNewApiProvider(provider as ProviderConfig, config, ctx);
+        if (provider.type === "a7api")
+          return processA7ApiProvider(
+            provider as A7ApiProviderConfig,
+            config,
+            ctx,
+          );
+        if (provider.type === "nvidia")
+          return processNvidiaProvider(
+            provider as NvidiaProviderConfig,
+            config,
+            ctx,
+          );
+        if (provider.type === "openrouter")
+          return processOpenRouterProvider(
+            provider as OpenRouterProviderConfig,
+            config,
+            ctx,
+          );
+        if (provider.type === "sub2api")
+          return processSub2ApiProvider(
+            provider as Sub2ApiProviderConfig,
+            config,
+            ctx,
+          );
+        const def = SIMPLE_PROVIDER_MAP[provider.type];
+        if (def)
+          return processSimpleProvider(
+            def,
+            provider as SimpleFreeProviderConfig,
+            config,
+            ctx,
+          );
+        throw new Error(`unknown provider type: ${provider.type}`);
+      }),
+    ),
   );
 
   const reports: ProviderReport[] = [];

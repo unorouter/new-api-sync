@@ -41,6 +41,7 @@ import {
 } from "./desired-models";
 import { buildOptionMaps, buildSurvivingGroups } from "./option-maps";
 import { runAllProviders } from "./providers";
+import { timingMark } from "@core/infra/timing";
 
 interface SnapshotPricing {
   modelRatio: Record<string, number>;
@@ -187,6 +188,7 @@ export async function runProviderPipeline(
     fetchOpenRouterDescriptions(),
   ]);
   const pricingSources = await fetchAllPricingSources(basellmEntries);
+  timingMark("pricing-sources");
   const reverseMapping = buildReverseMapping(config.modelMapping);
 
   const {
