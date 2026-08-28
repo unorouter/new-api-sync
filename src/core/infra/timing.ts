@@ -24,6 +24,15 @@ export function timingTrack<T>(
   return fn().finally(() => phases.push([label, Date.now() - start]));
 }
 
+export function timingSnapshot(): Record<string, number> | undefined {
+  if (phases.length === 0) return undefined;
+  return Object.fromEntries(
+    phases
+      .filter(([, ms]) => ms >= 100)
+      .map(([l, ms]) => [l, +(ms / 1000).toFixed(1)]),
+  );
+}
+
 export function timingReport(): void {
   if (phases.length === 0) return;
   const rows = phases

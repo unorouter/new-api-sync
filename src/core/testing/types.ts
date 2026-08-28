@@ -48,6 +48,7 @@ interface RunSummary {
   models: EntityChangeSet & { orphansDeleted: number };
   options: { updated: string[] };
   elapsedSeconds: number;
+  timing?: Record<string, number>;
   success: boolean;
   errors?: Array<{ phase: string; key: string; message: string }>;
 }
