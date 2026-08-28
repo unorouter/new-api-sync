@@ -9,6 +9,9 @@ export interface Listing {
   channel_id: number;
   listing_id: number;
   supplier_name: string;
+  channel_name: string;
+  description: string;
+  smart_routing_labels: string[];
   model_name: string;
   charge_type: string;
   listing_availability: number;

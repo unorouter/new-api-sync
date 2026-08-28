@@ -208,7 +208,14 @@ export async function processA7ApiProvider(
         baseUrl,
         apiKey: token.key,
         groupRatio: profitMultiple,
-        channelRemark: `${lane.model} via ${name} merchant ${lane.listing.supplier_name} (#${lane.listing.channel_id})`,
+        channelRemark: [
+          `${lane.model} via ${name} merchant ${lane.listing.supplier_name} (#${lane.listing.channel_id})`,
+          lane.listing.channel_name,
+          lane.listing.description,
+          lane.listing.smart_routing_labels?.join("/"),
+        ]
+          .filter(Boolean)
+          .join(" | "),
         models: [model],
         priceAdjustment: { default: 0 },
         defaultAdjustment: 0,
