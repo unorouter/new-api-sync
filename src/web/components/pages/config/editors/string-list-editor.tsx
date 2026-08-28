@@ -13,7 +13,7 @@ interface Props {
 }
 
 /**
- * Repeater over a list of strings. Used by blacklist, enabledVendors,
+ * Repeater over a list of strings. Used by blacklist,
  * nvidia.models.
  *
  * Stable row keys come from a ref-counter so deleting a row doesn't remap

@@ -166,8 +166,6 @@
       "ADMIN_API_KEY_PLACEHOLDER": "admin-…",
       "GROUPS": "分组",
       "IMAGE_BASE_URL": "图片基础地址",
-      "ENABLED_VENDORS": "启用的厂商",
-      "ENABLED_VENDORS_PLACEHOLDER": "anthropic、openai 等",
       "ENABLED_MODELS": "启用的模型",
       "PRICE_ADJUSTMENT": "价格调整",
       "TEST_MODEL_TYPES": "测试的模型类型",
