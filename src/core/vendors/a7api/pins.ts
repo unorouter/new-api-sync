@@ -5,7 +5,6 @@ import type { ClientContext } from "@core/vendors/newapi/context";
 import {
   createToken,
   deleteToken,
-  findTokenByKey,
   getTokenFullKeysBatch,
   listTokens,
 } from "@core/vendors/newapi/tokens";
@@ -18,7 +17,6 @@ import { marketplaceHeaders, type Listing } from "./marketplace";
 export interface MerchantLane {
   model: string;
   listing: Listing;
-  canonicalInputRatio?: number;
 }
 
 export interface LaneToken {
@@ -101,26 +99,32 @@ export async function ensureLaneTokens(
     }
   }
 
+  // a7api's POST /api/token returns no key inline, so a newly created token is
+  // revealed the same way as an existing one: batch/keys after re-listing.
+  const createdIds: number[] = [];
   for (const [name] of desired) {
     throwIfRunAborted();
     if (result.has(name)) continue;
-    // a7api serves no key-reveal endpoint, so a reused token's masked key is
-    // unrecoverable: recreate it (POST /api/token/ returns the full key once).
-    const stale = byName.get(name);
-    if (stale) await deleteToken(ctx, stale.id);
     const created = await createToken(ctx, name, "default");
-    if (!created.ok || !created.key) {
-      consola.warn(`[${provider.name}] no token for lane ${name}, skipping`);
-      continue;
+    if (!created.ok)
+      consola.warn(`[${provider.name}] token create failed for lane ${name}`);
+  }
+  const afterCreate = new Map((await listTokens(ctx)).map((t) => [t.name, t]));
+  for (const [name] of desired) {
+    if (result.has(name)) continue;
+    const token = afterCreate.get(name);
+    if (token) createdIds.push(token.id);
+  }
+  if (createdIds.length > 0) {
+    const keys = await getTokenFullKeysBatch(ctx, createdIds);
+    for (const [name] of desired) {
+      if (result.has(name)) continue;
+      const token = afterCreate.get(name);
+      if (!token) continue;
+      const key = keys.get(token.id);
+      if (key) result.set(name, { key: normalizeKey(key), tokenId: token.id });
+      else consola.warn(`[${provider.name}] no key for lane ${name}, skipping`);
     }
-    const token = await findTokenByKey(ctx, created.key);
-    if (!token) {
-      consola.warn(
-        `[${provider.name}] created token ${name} not found on re-list`,
-      );
-      continue;
-    }
-    result.set(name, { key: normalizeKey(created.key), tokenId: token.id });
   }
 
   // Same rationale as cleanupEmptyGroupTokens: only a FULL provider run may

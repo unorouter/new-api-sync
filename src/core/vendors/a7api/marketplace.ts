@@ -36,9 +36,7 @@ const DEFAULT_MIN_SUCCESS_RATE = 9500;
 // but a merchant with a real track record below the floor is proven bad, and
 // re-selecting it every run would loop: recreate, fail, disable, delete.
 const PROVEN_SAMPLE_COUNT = 20;
-const DEFAULT_SELL_AT_PCT_OF_LIST = 0.5;
-const DEFAULT_MIN_MARGIN = 2;
-const DEFAULT_MAX_PRICE_BAND = 2;
+export const DEFAULT_PROFIT_MULTIPLE = 2;
 
 export function marketplaceHeaders(
   provider: A7ApiProviderConfig,
@@ -75,29 +73,25 @@ export function groupByModel(listings: Listing[]): Map<string, Listing[]> {
   return byModel;
 }
 
-// Every merchant worth a channel, cheapest first. Three price-driven cuts, no
-// count cap:
+// Every merchant worth a channel, cheapest first. Retail = merchant cost *
+// profitMultiple (per lane, dynamic), so the only price cut is the hard cap:
+// reject a merchant whose cost * profitMultiple would breach 1x canonical list.
+// Cuts:
 //   1. health: available, per-token, and not proven-bad (see PROVEN_SAMPLE_COUNT);
-//   2. margin: output cost <= canonicalList * sellAtPctOfList / minMargin, so a
-//      merchant we cannot make minMargin on never becomes a channel;
-//   3. band: within maxPriceBand of this model's own cheapest survivor, because
-//      merchant prices cluster near the floor and the long tail would never be
-//      routed to (unbanded, the live snapshot yields ~4,900 channels).
+//   2. cap: cost * profitMultiple <= canonicalList, so we never price above list;
+//   3. count: at most maxCount merchants, cheapest first (hostsPerModel, same
+//      opt-in fan-out as openrouter: absent key = 1). Unbounded, the live
+//      snapshot yields ~4,900 channels of long tail the router never picks.
 // canonicalListUsd is the voted list output price in USD/1M; undefined skips the
-// margin cut, matching how the rest of the engine degrades without canonical.
+// cap cut, matching how the rest of the engine degrades without canonical.
 export function selectMerchants(
   rows: Listing[],
   provider: A7ApiProviderConfig,
   canonicalListUsd: number | undefined,
+  maxCount: number,
 ): Listing[] {
   const minSuccess = provider.minSuccessRate ?? DEFAULT_MIN_SUCCESS_RATE;
-  const sellPct = provider.sellAtPctOfList ?? DEFAULT_SELL_AT_PCT_OF_LIST;
-  const minMargin = provider.minMargin ?? DEFAULT_MIN_MARGIN;
-  const band = provider.maxPriceBand ?? DEFAULT_MAX_PRICE_BAND;
-  const maxCostUsd =
-    canonicalListUsd !== undefined
-      ? (canonicalListUsd * sellPct) / minMargin
-      : undefined;
+  const profitMultiple = provider.profitMultiple ?? DEFAULT_PROFIT_MULTIPLE;
 
   const viable = rows
     .filter(
@@ -112,14 +106,12 @@ export function selectMerchants(
           r.recent_success_rate < minSuccess
         ) &&
         (!provider.guaranteedOnly || r.authenticity_guaranteed) &&
-        (maxCostUsd === undefined ||
-          usdPerMillion(r.output_price_micros) <= maxCostUsd),
+        (canonicalListUsd === undefined ||
+          usdPerMillion(r.output_price_micros) * profitMultiple <=
+            canonicalListUsd),
     )
     .sort((a, b) => a.input_price_micros - b.input_price_micros);
-  if (viable.length === 0) return [];
-
-  const floor = viable[0]!.input_price_micros;
-  return viable.filter((r) => r.input_price_micros <= floor * band);
+  return viable.slice(0, maxCount);
 }
 
 export function usdPerMillion(micros: number): number {

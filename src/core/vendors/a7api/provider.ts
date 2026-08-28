@@ -54,8 +54,8 @@ function collectLanes(
     )
       continue;
 
-    // maxCost = canonicalList * sellAtPctOfList / minMargin, measured on the
-    // output side. The vote's modelRatio is the input price in ratio units.
+    // Cap cut: reject a merchant whose cost * profitMultiple breaches 1x list.
+    // The vote's modelRatio is the input price in ratio units; USD list output.
     const vote = resolveCanonicalByVote(
       model.toLowerCase(),
       ctx.pricingSources,
@@ -67,32 +67,23 @@ function collectLanes(
         (vote.cluster.completionRatio ?? 1)
       : undefined;
 
-    const chosen = selectMerchants(rows, provider, canonicalListUsd);
+    const merchantsWanted =
+      Object.entries(provider.hostsPerModel ?? {}).find(([glob]) =>
+        matchesAnyPattern(model, [glob]),
+      )?.[1] ?? 1;
+    const chosen = selectMerchants(
+      rows,
+      provider,
+      canonicalListUsd,
+      merchantsWanted,
+    );
     if (chosen.length === 0) {
       skippedModels.push(model);
       continue;
     }
-    const canonicalInputRatio = vote.cluster?.modelRatio;
-    for (const listing of chosen)
-      lanes.push({ model, listing, canonicalInputRatio });
+    for (const listing of chosen) lanes.push({ model, listing });
   }
   return { lanes, skippedModels };
-}
-
-// applyPriceAdjustment interpolates retail = cost + (ceiling - cost) * adj, so
-// a flat adj of sellPct lands at sellPct + cost/2 of list, above the promise.
-// Solve for the adj that lands exactly on sellPct * list. Undefined when the
-// lane cannot be sold at sellPct with any margin (cost at/over the target).
-function adjustmentForExactPct(
-  sellPct: number,
-  costRatio: number,
-  canonicalInputRatio: number | undefined,
-): number | undefined {
-  if (canonicalInputRatio === undefined || canonicalInputRatio <= 0)
-    return sellPct;
-  const costShare = costRatio / canonicalInputRatio;
-  if (costShare >= sellPct) return undefined;
-  return (sellPct - costShare) / (1 - costShare);
 }
 
 export async function processA7ApiProvider(
@@ -181,12 +172,6 @@ export async function processA7ApiProvider(
       const input = usdPerMillion(lane.listing.input_price_micros);
       const output = usdPerMillion(lane.listing.output_price_micros);
       const upstreamRatio = input / USD_PER_M_PER_RATIO;
-      const laneAdj = adjustmentForExactPct(
-        provider.sellAtPctOfList ?? 0.5,
-        upstreamRatio,
-        lane.canonicalInputRatio,
-      );
-      if (laneAdj === undefined) continue;
       const isCheapest =
         lane.listing.input_price_micros === cheapestByModel.get(lane.model);
       const model: OfferModel = {
@@ -198,6 +183,16 @@ export async function processA7ApiProvider(
         ...(rateLimited ? { rateLimited: true } : {}),
         ...(isCheapest ? {} : { failoverDuplicate: true }),
       };
+
+      // Per-model glob key => perModel adj => applyMarkupOverride =>
+      // retail = upstreamRatio * (1 + adj) = merchant cost * profitMultiple,
+      // cap-exempt and dynamic per lane. Every merchant cleared the 1x cap in
+      // selectMerchants, so cost * multiple stays under list anyway.
+      const profitMultiple = provider.profitMultiple ?? 2;
+      const laneAdjustment =
+        provider.priceAdjustment ?? {
+          [lane.model.toLowerCase()]: profitMultiple - 1,
+        };
 
       const vendor = inferVendorFromModelName(lane.model) ?? "unknown";
       offers.push({
@@ -212,7 +207,7 @@ export async function processA7ApiProvider(
         groupRatio: 1,
         channelRemark: `${lane.model} via ${name} merchant ${lane.listing.supplier_name} (#${lane.listing.channel_id})`,
         models: [model],
-        priceAdjustment: provider.priceAdjustment ?? laneAdj,
+        priceAdjustment: laneAdjustment,
         defaultAdjustment: 0,
       });
     }

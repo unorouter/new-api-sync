@@ -52,7 +52,7 @@ const NewApiProviderSchema = T.Object({ type: T.Literal("newapi"), ...ProviderCo
 // A marketplace, not a relay: /api/pricing publishes one placeholder ratio for
 // every model, so price comes from the per-merchant listings, and one upstream
 // token is minted and pinned per (model, merchant) lane.
-const A7ApiProviderSchema = T.Object({ type: T.Literal("a7api"), ...ProviderCommonProps, baseUrl: uri, systemAccessToken: str, userId: T.Integer({ minimum: 1 }), sellAtPctOfList: Opt(T.Number({ exclusiveMinimum: 0, maximum: 1 })), minMargin: Opt(T.Number({ minimum: 1 })), maxPriceBand: Opt(T.Number({ minimum: 1 })), minSuccessRate: Opt(T.Integer({ minimum: 0, maximum: 10000 })), guaranteedOnly: Opt(T.Boolean()), acceptRateLimited: Opt(T.Boolean()) });
+const A7ApiProviderSchema = T.Object({ type: T.Literal("a7api"), ...ProviderCommonProps, baseUrl: uri, systemAccessToken: str, userId: T.Integer({ minimum: 1 }), profitMultiple: Opt(T.Number({ minimum: 1 })), hostsPerModel: Opt(T.Record(T.String(), T.Integer({ minimum: 1 }))), minSuccessRate: Opt(T.Integer({ minimum: 0, maximum: 10000 })), guaranteedOnly: Opt(T.Boolean()), acceptRateLimited: Opt(T.Boolean()) });
 const Sub2ApiProviderSchema = T.Object({
   type: T.Literal("sub2api"),
   ...ProviderCommonProps,
