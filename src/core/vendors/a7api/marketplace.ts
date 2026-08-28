@@ -128,3 +128,15 @@ export function selectMerchants(
 export function usdPerMillion(micros: number): number {
   return micros / MICROS_PER_USD;
 }
+
+// Supplier names are mostly Chinese marketing strings and never unique
+// (usetoken alone has 6 kimi-k3 listings), so the slug is a readable prefix
+// and the channel_id stays the identifier. Empty slug = bare id.
+export function supplierSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 16)
+    .replace(/-+$/, "");
+}

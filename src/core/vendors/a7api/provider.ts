@@ -22,6 +22,7 @@ import {
   fetchListings,
   groupByModel,
   selectMerchants,
+  supplierSlug,
   usdPerMillion,
   type Listing,
 } from "./marketplace";
@@ -192,12 +193,16 @@ export async function processA7ApiProvider(
       // kimi-k3) collapses everyone's sticker to a7's cheapest merchant cost.
       const profitMultiple = provider.profitMultiple ?? 2;
 
+      const slug = supplierSlug(lane.listing.supplier_name);
+      const laneId = slug
+        ? `${slug}-${lane.listing.channel_id}`
+        : `${lane.listing.channel_id}`;
       const vendor = inferVendorFromModelName(lane.model) ?? "unknown";
       offers.push({
         provider: name,
         providerKind: "a7api",
-        group: `${vendor}-${lane.listing.channel_id}`,
-        sanitizedBase: sanitizeGroupName(`${name}-${lane.listing.channel_id}`),
+        group: `${vendor}-${laneId}`,
+        sanitizedBase: sanitizeGroupName(`${name}-${laneId}`),
         vendor,
         channelType: CHANNEL_TYPES.OPENAI,
         baseUrl,
