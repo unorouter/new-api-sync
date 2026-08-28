@@ -19,8 +19,10 @@ import type { A7ApiProviderConfig } from "@core/validations/config";
 import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
 import { consola } from "consola";
 import {
+  DEFAULT_PROFIT_MULTIPLE,
   fetchListings,
   groupByModel,
+  resolvePerModel,
   selectMerchants,
   supplierSlug,
   usdPerMillion,
@@ -73,10 +75,12 @@ function collectLanes(
         matchesAnyPattern(model, [glob]),
       )?.[1] ?? 1;
     const chosen = selectMerchants(
+      model,
       rows,
       provider,
       canonicalListUsd,
       merchantsWanted,
+      config.blacklist,
     );
     if (chosen.length === 0) {
       skippedModels.push(model);
@@ -191,7 +195,11 @@ export async function processA7ApiProvider(
       // positive adj would make this lane own the shared model sticker
       // (ModelRatio), which for a multi-source model (open1/pol also serve
       // kimi-k3) collapses everyone's sticker to a7's cheapest merchant cost.
-      const profitMultiple = provider.profitMultiple ?? 2;
+      const profitMultiple = resolvePerModel(
+        provider.profitMultiple,
+        lane.model,
+        DEFAULT_PROFIT_MULTIPLE,
+      );
 
       const slug = supplierSlug(lane.listing.supplier_name);
       const laneId = slug

@@ -1,3 +1,7 @@
+import {
+  matchesAnyPattern,
+  matchesBlacklist,
+} from "@core/catalog/constants/patterns";
 import { tryFetchJson } from "@core/infra/http";
 import type { A7ApiProviderConfig } from "@core/validations/config";
 
@@ -93,27 +97,41 @@ export function groupByModel(listings: Listing[]): Map<string, Listing[]> {
 // canonicalListUsd is the voted list output price in USD/1M; undefined skips the
 // ceiling cut, matching how the rest of the engine degrades without canonical.
 export function selectMerchants(
+  model: string,
   rows: Listing[],
   provider: A7ApiProviderConfig,
   canonicalListUsd: number | undefined,
   maxCount: number,
+  blacklist?: string[],
 ): Listing[] {
   const minSuccess = provider.minSuccessRate ?? DEFAULT_MIN_SUCCESS_RATE;
-  const profitMultiple = provider.profitMultiple ?? DEFAULT_PROFIT_MULTIPLE;
-  const maxSellFraction = provider.maxSellFraction ?? DEFAULT_MAX_SELL_FRACTION;
+  const profitMultiple = resolvePerModel(
+    provider.profitMultiple,
+    model,
+    DEFAULT_PROFIT_MULTIPLE,
+  );
+  const maxSellFraction = resolvePerModel(
+    provider.maxSellFraction,
+    model,
+    DEFAULT_MAX_SELL_FRACTION,
+  );
   const sellCeilingUsd =
     canonicalListUsd !== undefined
       ? canonicalListUsd * maxSellFraction
       : undefined;
 
-  const excludeTerms = (provider.excludeListings ?? []).map((t) =>
-    t.toLowerCase(),
+  // Provider-scoped blacklist entries (a7/*kiro*) also fence merchant METADATA,
+  // so a seller type can be banned without banning the model it sells. Only
+  // scoped entries apply here: global entries are model-name fences and free
+  // text would false-positive against them.
+  const scoped = (blacklist ?? []).filter((e) =>
+    e.toLowerCase().startsWith(`${provider.name.toLowerCase()}/`),
   );
-  const excluded = (r: Listing) => {
-    const hay =
-      `${r.channel_name} ${r.description} ${r.supplier_name}`.toLowerCase();
-    return excludeTerms.some((t) => hay.includes(t));
-  };
+  const excluded = (r: Listing) =>
+    scoped.length > 0 &&
+    [r.channel_name, r.description, r.supplier_name].some((f) =>
+      matchesBlacklist(f, scoped, provider.name),
+    );
 
   const viable = rows
     .filter(
@@ -139,6 +157,21 @@ export function selectMerchants(
 
 export function usdPerMillion(micros: number): number {
   return micros / MICROS_PER_USD;
+}
+
+// Glob-keyed per-model override with a flat-number fallback, same lookup shape
+// as hostsPerModel: first matching glob wins, then "default", then fallback.
+export function resolvePerModel(
+  value: number | Record<string, number> | undefined,
+  model: string,
+  fallback: number,
+): number {
+  if (value === undefined) return fallback;
+  if (typeof value === "number") return value;
+  const hit = Object.entries(value).find(([glob]) =>
+    matchesAnyPattern(model, [glob]),
+  );
+  return hit?.[1] ?? value["default"] ?? fallback;
 }
 
 // Supplier names are mostly Chinese marketing strings and never unique
