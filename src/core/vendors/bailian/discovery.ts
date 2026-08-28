@@ -17,8 +17,11 @@ interface BailianModel {
 // realtime/streaming audio (asr/tts/s2s/realtime/omni-realtime/vc/vd), the qwen-mt
 // translation endpoint, tingwu, and the qwen-image/wan/z-image generation models (DashScope
 // async image path, not OpenAI /images/generations - a separate integration).
+// Also drop marketplace listings: vendor/model slash ids and their bare aliases
+// (kimi-k3) have NO free quota and no Stop-on-Exhaust toggle, so a successful
+// request bills the card pay-as-you-go instead of 403ing at zero.
 const UNSERVABLE =
-  /realtime|-asr|-s2s|-tts|-mt-|livetranslate|tingwu|-vc-|-vd-|-image|qwen-image|^wan|z-image/i;
+  /realtime|-asr|-s2s|-tts|-mt-|livetranslate|tingwu|-vc-|-vd-|-image|qwen-image|^wan|z-image|\/|^kimi-k3$/i;
 
 export async function discoverBailianModels(
   baseUrl: string,
