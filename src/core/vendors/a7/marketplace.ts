@@ -106,9 +106,19 @@ export function selectMerchants(
       ? canonicalListUsd * maxSellFraction
       : undefined;
 
+  const excludeTerms = (provider.excludeListings ?? []).map((t) =>
+    t.toLowerCase(),
+  );
+  const excluded = (r: Listing) => {
+    const hay =
+      `${r.channel_name} ${r.description} ${r.supplier_name}`.toLowerCase();
+    return excludeTerms.some((t) => hay.includes(t));
+  };
+
   const viable = rows
     .filter(
       (r) =>
+        !excluded(r) &&
         r.charge_type === "per_token" &&
         r.listing_availability === 1 &&
         !r.supplier_channel_disabled &&
