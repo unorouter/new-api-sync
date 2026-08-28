@@ -8,6 +8,7 @@ import { throwIfRunAborted } from "@core/infra/abort";
 import { getConcurrencyGate } from "@core/infra/concurrency";
 import { TIMEOUTS, type ModelType } from "@core/types";
 import { t } from "@server/i18n";
+import { timingSnapshot } from "@core/infra/timing";
 import { consola } from "consola";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
@@ -165,6 +166,7 @@ export function recordRunSummary(input: {
     models: input.apply.models,
     options: input.apply.options,
     elapsedSeconds: +(input.elapsedMs / 1000).toFixed(2),
+    timing: timingSnapshot(),
     success: input.success,
     errors: input.apply.errors.length > 0 ? input.apply.errors : undefined,
   };

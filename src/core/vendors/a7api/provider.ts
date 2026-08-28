@@ -61,9 +61,7 @@ function collectLanes(
     // The vote's modelRatio is the input price in ratio units; USD list output.
     // Vote on the mapped (canonical) name: the marketplace spelling
     // (claude-opus-4-6) may miss the sources that know claude-opus-4.6.
-    const exposedName = (
-      config.modelMapping?.[model] ?? model
-    ).toLowerCase();
+    const exposedName = (config.modelMapping?.[model] ?? model).toLowerCase();
     const vote = resolveCanonicalByVote(
       exposedName,
       ctx.pricingSources,
