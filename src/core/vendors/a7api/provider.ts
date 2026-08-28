@@ -184,15 +184,13 @@ export async function processA7ApiProvider(
         ...(isCheapest ? {} : { failoverDuplicate: true }),
       };
 
-      // Per-model glob key => perModel adj => applyMarkupOverride =>
-      // retail = upstreamRatio * (1 + adj) = merchant cost * profitMultiple,
-      // cap-exempt and dynamic per lane. Every merchant cleared the 1x cap in
-      // selectMerchants, so cost * multiple stays under list anyway.
+      // Same shape as openrouter's per-host lanes: bake profitMultiple into
+      // groupRatio and resolve adj to 0, so retail = upstreamRatio *
+      // profitMultiple per lane WITHOUT the markup-override path. A per-model
+      // positive adj would make this lane own the shared model sticker
+      // (ModelRatio), which for a multi-source model (open1/pol also serve
+      // kimi-k3) collapses everyone's sticker to a7's cheapest merchant cost.
       const profitMultiple = provider.profitMultiple ?? 2;
-      const laneAdjustment =
-        provider.priceAdjustment ?? {
-          [lane.model.toLowerCase()]: profitMultiple - 1,
-        };
 
       const vendor = inferVendorFromModelName(lane.model) ?? "unknown";
       offers.push({
@@ -204,10 +202,10 @@ export async function processA7ApiProvider(
         channelType: CHANNEL_TYPES.OPENAI,
         baseUrl,
         apiKey: token.key,
-        groupRatio: 1,
+        groupRatio: profitMultiple,
         channelRemark: `${lane.model} via ${name} merchant ${lane.listing.supplier_name} (#${lane.listing.channel_id})`,
         models: [model],
-        priceAdjustment: laneAdjustment,
+        priceAdjustment: { default: 0 },
         defaultAdjustment: 0,
       });
     }
