@@ -30,8 +30,6 @@ function getConfigMetrics(
         return (
           ("testModelTypes" in provider &&
             provider.testModelTypes !== undefined) ||
-          ("enabledVendors" in provider &&
-            provider.enabledVendors !== undefined) ||
           ("enabledModels" in provider &&
             provider.enabledModels !== undefined) ||
           ("priceAdjustment" in provider &&

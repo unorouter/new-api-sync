@@ -252,9 +252,6 @@ export async function processOpenRouterProvider(
           return;
         }
 
-        const vendorFilterLower = providerConfig.enabledVendors?.map((v) =>
-          v.toLowerCase(),
-        );
         const filtered = candidateIds.filter((id) => {
           const bare = toBareName(id);
           if (
@@ -262,11 +259,6 @@ export async function processOpenRouterProvider(
             matchesBlacklist(id, config.blacklist, name)
           )
             return false;
-          if (vendorFilterLower?.length) {
-            const slash = id.indexOf("/");
-            const vendor = slash >= 0 ? id.slice(0, slash).toLowerCase() : "";
-            if (!vendorFilterLower.includes(vendor)) return false;
-          }
           if (
             config.modelFilter?.length &&
             !matchesAnyPattern(id, config.modelFilter) &&

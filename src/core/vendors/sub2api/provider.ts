@@ -5,7 +5,6 @@ import {
   sanitizeGroupName,
   SUB2API_PLATFORM_CHANNEL_TYPES,
   SUB2API_PLATFORM_TO_VENDOR,
-  VENDOR_TO_SUB2API_PLATFORMS,
 } from "@core/catalog/constants/patterns";
 import { filterModels } from "@core/catalog/filter";
 import { getTestModelTypes, type RuntimeConfig } from "@core/config";
@@ -30,16 +29,6 @@ interface ResolvedGroup {
   models: Set<string>;
 }
 
-const getEnabledPlatforms = (enabledVendors?: string[]): Set<string> | null =>
-  enabledVendors?.length
-    ? new Set(
-        enabledVendors.flatMap(
-          (v) =>
-            VENDOR_TO_SUB2API_PLATFORMS[v.toLowerCase()] ?? [v.toLowerCase()],
-        ),
-      )
-    : null;
-
 const sumBalances = (values: (number | null)[]): number | null =>
   values.reduce<number | null>(
     (acc, b) => (b === null ? acc : (acc ?? 0) + b),
@@ -51,11 +40,8 @@ async function resolveViaAdmin(
   providerConfig: Sub2ApiProviderConfig,
   config: RuntimeConfig,
 ): Promise<ResolvedGroup[]> {
-  const enabledPlatforms = getEnabledPlatforms(providerConfig.enabledVendors);
   const activeGroups = (await client.listGroups()).filter(
-    (g) =>
-      g.status === "active" &&
-      (!enabledPlatforms || enabledPlatforms.has(g.platform.toLowerCase())),
+    (g) => g.status === "active",
   );
   if (activeGroups.length === 0) return [];
 
@@ -124,12 +110,9 @@ async function resolveViaGroups(
 ): Promise<ResolvedGroup[]> {
   const groups = providerConfig.groups ?? [];
   if (groups.length === 0) return [];
-  const enabledPlatforms = getEnabledPlatforms(providerConfig.enabledVendors);
-
   const resolved: ResolvedGroup[] = [];
   for (const group of groups) {
     const platform = group.platform.toLowerCase();
-    if (enabledPlatforms && !enabledPlatforms.has(platform)) continue;
     const modelIds = await client.listGatewayModels(group.key, platform);
     const filtered = filterModels(modelIds, config, providerConfig);
     if (filtered.length === 0) {

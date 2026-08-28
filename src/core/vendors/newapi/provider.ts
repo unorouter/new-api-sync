@@ -7,7 +7,6 @@ import {
   sanitizeGroupName,
 } from "@core/catalog/constants/patterns";
 import { toBareName } from "@core/catalog/bare-name";
-import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
 import {
   getEnabledModelGlobs,
   getTestModelTypes,
@@ -64,15 +63,6 @@ function effectiveTieredOrWarn(billingExpr: string, modelName: string) {
   return effective;
 }
 
-function vendorFilter(enabledVendors: string[] | undefined) {
-  if (!enabledVendors?.length) return null;
-  const set = new Set(enabledVendors.map((v) => v.toLowerCase()));
-  return (m: string) => {
-    const v = inferVendorFromModelName(m);
-    return !!v && set.has(v);
-  };
-}
-
 function filterGroupModels(
   models: string[],
   config: RuntimeConfig,
@@ -80,8 +70,6 @@ function filterGroupModels(
   modelEndpoints?: Map<string, string[]>,
 ): string[] {
   let r = models.filter((m) => !matchesBlacklist(m, config.blacklist, pc.name));
-  const vf = vendorFilter(pc.enabledVendors);
-  if (vf) r = r.filter(vf);
   const enabledGlobs = getEnabledModelGlobs(pc.enabledModels);
   if (enabledGlobs?.length)
     r = r.filter((m) => matchesAnyPattern(m, enabledGlobs));
@@ -421,8 +409,6 @@ export async function processNewApiProvider(
     for (const [ep, info] of Object.entries(pricing.endpointPaths))
       endpointPaths.set(ep, info);
     let groups: GroupInfo[] = pricing.groups;
-    const vf = vendorFilter(providerConfig.enabledVendors);
-    if (vf) groups = groups.filter((g) => g.models.some(vf));
     const enabledGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
     if (enabledGlobs?.length)
       groups = groups.filter((g) =>

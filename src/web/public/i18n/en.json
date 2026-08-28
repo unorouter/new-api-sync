@@ -166,8 +166,6 @@
       "ADMIN_API_KEY_PLACEHOLDER": "admin-…",
       "GROUPS": "Groups",
       "IMAGE_BASE_URL": "Image base URL",
-      "ENABLED_VENDORS": "Enabled vendors",
-      "ENABLED_VENDORS_PLACEHOLDER": "anthropic, openai, …",
       "ENABLED_MODELS": "Enabled models",
       "PRICE_ADJUSTMENT": "Price adjustment",
       "TEST_MODEL_TYPES": "Test model types",

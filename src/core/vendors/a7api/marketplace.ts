@@ -97,8 +97,7 @@ export function selectMerchants(
 ): Listing[] {
   const minSuccess = provider.minSuccessRate ?? DEFAULT_MIN_SUCCESS_RATE;
   const profitMultiple = provider.profitMultiple ?? DEFAULT_PROFIT_MULTIPLE;
-  const maxSellFraction =
-    provider.maxSellFraction ?? DEFAULT_MAX_SELL_FRACTION;
+  const maxSellFraction = provider.maxSellFraction ?? DEFAULT_MAX_SELL_FRACTION;
   const sellCeilingUsd =
     canonicalListUsd !== undefined
       ? canonicalListUsd * maxSellFraction

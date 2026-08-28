@@ -44,7 +44,7 @@ const EnabledModelEntrySchema = T.Union([
 const ModelTypeEnum = T.Union([T.Literal("text"), T.Literal("image"), T.Literal("video"), T.Literal("audio"), T.Literal("embedding")]);
 
 // prettier-ignore
-const ProviderCommonProps = { name: str, testModelTypes: Opt(T.Array(ModelTypeEnum)), enabledVendors: Opt(T.Array(str)), enabledModels: Opt(T.Array(EnabledModelEntrySchema)), priceAdjustment: Opt(PriceAdjustmentSchema), perUpstreamConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })), autoTestIntervalMinutes: Opt(T.Integer({ minimum: 1, maximum: 10080 })), autoTestIntervalMaxMinutes: Opt(T.Integer({ minimum: 1, maximum: 10080 })), headerOverride: Opt(T.Record(str, str)) } as const;
+const ProviderCommonProps = { name: str, testModelTypes: Opt(T.Array(ModelTypeEnum)), enabledModels: Opt(T.Array(EnabledModelEntrySchema)), priceAdjustment: Opt(PriceAdjustmentSchema), perUpstreamConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })), autoTestIntervalMinutes: Opt(T.Integer({ minimum: 1, maximum: 10080 })), autoTestIntervalMaxMinutes: Opt(T.Integer({ minimum: 1, maximum: 10080 })), headerOverride: Opt(T.Record(str, str)) } as const;
 
 // prettier-ignore
 const NewApiProviderSchema = T.Object({ type: T.Literal("newapi"), ...ProviderCommonProps, baseUrl: uri, systemAccessToken: str, userId: T.Integer({ minimum: 1 }), acceptRateLimited: Opt(T.Boolean()), acceptUpstreamDown: Opt(T.Boolean()) });

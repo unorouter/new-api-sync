@@ -12,7 +12,7 @@ import { Label } from "@web/components/ui/label";
 import type { TranslationKey } from "@web/lib/constants";
 import type { TObject } from "@sinclair/typebox/type";
 import { PlusIcon, Trash2Icon } from "lucide-react";
-import { Controller, useFieldArray, useFormContext } from "react-hook-form";
+import { Controller, useFormContext } from "react-hook-form";
 
 const variantSchema = { properties: {} } as unknown as TObject;
 void ConfigSchema;
@@ -28,11 +28,6 @@ const MODEL_TYPE_LABEL: Record<string, TranslationKey> = {
 export function ProviderCommonFields(props: { index: number }) {
   const t = useTranslations();
   const form = useFormContext<ConfigSchemaType>();
-  const vendors = useFieldArray({
-    control: form.control,
-    name: providerPath(props.index, "enabledVendors") as never,
-  });
-
   return (
     <div className="space-y-4">
       <MyFormInput
@@ -70,39 +65,6 @@ export function ProviderCommonFields(props: { index: number }) {
         max={1000}
         placeholder={t("CONFIG.PROVIDER.PER_UPSTREAM_CONCURRENCY_PLACEHOLDER")}
       />
-
-      <div className="grid gap-2">
-        <Label>{t("CONFIG.PROVIDER.ENABLED_VENDORS")}</Label>
-        {vendors.fields.map((field, i) => (
-          <div key={field.id} className="flex items-center gap-2">
-            <Input
-              {...form.register(
-                `${providerPath(props.index, "enabledVendors")}.${i}` as never,
-              )}
-              placeholder={t("CONFIG.PROVIDER.ENABLED_VENDORS_PLACEHOLDER")}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => vendors.remove(i)}
-              aria-label={t("CONFIG.FIELD.REMOVE")}
-            >
-              <Trash2Icon />
-            </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => vendors.append("" as never)}
-          className="self-start"
-        >
-          <PlusIcon />
-          {t("CONFIG.FIELD.ADD")}
-        </Button>
-      </div>
 
       <div className="grid gap-2">
         <Label>{t("CONFIG.PROVIDER.ENABLED_MODELS")}</Label>
