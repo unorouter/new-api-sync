@@ -37,6 +37,10 @@ const DEFAULT_MIN_SUCCESS_RATE = 9500;
 // re-selecting it every run would loop: recreate, fail, disable, delete.
 const PROVEN_SAMPLE_COUNT = 20;
 export const DEFAULT_PROFIT_MULTIPLE = 2;
+// Retail may not exceed this fraction of canonical list, so a merchant whose
+// cost * profitMultiple would sell above it is rejected. kimi-k3: list $15,
+// 0.5 => sell <= $7.50 => merchant output cost <= $3.75.
+const DEFAULT_MAX_SELL_FRACTION = 0.5;
 
 export function marketplaceHeaders(
   provider: A7ApiProviderConfig,
@@ -74,16 +78,17 @@ export function groupByModel(listings: Listing[]): Map<string, Listing[]> {
 }
 
 // Every merchant worth a channel, cheapest first. Retail = merchant cost *
-// profitMultiple (per lane, dynamic), so the only price cut is the hard cap:
-// reject a merchant whose cost * profitMultiple would breach 1x canonical list.
-// Cuts:
+// profitMultiple (per lane, dynamic), so the only price cut is the sell ceiling:
+// retail may not exceed maxSellFraction of canonical list, so a merchant whose
+// cost * profitMultiple would sell above it is rejected. Cuts:
 //   1. health: available, per-token, and not proven-bad (see PROVEN_SAMPLE_COUNT);
-//   2. cap: cost * profitMultiple <= canonicalList, so we never price above list;
+//   2. ceiling: cost * profitMultiple <= canonicalList * maxSellFraction (kimi-k3
+//      list $15, 0.5 => sell <= $7.50 => merchant output cost <= $3.75);
 //   3. count: at most maxCount merchants, cheapest first (hostsPerModel, same
 //      opt-in fan-out as openrouter: absent key = 1). Unbounded, the live
 //      snapshot yields ~4,900 channels of long tail the router never picks.
 // canonicalListUsd is the voted list output price in USD/1M; undefined skips the
-// cap cut, matching how the rest of the engine degrades without canonical.
+// ceiling cut, matching how the rest of the engine degrades without canonical.
 export function selectMerchants(
   rows: Listing[],
   provider: A7ApiProviderConfig,
@@ -92,6 +97,12 @@ export function selectMerchants(
 ): Listing[] {
   const minSuccess = provider.minSuccessRate ?? DEFAULT_MIN_SUCCESS_RATE;
   const profitMultiple = provider.profitMultiple ?? DEFAULT_PROFIT_MULTIPLE;
+  const maxSellFraction =
+    provider.maxSellFraction ?? DEFAULT_MAX_SELL_FRACTION;
+  const sellCeilingUsd =
+    canonicalListUsd !== undefined
+      ? canonicalListUsd * maxSellFraction
+      : undefined;
 
   const viable = rows
     .filter(
@@ -106,9 +117,9 @@ export function selectMerchants(
           r.recent_success_rate < minSuccess
         ) &&
         (!provider.guaranteedOnly || r.authenticity_guaranteed) &&
-        (canonicalListUsd === undefined ||
+        (sellCeilingUsd === undefined ||
           usdPerMillion(r.output_price_micros) * profitMultiple <=
-            canonicalListUsd),
+            sellCeilingUsd),
     )
     .sort((a, b) => a.input_price_micros - b.input_price_micros);
   return viable.slice(0, maxCount);
