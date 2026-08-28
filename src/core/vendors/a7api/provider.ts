@@ -59,8 +59,13 @@ function collectLanes(
 
     // Cap cut: reject a merchant whose cost * profitMultiple breaches 1x list.
     // The vote's modelRatio is the input price in ratio units; USD list output.
+    // Vote on the mapped (canonical) name: the marketplace spelling
+    // (claude-opus-4-6) may miss the sources that know claude-opus-4.6.
+    const exposedName = (
+      config.modelMapping?.[model] ?? model
+    ).toLowerCase();
     const vote = resolveCanonicalByVote(
-      model.toLowerCase(),
+      exposedName,
       ctx.pricingSources,
       ctx.reverseMapping,
     );
@@ -180,7 +185,9 @@ export async function processA7ApiProvider(
       const isCheapest =
         lane.listing.input_price_micros === cheapestByModel.get(lane.model);
       const model: OfferModel = {
-        exposed: lane.model.toLowerCase(),
+        exposed: (
+          config.modelMapping?.[lane.model] ?? lane.model
+        ).toLowerCase(),
         upstream: lane.model,
         modelType: inferModelType(lane.model),
         upstreamRatio,
