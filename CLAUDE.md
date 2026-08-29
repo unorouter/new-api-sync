@@ -304,3 +304,52 @@ issues.
   re-probe; migrates the legacy `authenticity-cache.json` on first load).
 - Builtin blacklist (`config.ts`) is merged last and additively; local config can add but never remove
   builtins.
+
+## a7 cluster crons (cluster runs the cadence, this machine is for development)
+
+Two CronJobs in the k3s `services` namespace deploy from this repo's `k8s/` dir
+(build via `infra/scripts/build-local.sh new-api-sync --deploy`):
+
+- `new-api-sync` (every 15min): `sync metadata`. Reprices option maps from live
+  marketplace listings AND accepts a7 pin price-change notices (ceiling-gated).
+  Zero probes, zero channel writes. Needs no verdict cache.
+- `new-api-sync-full` (daily 07:03): `sync run --only a7`. Membership churn:
+  probes + admits new merchants, deletes dead lanes, re-pins. The ONLY job that
+  runs live probes.
+
+**Mirror config.yml provider changes to the cluster.** The cluster reads a
+MINIMAL a7-only config.yml from OpenBao `secret/sync-env` (target + a7 block +
+kiro blacklist entries + the opus-4-6 modelMapping). Any edit to the local a7
+provider block, those blacklist entries, or that mapping MUST be pushed there
+too or the crons keep running the old rules. Regenerate + upload (payload file
++ stdin, never argv):
+
+```bash
+bun scripts/... # build {"config.yml": <minimal>} JSON from local config.yml
+cd ../infra && BT=$(sops -d secrets/openbao-init.sops.yaml | grep -oP 'root_token:\s*\K\S+')
+{ printf '%s\n' "$BT"; cat payload.json; } | kubectl -n openbao exec -i openbao-0 -- \
+  sh -c 'read -r BAO_TOKEN && export BAO_TOKEN && bao kv put secret/sync-env -'
+kubectl -n services annotate externalsecret sync-env force-sync=$(date +%s) --overwrite
+```
+
+**Keep BOTH verdict caches in sync.** The daily full-sync CronJob persists
+`logs/verdict-cache.json` on PVC `new-api-sync-logs` (services ns); this repo
+has its own local copy. They drift: local manual runs write local, cluster runs
+write the PVC. After pruning/scrubbing verdicts locally (fake-channel cleanup,
+forced re-probes) copy the file to the PVC too, and vice versa, or one side
+re-probes lanes the other already settled and blacklist scrubs do not take
+effect on the other side. Copy via a helper pod mounting the PVC
+(`kubectl cp` the file both directions).
+
+## a7 pin semantics (hard-won, do not re-learn)
+
+- a7 PAUSES a pin whenever its merchant reprices (`paused_price_changed`);
+  re-POSTing /api/marketplace/pin re-pins but does NOT accept the new price.
+  Accept is `POST /api/marketplace/price-notices/<notice_id>/accept` with
+  `{relation_type: "pin", relation_id}` from the notice's open pin relation
+  (`acceptPriceNotices` in vendors/a7api/pins.ts).
+- `fallback_to_smart_routing` must stay FALSE: a paused/dead pinned lane then
+  errors (gateway failover covers it). With fallback on, a7 silently serves
+  the request through ANY merchant at THAT merchant's price (seen 4.8x the
+  pinned cost, can exceed retail) and the success hides the outage from the
+  failure-rate guard.

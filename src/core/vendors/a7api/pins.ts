@@ -9,7 +9,14 @@ import {
   listTokens,
 } from "@core/vendors/newapi/tokens";
 import { consola } from "consola";
-import { marketplaceHeaders, type Listing } from "./marketplace";
+import {
+  DEFAULT_MAX_SELL_FRACTION,
+  DEFAULT_PROFIT_MULTIPLE,
+  fetchListings,
+  marketplaceHeaders,
+  resolvePerModel,
+  type Listing,
+} from "./marketplace";
 
 // A pin is per (token, model), so one token cannot route the same model to two
 // merchants. Multi-merchant channels therefore need one upstream token per
@@ -28,6 +35,7 @@ interface PinRecord {
   token_id: number;
   channel_id: number;
   model_name: string;
+  status?: string;
 }
 
 interface PinsResponse {
@@ -157,6 +165,135 @@ export async function listPins(
   return Array.isArray(data) ? data : (data?.items ?? []);
 }
 
+async function postPin(
+  provider: A7ApiProviderConfig,
+  tokenId: number,
+  channelId: number,
+  model: string,
+): Promise<void> {
+  await fetchJson(`${provider.baseUrl.replace(/\/$/, "")}/api/marketplace/pin`, {
+    method: "POST",
+    headers: {
+      ...marketplaceHeaders(provider),
+      "Content-Type": "application/json",
+    },
+    body: {
+      token_id: tokenId,
+      channel_id: channelId,
+      model_name: model,
+      // NO smart-routing fallback: a7 bills the fallback merchant's own price
+      // (seen 4.8x the pinned cost, can exceed our retail), and the
+      // successful-but-expensive responses hide the dead merchant from the
+      // failure-rate guard. An erroring lane fails over on our side to lanes
+      // whose cost we actually priced.
+      fallback_to_smart_routing: false,
+    },
+    timeoutMs: 30_000,
+  });
+}
+
+interface PriceNotice {
+  notice_id: number;
+  channel_id: number;
+  model_name: string;
+  status: string;
+  new_price?: { output_price_micros?: number };
+  relations?: { relation_type: string; relation_id: number; state: string }[];
+}
+
+interface PriceNoticesResponse {
+  success?: boolean;
+  data?: { items?: PriceNotice[] } | PriceNotice[];
+}
+
+// a7 PAUSES a pin whenever its merchant reprices (paused_price_changed) and,
+// with fallback off, the lane errors until the change is accepted. Re-POSTing
+// the pin does NOT accept (verified live); the accept is its own endpoint,
+// keyed by price notice + pin relation. Accept every open pin relation whose
+// new price is still profitable (new output * profitMultiple within
+// maxSellFraction of the official list); a merchant that repriced itself past
+// the ceiling stays paused so the failure-rate guard retires the lane. Runs
+// from `sync metadata` so the cadence is the cron's, not the full-sync's.
+export async function acceptPriceNotices(
+  provider: A7ApiProviderConfig,
+): Promise<{ accepted: number; leftPaused: number }> {
+  const result = { accepted: 0, leftPaused: 0 };
+  const base = provider.baseUrl.replace(/\/$/, "");
+  const body = await tryFetchJson<PriceNoticesResponse>(
+    `${base}/api/marketplace/price-notices`,
+    { headers: marketplaceHeaders(provider), timeoutMs: 30_000 },
+  );
+  if (!body?.success) return result;
+  const notices = Array.isArray(body.data)
+    ? body.data
+    : (body.data?.items ?? []);
+  if (notices.length === 0) return result;
+
+  const listings = await fetchListings(provider);
+  const officialOutByKey = new Map(
+    listings.map((l) => [
+      `${l.channel_id}|${l.model_name}`,
+      l.official_price?.output_price_micros,
+    ]),
+  );
+
+  for (const notice of notices) {
+    for (const rel of notice.relations ?? []) {
+      if (rel.relation_type !== "pin" || rel.state !== "open") continue;
+      throwIfRunAborted();
+      const profitMultiple = resolvePerModel(
+        provider.profitMultiple,
+        notice.model_name,
+        DEFAULT_PROFIT_MULTIPLE,
+      );
+      const maxSellFraction = resolvePerModel(
+        provider.maxSellFraction,
+        notice.model_name,
+        DEFAULT_MAX_SELL_FRACTION,
+      );
+      const officialOut = officialOutByKey.get(
+        `${notice.channel_id}|${notice.model_name}`,
+      );
+      const newOut = notice.new_price?.output_price_micros;
+      if (
+        officialOut !== undefined &&
+        officialOut > 0 &&
+        newOut !== undefined &&
+        newOut * profitMultiple > officialOut * maxSellFraction
+      ) {
+        consola.warn(
+          `[${provider.name}] leaving pin paused for ${notice.model_name} -> ${notice.channel_id}: new price breaches the sell ceiling`,
+        );
+        result.leftPaused++;
+        continue;
+      }
+      try {
+        await fetchJson(
+          `${base}/api/marketplace/price-notices/${notice.notice_id}/accept`,
+          {
+            method: "POST",
+            headers: {
+              ...marketplaceHeaders(provider),
+              "Content-Type": "application/json",
+            },
+            body: { relation_type: "pin", relation_id: rel.relation_id },
+            timeoutMs: 30_000,
+          },
+        );
+        consola.info(
+          `[${provider.name}] accepted price change for ${notice.model_name} -> ${notice.channel_id}`,
+        );
+        result.accepted++;
+      } catch (err) {
+        consola.warn(
+          `[${provider.name}] price accept failed for ${notice.model_name} -> ${notice.channel_id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+  }
+  return result;
+}
+
 export async function ensurePins(
   provider: A7ApiProviderConfig,
   lanes: MerchantLane[],
@@ -183,28 +320,7 @@ export async function ensurePins(
     // routing flags; skipping left raised prices unaccepted indefinitely.
     const current = existing.get(`${token.tokenId}|${lane.model}`);
     try {
-      await fetchJson(
-        `${provider.baseUrl.replace(/\/$/, "")}/api/marketplace/pin`,
-        {
-          method: "POST",
-          headers: {
-            ...marketplaceHeaders(provider),
-            "Content-Type": "application/json",
-          },
-          body: {
-            token_id: token.tokenId,
-            channel_id: lane.listing.channel_id,
-            model_name: lane.model,
-            // NO smart-routing fallback: a7 bills the fallback merchant's own
-            // price (seen 4.8x the pinned cost, can exceed our retail), and the
-            // successful-but-expensive responses hide the dead merchant from
-            // the failure-rate guard. An erroring lane fails over on our side
-            // to lanes whose cost we actually priced.
-            fallback_to_smart_routing: false,
-          },
-          timeoutMs: 30_000,
-        },
-      );
+      await postPin(provider, token.tokenId, lane.listing.channel_id, lane.model);
       if (current === undefined) result.created++;
       else result.repinned++;
     } catch (err) {

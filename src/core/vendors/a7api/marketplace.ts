@@ -27,6 +27,7 @@ export interface Listing {
   cache_read_price_micros?: number;
   recent_success_rate: number;
   sample_count: number;
+  official_price?: { output_price_micros?: number };
 }
 
 interface SearchResponse {
@@ -47,7 +48,7 @@ export const DEFAULT_PROFIT_MULTIPLE = 2;
 // Retail may not exceed this fraction of canonical list, so a merchant whose
 // cost * profitMultiple would sell above it is rejected. kimi-k3: list $15,
 // 0.5 => sell <= $7.50 => merchant output cost <= $3.75.
-const DEFAULT_MAX_SELL_FRACTION = 0.5;
+export const DEFAULT_MAX_SELL_FRACTION = 0.5;
 
 export function marketplaceHeaders(
   provider: A7ApiProviderConfig,

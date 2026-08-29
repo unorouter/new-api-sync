@@ -1,6 +1,6 @@
-# Hourly repricing cron: `sync metadata` re-prices option maps (GroupRatio etc.)
-# from live upstream/marketplace prices with ZERO probes, channel writes, or pin
-# writes. Full `sync run --only a7` (probes + re-pin) stays a manual, local action.
+# 15-minute repricing cron: `sync metadata` re-prices option maps (GroupRatio
+# etc.) from live marketplace prices and re-accepts paused pins, with ZERO
+# probes or channel writes. Membership churn runs in new-api-sync-full below.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -37,3 +37,61 @@ spec:
           volumes:
             - name: config
               secret: { secretName: sync-env }
+---
+# Verdict cache for the daily full sync: probe verdicts + authenticity
+# blacklist are permanent (no TTL), so without persistence every run would
+# re-probe all lanes and forget caught fakers. local-path pins pods to one node.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: new-api-sync-logs
+  namespace: services
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
+# Daily FULL a7 sync: membership churn (probe + admit new merchants, delete
+# dead lanes, re-pin). The 15-minute metadata cron above handles repricing and
+# pin re-accepts; this is the only job that runs live probes.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: new-api-sync-full
+  namespace: services
+spec:
+  schedule: "3 7 * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 1800
+      backoffLimit: 1
+      template:
+        metadata:
+          labels: { app: new-api-sync-full }
+        spec:
+          restartPolicy: Never
+          imagePullSecrets:
+            - name: ghcr-pull
+          containers:
+            - name: sync
+              image: ghcr.io/unorouter/new-api-sync:init
+              args: ["run", "--only", "a7"]
+              resources:
+                requests: { memory: 256Mi, cpu: 100m }
+                limits: { memory: 1Gi }
+              volumeMounts:
+                - name: config
+                  mountPath: /app/config.yml
+                  subPath: config.yml
+                - name: logs
+                  mountPath: /app/logs
+          volumes:
+            - name: config
+              secret: { secretName: sync-env }
+            - name: logs
+              persistentVolumeClaim: { claimName: new-api-sync-logs }

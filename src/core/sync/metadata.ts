@@ -74,6 +74,7 @@ import {
 } from "@core/sync/pipeline/desired-models";
 import { expandRateLimitModels } from "@core/sync/pipeline/option-maps";
 import { setDryRunMode } from "@core/testing/runner";
+import { acceptPriceNotices } from "@core/vendors/a7api/pins";
 import type { Channel, ModelMeta, TargetSnapshot, Vendor } from "@core/types";
 import { MANAGED_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
@@ -954,6 +955,17 @@ async function syncUpstreamPricing(
       changed: changedKeys,
     }),
   );
+
+  // a7 pauses pins on merchant reprice and the paused lane errors (no
+  // smart-routing fallback); accepting the price notices here puts pin upkeep
+  // on the metadata cron's cadence instead of the full-sync's.
+  for (const p of config.providers) {
+    if (p.type !== "a7api") continue;
+    const pins = await acceptPriceNotices(p);
+    consola.info(
+      `[${p.name}] price changes accepted: ${pins.accepted}, left paused: ${pins.leftPaused}`,
+    );
+  }
 }
 
 // Collapse every config `modelPricingGrid` (across all providers) to a single
