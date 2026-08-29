@@ -162,8 +162,8 @@ export async function ensurePins(
   lanes: MerchantLane[],
   tokens: Map<string, LaneToken>,
   dryRun: boolean,
-): Promise<{ created: number; repinned: number; unchanged: number }> {
-  const result = { created: 0, repinned: 0, unchanged: 0 };
+): Promise<{ created: number; repinned: number }> {
+  const result = { created: 0, repinned: 0 };
   const existing = new Map<string, number>();
   if (!dryRun) {
     for (const pin of await listPins(provider))
@@ -178,11 +178,10 @@ export async function ensurePins(
       result.created++;
       continue;
     }
+    // Always re-POST, even for an unchanged merchant: the POST re-confirms the
+    // price snapshot (accepting any pending merchant reprice) and refreshes the
+    // routing flags; skipping left raised prices unaccepted indefinitely.
     const current = existing.get(`${token.tokenId}|${lane.model}`);
-    if (current === lane.listing.channel_id) {
-      result.unchanged++;
-      continue;
-    }
     try {
       await fetchJson(
         `${provider.baseUrl.replace(/\/$/, "")}/api/marketplace/pin`,
@@ -196,9 +195,12 @@ export async function ensurePins(
             token_id: token.tokenId,
             channel_id: lane.listing.channel_id,
             model_name: lane.model,
-            // A dead merchant degrades to smart routing instead of erroring;
-            // the failure-rate guard still disables the lane on our side.
-            fallback_to_smart_routing: true,
+            // NO smart-routing fallback: a7 bills the fallback merchant's own
+            // price (seen 4.8x the pinned cost, can exceed our retail), and the
+            // successful-but-expensive responses hide the dead merchant from
+            // the failure-rate guard. An erroring lane fails over on our side
+            // to lanes whose cost we actually priced.
+            fallback_to_smart_routing: false,
           },
           timeoutMs: 30_000,
         },

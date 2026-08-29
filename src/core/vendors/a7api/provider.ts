@@ -142,7 +142,7 @@ export async function processA7ApiProvider(
     });
     const pins = await ensurePins(provider, lanes, tokens, dryRun);
     consola.info(
-      `[${name}] pins: +${pins.created} ~${pins.repinned} =${pins.unchanged}`,
+      `[${name}] pins: +${pins.created} ~${pins.repinned}`,
     );
 
     // Cheapest lane per model keeps the plain channel; the rest are failover
