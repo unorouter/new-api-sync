@@ -25,7 +25,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:4d152e491c3fad1864b0da23c610250f9b72b9cb
+              image: ghcr.io/unorouter/new-api-sync:bac0d35fbfcf78cf5fe5e5adb4d32d06d8aa3bcf
               args: ["metadata"]
               resources:
                 requests: { memory: 256Mi, cpu: 100m }
