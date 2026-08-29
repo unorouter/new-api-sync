@@ -7,7 +7,7 @@ metadata:
   name: new-api-sync
   namespace: services
 spec:
-  schedule: "0 * * * *"
+  schedule: "*/15 * * * *"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 600
   successfulJobsHistoryLimit: 3
