@@ -348,6 +348,11 @@ effect on the other side. Copy via a helper pod mounting the PVC
   Accept is `POST /api/marketplace/price-notices/<notice_id>/accept` with
   `{relation_type: "pin", relation_id}` from the notice's open pin relation
   (`acceptPriceNotices` in vendors/a7api/pins.ts).
+- Price DROPS never pause the pin and create no acceptable notice; the active
+  pin keeps BILLING the old higher confirmed snapshot (seen 1.07x margin on a
+  4x lane). Re-POST does not refresh; only unpin + pin re-confirms at the
+  current price (the drop loop in `acceptPriceNotices`). Detection: pins list
+  `current_output_price_micros < confirmed_output_price_micros`.
 - `fallback_to_smart_routing` must stay FALSE: a paused/dead pinned lane then
   errors (gateway failover covers it). With fallback on, a7 silently serves
   the request through ANY merchant at THAT merchant's price (seen 4.8x the

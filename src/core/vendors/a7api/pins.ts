@@ -36,6 +36,8 @@ interface PinRecord {
   channel_id: number;
   model_name: string;
   status?: string;
+  confirmed_output_price_micros?: number;
+  current_output_price_micros?: number;
 }
 
 interface PinsResponse {
@@ -289,6 +291,45 @@ export async function acceptPriceNotices(
           `[${provider.name}] price accept failed for ${notice.model_name} -> ${notice.channel_id}: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
+    }
+  }
+
+  // Price DROPS never pause the pin and produce no acceptable notice, so an
+  // active pin keeps BILLING the old higher confirmed snapshot. Re-POSTing
+  // the pin does not refresh it either (verified live); only unpin + pin
+  // re-confirms at the current price. Always profitable, no ceiling needed.
+  for (const pin of await listPins(provider)) {
+    if (pin.status !== "active") continue;
+    if (
+      pin.current_output_price_micros === undefined ||
+      pin.confirmed_output_price_micros === undefined ||
+      pin.current_output_price_micros >= pin.confirmed_output_price_micros
+    )
+      continue;
+    throwIfRunAborted();
+    try {
+      await fetchJson(`${base}/api/marketplace/unpin`, {
+        method: "POST",
+        headers: {
+          ...marketplaceHeaders(provider),
+          "Content-Type": "application/json",
+        },
+        body: {
+          token_id: pin.token_id,
+          channel_id: pin.channel_id,
+          model_name: pin.model_name,
+        },
+        timeoutMs: 30_000,
+      });
+      await postPin(provider, pin.token_id, pin.channel_id, pin.model_name);
+      consola.info(
+        `[${provider.name}] re-pinned ${pin.model_name} -> ${pin.channel_id} at dropped price ($${(pin.confirmed_output_price_micros / 1e6).toFixed(3)} -> $${(pin.current_output_price_micros / 1e6).toFixed(3)}/M out)`,
+      );
+      result.accepted++;
+    } catch (err) {
+      consola.warn(
+        `[${provider.name}] drop re-pin failed for ${pin.model_name} -> ${pin.channel_id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
   return result;
