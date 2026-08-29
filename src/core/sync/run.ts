@@ -31,6 +31,7 @@ import { NewApiClient } from "@core/vendors/newapi/client";
 import { drainUpstreamErrors } from "@core/vendors/newapi/resources";
 import { t } from "@server/i18n";
 import { consola } from "consola";
+import { acquireSyncLock, releaseSyncLock } from "@core/infra/lock";
 import { timingMark, timingReport, timingReset } from "@core/infra/timing";
 import { join } from "path";
 
@@ -107,6 +108,7 @@ export async function runSync(
   opts?: { dryRun?: boolean },
 ): Promise<SyncRunResult> {
   const start = Date.now();
+  acquireSyncLock();
   timingReset();
   const dryRun = opts?.dryRun ?? false;
   const target = new NewApiClient(config.target, "target");
@@ -220,6 +222,7 @@ export async function runSync(
     recordRunSummary({ providerReports, apply, diff, elapsedMs, success });
     return { success, providerReports, desired, diff, apply, elapsedMs };
   } finally {
+    releaseSyncLock();
     timingReport();
     writeTestReport();
     writeApplyErrorsLog(applyErrors);
