@@ -73,6 +73,7 @@ import {
   pickBetterDescription,
 } from "@core/sync/pipeline/desired-models";
 import { expandRateLimitModels } from "@core/sync/pipeline/option-maps";
+import { setDryRunMode } from "@core/testing/runner";
 import type { Channel, ModelMeta, TargetSnapshot, Vendor } from "@core/types";
 import { MANAGED_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
@@ -811,9 +812,19 @@ async function syncUpstreamPricing(
   };
   if (newapiConfig.providers.length === 0) return;
 
-  const result = await runProviderPipeline(newapiConfig, snap, {
-    dryRun: true,
-  });
+  // The runner's dry mode is a module global that only runSync sets; without it
+  // a7api's per-lane testAndFilterModels probes for real against the dry-run
+  // stub tokens, every lane fails, and the pipeline emits zero offers (so no
+  // repricing happens at all).
+  setDryRunMode(true);
+  let result: Awaited<ReturnType<typeof runProviderPipeline>>;
+  try {
+    result = await runProviderPipeline(newapiConfig, snap, {
+      dryRun: true,
+    });
+  } finally {
+    setDryRunMode(false);
+  }
   const opts = result.desired.options;
 
   // Same field -> option-key map the apply path uses (sync/diff.ts).
