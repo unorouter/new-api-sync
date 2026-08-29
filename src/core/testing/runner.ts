@@ -288,8 +288,11 @@ async function testModels(opts: {
 
         const blacklistKey = `${prefix}|${model}`;
         const isClaude = model.startsWith("claude-");
+        // Keyed on the MODEL, not the channel type: a7/openrouter test claude
+        // over OpenAI-compat, and a blacklisted faker re-probed on every run
+        // eventually passes once (fake identities are nondeterministic) and
+        // wins a channel. Blacklisted stays blacklisted until hand-pruned.
         if (
-          opts.channelType === CHANNEL_TYPES.ANTHROPIC &&
           isClaude &&
           !opts.skipAuthenticity &&
           isAuthenticityBlacklisted(blacklistKey)
