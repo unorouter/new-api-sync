@@ -92,9 +92,9 @@ export function groupByModel(listings: Listing[]): Map<string, Listing[]> {
 //   1. health: available, per-token, and not proven-bad (see PROVEN_SAMPLE_COUNT);
 //   2. ceiling: cost * profitMultiple <= canonicalList * maxSellFraction (kimi-k3
 //      list $15, 0.5 => sell <= $7.50 => merchant output cost <= $3.75);
-//   3. count: at most maxCount merchants, cheapest first (hostsPerModel, same
-//      opt-in fan-out as openrouter: absent key = 1). Unbounded, the live
-//      snapshot yields ~4,900 channels of long tail the router never picks.
+//   3. count: the CALLER takes hostsPerModel merchants from the front; the full
+//      viable list is returned so a merchant that fails its live probe can be
+//      replaced by the next-cheapest candidate instead of shrinking the lane set.
 // canonicalListUsd is the voted list output price in USD/1M; undefined skips the
 // ceiling cut, matching how the rest of the engine degrades without canonical.
 export function selectMerchants(
@@ -102,7 +102,6 @@ export function selectMerchants(
   rows: Listing[],
   provider: A7ApiProviderConfig,
   canonicalListUsd: number | undefined,
-  maxCount: number,
   blacklist?: string[],
 ): Listing[] {
   const minSuccess = provider.minSuccessRate ?? DEFAULT_MIN_SUCCESS_RATE;
@@ -153,7 +152,7 @@ export function selectMerchants(
             sellCeilingUsd),
     )
     .sort((a, b) => a.input_price_micros - b.input_price_micros);
-  return viable.slice(0, maxCount);
+  return viable;
 }
 
 export function usdPerMillion(micros: number): number {

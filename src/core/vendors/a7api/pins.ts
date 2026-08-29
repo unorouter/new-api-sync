@@ -78,7 +78,7 @@ const laneNamePattern = /^\d+-/;
 export async function ensureLaneTokens(
   provider: A7ApiProviderConfig,
   lanes: MerchantLane[],
-  opts: { dryRun: boolean; skipCleanup: boolean },
+  opts: { dryRun: boolean },
 ): Promise<Map<string, LaneToken>> {
   const result = new Map<string, LaneToken>();
   if (opts.dryRun) {
@@ -137,21 +137,27 @@ export async function ensureLaneTokens(
     }
   }
 
-  // Same rationale as cleanupEmptyGroupTokens: only a FULL provider run may
-  // delete, or a filtered run conflates "merchant gone" with "filtered out"
-  // and the deleted key 401-kills every out-of-scope channel still using it.
-  if (!opts.skipCleanup) {
-    for (const token of existing) {
-      throwIfRunAborted();
-      if (!laneNamePattern.test(token.name)) continue;
-      if (desired.has(token.name)) continue;
-      if (await deleteToken(ctx, token.id))
-        consola.info(
-          `[${provider.name}] deleted stale lane token ${token.name}`,
-        );
-    }
-  }
   return result;
+}
+
+// Same rationale as cleanupEmptyGroupTokens: only a FULL provider run may
+// delete, or a filtered run conflates "merchant gone" with "filtered out"
+// and the deleted key 401-kills every out-of-scope channel still using it.
+// Runs against the KEPT lanes (probe passers), so a candidate probed and
+// rejected this run loses its token (and thereby its pin) immediately.
+export async function cleanupStaleLaneTokens(
+  provider: A7ApiProviderConfig,
+  keptLanes: MerchantLane[],
+): Promise<void> {
+  const ctx = clientContext(provider);
+  const keep = new Set(keptLanes.map(laneTokenName));
+  for (const token of await listTokens(ctx)) {
+    throwIfRunAborted();
+    if (!laneNamePattern.test(token.name)) continue;
+    if (keep.has(token.name)) continue;
+    if (await deleteToken(ctx, token.id))
+      consola.info(`[${provider.name}] deleted stale lane token ${token.name}`);
+  }
 }
 
 export async function listPins(
