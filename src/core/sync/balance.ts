@@ -88,6 +88,8 @@ async function providerBalance(
   };
   try {
     switch (provider.type) {
+      // a7api is a new-api fork; same /api/user/self quota endpoint and auth.
+      case "a7api":
       case "newapi": {
         entry.balance = await new NewApiClient(
           provider,
