@@ -1,0 +1,39 @@
+# Hourly repricing cron: `sync metadata` re-prices option maps (GroupRatio etc.)
+# from live upstream/marketplace prices with ZERO probes, channel writes, or pin
+# writes. Full `sync run --only a7` (probes + re-pin) stays a manual, local action.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: new-api-sync
+  namespace: services
+spec:
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 1200
+      backoffLimit: 1
+      template:
+        metadata:
+          labels: { app: new-api-sync }
+        spec:
+          restartPolicy: Never
+          imagePullSecrets:
+            - name: ghcr-pull
+          containers:
+            - name: sync
+              image: ghcr.io/unorouter/new-api-sync:init
+              args: ["metadata"]
+              resources:
+                requests: { memory: 256Mi, cpu: 100m }
+                limits: { memory: 1Gi }
+              volumeMounts:
+                - name: config
+                  mountPath: /app/config.yml
+                  subPath: config.yml
+          volumes:
+            - name: config
+              secret: { secretName: sync-env }
