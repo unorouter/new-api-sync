@@ -113,7 +113,14 @@ function mergeSettingCapabilities(
       return existingSetting;
     }
   }
-  if (desiredCaps) existing.capabilities = desiredCaps;
+  // Merge, never replace: `responses` is set out-of-band (the gateway converts
+  // Responses -> Chat Completions unless a channel is marked as serving it
+  // natively, and that conversion drops SSE, so Codex sees a dead stream).
+  // A wholesale overwrite wiped those marks on every sync, 43 down to 11.
+  if (desiredCaps) {
+    const liveCaps = extractCapabilities(existingSetting) ?? {};
+    existing.capabilities = { ...liveCaps, ...desiredCaps };
+  }
   if (desiredPassThrough !== undefined)
     existing.pass_through_body_enabled = desiredPassThrough;
   if (desiredSysPrompt) {
