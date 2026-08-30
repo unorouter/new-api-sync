@@ -322,7 +322,7 @@ MINIMAL a7-only config.yml from OpenBao `secret/sync-env` (target + a7 block +
 kiro blacklist entries + the opus-4-6 modelMapping). Any edit to the local a7
 provider block, those blacklist entries, or that mapping MUST be pushed there
 too or the crons keep running the old rules. Regenerate + upload (payload file
-+ stdin, never argv):
+plus stdin, never argv):
 
 ```bash
 bun scripts/... # build {"config.yml": <minimal>} JSON from local config.yml
