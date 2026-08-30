@@ -303,13 +303,36 @@ export async function acceptPriceNotices(
   // Price DROPS never pause the pin and produce no acceptable notice, so an
   // active pin keeps BILLING the old higher confirmed snapshot. Re-POSTing
   // the pin does not refresh it either (verified live); only unpin + pin
-  // re-confirms at the current price. Always profitable, no ceiling needed.
+  // re-confirms at the current price. The ceiling still applies: a merchant
+  // dropping from far above the ceiling to just above it is still not worth
+  // re-pinning (3801 rode this to a 1.1x margin), so leave those to the full
+  // sync's cull instead of resurrecting them.
   for (const pin of await listPins(provider)) {
     if (pin.status !== "active") continue;
     if (
       pin.current_output_price_micros === undefined ||
       pin.confirmed_output_price_micros === undefined ||
       pin.current_output_price_micros >= pin.confirmed_output_price_micros
+    )
+      continue;
+    const profitMultiple = resolvePerModel(
+      provider.profitMultiple,
+      pin.model_name,
+      DEFAULT_PROFIT_MULTIPLE,
+    );
+    const maxSellFraction = resolvePerModel(
+      provider.maxSellFraction,
+      pin.model_name,
+      DEFAULT_MAX_SELL_FRACTION,
+    );
+    const officialOut = officialOutByKey.get(
+      `${pin.channel_id}|${pin.model_name}`,
+    );
+    if (
+      officialOut !== undefined &&
+      officialOut > 0 &&
+      pin.current_output_price_micros * profitMultiple >
+        officialOut * maxSellFraction
     )
       continue;
     throwIfRunAborted();
