@@ -179,25 +179,28 @@ async function postPin(
   channelId: number,
   model: string,
 ): Promise<void> {
-  await fetchJson(`${provider.baseUrl.replace(/\/$/, "")}/api/marketplace/pin`, {
-    method: "POST",
-    headers: {
-      ...marketplaceHeaders(provider),
-      "Content-Type": "application/json",
+  await fetchJson(
+    `${provider.baseUrl.replace(/\/$/, "")}/api/marketplace/pin`,
+    {
+      method: "POST",
+      headers: {
+        ...marketplaceHeaders(provider),
+        "Content-Type": "application/json",
+      },
+      body: {
+        token_id: tokenId,
+        channel_id: channelId,
+        model_name: model,
+        // NO smart-routing fallback: a7 bills the fallback merchant's own price
+        // (seen 4.8x the pinned cost, can exceed our retail), and the
+        // successful-but-expensive responses hide the dead merchant from the
+        // failure-rate guard. An erroring lane fails over on our side to lanes
+        // whose cost we actually priced.
+        fallback_to_smart_routing: false,
+      },
+      timeoutMs: 30_000,
     },
-    body: {
-      token_id: tokenId,
-      channel_id: channelId,
-      model_name: model,
-      // NO smart-routing fallback: a7 bills the fallback merchant's own price
-      // (seen 4.8x the pinned cost, can exceed our retail), and the
-      // successful-but-expensive responses hide the dead merchant from the
-      // failure-rate guard. An erroring lane fails over on our side to lanes
-      // whose cost we actually priced.
-      fallback_to_smart_routing: false,
-    },
-    timeoutMs: 30_000,
-  });
+  );
 }
 
 interface PriceNotice {
@@ -369,8 +372,8 @@ export async function ensurePins(
   lanes: MerchantLane[],
   tokens: Map<string, LaneToken>,
   dryRun: boolean,
-): Promise<{ created: number; repinned: number }> {
-  const result = { created: 0, repinned: 0 };
+): Promise<{ created: number; repinned: number; pinned: Set<string> }> {
+  const result = { created: 0, repinned: 0, pinned: new Set<string>() };
   const existing = new Map<string, number>();
   if (!dryRun) {
     for (const pin of await listPins(provider))
@@ -379,25 +382,44 @@ export async function ensurePins(
 
   for (const lane of lanes) {
     throwIfRunAborted();
-    const token = tokens.get(laneTokenName(lane));
+    const name = laneTokenName(lane);
+    const token = tokens.get(name);
     if (!token) continue;
     if (dryRun) {
       result.created++;
+      result.pinned.add(name);
       continue;
     }
     // Always re-POST, even for an unchanged merchant: the POST re-confirms the
     // price snapshot (accepting any pending merchant reprice) and refreshes the
     // routing flags; skipping left raised prices unaccepted indefinitely.
+    // Retried once: a pin POSTed within a second of the token's creation can
+    // fail while a7 settles, which left brand-new lanes live but UNPINNED (the
+    // probe then validated smart routing, not the merchant).
     const current = existing.get(`${token.tokenId}|${lane.model}`);
-    try {
-      await postPin(provider, token.tokenId, lane.listing.channel_id, lane.model);
-      if (current === undefined) result.created++;
-      else result.repinned++;
-    } catch (err) {
-      consola.warn(
-        `[${provider.name}] pin failed for ${lane.model} -> ${lane.listing.channel_id}: ${err instanceof Error ? err.message : String(err)}`,
-      );
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
+      try {
+        await postPin(
+          provider,
+          token.tokenId,
+          lane.listing.channel_id,
+          lane.model,
+        );
+        if (current === undefined) result.created++;
+        else result.repinned++;
+        result.pinned.add(name);
+        lastErr = undefined;
+        break;
+      } catch (err) {
+        lastErr = err;
+      }
     }
+    if (lastErr !== undefined)
+      consola.warn(
+        `[${provider.name}] pin failed for ${lane.model} -> ${lane.listing.channel_id}: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`,
+      );
   }
   return result;
 }

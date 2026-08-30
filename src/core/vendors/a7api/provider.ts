@@ -183,6 +183,9 @@ export async function processA7ApiProvider(
         for (const lane of batch) {
           const token = tokens.get(laneTokenName(lane));
           if (!token) continue;
+          // No pin = the probe would hit smart routing (an arbitrary merchant
+          // at an arbitrary price), not this lane's merchant. Never keep it.
+          if (!pins.pinned.has(laneTokenName(lane))) continue;
           probed++;
           // Per-merchant label: the verdict cache is keyed provider|model, so a
           // shared label would reuse one merchant's probe result (and
