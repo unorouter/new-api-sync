@@ -22,6 +22,10 @@ const NON_TEXT_MODEL_PATTERNS = NAME_PATTERN_TYPES.map(([p]) => p);
 // (live: poolside "inkling" landed under Video). Patterns that already carry a
 // separator (mj_, -i2v, wan2.6-image, gpt-image) stay plain-substring - the
 // separator is the boundary. A boundary = string start/end or a non-alphanumeric.
+// TRAILING DIGITS are also a boundary ("veo3.1", "sora2"): a version number does not
+// make a different word, and requiring a separator left every veo3* typed as text,
+// which skipped the task-adaptor override and so the per-second video billing.
+// The leading side stays strict - that is what keeps "inkling" out of Video.
 function matchesNamePattern(name: string, pattern: string): boolean {
   if (/[^a-z0-9]/.test(pattern)) return name.includes(pattern);
   const i = name.indexOf(pattern);
@@ -29,7 +33,7 @@ function matchesNamePattern(name: string, pattern: string): boolean {
   const before = i === 0 ? "" : name[i - 1]!;
   const after = name[i + pattern.length] ?? "";
   const boundary = (c: string) => c === "" || /[^a-z0-9]/.test(c);
-  return boundary(before) && boundary(after);
+  return boundary(before) && (boundary(after) || /[0-9]/.test(after));
 }
 
 // Moderation classifiers serve /v1/moderations only. They used to be typed as
