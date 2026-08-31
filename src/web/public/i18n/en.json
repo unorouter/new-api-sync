@@ -260,7 +260,6 @@
       "RUN_DESC": "run sync pipeline",
       "RESET_DESC": "delete sync managed resources",
       "UI_DESC": "launch the web UI (Elysia and React dashboard)",
-      "IMAGES_DESC": "probe image-edit channels per provider/model (writes logs/images-results.json)",
       "METADATA_DESC": "re-seed model metadata (release date, params, context, description) on existing models; no probing/testing, no channel or pricing changes",
       "BALANCE_DESC": "check the target and every configured provider's remaining balance; read-only, no probing or writes"
     },
@@ -272,8 +271,6 @@
       "VERBOSE": "enable debug logging",
       "PORT": "port to listen on",
       "DRY_RUN": "preview pricing + diff without probing, testing, creating tokens, or writing to the target (no cost; logs still saved)",
-      "IMAGES_DRY_RUN": "discover candidates without sending requests (writes logs/images-dry-run.json)",
-      "IMAGES_STEP": "prompt before each individual probe (interactive run)",
       "BALANCE_JSON": "print the result as JSON instead of a table"
     },
     "STATUS": {

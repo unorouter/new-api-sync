@@ -4,7 +4,6 @@ import {
   applyOnlyProviders,
   loadConfig,
 } from "@core/config";
-import { runImageProbe } from "@core/probes/images/pipeline";
 import { checkBalances, printBalanceSummary } from "@core/sync/balance";
 import { printMetadataSummary, runMetadataSync } from "@core/sync/metadata";
 import { runReset } from "@core/sync/reset";
@@ -120,47 +119,6 @@ program
       );
       const result = await runMetadataSync(config);
       printMetadataSummary(result);
-    },
-  );
-
-program
-  .command("images")
-  .description(t("CLI.COMMAND.IMAGES_DESC"))
-  .option("-c, --config <path>", t("CLI.OPTION.CONFIG_PATH"))
-  .option(
-    "--only <providers>",
-    t("CLI.OPTION.ONLY_PROVIDERS"),
-    (value: string, prev: string[]) => [...prev, value],
-    [] as string[],
-  )
-  .option(
-    "--models <globs>",
-    t("CLI.OPTION.ONLY_MODELS"),
-    (value: string, prev: string[]) => [...prev, value],
-    [] as string[],
-  )
-  .option("--dry-run", t("CLI.OPTION.IMAGES_DRY_RUN"))
-  .option("--step", t("CLI.OPTION.IMAGES_STEP"))
-  .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
-  .action(
-    async (options: {
-      config?: string;
-      only: string[];
-      models: string[];
-      dryRun?: boolean;
-      step?: boolean;
-      verbose?: boolean;
-    }) => {
-      if (options.verbose) consola.level = 4;
-      const config = applyModelFilter(
-        applyOnlyProviders(await loadConfig(options.config), options.only),
-        options.models,
-      );
-      await runImageProbe({
-        config,
-        dryRun: options.dryRun,
-        step: options.step,
-      });
     },
   );
 

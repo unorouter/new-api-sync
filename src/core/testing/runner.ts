@@ -53,7 +53,7 @@ import type {
 } from "./types";
 import type { ApplyReport, ProviderReport, SyncDiff } from "@core/types";
 import { redactExchange, redactUrl } from "./redact";
-import { modelsMatch } from "@unorouter/verify-core/substitution";
+import { modelsMatch } from "ai-model-verifier/substitution";
 import { observeClaudeEvidence } from "./observe";
 
 let testReport: TestReport = {
