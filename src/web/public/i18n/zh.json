@@ -260,7 +260,6 @@
       "RUN_DESC": "运行同步流水线",
       "RESET_DESC": "删除同步管理的资源",
       "UI_DESC": "启动 Web 界面（Elysia 和 React 仪表盘）",
-      "IMAGES_DESC": "按提供商和模型探测图像编辑通道（写入 logs/images-results.json）",
       "METADATA_DESC": "为现有模型重新写入元数据（发布日期、参数、上下文、描述）；不探测/测试，不改动渠道或定价",
       "BALANCE_DESC": "查询目标站点与所有已配置供应商的剩余余额；只读，不探测也不写入"
     },
@@ -272,8 +271,6 @@
       "VERBOSE": "启用调试日志",
       "PORT": "监听端口",
       "DRY_RUN": "预览定价与差异，不探测、不测试、不创建令牌、不写入目标（无费用；仍保存日志）",
-      "IMAGES_DRY_RUN": "仅发现候选模型而不发送请求（写入 logs/images-dry-run.json）",
-      "IMAGES_STEP": "每次探测前提示确认（交互式运行）",
       "BALANCE_JSON": "以 JSON 格式输出结果，而非表格"
     },
     "STATUS": {

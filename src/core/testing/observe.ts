@@ -10,9 +10,9 @@
  * Findings land in logs/observe-<date>.jsonl, one line per lane.
  */
 
-import { checkThinkingSignature } from "@unorouter/verify-core/detectors/thinking-signature";
-import { checkTokenTruth } from "@unorouter/verify-core/detectors/token-truth";
-import { readResponseMetadata } from "@unorouter/verify-core/detectors/response-metadata";
+import { checkThinkingSignature } from "ai-model-verifier/detectors/thinking-signature";
+import { checkTokenTruth } from "ai-model-verifier/detectors/token-truth";
+import { readResponseMetadata } from "ai-model-verifier/detectors/response-metadata";
 import { logsDir } from "@core/infra/paths";
 import { consola } from "consola";
 import { appendFileSync } from "fs";
