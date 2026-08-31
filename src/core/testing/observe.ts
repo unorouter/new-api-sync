@@ -12,6 +12,7 @@
 
 import { checkThinkingSignature } from "@unorouter/verify-core/detectors/thinking-signature";
 import { checkTokenTruth } from "@unorouter/verify-core/detectors/token-truth";
+import { readResponseMetadata } from "@unorouter/verify-core/detectors/response-metadata";
 import { logsDir } from "@core/infra/paths";
 import { consola } from "consola";
 import { appendFileSync } from "fs";
@@ -55,10 +56,30 @@ export async function observeClaudeEvidence(opts: {
   label: string;
 }): Promise<void> {
   try {
-    const [signature, tokens] = await Promise.all([
+    const [signature, tokens, probe] = await Promise.all([
       checkThinkingSignature({ transport, ...opts }),
       checkTokenTruth({ transport, ...opts }),
+      // One cheap call purely to read the envelope: which vendor's shape came
+      // back, what minted the id, whose field names the usage object carries.
+      transport({
+        url: `${opts.baseUrl.replace(/\/+$/, "")}/v1/messages`,
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": opts.apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        reqBody: {
+          model: opts.model,
+          max_tokens: 8,
+          messages: [{ role: "user", content: "Reply with exactly: ok" }],
+        },
+        timeoutMs: opts.timeoutMs,
+      }),
     ]);
+    const envelope =
+      probe.status !== null && probe.status < 400
+        ? readResponseMetadata(probe.data, "anthropic")
+        : undefined;
 
     // Only two states are worth a human's attention: thinking was requested and
     // no block came back, or the token arithmetic did not add up. An unsigned
@@ -77,6 +98,7 @@ export async function observeClaudeEvidence(opts: {
         notable,
         signature,
         tokens,
+        envelope,
       }) + "\n",
     );
 
