@@ -47,3 +47,4 @@ bun.lock*
 scripts
 reference
 .secrets/
+logs/observe-*.jsonl

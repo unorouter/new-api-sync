@@ -54,6 +54,7 @@ import type {
 import type { ApplyReport, ProviderReport, SyncDiff } from "@core/types";
 import { redactExchange, redactUrl } from "./redact";
 import { modelsMatch } from "@unorouter/verify-core/substitution";
+import { observeClaudeEvidence } from "./observe";
 
 let testReport: TestReport = {
   timestamp: new Date().toISOString(),
@@ -418,6 +419,26 @@ async function testModels(opts: {
                 timeoutMs,
                 logKey: blacklistKey,
               });
+        }
+
+        // OBSERVE ONLY. The signature and token checks are new, so they log
+        // what they WOULD have caught and never change a verdict or a lane.
+        // Promote them only after reviewing real runs, or a false positive
+        // silently deletes working revenue lanes.
+        if (
+          isClaude &&
+          !opts.skipAuthenticity &&
+          authentic &&
+          (success || streamSuccess) &&
+          !isAuthenticityPassCached(blacklistKey)
+        ) {
+          void observeClaudeEvidence({
+            baseUrl: opts.baseUrl,
+            apiKey: opts.apiKey,
+            model,
+            timeoutMs,
+            label: blacklistKey,
+          });
         }
 
         const finalSuccess = success && authentic;
