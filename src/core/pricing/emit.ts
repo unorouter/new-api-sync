@@ -108,6 +108,7 @@ function buildSettingJson(tier: PricedTier): string | undefined {
   }
 
   if (tier.passThroughBody) setting.pass_through_body_enabled = true;
+  if (tier.forceUpstreamStream) setting.force_upstream_stream = true;
 
   if (tier.autoTestIntervalMinutes)
     setting.auto_test_interval_minutes = tier.autoTestIntervalMinutes;

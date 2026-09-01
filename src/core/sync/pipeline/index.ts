@@ -154,6 +154,10 @@ export async function runProviderPipeline(
   const autoTestIntervalByProvider = new Map<string, number>();
   const autoTestIntervalMaxByProvider = new Map<string, number>();
   const headerOverrideByProvider = new Map<string, string>();
+  const forceUpstreamStreamByProvider = new Map<
+    string,
+    boolean | Record<string, boolean>
+  >();
   for (const p of config.providers) {
     if ("baseUrl" in p && p.baseUrl && p.perUpstreamConcurrency)
       overrides.set(p.baseUrl, p.perUpstreamConcurrency);
@@ -167,6 +171,8 @@ export async function runProviderPipeline(
       Object.keys(p.headerOverride).length > 0
     )
       headerOverrideByProvider.set(p.name, JSON.stringify(p.headerOverride));
+    if ("forceUpstreamStream" in p && p.forceUpstreamStream !== undefined)
+      forceUpstreamStreamByProvider.set(p.name, p.forceUpstreamStream);
   }
   setConcurrencyGate(
     new ConcurrencyGate({
@@ -220,6 +226,7 @@ export async function runProviderPipeline(
     modelAlias: config.modelAlias,
     systemPrompt: config.systemPrompt,
     autoTestIntervalByProvider,
+    forceUpstreamStreamByProvider,
     autoTestIntervalMaxByProvider,
     headerOverrideByProvider,
   });

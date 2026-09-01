@@ -24,6 +24,7 @@ import type {
   PricedPlan,
   PricedTier,
 } from "./types";
+import { resolvePerModel } from ".";
 
 interface ComputeArgs {
   offers: UpstreamOffer[];
@@ -36,6 +37,10 @@ interface ComputeArgs {
   systemPrompt?: { models: string[]; prompt: string; override?: boolean }[];
   /** Per-provider scheduled-test cadence, keyed by provider name. */
   autoTestIntervalByProvider?: Map<string, number>;
+  forceUpstreamStreamByProvider?: Map<
+    string,
+    boolean | Record<string, boolean>
+  >;
   headerOverrideByProvider?: Map<string, string>;
   autoTestIntervalMaxByProvider?: Map<string, number>;
 }
@@ -704,6 +709,13 @@ function pushBucketsAsTiers(
             CHANNEL_TYPES.GEMINI && !override
         )
           ? { passThroughBody: true }
+          : {}),
+        ...(resolvePerModel(
+          args?.forceUpstreamStreamByProvider?.get(offer.provider),
+          publishedName,
+          false,
+        )
+          ? { forceUpstreamStream: true }
           : {}),
         ...(m.rateLimited || offer.upstreamDown ? { disabled: true } : {}),
         ...(sysPromptRule
