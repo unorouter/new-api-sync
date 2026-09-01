@@ -77,11 +77,12 @@ async function paginate<T>(
 // 1667 of 1677 channels returned without it - the 10 lost ones then read as dead
 // groups and pruneDeadOptionGroups deleted their visibility.
 export async function listChannels(ctx: ClientContext): Promise<Channel[]> {
-  return paginate(async (page) => {
+  let reportedTotal: number | undefined;
+  const rows = await paginate(async (page) => {
     const url = `${ctx.baseUrl}/api/channel/?p=${page}&page_size=${PS}&id_sort=true`;
     type R = {
       success: boolean;
-      data: { data?: Channel[]; items?: Channel[] } | Channel[];
+      data: { data?: Channel[]; items?: Channel[]; total?: number } | Channel[];
     };
     const data = await fetchJson<R>(url, {
       headers: ctx.headers,
@@ -89,10 +90,31 @@ export async function listChannels(ctx: ClientContext): Promise<Channel[]> {
     });
     if (!data.success)
       throw new Error(t("ERROR.NEWAPI_CHANNEL_LIST_API_FAILED"));
+    if (!Array.isArray(data.data) && typeof data.data.total === "number")
+      reportedTotal = data.data.total;
     return Array.isArray(data.data)
       ? data.data
       : (data.data?.items ?? data.data?.data ?? []);
   }, PAGINATION.START_PAGE_ZERO);
+
+  // The gateway is 1-indexed (p=0 and p=1 return the same first page), so the
+  // walk from 0 double-counts the first page; dedup by id like listModels does.
+  // Undeduped, every first-page channel appears twice in the snapshot and
+  // diff.ts emits its delete op twice.
+  const byId = new Map<number, Channel>();
+  for (const row of rows) if (row.id != null) byId.set(row.id, row);
+  const all = byId.size > 0 ? [...byId.values()] : rows;
+
+  // Completeness guard, same reasoning as listModels: diff.ts deletes any
+  // managed channel absent from the snapshot, so a walk that lost a page reads
+  // as "these lanes are gone" and deletes live ones. A short list is only ever
+  // a transport failure, never a real catalog; refuse it. Compare UNIQUE count,
+  // the duplicated first page would otherwise hide a lost page.
+  if (reportedTotal != null && all.length < reportedTotal)
+    throw new Error(
+      `channel list incomplete: got ${all.length} of ${reportedTotal}`,
+    );
+  return all;
 }
 
 export async function createChannel(
