@@ -48,6 +48,19 @@ function extractPassThrough(setting?: string): boolean | undefined {
   }
 }
 
+function extractBoolSetting(
+  setting: string | undefined,
+  key: string,
+): boolean | undefined {
+  if (!setting) return undefined;
+  try {
+    const v = JSON.parse(setting)?.[key];
+    return typeof v === "boolean" ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function extractPositiveNumber(
   setting: string | undefined,
   key: string,
@@ -93,12 +106,17 @@ function mergeSettingCapabilities(
     desiredSetting,
     "auto_test_interval_max_minutes",
   );
+  const desiredForceStream = extractBoolSetting(
+    desiredSetting,
+    "force_upstream_stream",
+  );
   if (
     !desiredCaps &&
     desiredPassThrough === undefined &&
     !desiredSysPrompt &&
     desiredAutoTestInterval === undefined &&
-    desiredAutoTestIntervalMax === undefined
+    desiredAutoTestIntervalMax === undefined &&
+    desiredForceStream === undefined
   )
     return undefined;
   let existing: Record<string, unknown> = {};
@@ -134,6 +152,8 @@ function mergeSettingCapabilities(
     existing.auto_test_interval_minutes = desiredAutoTestInterval;
   if (desiredAutoTestIntervalMax !== undefined)
     existing.auto_test_interval_max_minutes = desiredAutoTestIntervalMax;
+  if (desiredForceStream !== undefined)
+    existing.force_upstream_stream = desiredForceStream;
   return JSON.stringify(existing);
 }
 
@@ -150,12 +170,14 @@ function normalizeCapabilities(setting?: string): string | undefined {
     setting,
     "auto_test_interval_max_minutes",
   );
+  const forceStream = extractBoolSetting(setting, "force_upstream_stream");
   if (
     !caps &&
     passThrough === undefined &&
     !sysPrompt &&
     autoTestInterval === undefined &&
-    autoTestIntervalMax === undefined
+    autoTestIntervalMax === undefined &&
+    forceStream === undefined
   )
     return undefined;
   return JSON.stringify({
@@ -174,6 +196,9 @@ function normalizeCapabilities(setting?: string): string | undefined {
       : {}),
     ...(autoTestIntervalMax !== undefined
       ? { auto_test_interval_max_minutes: autoTestIntervalMax }
+      : {}),
+    ...(forceStream !== undefined
+      ? { force_upstream_stream: forceStream }
       : {}),
   });
 }
