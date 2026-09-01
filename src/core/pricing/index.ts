@@ -95,3 +95,29 @@ export function applyMarkupOverride(
   if (!resolved.perModel || resolved.value <= 0) return undefined;
   return cost * (1 + resolved.value);
 }
+
+// Scalar applies to every model; a record is glob-keyed, first match wins, with
+// "default" as the catch-all. Generic because the same shape carries numbers
+// (profitMultiple, maxSellFraction) and booleans (forceUpstreamStream).
+export function resolvePerModel(
+  value: number | Record<string, number> | undefined,
+  model: string,
+  fallback: number,
+): number;
+export function resolvePerModel(
+  value: boolean | Record<string, boolean> | undefined,
+  model: string,
+  fallback: boolean,
+): boolean;
+export function resolvePerModel(
+  value: number | boolean | Record<string, number | boolean> | undefined,
+  model: string,
+  fallback: number | boolean,
+): number | boolean {
+  if (value === undefined) return fallback;
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  const hit = Object.entries(value).find(([glob]) =>
+    matchesAnyPattern(model, [glob]),
+  );
+  return hit?.[1] ?? value["default"] ?? fallback;
+}

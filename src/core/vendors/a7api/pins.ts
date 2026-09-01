@@ -1,4 +1,5 @@
 import { fetchJson, tryFetchJson } from "@core/infra/http";
+import { resolvePerModel } from "@core/pricing";
 import { throwIfRunAborted } from "@core/infra/abort";
 import type { A7ApiProviderConfig } from "@core/validations/config";
 import type { ClientContext } from "@core/vendors/newapi/context";
@@ -14,7 +15,6 @@ import {
   DEFAULT_PROFIT_MULTIPLE,
   fetchListings,
   marketplaceHeaders,
-  resolvePerModel,
   type Listing,
 } from "./marketplace";
 

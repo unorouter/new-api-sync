@@ -3,6 +3,7 @@ import {
   matchesBlacklist,
 } from "@core/catalog/constants/patterns";
 import { tryFetchJson } from "@core/infra/http";
+import { resolvePerModel } from "@core/pricing";
 import type { A7ApiProviderConfig } from "@core/validations/config";
 
 // a7api resells other people's channels, so one model has many merchant
@@ -157,21 +158,6 @@ export function selectMerchants(
 
 export function usdPerMillion(micros: number): number {
   return micros / MICROS_PER_USD;
-}
-
-// Glob-keyed per-model override with a flat-number fallback, same lookup shape
-// as hostsPerModel: first matching glob wins, then "default", then fallback.
-export function resolvePerModel(
-  value: number | Record<string, number> | undefined,
-  model: string,
-  fallback: number,
-): number {
-  if (value === undefined) return fallback;
-  if (typeof value === "number") return value;
-  const hit = Object.entries(value).find(([glob]) =>
-    matchesAnyPattern(model, [glob]),
-  );
-  return hit?.[1] ?? value["default"] ?? fallback;
 }
 
 // Supplier names are mostly Chinese marketing strings and never unique

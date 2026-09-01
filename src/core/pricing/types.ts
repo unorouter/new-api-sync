@@ -45,6 +45,9 @@ export interface PricedTier {
    *  Media channels need it so non-struct fields (image_urls, vendor extras) survive new-api's
    *  ImageRequest re-marshal, which drops unknown fields. */
   passThroughBody?: boolean;
+  /** Upgrade client stream=false to upstream SSE for this channel; the gateway
+   *  aggregates it back to one JSON body. Dodges reseller edge header timeouts. */
+  forceUpstreamStream?: boolean;
   /** Scheduled-test cadence in minutes (channel.setting.auto_test_interval_minutes).
    *  Set for exit-IP-metered lanes, where each probe spends part of a small per-IP
    *  request budget that real traffic needs. */

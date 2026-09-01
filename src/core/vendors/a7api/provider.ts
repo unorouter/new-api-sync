@@ -1,4 +1,5 @@
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
+import { resolvePerModel } from "@core/pricing";
 import { inferModelType } from "@core/catalog/constants/inference";
 import {
   matchesAnyPattern,
@@ -22,7 +23,6 @@ import {
   DEFAULT_PROFIT_MULTIPLE,
   fetchListings,
   groupByModel,
-  resolvePerModel,
   selectMerchants,
   supplierSlug,
   usdPerMillion,
