@@ -156,9 +156,33 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   "glm-5.2": { maxOutputTokens: 131_072 },
   // Poolside Laguna S 2.1 ships a 1M window; an early OR /models snapshot reported
   // 256K and stuck. Hard-pin the real context.
+  // Voted context lands at 131072: that is OpenRouter's single lowest host
+  // (Darkbloom), while our lanes serve from Google direct at 262144. Published
+  // as "gemma-4-26b" via modelMapping, and this table is an exact-name lookup.
+  "gemma-4-26b": {
+    releaseDate: iso("2026-04-03"),
+    contextWindow: 262_144,
+    maxInputTokens: 262_144,
+    series: "Gemma",
+    supportsVision: true,
+    supportsVideo: true,
+    supportsTools: true,
+  },
   "laguna-s-2.1": { contextWindow: 1_048_576, maxInputTokens: 1_048_576 },
+  "laguna-xs-2.1": {
+    releaseDate: iso("2026-07-02"),
+    contextWindow: 262_144,
+    maxInputTokens: 262_144,
+  },
   "ling-3.0-flash": {
     releaseDate: iso("2026-07-22"),
+    contextWindow: 262_144,
+    maxInputTokens: 262_144,
+    series: "Ling",
+  },
+  // Finance-tuned Ling 3.0 Flash.
+  "ling-3.0-flash-fin": {
+    releaseDate: iso("2026-08-27"),
     contextWindow: 262_144,
     maxInputTokens: 262_144,
     series: "Ling",
@@ -928,6 +952,23 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsVision: true,
     supportsTools: true,
   },
+  "nemotron-3-super-120b-a12b": {
+    releaseDate: iso("2026-03-11"),
+    contextWindow: 1_000_000,
+    series: "Nemotron",
+  },
+  "nemotron-3-ultra-550b-a55b": {
+    releaseDate: iso("2026-06-04"),
+    contextWindow: 262_144,
+    series: "Nemotron",
+  },
+  // Safety classifier, not a chat model: it grades content rather than answering.
+  "nemotron-3.5-content-safety": {
+    releaseDate: iso("2026-06-04"),
+    contextWindow: 128_000,
+    series: "Nemotron",
+    supportsVision: true,
+  },
   // Agnes AI (Sapiens AI) house models. 2.0-flash rolled its 1M context back to
   // 256K in June 2026; supports thinking, streaming, tools, vision.
   "agnes-2.0-flash": {
@@ -1541,6 +1582,7 @@ const CURATED: Record<string, SourceMetadata> = {
     maxOutputTokens: 262_144,
     series: "Inkling",
     supportsVision: true,
+    supportsAudio: true,
     supportsTools: true,
   },
   "inkling-small": {
@@ -1781,6 +1823,13 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // xAI Grok Imagine video (original feature launch)
   "grok-imagine-video": { releaseDate: iso("2025-08-07"), mode: "video" },
+  // Preview 2026-05-31, GA 2026-06-16. Adds text-to-video and reference-to-video
+  // on top of i2v, native 1080p. Billed per second upstream.
+  "grok-imagine-video-1.5": { releaseDate: iso("2026-06-16"), mode: "video" },
+  // "grok-video-3" is pol's own name: xAI ships no such model (their line is
+  // grok-imagine-video / -1.5). Kept typed as video so it routes correctly, but
+  // no release date or spec is asserted, because there is no upstream to cite.
+  "grok-video-3": { mode: "video" },
   // Grok Imagine image, via the grok.com web reverse. Same feature launch as the
   // video model; "-lite" is the free tier's variant, and it is the only Imagine
   // model a free account is entitled to.
@@ -1851,6 +1900,7 @@ const CURATED: Record<string, SourceMetadata> = {
   veo3: { releaseDate: iso("2025-05-20"), mode: "video" },
   "veo3-fast": { releaseDate: iso("2025-07-18"), mode: "video" },
   "veo3.1": { releaseDate: iso("2025-10-15"), mode: "video" },
+  "veo3.1-fast": { releaseDate: iso("2025-10-15"), mode: "video" },
   "veo3.1-pro": { releaseDate: iso("2025-10-15"), mode: "video" },
   // OpenAI Sora 2
   "sora-2": { releaseDate: iso("2025-09-30"), mode: "video" },
@@ -2165,6 +2215,12 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2026-02-12"),
     contextWindow: 204_800,
     maxOutputTokens: 196_608,
+    isReasoning: true,
+    supportsTools: true,
+  },
+  "minimax-m2.7": {
+    releaseDate: iso("2026-03-18"),
+    contextWindow: 204_800,
     isReasoning: true,
     supportsTools: true,
   },
@@ -3172,6 +3228,14 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Gemma",
     isReasoning: true,
     supportsVision: true,
+    supportsTools: true,
+  },
+  "gemma-4-31b-it": {
+    releaseDate: iso("2026-04-02"),
+    contextWindow: 262_144,
+    series: "Gemma",
+    supportsVision: true,
+    supportsVideo: true,
     supportsTools: true,
   },
   // Rolling aliases (track current GA: 2.5 Pro / Mistral Code launch)
