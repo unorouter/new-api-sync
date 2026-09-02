@@ -4,6 +4,9 @@ import {
   applyOnlyProviders,
   loadConfig,
 } from "@core/config";
+import { fetchBasellmEntries } from "@core/catalog/metadata";
+import { fetchAllPricingSources } from "@core/pricing/resolver";
+import { resolveCanonicalByVote } from "@core/pricing/vote";
 import { checkBalances, printBalanceSummary } from "@core/sync/balance";
 import { printMetadataSummary, runMetadataSync } from "@core/sync/metadata";
 import { runReset } from "@core/sync/reset";
@@ -162,6 +165,28 @@ program
     const { app } = await import("@server/route");
     app.listen(Number(options.port));
     consola.success(t("CLI.STATUS.UI_RUNNING", { port: options.port }));
+  });
+
+program
+  .command("baseline")
+  .description("Dump every canonical (voted) list price as USD per 1M tokens")
+  .option("--out <path>", "output JSON path", "baseline.json")
+  .action(async (options: { out: string }) => {
+    const sources = await fetchAllPricingSources(await fetchBasellmEntries());
+    const names = new Set<string>();
+    for (const s of sources) for (const k of s.pricing.candidates.keys()) names.add(k);
+    const out: Record<string, { input_usd_per_m: number; output_usd_per_m: number; sources: string[] }> = {};
+    for (const m of [...names].sort()) {
+      const vote = resolveCanonicalByVote(m, sources, new Map());
+      if (!vote.cluster) continue;
+      out[m] = {
+        input_usd_per_m: +(vote.cluster.modelRatio * 2).toFixed(4),
+        output_usd_per_m: +(vote.cluster.modelRatio * 2 * vote.cluster.completionRatio).toFixed(4),
+        sources: vote.cluster.members,
+      };
+    }
+    await Bun.write(options.out, JSON.stringify({ generated_at: new Date().toISOString(), models: out }, null, 1));
+    consola.info(`baseline: ${Object.keys(out).length} voted of ${names.size} names -> ${options.out}`);
   });
 
 program.parseAsync(process.argv).catch((error: unknown) => {

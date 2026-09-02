@@ -1220,6 +1220,16 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     apiKeyPlaceholder: "hetzner token",
   },
+  {
+    kind: "amd",
+    label: "AMD",
+    // developer.amd.com.cn/radeon/api/v1 - AMD Radeon developer gateway, OpenRouter-shaped
+    // catalog of self-deployed models (DeepSeek-V4-Flash, Qwen3.8-Flash-Next, MiniCPM5-1B).
+    // Key reports limit:null; listing prices are wired as ratioByModel. Base is root; /v1 appended.
+    defaultBaseUrl: "https://developer.amd.com.cn/radeon/api",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "rc-...",
+  },
 ] as const satisfies readonly SimpleProviderMeta[];
 
 export type SimpleProviderKind = (typeof SIMPLE_PROVIDER_META)[number]["kind"];
