@@ -103,6 +103,7 @@ import { discoverLongCatModels } from "./longcat/discovery";
 import { discoverPublicAiModels } from "./publicai/discovery";
 import { discoverLlmGatewayModels } from "./llmgateway/discovery";
 import { discoverVoyageModels } from "./voyage/discovery";
+import { discoverAmdModels } from "./amd/discovery";
 import { discoverSeaLionModels } from "./sealion/discovery";
 
 type Discover = (
@@ -195,6 +196,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   publicai: discoverPublicAiModels,
   llmgateway: discoverLlmGatewayModels,
   voyage: discoverVoyageModels,
+  amd: discoverAmdModels,
   sealion: discoverSeaLionModels,
   mikiko: discoverMikikoModels,
   glmcg: discoverGlmCgModels,

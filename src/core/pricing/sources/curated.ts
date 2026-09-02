@@ -3550,6 +3550,14 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // OpenBMB MiniCPM5-1B (huggingface.co/openbmb/MiniCPM5-1B, Apache-2.0)
+  "minicpm5-1b": {
+    releaseDate: iso("2026-05-21"),
+    contextWindow: 131_072,
+    series: "MiniCPM",
+    isReasoning: true,
+    supportsTools: true,
+  },
   "sarvam-30b": {
     releaseDate: iso("2026-03-01"),
     contextWindow: 131_072,

@@ -108,6 +108,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   orcarouter: { modelPatterns: ["orca-router","orca-fusion"], strongPatterns: ["orca-fusion","orca-router"], nameAliases: ["orcarouter","orca router"], displayName: "OrcaRouter" },
   swissai: { modelPatterns: ["apertus"], strongPatterns: ["apertus"], nameAliases: ["swiss ai","swiss-ai","swissai","eth zurich","epfl"], displayName: "Swiss AI" },
   regolo: { modelPatterns: ["brick"], strongPatterns: ["brick-complexity","brick-v1"], nameAliases: ["regolo","regolo.ai"], displayName: "Regolo" },
+  openbmb: { modelPatterns: ["minicpm"], strongPatterns: ["minicpm"], nameAliases: ["openbmb","面壁"], displayName: "OpenBMB" },
   sarvam: { modelPatterns: ["sarvam"], strongPatterns: ["sarvam"], nameAliases: ["sarvam","sarvam ai","sarvam.ai"], displayName: "Sarvam" },
   typhoon: { modelPatterns: ["typhoon"], strongPatterns: ["typhoon"], nameAliases: ["typhoon","opentyphoon","scb 10x","scb10x"], displayName: "Typhoon" },
   utterproject: { modelPatterns: ["eurollm"], strongPatterns: ["eurollm"], nameAliases: ["utter-project","utter project","eurollm"], displayName: "EuroLLM" },
