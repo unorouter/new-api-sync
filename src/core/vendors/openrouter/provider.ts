@@ -396,12 +396,20 @@ export async function processOpenRouterProvider(
             // Skip hosts OpenRouter reports as unreliable (GMICloud-class ~18%
             // uptime slips past our own probe when transiently up). null uptime =
             // too new for stats, kept. Threshold is OR's 1-day uptime %.
+            // Per-model quantization allowance (glob-keyed): glm-4.7's own vendor
+            // z-ai only serves fp4 on OpenRouter, and losing it left two lanes.
+            const allowedQuant = new Set(
+              Object.entries(providerConfig.allowQuantizations ?? {})
+                .filter(([glob]) => matchesAnyPattern(r.exposed, [glob]))
+                .flatMap(([, qs]) => qs.map((q) => q.toLowerCase())),
+            );
             const reliableHosts = hosts.filter(
               (h) =>
                 (h.uptime == null || h.uptime >= MIN_HOST_UPTIME_PCT) &&
-                !SUB_FP8_QUANTIZATIONS.has(
+                (!SUB_FP8_QUANTIZATIONS.has(
                   (h.quantization ?? "").toLowerCase(),
-                ) &&
+                ) ||
+                  allowedQuant.has((h.quantization ?? "").toLowerCase())) &&
                 !EXCLUDED_HOSTS.has(h.provider.toLowerCase()) &&
                 !EXCLUDED_HOSTS_BY_MODEL[r.exposed]?.has(
                   h.provider.toLowerCase(),
