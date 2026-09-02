@@ -1628,6 +1628,8 @@ const CURATED: Record<string, SourceMetadata> = {
   // release date or architecture to report.
   "custom-civitai": {
     mode: "image",
+    inputModalities: ["text"],
+    outputModalities: ["image"],
     series: "Civitai",
     description:
       "Passthrough lane for any Civitai checkpoint: paste a model URL and it renders on that checkpoint.",
