@@ -105,7 +105,11 @@ export function selectMerchants(
   canonicalListUsd: number | undefined,
   blacklist?: string[],
 ): Listing[] {
-  const minSuccess = provider.minSuccessRate ?? DEFAULT_MIN_SUCCESS_RATE;
+  const minSuccess = resolvePerModel(
+    provider.minSuccessRate,
+    model,
+    DEFAULT_MIN_SUCCESS_RATE,
+  );
   const profitMultiple = resolvePerModel(
     provider.profitMultiple,
     model,

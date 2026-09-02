@@ -931,14 +931,28 @@ async function syncUpstreamPricing(
     } catch {
       liveUsable = {};
     }
-    const mergedAuto = [...new Set([...liveAuto, ...opts.autoGroups])].sort(
+    // Only groups an ENABLED channel carries: the dry-run pipeline emits every
+    // candidate merchant, probed or not, and publishing those hands the token
+    // group picker pins that route nowhere (four fable-5.1 a7 candidates, one a
+    // model-substituting merchant the probe had already rejected).
+    const routable = new Set<string>();
+    for (const ch of snap.channels) {
+      if (ch.status !== 1) continue;
+      for (const g of (ch.group ?? "").split(","))
+        if (g.trim()) routable.add(g.trim());
+    }
+    const ownAuto = opts.autoGroups.filter((g) => routable.has(g));
+    const ownUsable: Record<string, string> = {};
+    for (const [g, label] of Object.entries(opts.userUsableGroups))
+      if (routable.has(g)) ownUsable[g] = label;
+    const mergedAuto = [...new Set([...liveAuto, ...ownAuto])].sort(
       (a, b) => (gr[a] ?? 1) - (gr[b] ?? 1),
     );
     if (JSON.stringify(mergedAuto) !== JSON.stringify(liveAuto)) {
       await target.updateOption("AutoGroups", JSON.stringify(mergedAuto));
       changedKeys++;
     }
-    const mergedUsable = { ...liveUsable, ...opts.userUsableGroups };
+    const mergedUsable = { ...liveUsable, ...ownUsable };
     if (JSON.stringify(mergedUsable) !== JSON.stringify(liveUsable)) {
       await target.updateOption(
         "UserUsableGroups",
