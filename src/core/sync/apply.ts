@@ -163,7 +163,18 @@ export async function applySyncDiff(
       for (const g of (op.value.group ?? "").split(","))
         if (g.trim()) desiredGroups.add(g.trim());
     }
-    await pruneDeadOptionGroups(target, desiredGroups);
+    // The prune reads the maps back from whichever gateway pod answers, and pods
+    // reload options from the DB only every SYNC_FREQUENCY seconds, so seconds
+    // after this run's own PUT a pod can still serve the pre-run map. Protecting
+    // names cannot restore entries that read never had; seed it with what this
+    // run wrote (live incident: five fresh fable-5.1 lanes priced but invisible).
+    const own: OwnGroupMaps = { usable: {}, auto: [] };
+    for (const op of diff.options) {
+      if (op.type === "delete") continue;
+      if (op.key === "UserUsableGroups") own.usable = parseJson(op.value, {});
+      if (op.key === "AutoGroups") own.auto = parseJson(op.value, []);
+    }
+    await pruneDeadOptionGroups(target, desiredGroups, own);
   } catch (error) {
     report.errors.push({
       phase: "cleanup",
@@ -183,9 +194,23 @@ export async function applySyncDiff(
 // without owning any channel.
 const BASE_GROUPS = new Set(["default", "auto", "vip", "svip"]);
 
+interface OwnGroupMaps {
+  usable: Record<string, string>;
+  auto: string[];
+}
+
+function parseJson<T>(raw: string | undefined, fallback: T): T {
+  try {
+    return JSON.parse(raw ?? "") as T;
+  } catch {
+    return fallback;
+  }
+}
+
 async function pruneDeadOptionGroups(
   target: NewApiClient,
   protectedGroups: Set<string> = new Set(),
+  own: OwnGroupMaps = { usable: {}, auto: [] },
 ): Promise<void> {
   const channels = await target.listChannels();
   const live = new Set<string>(protectedGroups);
@@ -201,10 +226,11 @@ async function pruneDeadOptionGroups(
   // its visibility for two days, and a bare count left nothing to diagnose from.
   const prunedNames = new Set<string>();
 
-  const usable = JSON.parse(opts["UserUsableGroups"] ?? "{}") as Record<
-    string,
-    string
-  >;
+  const readUsable = parseJson<Record<string, string>>(
+    opts["UserUsableGroups"],
+    {},
+  );
+  const usable: Record<string, string> = { ...readUsable, ...own.usable };
   const keptUsable: Record<string, string> = {};
   for (const [g, label] of Object.entries(usable)) {
     if (BASE_GROUPS.has(g) || live.has(g)) keptUsable[g] = label;
@@ -213,12 +239,20 @@ async function pruneDeadOptionGroups(
       prunedNames.add(g);
     }
   }
-  if (Object.keys(keptUsable).length !== Object.keys(usable).length)
+  const usableChanged =
+    Object.keys(keptUsable).length !== Object.keys(readUsable).length ||
+    Object.keys(keptUsable).some((g) => !(g in readUsable));
+  if (usableChanged)
     await target.updateOption("UserUsableGroups", JSON.stringify(keptUsable));
 
-  const auto = JSON.parse(opts["AutoGroups"] ?? "[]") as string[];
+  const readAuto = parseJson<string[]>(opts["AutoGroups"], []);
+  const auto = [...new Set([...readAuto, ...own.auto])];
   const keptAuto = auto.filter((g) => BASE_GROUPS.has(g) || live.has(g));
-  if (keptAuto.length !== auto.length) {
+  const readAutoSet = new Set(readAuto);
+  const autoChanged =
+    keptAuto.length !== readAuto.length ||
+    keptAuto.some((g) => !readAutoSet.has(g));
+  if (autoChanged) {
     pruned += auto.length - keptAuto.length;
     for (const g of auto)
       if (!BASE_GROUPS.has(g) && !live.has(g)) prunedNames.add(g);

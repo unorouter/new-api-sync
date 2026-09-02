@@ -915,6 +915,15 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsTools: true,
   },
   // NVIDIA Nemotron
+  // Meta Llama 4 (Scout + Maverick), released 2025-04-05.
+  "llama-4-maverick-17b-128e-instruct": {
+    releaseDate: iso("2025-04-05"),
+    series: "Llama",
+  },
+  "llama-4-scout-17b-16e-instruct": {
+    releaseDate: iso("2025-04-05"),
+    series: "Llama",
+  },
   "llama-3.1-nemotron-nano-8b-v1": {
     releaseDate: iso("2025-03-18"),
     contextWindow: 131_072,
@@ -1415,8 +1424,29 @@ const CURATED: Record<string, SourceMetadata> = {
   "doubao-seedream-5": { releaseDate: iso("2026-02-24"), mode: "image" },
   // Black Forest Labs FLUX
   "flux-1.1-pro-ultra": { releaseDate: iso("2024-11-06"), mode: "image" },
-  "flux-2-flex": { releaseDate: iso("2025-11-25"), mode: "image" },
-  // FLUX.2 launch wave (pro/flex/dev/max), announced together 2025-11-25.
+  // FLUX.2 launch wave (pro/flex/dev/max), announced together 2025-11-25. Both
+  // spellings per model: relays publish dotted and hyphenated names and the
+  // lookup is exact.
+  "flux.2-flex": {
+    releaseDate: iso("2025-11-25"),
+    series: "FLUX",
+    mode: "image",
+  },
+  "flux-2-flex": {
+    releaseDate: iso("2025-11-25"),
+    series: "FLUX",
+    mode: "image",
+  },
+  "flux.2-pro": {
+    releaseDate: iso("2025-11-25"),
+    series: "FLUX",
+    mode: "image",
+  },
+  "flux-2-pro": {
+    releaseDate: iso("2025-11-25"),
+    series: "FLUX",
+    mode: "image",
+  },
   "flux.2-dev": {
     releaseDate: iso("2025-11-25"),
     series: "FLUX",
