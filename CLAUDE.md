@@ -119,10 +119,11 @@ and the partial-sync invariants protect everything out of scope.
 2. **Delete the bad channels in the DB by id** (they are recreated only if a provider still passes
    testing for that model). The target gateway DB is the CloudNativePG `newapi` cluster on the k3s
    cluster (namespace `databases`, db `newapi`); reach it via kubectl, not don SSH
-   (`KUBECONFIG=infra/kubeconfig`; primary pod = `newapi-pg-1`, confirm with
-   `kubectl get cluster -n databases`):
+   (`KUBECONFIG=infra/kubeconfig`; the primary drifts on failover and replicas are
+   read-only, so resolve it from the cluster status instead of assuming `-pg-1`):
    ```bash
-   kubectl -n databases exec newapi-pg-1 -c postgres -- \
+   PG=$(kubectl -n databases get cluster newapi-pg -o jsonpath='{.status.currentPrimary}')
+   kubectl -n databases exec $PG -c postgres -- \
      psql -U postgres -d newapi -c "DELETE FROM channels WHERE id IN (5487,5488,...);"
    ```
    Direct DB deletes bypass the in-memory channel cache; the runtime may keep serving the old
@@ -340,6 +341,15 @@ forced re-probes) copy the file to the PVC too, and vice versa, or one side
 re-probes lanes the other already settled and blacklist scrubs do not take
 effect on the other side. Copy via a helper pod mounting the PVC
 (`kubectl cp` the file both directions).
+
+The PVC is `local-path`, so it is pinned to ONE node (`unorouter-node9` since
+2026-09-02; the previous volume died with node7 and the daily job sat unscheduled
+for two days). A helper pod needs no nodeSelector: the scheduler follows the PV's
+node affinity, and RWO is node-scoped, so it does not block the cron. If the node
+ever goes away: delete PVC + PV (clear the PV finalizer, its node cannot run the
+cleanup), ArgoCD recreates the PVC, the next consumer pod provisions it, then
+re-seed from the local `verdict-cache.json`. The 15-min metadata cron does not
+mount it, so it keeps working while the daily run is stuck.
 
 ## a7 pin semantics (hard-won, do not re-learn)
 
