@@ -104,7 +104,7 @@ export function buildOptionMaps(
 
   // A group only enters the maps above when THIS run produced an offer for it, and
   // the prune then drops anything absent. So a lane whose upstream merely blipped
-  // (an OpenRouter host under MIN_HOST_UPTIME_PCT, a free tier throttling mid-probe)
+  // (an OpenRouter host under the old uptime floor, a free tier throttling mid-probe)
   // lost its visibility and never got it back once the upstream recovered - the
   // removal was one-way. Re-assert groups that still have an enabled channel so a
   // transient miss costs nothing permanent.

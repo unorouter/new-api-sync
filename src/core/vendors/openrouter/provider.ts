@@ -38,7 +38,6 @@ import { discoverOpenRouterFreeModels } from "./discovery";
 const USD_PER_M_PER_RATIO = 2;
 // Cost + 50% when a provider's priceAdjustment default is unset.
 const DEFAULT_PAID_MARKUP = 1.5;
-const MIN_HOST_UPTIME_PCT = 90;
 // fp8 is the floor. Anything coarser trades output quality for a price we are not
 // short of alternatives at, and "unknown" covers the full-precision hosts, so only
 // the explicitly-lower tiers are named here.
@@ -393,9 +392,6 @@ export async function processOpenRouterProvider(
                 modelMapping: config.modelMapping,
               });
             const vendor = inferVendorFromModelName(r.exposed) ?? "other";
-            // Skip hosts OpenRouter reports as unreliable (GMICloud-class ~18%
-            // uptime slips past our own probe when transiently up). null uptime =
-            // too new for stats, kept. Threshold is OR's 1-day uptime %.
             // Per-model quantization allowance (glob-keyed): glm-4.7's own vendor
             // z-ai only serves fp4 on OpenRouter, and losing it left two lanes.
             const allowedQuant = new Set(
@@ -405,7 +401,6 @@ export async function processOpenRouterProvider(
             );
             const reliableHosts = hosts.filter(
               (h) =>
-                (h.uptime == null || h.uptime >= MIN_HOST_UPTIME_PCT) &&
                 (!SUB_FP8_QUANTIZATIONS.has(
                   (h.quantization ?? "").toLowerCase(),
                 ) ||
@@ -415,18 +410,6 @@ export async function processOpenRouterProvider(
                   h.provider.toLowerCase(),
                 ),
             );
-            for (const h of hosts) {
-              if (h.uptime != null && h.uptime < MIN_HOST_UPTIME_PCT) {
-                consola.warn(
-                  t("CORE.OPENROUTER.HOST_LOW_UPTIME", {
-                    name,
-                    model: r.exposed,
-                    host: h.provider,
-                    uptime: h.uptime.toFixed(1),
-                  }),
-                );
-              }
-            }
             // Warn rather than skip silently: a paid model that stops publishing
             // keeps whatever ratio it last had, and desiredModelsWithoutRatio
             // guards that value on every later run. laguna-s-2.1 sat at ratio 0
