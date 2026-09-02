@@ -48,4 +48,3 @@ scripts
 reference
 .secrets/
 logs/observe-*.jsonl
-config.honeypot.yml
