@@ -222,7 +222,7 @@ async function pruneDeadOptionGroups(
   const opts = await target.getOptions(["UserUsableGroups", "AutoGroups"]);
   let pruned = 0;
   // Named, not just counted: a transient upstream blip (an OpenRouter host dipping
-  // under MIN_HOST_UPTIME_PCT for one run) silently cost the cheapest glm-5.2 lane
+  // under the old 90% uptime floor for one run) silently cost the cheapest glm-5.2 lane
   // its visibility for two days, and a bare count left nothing to diagnose from.
   const prunedNames = new Set<string>();
 

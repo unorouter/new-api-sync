@@ -584,7 +584,6 @@
       "WORKING": "[{name}] {working}/{total} 个模型可用（429 视为可用）",
       "PAID_NO_PRICING": "[{name}] 付费模型 {model} 无上游端点定价，已跳过",
       "PAID_NO_RELIABLE_HOST": "[{name}] 付费模型 {model}：所有上游主机均被过滤（量化精度／可用率／已排除），不予发布",
-      "HOST_LOW_UPTIME": "[{name}] {model}：跳过节点 {host}（1天可用率 {uptime}%，低于阈值）",
       "SUMMARY": "[{name}] {total} 个模型（免费 {free} 个，付费 {paid} 个），跨 {vendors} 个供应商渠道"
     },
     "PRICING": {

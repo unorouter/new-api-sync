@@ -165,7 +165,6 @@ export async function discoverOpenRouterFreeModels(
           const prompt = Number(ep.pricing?.prompt);
           const completion = Number(ep.pricing?.completion);
           if (!Number.isFinite(prompt) || prompt <= 0) continue;
-          if ((ep.status ?? 0) < 0) continue;
           const cacheReadRaw = Number(ep.pricing?.input_cache_read);
           hosts.push({
             provider: ep.provider_name ?? "",
