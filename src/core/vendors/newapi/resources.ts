@@ -179,10 +179,13 @@ export async function deleteChannel(
 }
 
 export async function listModels(ctx: ClientContext): Promise<ModelMeta[]> {
-  const endpoints = [
-    `${ctx.baseUrl}/api/models/list`,
-    `${ctx.baseUrl}/api/models/`,
-  ];
+  // Only /api/models/list. The trailing-slash form was kept as a fallback for
+  // older gateways, but gin 301s `/api/models/` to `/api/models`, which is the
+  // public dashboard list: it accepts anonymous callers and rejects any bearer it
+  // does not recognise, and the scoped sync token is one of those. Every run was
+  // therefore writing an auth-rejected audit row (406 a week from the cluster)
+  // for a request that never contributed a model.
+  const endpoints = [`${ctx.baseUrl}/api/models/list`];
   // Pick the endpoint that returns an items array on page 0, then paginate the
   // SAME endpoint from page 0 uniformly. The old code probed `p=0` then continued
   // from `p=1`, which silently dropped or duplicated a page whenever the chosen
