@@ -67,7 +67,7 @@ const Sub2ApiProviderSchema = T.Object({
 // prettier-ignore
 const NvidiaProviderSchema = T.Object({ type: T.Literal("nvidia"), ...ProviderCommonProps, baseUrl: Opt(uri), imageBaseUrl: Opt(uri), apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ exclusiveMinimum: 0 })), acceptRateLimited: Opt(T.Boolean()) });
 // prettier-ignore
-const OpenRouterProviderSchema = T.Object({ type: T.Literal("openrouter"), ...ProviderCommonProps, baseUrl: Opt(uri), apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ minimum: 0 })), acceptRateLimited: Opt(T.Boolean()), hostsPerModel: Opt(T.Record(T.String(), T.Integer({ minimum: 1 }))) });
+const OpenRouterProviderSchema = T.Object({ type: T.Literal("openrouter"), ...ProviderCommonProps, baseUrl: Opt(uri), apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ minimum: 0 })), acceptRateLimited: Opt(T.Boolean()), hostsPerModel: Opt(T.Record(T.String(), T.Integer({ minimum: 1 }))), allowQuantizations: Opt(T.Record(T.String(), T.Array(T.String()))) });
 // Simple OpenAI-compatible free providers (groq, gemini, cerebras, ...). One schema,
 // `type` is the union of registry kinds so a new provider needs no schema edit here.
 // T.Unsafe carries the SimpleProviderKind literal union at the type level while the
