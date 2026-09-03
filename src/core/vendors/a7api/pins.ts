@@ -209,7 +209,12 @@ interface PriceNotice {
   model_name: string;
   status: string;
   new_price?: { output_price_micros?: number };
-  relations?: { relation_type: string; relation_id: number; state: string }[];
+  relations?: {
+    relation_type: string;
+    relation_id: number;
+    token_id: number;
+    state: string;
+  }[];
 }
 
 interface PriceNoticesResponse {
@@ -248,9 +253,18 @@ export async function acceptPriceNotices(
     ]),
   );
 
+  // a7 keeps notices for pins we have since deleted, and still marks their
+  // relation "open", so accepting one answers 400 relation_required forever
+  // (every 15 minutes, once per dead pin). A pin is ours only while it is in
+  // the live pin list; relations carry no pin id, so token_id is the join.
+  const ownPinTokenIds = new Set(
+    (await listPins(provider)).map((pin) => pin.token_id),
+  );
+
   for (const notice of notices) {
     for (const rel of notice.relations ?? []) {
       if (rel.relation_type !== "pin" || rel.state !== "open") continue;
+      if (!ownPinTokenIds.has(rel.token_id)) continue;
       throwIfRunAborted();
       const profitMultiple = resolvePerModel(
         provider.profitMultiple,
