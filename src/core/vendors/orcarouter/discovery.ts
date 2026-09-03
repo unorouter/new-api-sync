@@ -11,6 +11,9 @@ const FREE_ROUTERS = [
   "orcarouter/fusion",
   "orcarouter/fusion-flash",
   "orcarouter/fusion-mini",
+  "deepseek/deepseek-v4-flash-free",
+  "qwen/qwen3.8-27b-free",
+  "tencent/hy3-free",
 ];
 
 export async function discoverOrcaRouterModels(
