@@ -434,9 +434,26 @@ export async function processOpenRouterProvider(
               Object.entries(providerConfig.hostsPerModel ?? {}).find(
                 ([glob]) => matchesAnyPattern(r.exposed, [glob]),
               )?.[1] ?? 1;
-            const cheapestHosts = [...reliableHosts]
-              .sort((a, b) => a.prompt - b.prompt)
-              .slice(0, hostsWanted);
+            // OpenRouter can list the SAME provider+quantization several times
+            // for one model at different prices (BaseTen served glm-5.2 four
+            // times, at $4.40 and $6.60 out). The channel name is built from
+            // provider+quantization, so two such rows produce one name and the
+            // emit step aborts the whole run on the collision. Keep the cheapest
+            // row per tag: the dearer duplicate has nothing else to offer.
+            const cheapestByTag = new Map<
+              string,
+              (typeof reliableHosts)[number]
+            >();
+            for (const host of [...reliableHosts].sort(
+              (a, b) => a.prompt - b.prompt,
+            )) {
+              const tag = quantTag(host.tag, host.quantization);
+              if (!cheapestByTag.has(tag)) cheapestByTag.set(tag, host);
+            }
+            const cheapestHosts = [...cheapestByTag.values()].slice(
+              0,
+              hostsWanted,
+            );
             const disableThinking = Object.entries(
               getMetadataFromEnabledModels(providerConfig.enabledModels),
             ).some(
