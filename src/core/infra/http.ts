@@ -1,6 +1,18 @@
 import { FetchError, ofetch } from "ofetch";
 import { t } from "@server/i18n";
 
+// A bare "HTTP 403" names neither the host nor the route, so a failing run gives
+// no way to tell our own gateway from an upstream. Query strings can carry keys,
+// so only origin + path is reported.
+function redactUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return url;
+  }
+}
+
 interface FetchOptions {
   headers?: Record<string, string>;
   method?: string;
@@ -31,6 +43,7 @@ export async function fetchJson<T>(
         t("ERROR.HTTP_ERROR", {
           status: err.response.status,
           statusText: err.response.statusText,
+          url: redactUrl(url),
         }),
       );
     }
