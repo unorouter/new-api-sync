@@ -25,7 +25,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:ee7dfb5a086f5bf8f46bd7ba5d21372c15840146
+              image: ghcr.io/unorouter/new-api-sync:f0136bb5497ae31eda07d8131e891a7b56fa0ecb
               args: ["metadata"]
               resources:
                 requests: { memory: 256Mi, cpu: 100m }
@@ -79,7 +79,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:ee7dfb5a086f5bf8f46bd7ba5d21372c15840146
+              image: ghcr.io/unorouter/new-api-sync:f0136bb5497ae31eda07d8131e891a7b56fa0ecb
               args: ["run", "--only", "a7"]
               resources:
                 requests: { memory: 256Mi, cpu: 100m }
