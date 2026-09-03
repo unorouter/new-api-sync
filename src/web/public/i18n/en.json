@@ -236,7 +236,7 @@
     "CONFIG_UNKNOWN_MODEL_TYPES": "Unknown model type(s): {unknown}. Available: {available}",
     "GLOBAL_CONFIG_INVALID_YAML": "Invalid YAML in {path}: {detail}",
     "GLOBAL_CONFIG_VALIDATION_FAILED": "{detail}",
-    "HTTP_ERROR": "HTTP {status} {statusText}",
+    "HTTP_ERROR": "HTTP {status} {statusText} from {url}",
     "SUB2API_ACCOUNT_LIST_FAILED": "Account list failed: {detail}",
     "SUB2API_GET_MODELS_FAILED": "Get models failed: {detail}",
     "SUB2API_GROUP_LIST_FAILED": "Group list failed: {detail}",

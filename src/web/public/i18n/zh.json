@@ -236,7 +236,7 @@
     "CONFIG_UNKNOWN_MODEL_TYPES": "未知模型类型：{unknown}。可用类型：{available}",
     "GLOBAL_CONFIG_INVALID_YAML": "{path} 中的 YAML 无效：{detail}",
     "GLOBAL_CONFIG_VALIDATION_FAILED": "{detail}",
-    "HTTP_ERROR": "HTTP {status} {statusText}",
+    "HTTP_ERROR": "HTTP {status} {statusText}，来自 {url}",
     "SUB2API_ACCOUNT_LIST_FAILED": "获取账号列表失败：{detail}",
     "SUB2API_GET_MODELS_FAILED": "获取模型失败：{detail}",
     "SUB2API_GROUP_LIST_FAILED": "获取分组列表失败：{detail}",
