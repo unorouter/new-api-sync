@@ -15,7 +15,7 @@ import type {
 } from "@core/pricing/offers";
 import { resolveCanonicalByVote } from "@core/pricing/vote";
 import { testAndFilterModels } from "@core/testing/runner";
-import type { ProviderReport } from "@core/types";
+import type { MergedGroup, ProviderReport } from "@core/types";
 import type { A7ApiProviderConfig } from "@core/validations/config";
 import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
 import { consola } from "consola";
@@ -47,6 +47,107 @@ interface ModelCandidates {
   canonicalListUsd?: number;
 }
 
+// Vote on the mapped (canonical) name: the marketplace spelling
+// (claude-opus-4-6) may miss the sources that know claude-opus-4.6.
+function canonicalListUsdFor(
+  model: string,
+  config: RuntimeConfig,
+  ctx: ProviderRunContext,
+): number | undefined {
+  const exposedName = (config.modelMapping?.[model] ?? model).toLowerCase();
+  const vote = resolveCanonicalByVote(
+    exposedName,
+    ctx.pricingSources,
+    ctx.reverseMapping,
+  );
+  return vote.cluster
+    ? vote.cluster.modelRatio *
+        USD_PER_M_PER_RATIO *
+        (vote.cluster.completionRatio ?? 1)
+    : undefined;
+}
+
+// Retail multiple for one lane. minSellFraction is a floor, not a merchant
+// cut: a lane whose cost x profitMultiple lands under list x minSellFraction
+// sells at the floor (the cheap merchant stays, the margin grows). The sell
+// ceiling still wins.
+function laneMultiple(
+  provider: A7ApiProviderConfig,
+  model: string,
+  channelId: number,
+  outputUsd: number,
+  canonicalListUsd: number | undefined,
+): number {
+  const profitMultiple = resolvePerModel(
+    provider.profitMultiple,
+    model,
+    DEFAULT_PROFIT_MULTIPLE,
+  );
+  const minSell = resolvePerModel(provider.minSellFraction, model, 0);
+  if (minSell <= 0 || canonicalListUsd === undefined || outputUsd <= 0)
+    return profitMultiple;
+  const maxSell = resolvePerModel(
+    provider.maxSellFraction,
+    model,
+    DEFAULT_MAX_SELL_FRACTION,
+  );
+  const floor = (canonicalListUsd * minSell) / outputUsd;
+  const ceiling = (canonicalListUsd * maxSell) / outputUsd;
+  const multiple = Math.min(
+    Math.max(profitMultiple, floor),
+    Math.max(ceiling, profitMultiple),
+  );
+  if (multiple !== profitMultiple)
+    consola.info(
+      `[${provider.name}] floor ${model} -> ${channelId}: ${profitMultiple}x -> ${multiple.toFixed(2)}x (${minSell} of list $${canonicalListUsd.toFixed(2)}/M out)`,
+    );
+  return multiple;
+}
+
+// Live lanes this run did not re-select keep serving at whatever ratio they
+// were created with; recompute them from the current listing so a multiplier
+// or floor change reaches every lane, not only the top N.
+function sweepLiveLanes(
+  provider: A7ApiProviderConfig,
+  config: RuntimeConfig,
+  ctx: ProviderRunContext,
+  byModel: Map<string, Listing[]>,
+): MergedGroup[] {
+  const out: MergedGroup[] = [];
+  const marketByExposed = new Map<string, string>();
+  for (const model of byModel.keys())
+    marketByExposed.set(
+      (config.modelMapping?.[model] ?? model).toLowerCase(),
+      model,
+    );
+  for (const ch of ctx.liveChannels ?? []) {
+    if (ch.tag !== provider.name || ch.status !== 1 || !ch.group) continue;
+    const exposed = ch.models.split(",")[0]?.trim().toLowerCase();
+    const market = exposed ? marketByExposed.get(exposed) : undefined;
+    if (!exposed || !market) continue;
+    const suffix = `-${sanitizeGroupName(exposed)}`;
+    if (!ch.group.endsWith(suffix)) continue;
+    const id = /(\d+)$/.exec(ch.group.slice(0, -suffix.length))?.[1];
+    const listing = id
+      ? byModel.get(market)?.find((l) => l.channel_id === Number(id))
+      : undefined;
+    if (!listing) continue;
+    out.push({
+      name: ch.group,
+      ratio: laneMultiple(
+        provider,
+        market,
+        listing.channel_id,
+        usdPerMillion(listing.output_price_micros),
+        canonicalListUsdFor(market, config, ctx),
+      ),
+      description: `${market} via ${provider.name} merchant #${listing.channel_id}`,
+      provider: provider.name,
+    });
+  }
+  return out;
+}
+
 function collectCandidates(
   provider: A7ApiProviderConfig,
   config: RuntimeConfig,
@@ -68,19 +169,7 @@ function collectCandidates(
 
     // Cap cut: reject a merchant whose cost * profitMultiple breaches 1x list.
     // The vote's modelRatio is the input price in ratio units; USD list output.
-    // Vote on the mapped (canonical) name: the marketplace spelling
-    // (claude-opus-4-6) may miss the sources that know claude-opus-4.6.
-    const exposedName = (config.modelMapping?.[model] ?? model).toLowerCase();
-    const vote = resolveCanonicalByVote(
-      exposedName,
-      ctx.pricingSources,
-      ctx.reverseMapping,
-    );
-    const canonicalListUsd = vote.cluster
-      ? vote.cluster.modelRatio *
-        USD_PER_M_PER_RATIO *
-        (vote.cluster.completionRatio ?? 1)
-      : undefined;
+    const canonicalListUsd = canonicalListUsdFor(model, config, ctx);
 
     const wanted =
       Object.entries(provider.hostsPerModel ?? {}).find(([glob]) =>
@@ -116,13 +205,19 @@ export async function processA7ApiProvider(
     tokens: { created: 0, existing: 0, deleted: 0 },
   };
   const offers: UpstreamOffer[] = [];
+  let extraGroups: MergedGroup[] = [];
   const dryRun = ctx.dryRun ?? false;
 
   try {
     const listings = await fetchListings(provider);
     if (listings.length === 0) {
       report.error = "marketplace returned no listings";
-      return { report, offers, endpointMetadata: { endpointPaths: new Map() } };
+      return {
+        report,
+        offers,
+        endpointMetadata: { endpointPaths: new Map() },
+        extraGroups,
+      };
     }
 
     const byModel = groupByModel(listings);
@@ -138,7 +233,12 @@ export async function processA7ApiProvider(
     );
     if (models.length === 0) {
       report.error = "no model had a merchant meeting the price/health rules";
-      return { report, offers, endpointMetadata: { endpointPaths: new Map() } };
+      return {
+        report,
+        offers,
+        endpointMetadata: { endpointPaths: new Map() },
+        extraGroups,
+      };
     }
 
     const skipCleanup =
@@ -241,6 +341,7 @@ export async function processA7ApiProvider(
     }
 
     consola.info(`[${name}] pins: +${pinsCreated} ~${pinsRepinned}`);
+    extraGroups = sweepLiveLanes(provider, config, ctx, byModel);
     report.groups = offers.length;
     report.models = new Set(keptLanes.map((l) => l.model)).size;
     // A throttled full run must not delete: every skipped lane is absent from
@@ -250,7 +351,12 @@ export async function processA7ApiProvider(
     if (throttled > 0 && !skipCleanup && !dryRun) {
       report.error = `a7 throttled: ${throttled} lane(s) skipped on key reveal or pin (429); deletes and token cleanup withheld`;
       consola.warn(`[${name}] ${report.error}`);
-      return { report, offers, endpointMetadata: { endpointPaths: new Map() } };
+      return {
+        report,
+        offers,
+        endpointMetadata: { endpointPaths: new Map() },
+        extraGroups,
+      };
     }
     if (!dryRun && !skipCleanup)
       await cleanupStaleLaneTokens(provider, keptLanes);
@@ -259,7 +365,12 @@ export async function processA7ApiProvider(
     report.error = err instanceof Error ? err.message : String(err);
   }
 
-  return { report, offers, endpointMetadata: { endpointPaths: new Map() } };
+  return {
+    report,
+    offers,
+    endpointMetadata: { endpointPaths: new Map() },
+    extraGroups,
+  };
 }
 
 function buildLaneOffer(
@@ -292,33 +403,13 @@ function buildLaneOffer(
   // positive adj would make this lane own the shared model sticker
   // (ModelRatio), which for a multi-source model (open1/pol also serve
   // kimi-k3) collapses everyone's sticker to a7's cheapest merchant cost.
-  const profitMultiple = resolvePerModel(
-    provider.profitMultiple,
+  const multiple = laneMultiple(
+    provider,
     lane.model,
-    DEFAULT_PROFIT_MULTIPLE,
+    lane.listing.channel_id,
+    output,
+    canonicalListUsd,
   );
-  // minSellFraction is a retail floor, not a merchant cut: a lane whose
-  // cost x profitMultiple lands under list x minSellFraction sells at the floor
-  // (the cheap merchant stays, the margin grows). The sell ceiling still wins.
-  let multiple = profitMultiple;
-  const minSell = resolvePerModel(provider.minSellFraction, lane.model, 0);
-  if (minSell > 0 && canonicalListUsd !== undefined && output > 0) {
-    const maxSell = resolvePerModel(
-      provider.maxSellFraction,
-      lane.model,
-      DEFAULT_MAX_SELL_FRACTION,
-    );
-    const floor = (canonicalListUsd * minSell) / output;
-    const ceiling = (canonicalListUsd * maxSell) / output;
-    multiple = Math.min(
-      Math.max(profitMultiple, floor),
-      Math.max(ceiling, profitMultiple),
-    );
-    if (multiple !== profitMultiple)
-      consola.info(
-        `[${name}] floor ${lane.model} -> ${lane.listing.channel_id}: ${profitMultiple}x -> ${multiple.toFixed(2)}x (${minSell} of list $${canonicalListUsd.toFixed(2)}/M out)`,
-      );
-  }
 
   const slug = supplierSlug(lane.listing.supplier_name);
   const laneId = slug
