@@ -149,27 +149,27 @@ export async function findTokenByKey(
   );
 }
 
-export async function updateTokenModelLimits(
+/**
+ * Refresh the GUEST token's model_limits through the sync-only route.
+ *
+ * The old path (search by key, then PUT the whole token) needs UserAuth, which
+ * the service credential does not have: every cluster run 401'd and returned
+ * SKIPPED without a word, so the guest allowlist silently drifted behind the
+ * free catalogue. This route takes the key, writes one column, and is refused
+ * for any other caller.
+ */
+export async function updateGuestTokenModelLimits(
   ctx: ClientContext,
-  token: UpstreamToken,
+  guestKey: string,
   modelLimits: string,
 ): Promise<boolean> {
-  const body = {
-    id: token.id,
-    status: token.status,
-    name: token.name,
-    expired_time: token.expired_time ?? -1,
-    remain_quota: token.remain_quota ?? 0,
-    unlimited_quota: token.unlimited_quota ?? false,
-    model_limits_enabled: true,
-    model_limits: modelLimits,
-    allow_ips: token.allow_ips ?? "",
-    group: token.group,
-    cross_group_retry: token.cross_group_retry ?? false,
-  };
-  const data = await tryFetchJson<{ success: boolean }>(
-    `${ctx.baseUrl}/api/token/`,
-    { method: "PUT", headers: ctx.headers, body },
+  const data = await tryFetchJson<{ success: boolean; message?: string }>(
+    `${ctx.baseUrl}/api/token/guest-model-limits`,
+    {
+      method: "PUT",
+      headers: ctx.headers,
+      body: { key: guestKey, model_limits: modelLimits },
+    },
   );
   return data?.success ?? false;
 }

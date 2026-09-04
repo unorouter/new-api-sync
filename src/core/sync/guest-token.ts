@@ -63,16 +63,13 @@ export async function updateGuestTokenFromNames(
   const guestKey = Bun.env.GUEST_API_KEY;
   if (!guestKey) return SKIPPED;
 
-  const token = await target.findTokenByKey(guestKey);
-  if (!token) return SKIPPED;
-
   const modelLimits = freeNames.join(",");
-  const ok = await target.updateTokenModelLimits(token, modelLimits);
+  const ok = await target.updateGuestTokenModelLimits(guestKey, modelLimits);
   if (!ok) return { configured: true, updated: false, freeModelCount: 0 };
 
   consola.info(
     t("CORE.NEWAPI.GUEST_TOKEN_UPDATED", {
-      name: token.name,
+      name: "guest",
       count: freeNames.length,
     }),
   );
