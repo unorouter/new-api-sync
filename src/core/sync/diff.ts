@@ -395,7 +395,14 @@ export function buildSyncDiff(
   desired: DesiredState,
   snapshot: TargetSnapshot,
 ): SyncDiff {
-  const managedProviders = config.onlyProviders ?? desired.managedProviders;
+  // --only narrows the delete set but never widens it: a provider whose
+  // discovery failed (or was throttled) drops out of desired.managedProviders
+  // and must stay out here too, or a --only run deletes every lane it owns.
+  const managedProviders = new Set(
+    [...(config.onlyProviders ?? desired.managedProviders)].filter((p) =>
+      desired.managedProviders.has(p),
+    ),
+  );
   const channelOps: DiffOperation<Channel>[] = [];
   const existingByName = new Map(snapshot.channels.map((ch) => [ch.name, ch]));
   const desiredByName = new Map(desired.channels.map((ch) => [ch.name, ch]));

@@ -386,8 +386,18 @@ export async function ensurePins(
   lanes: MerchantLane[],
   tokens: Map<string, LaneToken>,
   dryRun: boolean,
-): Promise<{ created: number; repinned: number; pinned: Set<string> }> {
-  const result = { created: 0, repinned: 0, pinned: new Set<string>() };
+): Promise<{
+  created: number;
+  repinned: number;
+  pinned: Set<string>;
+  throttled: number;
+}> {
+  const result = {
+    created: 0,
+    repinned: 0,
+    pinned: new Set<string>(),
+    throttled: 0,
+  };
   const existing = new Map<string, number>();
   if (!dryRun) {
     for (const pin of await listPins(provider))
@@ -430,10 +440,13 @@ export async function ensurePins(
         lastErr = err;
       }
     }
-    if (lastErr !== undefined)
+    if (lastErr !== undefined) {
+      const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+      if (msg.includes("429")) result.throttled++;
       consola.warn(
-        `[${provider.name}] pin failed for ${lane.model} -> ${lane.listing.channel_id}: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`,
+        `[${provider.name}] pin failed for ${lane.model} -> ${lane.listing.channel_id}: ${msg}`,
       );
+    }
   }
   return result;
 }

@@ -148,6 +148,7 @@ export async function processA7ApiProvider(
     const keptLanes: MerchantLane[] = [];
     let pinsCreated = 0;
     let pinsRepinned = 0;
+    let throttled = 0;
 
     for (const mc of models) {
       // Walk the cheap-sorted candidates until `wanted` merchants pass their
@@ -179,10 +180,16 @@ export async function processA7ApiProvider(
         const pins = await ensurePins(provider, batch, tokens, dryRun);
         pinsCreated += pins.created;
         pinsRepinned += pins.repinned;
+        throttled += pins.throttled;
 
         for (const lane of batch) {
           const token = tokens.get(laneTokenName(lane));
-          if (!token) continue;
+          // A missing key is a7 refusing the reveal (rate limit), never a
+          // merchant verdict.
+          if (!token) {
+            throttled++;
+            continue;
+          }
           // No pin = the probe would hit smart routing (an arbitrary merchant
           // at an arbitrary price), not this lane's merchant. Never keep it.
           if (!pins.pinned.has(laneTokenName(lane))) continue;
@@ -231,11 +238,19 @@ export async function processA7ApiProvider(
     }
 
     consola.info(`[${name}] pins: +${pinsCreated} ~${pinsRepinned}`);
-    if (!dryRun && !skipCleanup)
-      await cleanupStaleLaneTokens(provider, keptLanes);
-
     report.groups = offers.length;
     report.models = new Set(keptLanes.map((l) => l.model)).size;
+    // A throttled full run must not delete: every skipped lane is absent from
+    // desired, so apply would remove healthy channels and their tokens. A failed
+    // report keeps the offers (creates/updates still land) but takes the
+    // provider out of the delete set, and the stale-token cleanup is withheld.
+    if (throttled > 0 && !skipCleanup && !dryRun) {
+      report.error = `a7 throttled: ${throttled} lane(s) skipped on key reveal or pin (429); deletes and token cleanup withheld`;
+      consola.warn(`[${name}] ${report.error}`);
+      return { report, offers, endpointMetadata: { endpointPaths: new Map() } };
+    }
+    if (!dryRun && !skipCleanup)
+      await cleanupStaleLaneTokens(provider, keptLanes);
     report.success = true;
   } catch (err) {
     report.error = err instanceof Error ? err.message : String(err);
