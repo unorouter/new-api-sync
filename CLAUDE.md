@@ -249,6 +249,12 @@ recreate with precision; never a full `sync run` to fix one model.
   run (safety-net restore + alias mirror) and sold at $75/M until repriced by hand; a model that
   only a non-newapi provider serves (open1) is never repriced by `metadata`, so run
   `sync run --only open1` to reprice those.
+- **a7 `minSellFraction` is a retail FLOOR, `maxSellFraction` a merchant CUT.** Both are
+  per-model maps (first glob wins) as fractions of the voted canonical list (output $/M). The
+  ceiling rejects a merchant whose cost x profitMultiple would sell above list x maxSellFraction.
+  The floor keeps the merchant and raises the lane's group ratio so it sells at list x
+  minSellFraction when cost x profitMultiple would land below it (`buildLaneOffer` in
+  `vendors/a7api/provider.ts`, logged as `[a7] floor ...`). Ceiling wins if they overlap.
 - **`fetchPricing` passes auth headers** (`vendors/newapi/pricing.ts`): some relays (e.g. zetatechs)
   gate `/api/pricing` behind the system token. Always send `ctx.headers`; an authless fetch silently
   drops those providers from discovery.

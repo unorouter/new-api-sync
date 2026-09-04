@@ -20,6 +20,7 @@ import type { A7ApiProviderConfig } from "@core/validations/config";
 import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
 import { consola } from "consola";
 import {
+  DEFAULT_MAX_SELL_FRACTION,
   DEFAULT_PROFIT_MULTIPLE,
   fetchListings,
   groupByModel,
@@ -43,6 +44,7 @@ interface ModelCandidates {
   model: string;
   candidates: Listing[];
   wanted: number;
+  canonicalListUsd?: number;
 }
 
 function collectCandidates(
@@ -95,7 +97,7 @@ function collectCandidates(
       skippedModels.push(model);
       continue;
     }
-    models.push({ model, candidates, wanted });
+    models.push({ model, candidates, wanted, canonicalListUsd });
   }
   return { models, skippedModels };
 }
@@ -233,6 +235,7 @@ export async function processA7ApiProvider(
             k.key,
             k.rateLimited,
             k.lane.listing.input_price_micros === cheapestMicros,
+            mc.canonicalListUsd,
           ),
         );
     }
@@ -267,6 +270,7 @@ function buildLaneOffer(
   apiKey: string,
   rateLimited: boolean,
   isCheapest: boolean,
+  canonicalListUsd?: number,
 ): UpstreamOffer {
   const name = provider.name;
   const input = usdPerMillion(lane.listing.input_price_micros);
@@ -293,6 +297,28 @@ function buildLaneOffer(
     lane.model,
     DEFAULT_PROFIT_MULTIPLE,
   );
+  // minSellFraction is a retail floor, not a merchant cut: a lane whose
+  // cost x profitMultiple lands under list x minSellFraction sells at the floor
+  // (the cheap merchant stays, the margin grows). The sell ceiling still wins.
+  let multiple = profitMultiple;
+  const minSell = resolvePerModel(provider.minSellFraction, lane.model, 0);
+  if (minSell > 0 && canonicalListUsd !== undefined && output > 0) {
+    const maxSell = resolvePerModel(
+      provider.maxSellFraction,
+      lane.model,
+      DEFAULT_MAX_SELL_FRACTION,
+    );
+    const floor = (canonicalListUsd * minSell) / output;
+    const ceiling = (canonicalListUsd * maxSell) / output;
+    multiple = Math.min(
+      Math.max(profitMultiple, floor),
+      Math.max(ceiling, profitMultiple),
+    );
+    if (multiple !== profitMultiple)
+      consola.info(
+        `[${name}] floor ${lane.model} -> ${lane.listing.channel_id}: ${profitMultiple}x -> ${multiple.toFixed(2)}x (${minSell} of list $${canonicalListUsd.toFixed(2)}/M out)`,
+      );
+  }
 
   const slug = supplierSlug(lane.listing.supplier_name);
   const laneId = slug
@@ -308,7 +334,7 @@ function buildLaneOffer(
     channelType: CHANNEL_TYPES.OPENAI,
     baseUrl,
     apiKey,
-    groupRatio: profitMultiple,
+    groupRatio: multiple,
     channelRemark: [
       `${lane.model} via ${name} merchant ${lane.listing.supplier_name} (#${lane.listing.channel_id})`,
       lane.listing.channel_name,
