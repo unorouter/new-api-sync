@@ -591,6 +591,7 @@
       "BUILD_TIERS_LINE": "[buildPriceTiers]   {model}：最低={cheapest} ×（1+{adjustment}）= {ratio}",
       "PRE_TEST_DROP": "[pricing] 预测试丢弃 {model} {provider}/{group}/{vendor}，charge={charge} ceiling={ceiling}（基准来自 [{members}]，upstream={upstream}）",
       "PRE_TEST_DROP_NOT_CHEAPEST": "[pricing] 预测试丢弃 {model} {provider}/{group}/{vendor}，charge={charge}（高于 1x，且非最低；保留最低档 {cheapest}）",
+      "UNPRICED_UPSTREAM_DROP": "[pricing] 丢弃 {model} {provider}/{group}：中转未公布该模型价格（model_ratio 为占位值），成本未知",
       "PER_TOKEN_IMAGE_COST": "[pricing] 按 token 计费图像 {model} {provider}/{group}/{vendor}：成本=${cost}/次（modelRatio={modelRatio}，comp={completionRatio}），基准=${canonical}/次（modelRatio={canonicalRatio}，comp={canonicalComp}）-> charge=${charge}/次",
       "ALL_BUCKETS_BROKEN": "[pricing] {model} 在 {provider} 上的所有档位均超过基准 {limit}x（最低={cheapest}，基准={canonical}，倍数={ratio}x）；全部丢弃——上游定价异常",
       "ALL_BUCKETS_ABOVE_KEEP_CHEAPEST": "[pricing] {model} 在 {provider} 上的所有档位均高于 1x，仅保留最低档 {group}/{vendor}（charge={charge}，基准={canonical}）",
