@@ -240,6 +240,15 @@ recreate with precision; never a full `sync run` to fix one model.
 - **Embeddings reject rate-limited probes** (`shared/openai-free-provider.ts`): a model with
   `modelType === "embedding"` forces `acceptRateLimited: false` so a 429 during testing does NOT add a
   flaky embedding channel. Other modalities honor the provider's `acceptRateLimited`.
+- **37.5 is new-api's "no price" answer, never a price.** `GetModelRatio` returns 37.5 /
+  completion 1 for any model it holds no ratio for, and relays publish the same pair for models
+  they list but do not price (gg: 100+ rows). The parser maps that pair to `ratio: undefined`
+  (`publishedRatio` in `vendors/newapi/pricing.ts`), the pre-test gate drops a paid lane with no
+  upstream price instead of pricing it at 1, and `mirrorAliasRatio` only defers to an alias that
+  has its own offer this run. Before this, one placeholder in ModelRatio was re-asserted by every
+  run (safety-net restore + alias mirror) and sold at $75/M until repriced by hand; a model that
+  only a non-newapi provider serves (open1) is never repriced by `metadata`, so run
+  `sync run --only open1` to reprice those.
 - **`fetchPricing` passes auth headers** (`vendors/newapi/pricing.ts`): some relays (e.g. zetatechs)
   gate `/api/pricing` behind the system token. Always send `ctx.headers`; an authless fetch silently
   drops those providers from discovery.

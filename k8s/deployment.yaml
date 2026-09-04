@@ -9,7 +9,6 @@ metadata:
 spec:
   schedule: "*/15 * * * *"
   concurrencyPolicy: Forbid
-  suspend: true
   startingDeadlineSeconds: 600
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
@@ -75,7 +74,6 @@ metadata:
 spec:
   schedule: "3 7 * * *"
   concurrencyPolicy: Forbid
-  suspend: true
   startingDeadlineSeconds: 3600
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
