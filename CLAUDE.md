@@ -348,8 +348,39 @@ has its own local copy. They drift: local manual runs write local, cluster runs
 write the PVC. After pruning/scrubbing verdicts locally (fake-channel cleanup,
 forced re-probes) copy the file to the PVC too, and vice versa, or one side
 re-probes lanes the other already settled and blacklist scrubs do not take
-effect on the other side. Copy via a helper pod mounting the PVC
-(`kubectl cp` the file both directions).
+effect on the other side. **Sync them after every local run that probed** (any
+`sync run` without `--dry-run`) and before relying on a cluster verdict. Entries
+carry no timestamp, so the merge is a union keyed by `key`, local winning on a
+conflict (the local run is the newer one); check the printed conflicts first.
+
+```bash
+export KUBECONFIG=~/MEGA/Projects/ai-api/infra/kubeconfig
+kubectl -n services apply -f - <<'YAML'
+apiVersion: v1
+kind: Pod
+metadata: { name: verdict-peek }
+spec:
+  restartPolicy: Never
+  containers:
+  - { name: s, image: busybox:1.36, command: ["sh","-c","sleep 600"], volumeMounts: [{ name: logs, mountPath: /logs }] }
+  volumes: [{ name: logs, persistentVolumeClaim: { claimName: new-api-sync-logs } }]
+YAML
+kubectl -n services wait --for=condition=Ready pod/verdict-peek --timeout=100s
+kubectl -n services cp verdict-peek:/logs/verdict-cache.json /tmp/pvc-verdict-cache.json
+cp logs/verdict-cache.json logs/verdict-cache.json.bak-presync-$(date +%s)
+python3 - <<'PY'
+import json
+L=json.load(open('logs/verdict-cache.json')); P=json.load(open('/tmp/pvc-verdict-cache.json'))
+lk={e['key']:e for e in L}; pk={e['key']:e for e in P}
+for k in set(lk)&set(pk):
+    if json.dumps(lk[k],sort_keys=True)!=json.dumps(pk[k],sort_keys=True): print('CONFLICT',k,lk[k],pk[k])
+out=sorted({**pk,**lk}.values(),key=lambda e:e['key'])
+json.dump(out,open('logs/verdict-cache.json','w'),indent=1,ensure_ascii=False); print('merged',len(out))
+PY
+kubectl -n services cp logs/verdict-cache.json verdict-peek:/logs/verdict-cache.json
+kubectl -n services exec verdict-peek -- wc -c /logs/verdict-cache.json
+kubectl -n services delete pod verdict-peek --wait=false
+```
 
 The PVC is `local-path`, so it is pinned to ONE node (`unorouter-node9` since
 2026-09-02; the previous volume died with node7 and the daily job sat unscheduled
