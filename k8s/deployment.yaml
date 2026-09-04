@@ -27,6 +27,17 @@ spec:
             - name: sync
               image: ghcr.io/unorouter/new-api-sync:b02423b9313fbeed02e357c36b8c49b428249917
               args: ["metadata"]
+              # The guest token's model_limits is refreshed from the gateway's
+              # OWN free channels, so it needs no provider config -- only the
+              # key. Mounted as a file the config is, but Bun.env is not, so
+              # without this the guest refresh silently no-ops every run.
+              env:
+                - name: GUEST_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: sync-env
+                      key: GUEST_API_KEY
+                      optional: true
               resources:
                 requests: { memory: 256Mi, cpu: 100m }
                 limits: { memory: 1Gi }
@@ -81,6 +92,13 @@ spec:
             - name: sync
               image: ghcr.io/unorouter/new-api-sync:b02423b9313fbeed02e357c36b8c49b428249917
               args: ["run", "--only", "a7"]
+              env:
+                - name: GUEST_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: sync-env
+                      key: GUEST_API_KEY
+                      optional: true
               resources:
                 requests: { memory: 256Mi, cpu: 100m }
                 limits: { memory: 1Gi }
