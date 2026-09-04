@@ -96,8 +96,11 @@ function mirrorAliasRatio(
   modelRatios: Map<string, MergedModel>,
   baseName: string,
   aliasName: string,
+  sourced: Set<string>,
 ): void {
-  if (modelRatios.has(aliasName)) return;
+  // Only an alias with its own upstream offer keeps its entry; a snapshot-seeded
+  // one must follow the base or a stale sticker survives every run.
+  if (sourced.has(aliasName)) return;
   const base = modelRatios.get(baseName);
   if (!base) return;
   // A `:free` alias must never inherit a paid sticker. Zero modelPrice covers the
@@ -208,6 +211,7 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       if (!arr) offersByModel.set(m.exposed, (arr = []));
       arr.push({ offer, model: m });
     }
+  const sourced = new Set(offersByModel.keys());
 
   for (const [model, occurrences] of offersByModel) {
     const existing = modelRatios.get(model);
@@ -340,8 +344,8 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
 
   for (const offer of phaseAOffers)
     if (offer.paidTier)
-      processPaidOffer(offer, modelRatios, canonical, tiers, drops);
-    else processStandardOffer(offer, modelRatios, args, tiers);
+      processPaidOffer(offer, modelRatios, canonical, tiers, drops, sourced);
+    else processStandardOffer(offer, modelRatios, args, tiers, sourced);
 
   const cheapestForPhaseB = buildBaselineCheapestMap(baseline);
   for (const tier of tiers) {
@@ -361,6 +365,7 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       args,
       tiers,
       drops,
+      sourced,
     );
   capAbove1x(tiers, modelRatios, canonical, drops);
   return { tiers, modelRatios, drops };
@@ -428,6 +433,7 @@ function processStandardOffer(
   modelRatios: Map<string, MergedModel>,
   args: ComputeArgs,
   tiers: PricedTier[],
+  sourced: Set<string>,
 ): void {
   const buckets = new Map<number, OfferModel[]>();
   for (const m of offer.models) {
@@ -482,7 +488,7 @@ function processStandardOffer(
     addToBucket(buckets, bucketKey(groupRatio), m);
   }
   if (buckets.size > 0)
-    pushBucketsAsTiers(offer, buckets, tiers, modelRatios, args);
+    pushBucketsAsTiers(offer, buckets, tiers, modelRatios, sourced, args);
 }
 
 function processPaidOffer(
@@ -491,6 +497,7 @@ function processPaidOffer(
   canonical: Map<string, number>,
   tiers: PricedTier[],
   drops: PricedDrop[],
+  sourced: Set<string>,
 ): void {
   let chosen: { ratio: number; kept: OfferModel[] } | null = null;
   for (const candidate of PAID_GROUP_RATIO_CANDIDATES) {
@@ -532,6 +539,7 @@ function processPaidOffer(
     new Map([[chosen.ratio, chosen.kept]]),
     tiers,
     modelRatios,
+    sourced,
   );
 }
 
@@ -543,6 +551,7 @@ function processNoUpstreamOffer(
   args: ComputeArgs,
   tiers: PricedTier[],
   drops: PricedDrop[],
+  sourced: Set<string>,
 ): void {
   const buckets = new Map<number, OfferModel[]>();
   const channel = channelOf(offer);
@@ -587,7 +596,7 @@ function processNoUpstreamOffer(
     addToBucket(buckets, bucketKey(groupRatio), m);
   }
   if (buckets.size > 0)
-    pushBucketsAsTiers(offer, buckets, tiers, modelRatios, args);
+    pushBucketsAsTiers(offer, buckets, tiers, modelRatios, sourced, args);
 }
 
 // One channel per model: each model maps to its own new-api channel so a per-model
@@ -601,6 +610,7 @@ function pushBucketsAsTiers(
   buckets: Map<number, OfferModel[]>,
   tiers: PricedTier[],
   modelRatios: Map<string, MergedModel>,
+  sourced: Set<string>,
   args?: ComputeArgs,
 ): void {
   const baseUrlTrim = offer.baseUrl.replace(/\/$/, "");
@@ -627,7 +637,7 @@ function pushBucketsAsTiers(
       if (publishedName !== m.upstream)
         modelMapping[publishedName] = m.upstream;
       if (publishedName !== m.exposed)
-        mirrorAliasRatio(modelRatios, m.exposed, publishedName);
+        mirrorAliasRatio(modelRatios, m.exposed, publishedName, sourced);
 
       const models = [publishedName];
       let hasContext1mAlias = false;
@@ -635,7 +645,7 @@ function pushBucketsAsTiers(
         const alias = `${publishedName}${CLAUDE_CONTEXT_1M_SUFFIX}`;
         models.push(alias);
         modelMapping[alias] = m.upstream;
-        mirrorAliasRatio(modelRatios, publishedName, alias);
+        mirrorAliasRatio(modelRatios, publishedName, alias, sourced);
         hasContext1mAlias = true;
       }
 
@@ -646,7 +656,7 @@ function pushBucketsAsTiers(
         if (models.includes(alias)) continue;
         models.push(alias);
         modelMapping[alias] = m.upstream;
-        mirrorAliasRatio(modelRatios, publishedName, alias);
+        mirrorAliasRatio(modelRatios, publishedName, alias, sourced);
       }
 
       const sysPromptRule = args?.systemPrompt?.find((r) =>

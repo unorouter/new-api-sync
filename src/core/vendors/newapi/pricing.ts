@@ -131,6 +131,18 @@ function groupPriceRatio(
   return prices.length ? Math.min(...prices) : undefined;
 }
 
+// new-api answers model_ratio 37.5 / completion_ratio 1 for any model it holds no
+// price for, so a relay publishing that pair is saying "unpriced", not $75/M.
+function publishedRatio(
+  modelRatio: number | undefined,
+  completionRatio: number | undefined,
+  groupPrice: Parameters<typeof groupPriceRatio>[0],
+): number | undefined {
+  if (modelRatio === 37.5 && (completionRatio ?? 1) === 1)
+    return groupPriceRatio(groupPrice);
+  return modelRatio ?? groupPriceRatio(groupPrice);
+}
+
 function parsePricingV1(
   ctx: ClientContext,
   data: PricingResponse,
@@ -166,7 +178,7 @@ function parsePricingV1(
 
   const models: ModelInfo[] = data.data.map((m) => ({
     name: m.model_name,
-    ratio: m.model_ratio ?? groupPriceRatio(m.group_price),
+    ratio: publishedRatio(m.model_ratio, m.completion_ratio, m.group_price),
     completionRatio: m.completion_ratio,
     cacheRatio:
       m.cache_ratio !== undefined && m.cache_ratio >= 0
@@ -203,7 +215,11 @@ function parsePricingV1(
   const billingExprs: Record<string, string> = {};
   const pricingVersions: Record<string, string> = {};
   for (const m of data.data) {
-    const ratio = m.model_ratio ?? groupPriceRatio(m.group_price);
+    const ratio = publishedRatio(
+      m.model_ratio,
+      m.completion_ratio,
+      m.group_price,
+    );
     if (ratio !== undefined && ratio > 0) modelRatios[m.model_name] = ratio;
     if (m.completion_ratio > 0)
       completionRatios[m.model_name] = m.completion_ratio;

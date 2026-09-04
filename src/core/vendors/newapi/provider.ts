@@ -119,6 +119,7 @@ function planPreTestDecisions(opts: {
   exposedNameFor: (upstreamName: string) => string;
 }): GateDecisionMap {
   const byExposed = new Map<string, BucketCandidate[]>();
+  const unpriced = new Set<string>();
   const pName = opts.providerConfig.name;
   for (const p of opts.prepared) {
     for (const [vendor, vendorModels] of partitionByVendor(
@@ -141,7 +142,21 @@ function planPreTestDecisions(opts: {
           fallback: 0,
           modelMapping: opts.config.modelMapping,
         });
-        const upstreamRatio = opts.upstreamPricing.get(upstreamName) ?? 1;
+        const published = opts.upstreamPricing.get(upstreamName);
+        // A paid lane with no upstream price has no cost to price against; the
+        // old `?? 1` fabricated a $2/M sticker that nothing capped.
+        if (published === undefined && p.group.ratio > 0) {
+          unpriced.add(`${p.group.name}|${vendor}|${upstreamName}`);
+          consola.info(
+            t("CORE.PRICING.UNPRICED_UPSTREAM_DROP", {
+              model: exposed,
+              provider: pName,
+              group: p.group.name,
+            }),
+          );
+          continue;
+        }
+        const upstreamRatio = published ?? 1;
         const vote = resolveCanonicalByVote(
           exposed,
           opts.pricingSources,
@@ -214,6 +229,7 @@ function planPreTestDecisions(opts: {
   }
 
   const decisions: GateDecisionMap = new Map();
+  for (const key of unpriced) decisions.set(key, "drop-noscreen");
   for (const [exposed, candidates] of byExposed) {
     const first = candidates[0]!;
     const vc = first.vote.cluster;
