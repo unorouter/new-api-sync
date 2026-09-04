@@ -2,7 +2,7 @@
 // returns UpstreamOffer[]; compute() consumes the union and produces a
 // PricedPlan. No mid-pipeline mutation.
 
-import type { GridPricingInfo, ModelType } from "@core/types";
+import type { GridPricingInfo, MergedGroup, ModelType } from "@core/types";
 import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
 import type { ModelMetadata, ProviderConfig } from "@core/validations/config";
@@ -61,6 +61,13 @@ export interface ProviderRunContext {
    *  offers from discovered pricing so the run costs nothing and writes nothing.
    *  Used by `sync run --dry-run` to preview pricing + diff. */
   dryRun?: boolean;
+  /** Target channels as of this run, for providers that reprice lanes they did not re-select. */
+  liveChannels?: {
+    tag?: string;
+    group?: string;
+    models: string;
+    status?: number;
+  }[];
 }
 
 export interface UpstreamOffer {
@@ -106,4 +113,6 @@ export interface ProviderResult {
   report: ProviderReport;
   offers: UpstreamOffer[];
   endpointMetadata: ProviderEndpointMetadata;
+  /** Group ratios for live lanes this run did not re-select but still owns. */
+  extraGroups?: MergedGroup[];
 }

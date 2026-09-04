@@ -200,6 +200,7 @@ export async function runProviderPipeline(
   const {
     reports: providerReports,
     offers: allOffers,
+    extraGroups,
     originalEndpointsByName,
     normalizedEndpointsByName,
     aggregatedEndpointPaths,
@@ -207,6 +208,7 @@ export async function runProviderPipeline(
     pricingSources,
     reverseMapping,
     dryRun: opts?.dryRun,
+    liveChannels: targetSnapshot?.channels,
   });
 
   const canonical = resolveCanonicalRetail({
@@ -245,6 +247,11 @@ export async function runProviderPipeline(
     plan,
     baseline,
   });
+  // A live lane the run did not re-select keeps serving at its old ratio, and
+  // cheapest-first routing would prefer it over the repriced ones.
+  const emittedGroups = new Set(mergedGroups.map((g) => g.name));
+  for (const g of extraGroups)
+    if (!emittedGroups.has(g.name)) mergedGroups.push(g);
 
   for (const provider of config.providers) {
     if (provider.type !== "comfyui") continue;

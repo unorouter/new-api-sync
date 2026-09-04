@@ -6,7 +6,7 @@ import {
 import type { ProviderRunContext, UpstreamOffer } from "@core/pricing/offers";
 import { throwIfRunAborted } from "@core/infra/abort";
 import { timingTrack } from "@core/infra/timing";
-import type { ProviderReport } from "@core/types";
+import type { MergedGroup, ProviderReport } from "@core/types";
 import type {
   NvidiaProviderConfig,
   OpenRouterProviderConfig,
@@ -86,6 +86,7 @@ export async function runAllProviders(
 ): Promise<{
   reports: ProviderReport[];
   offers: UpstreamOffer[];
+  extraGroups: MergedGroup[];
   originalEndpointsByName: Map<string, string[]>;
   normalizedEndpointsByName: Map<string, string[]>;
   aggregatedEndpointPaths: Map<string, { path: string; method: string }>;
@@ -144,6 +145,7 @@ export async function runAllProviders(
 
   const reports: ProviderReport[] = [];
   const offers: UpstreamOffer[] = [];
+  const extraGroups: MergedGroup[] = [];
   const aggregatedEndpointPaths = new Map<
     string,
     { path: string; method: string }
@@ -154,6 +156,7 @@ export async function runAllProviders(
   for (const result of settled) {
     reports.push(result.report);
     offers.push(...result.offers);
+    if (result.extraGroups) extraGroups.push(...result.extraGroups);
     for (const [k, v] of result.endpointMetadata.endpointPaths)
       aggregatedEndpointPaths.set(k, v);
   }
@@ -179,6 +182,7 @@ export async function runAllProviders(
   return {
     reports,
     offers,
+    extraGroups,
     originalEndpointsByName,
     normalizedEndpointsByName,
     aggregatedEndpointPaths,
