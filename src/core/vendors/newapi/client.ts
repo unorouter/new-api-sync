@@ -25,7 +25,7 @@ import {
   findTokenByKey,
   getTokenFullKey,
   listTokens,
-  updateTokenModelLimits,
+  updateGuestTokenModelLimits,
 } from "./tokens";
 import type { NewApiConfig, UpstreamPricing, UpstreamToken } from "./types";
 
@@ -118,8 +118,8 @@ export class NewApiClient {
     options?: { skipCleanup?: boolean },
   ) => ensureTokens(this.ctx, groups, prefix, options);
   findTokenByKey = (fullKey: string) => findTokenByKey(this.ctx, fullKey);
-  updateTokenModelLimits = (token: UpstreamToken, modelLimits: string) =>
-    updateTokenModelLimits(this.ctx, token, modelLimits);
+  updateGuestTokenModelLimits = (guestKey: string, modelLimits: string) =>
+    updateGuestTokenModelLimits(this.ctx, guestKey, modelLimits);
   listChannels = (): Promise<Channel[]> => listChannels(this.ctx);
   createChannel = (channel: Omit<Channel, "id">) =>
     createChannel(this.ctx, channel);
