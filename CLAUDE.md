@@ -391,6 +391,27 @@ cleanup), ArgoCD recreates the PVC, the next consumer pod provisions it, then
 re-seed from the local `verdict-cache.json`. The 15-min metadata cron does not
 mount it, so it keeps working while the daily run is stuck.
 
+## a7 concurrency (the local lock does not cover the cluster)
+
+`logs/sync.lock` serializes LOCAL runs only. The cluster `metadata` cron hits a7
+every 15 min (:00/:15/:30/:45, ~35s: listings, pin list, notice accepts, unpin+pin
+on price drops) on its own schedule. Local a7 runs share a7's rate budget with it
+and can race its re-pins. Rules:
+- One a7 run at a time, anywhere. Start local a7 runs in the gap after a tick
+  (:01-:13) and check `kubectl -n services get jobs` shows no active
+  `new-api-sync-*` first; for anything long (`--only a7` full, ~25 min) suspend
+  the metadata cron (`kubectl -n services patch cronjob new-api-sync -p
+  '{"spec":{"suspend":true}}'`, un-suspend after; ArgoCD does not revert it).
+- Space a7 runs >= 30 min apart. Five in one hour tripped 429s on pin/token
+  calls and "no key for lane ..., skipping" for healthy merchants.
+- A THROTTLED FULL `--only a7` RUN IS DESTRUCTIVE: a lane skipped for "no key"
+  or a failed pin is absent from desired, so apply deletes its channel and
+  token. If a full run logs 429s or no-key skips, kill it BEFORE apply
+  (`Providers:`/`Channels:` lines mean apply started). `--models` runs never
+  delete, so a throttled scoped run only leaves stale ratios behind.
+- The tool harness kills foreground/background commands at 10 min; run the
+  full a7 job detached (`setsid nohup ... &`) and tail its log.
+
 ## a7 pin semantics (hard-won, do not re-learn)
 
 - a7 PAUSES a pin whenever its merchant reprices (`paused_price_changed`);
