@@ -49,21 +49,26 @@ interface ModelCandidates {
 
 // Vote on the mapped (canonical) name: the marketplace spelling
 // (claude-opus-4-6) may miss the sources that know claude-opus-4.6.
+function canonicalVote(
+  model: string,
+  config: RuntimeConfig,
+  ctx: ProviderRunContext,
+): { modelRatio: number; completionRatio?: number } | undefined {
+  const exposedName = (config.modelMapping?.[model] ?? model).toLowerCase();
+  return (
+    resolveCanonicalByVote(exposedName, ctx.pricingSources, ctx.reverseMapping)
+      .cluster ?? undefined
+  );
+}
+
 function canonicalListUsdFor(
   model: string,
   config: RuntimeConfig,
   ctx: ProviderRunContext,
 ): number | undefined {
-  const exposedName = (config.modelMapping?.[model] ?? model).toLowerCase();
-  const vote = resolveCanonicalByVote(
-    exposedName,
-    ctx.pricingSources,
-    ctx.reverseMapping,
-  );
-  return vote.cluster
-    ? vote.cluster.modelRatio *
-        USD_PER_M_PER_RATIO *
-        (vote.cluster.completionRatio ?? 1)
+  const cluster = canonicalVote(model, config, ctx);
+  return cluster
+    ? cluster.modelRatio * USD_PER_M_PER_RATIO * (cluster.completionRatio ?? 1)
     : undefined;
 }
 
@@ -132,15 +137,36 @@ function sweepLiveLanes(
       ? byModel.get(market)?.find((l) => l.channel_id === Number(id))
       : undefined;
     if (!listing) continue;
+    const cluster = canonicalVote(market, config, ctx);
+    if (!cluster || cluster.modelRatio <= 0) continue;
+    // The emitted path resolves offer.groupRatio through cost / sticker in
+    // compute; here that is done directly. The sticker is the canonical list,
+    // so the final ratio is the fraction of list and the floor/ceiling clamp
+    // applies to it as-is.
+    const listUsd =
+      cluster.modelRatio * USD_PER_M_PER_RATIO * (cluster.completionRatio ?? 1);
+    const multiple = laneMultiple(
+      provider,
+      market,
+      listing.channel_id,
+      usdPerMillion(listing.output_price_micros),
+      listUsd,
+    );
+    const laneInputRatio =
+      usdPerMillion(listing.input_price_micros) / USD_PER_M_PER_RATIO;
+    const minSell = resolvePerModel(provider.minSellFraction, market, 0);
+    const maxSell = resolvePerModel(
+      provider.maxSellFraction,
+      market,
+      DEFAULT_MAX_SELL_FRACTION,
+    );
+    const ratio = Math.min(
+      Math.max((multiple * laneInputRatio) / cluster.modelRatio, minSell),
+      Math.max(maxSell, minSell),
+    );
     out.push({
       name: ch.group,
-      ratio: laneMultiple(
-        provider,
-        market,
-        listing.channel_id,
-        usdPerMillion(listing.output_price_micros),
-        canonicalListUsdFor(market, config, ctx),
-      ),
+      ratio: Math.round(ratio * 10000) / 10000,
       description: `${market} via ${provider.name} merchant #${listing.channel_id}`,
       provider: provider.name,
     });
