@@ -32,7 +32,6 @@ const BESPOKE_TEMPLATES: Partial<Record<ProviderType, () => Provider>> = {
     systemAccessToken: "",
     userId: 1,
   }),
-  sub2api: () => ({ type: "sub2api", name: "", baseUrl: "", adminApiKey: "" }),
   nvidia: () => ({ type: "nvidia", name: "", apiKey: "" }),
   openrouter: () => ({ type: "openrouter", name: "", apiKey: "" }),
   comfyui: () => ({
@@ -54,7 +53,6 @@ function templateFor(type: ProviderType): Provider {
 const SIMPLE_KINDS = SIMPLE_PROVIDER_META.map((m) => m.kind);
 const TYPE_ORDER: ProviderType[] = [
   "newapi",
-  "sub2api",
   "nvidia",
   "openrouter",
   ...SIMPLE_KINDS,

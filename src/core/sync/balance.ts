@@ -3,7 +3,6 @@ import { tryFetchJson } from "@core/infra/http";
 import type { RuntimeConfig } from "@core/config";
 import type { AnyProviderConfig } from "@core/validations/config";
 import { NewApiClient } from "@core/vendors/newapi/client";
-import { Sub2ApiClient } from "@core/vendors/sub2api/client";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 
@@ -12,8 +11,6 @@ export interface BalanceEntry {
   type: string;
   balance: number | null;
   error?: string;
-  /** sub2api aggregates one balance per group key. */
-  parts?: { name: string; balance: number | null }[];
 }
 
 export interface BalanceResult {
@@ -56,28 +53,6 @@ async function fetchDeepInfraBalance(
   return -checklist.stripe_balance - (checklist.recent ?? 0);
 }
 
-/** Group keys without model discovery: balance needs the key, not the catalogue. */
-async function sub2apiGroupKeys(
-  client: Sub2ApiClient,
-  provider: Extract<AnyProviderConfig, { type: "sub2api" }>,
-): Promise<{ name: string; apiKey: string }[]> {
-  if (!provider.adminApiKey)
-    return (provider.groups ?? []).map((g) => ({
-      name: g.name ?? g.platform,
-      apiKey: g.key,
-    }));
-
-  const groups = (await client.listGroups()).filter(
-    (g) => g.status === "active",
-  );
-  const resolved: { name: string; apiKey: string }[] = [];
-  for (const group of groups) {
-    const apiKey = await client.getGroupApiKey(group.id);
-    if (apiKey) resolved.push({ name: group.name, apiKey });
-  }
-  return resolved;
-}
-
 async function providerBalance(
   provider: AnyProviderConfig,
 ): Promise<BalanceEntry> {
@@ -108,22 +83,6 @@ async function providerBalance(
         entry.balance = await fetchDeepInfraBalance(
           provider.baseUrl ?? "https://api.deepinfra.com",
           provider.apiKey,
-        );
-        break;
-      }
-      case "sub2api": {
-        const client = new Sub2ApiClient(provider);
-        const keys = await sub2apiGroupKeys(client, provider);
-        const parts = await Promise.all(
-          keys.map(async (k) => ({
-            name: k.name,
-            balance: await client.fetchBalance(k.apiKey),
-          })),
-        );
-        entry.parts = parts;
-        entry.balance = parts.reduce<number | null>(
-          (acc, p) => (p.balance === null ? acc : (acc ?? 0) + p.balance),
-          null,
         );
         break;
       }
@@ -193,17 +152,7 @@ export function printBalanceSummary(result: BalanceResult): void {
   const without = result.providers.filter((p) => p.balance === null);
   withBalance.sort((a, b) => b.balance! - a.balance!);
 
-  for (const entry of withBalance) {
-    consola.info(line(entry));
-    for (const part of entry.parts ?? [])
-      if (part.balance !== null)
-        consola.info(
-          t("CLI.BALANCE.PART", {
-            name: part.name,
-            amount: money(part.balance),
-          }),
-        );
-  }
+  for (const entry of withBalance) consola.info(line(entry));
   for (const entry of without)
     if (entry.error !== undefined) consola.warn(line(entry));
 

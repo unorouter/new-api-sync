@@ -154,13 +154,6 @@ export function customValidateConfig(config: ConfigSchemaType): string[] {
             t("ERROR.CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT", { path, key }),
           );
     }
-
-    if (
-      p.type === "sub2api" &&
-      !p.adminApiKey &&
-      (!p.groups || p.groups.length === 0)
-    )
-      errors.push(t("ERROR.CONFIG_SUB2API_REQUIRES_KEY", { index: i }));
   }
 
   return errors;

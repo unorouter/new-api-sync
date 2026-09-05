@@ -4,7 +4,6 @@ import { ProviderNewApiPanel } from "./provider-newapi-panel";
 import { ProviderNvidiaPanel } from "./provider-nvidia-panel";
 import { ProviderOpenRouterPanel } from "./provider-openrouter-panel";
 import { ProviderSimplePanel } from "./provider-simple-panel";
-import { ProviderSub2ApiPanel } from "./provider-sub2api-panel";
 import { SIMPLE_PROVIDER_META_MAP } from "@core/vendors/registry-meta";
 import { providerPath } from "./provider-path";
 import { useTranslations } from "use-intl";
@@ -129,7 +128,6 @@ export function ProviderCard(props: Props) {
 
 function renderTypePanel(type: string | undefined, index: number) {
   if (type === "newapi") return <ProviderNewApiPanel index={index} />;
-  if (type === "sub2api") return <ProviderSub2ApiPanel index={index} />;
   if (type === "nvidia") return <ProviderNvidiaPanel index={index} />;
   if (type === "openrouter") return <ProviderOpenRouterPanel index={index} />;
   if (type && type in SIMPLE_PROVIDER_META_MAP)

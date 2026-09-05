@@ -92,7 +92,7 @@ export interface PricedPlan {
 
 /** Inputs to compute() that come from the existing target snapshot or
  *  partial-sync seeding. Must include any baseline channels/groups whose
- *  ratios sub2api's "cheapest existing" lookup needs to consider. */
+ *  ratios the "cheapest existing" lookup needs to consider. */
 export interface BaselineInputs {
   groups: MergedGroup[];
   channels: Channel[];

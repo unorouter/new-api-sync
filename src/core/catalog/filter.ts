@@ -6,16 +6,12 @@ import { getEnabledModelGlobs, type RuntimeConfig } from "@core/config";
 import type {
   NvidiaProviderConfig,
   SimpleFreeProviderConfig,
-  Sub2ApiProviderConfig,
 } from "@core/validations/config";
 
 export function filterModels(
   models: string[],
   config: RuntimeConfig,
-  providerConfig:
-    | NvidiaProviderConfig
-    | Sub2ApiProviderConfig
-    | SimpleFreeProviderConfig,
+  providerConfig: NvidiaProviderConfig | SimpleFreeProviderConfig,
 ): string[] {
   const modelGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
   // Only the simple free-provider schema carries this; the union's other

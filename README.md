@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 # new-api-sync
 
-Sync pricing, channels, and models from upstream providers to your [new-api](https://github.com/QuantumNous/new-api) instance. Supports [new-api](https://github.com/QuantumNous/new-api), [sub2api](https://github.com/Wei-Shaw/sub2api), [OpenRouter](https://openrouter.ai/), and [NVIDIA NIM](https://build.nvidia.com/) upstreams.
+Sync pricing, channels, and models from upstream providers to your [new-api](https://github.com/QuantumNous/new-api) instance. Supports [new-api](https://github.com/QuantumNous/new-api), [OpenRouter](https://openrouter.ai/), and [NVIDIA NIM](https://build.nvidia.com/) upstreams.
 
 ## Quick Start
 
@@ -86,22 +86,6 @@ Two files are loaded on startup:
 | `testModelTypes`         |          | Override global test types: `["text", "image"]`         |
 | `priceAdjustment`        |          | Number or per-key object (see Price Adjustment below)   |
 | `perUpstreamConcurrency` |          | Override the global per-upstream concurrency cap        |
-
-### sub2api Provider (`type: "sub2api"`)
-
-Provide either `adminApiKey` (auto-discovers groups) or `groups` (explicit group API keys).
-
-| Field                    | Required | Description                                                       |
-| ------------------------ | -------- | ----------------------------------------------------------------- |
-| `name`                   | yes      | Unique identifier, used as channel tag                            |
-| `baseUrl`                | yes      | Sub2API instance URL                                              |
-| `adminApiKey`            |          | Admin API key, auto-discovers groups, accounts, and models        |
-| `groups`                 |          | Explicit groups: `[{ "key": "sk-...", "platform": "anthropic" }]` |
-| `enabledVendors`         |          | Filter by vendor: `anthropic`, `openai`, `google`                 |
-| `enabledModels`          |          | Glob patterns or per-model overrides (see below)                  |
-| `testModelTypes`         |          | Override global test types                                        |
-| `priceAdjustment`        |          | Number or per-key object (see Price Adjustment below)             |
-| `perUpstreamConcurrency` |          | Override the global per-upstream concurrency cap                  |
 
 ### OpenRouter Provider (`type: "openrouter"`)
 
@@ -234,7 +218,7 @@ skipUnprofitableText: false
 
 ### Hard Pricing Cap
 
-In addition to the unprofitable-text gate, every offer that would charge a user more than the canonical retail ratio (resolved from LiteLLM, then OpenRouter, then basellm) is dropped before sync. There is no user-facing knob for this cap; it is always 1x of canonical retail. This applies to sub2api offers and OpenRouter paid offers.
+In addition to the unprofitable-text gate, every offer that would charge a user more than the canonical retail ratio (resolved from LiteLLM, then OpenRouter, then basellm) is dropped before sync. There is no user-facing knob for this cap; it is always 1x of canonical retail. This applies to OpenRouter paid offers.
 
 ### Task Model Channel Pinning
 

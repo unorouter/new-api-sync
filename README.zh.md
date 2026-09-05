@@ -4,7 +4,7 @@
 
 # new-api-sync
 
-将上游提供商的定价、渠道和模型同步到你的 [new-api](https://github.com/QuantumNous/new-api) 实例。支持 [new-api](https://github.com/QuantumNous/new-api)、[sub2api](https://github.com/Wei-Shaw/sub2api)、[OpenRouter](https://openrouter.ai/) 以及 [NVIDIA NIM](https://build.nvidia.com/) 上游。
+将上游提供商的定价、渠道和模型同步到你的 [new-api](https://github.com/QuantumNous/new-api) 实例。支持 [new-api](https://github.com/QuantumNous/new-api)、[OpenRouter](https://openrouter.ai/) 以及 [NVIDIA NIM](https://build.nvidia.com/) 上游。
 
 ## 快速开始
 
@@ -86,22 +86,6 @@ new-api-sync-windows-x64.exe ui  # Windows
 | `testModelTypes`         |      | 覆盖全局测试类型：`["text", "image"]`          |
 | `priceAdjustment`        |      | 数字或按键对象（见下方"价格调整"）             |
 | `perUpstreamConcurrency` |      | 覆盖全局的单上游并发上限                       |
-
-### sub2api 提供商 (`type: "sub2api"`)
-
-提供 `adminApiKey`（自动发现组）或 `groups`（显式组 API 密钥）。
-
-| 字段                     | 必填 | 说明                                                     |
-| ------------------------ | ---- | -------------------------------------------------------- |
-| `name`                   | 是   | 唯一标识符，用作渠道标签                                 |
-| `baseUrl`                | 是   | Sub2API 实例地址                                         |
-| `adminApiKey`            |      | 管理员 API 密钥，自动发现组、账户和模型                  |
-| `groups`                 |      | 显式组：`[{ "key": "sk-...", "platform": "anthropic" }]` |
-| `enabledVendors`         |      | 按厂商筛选：`anthropic`、`openai`、`google`              |
-| `enabledModels`          |      | Glob 模式或单模型覆盖（见下方）                          |
-| `testModelTypes`         |      | 覆盖全局测试类型                                         |
-| `priceAdjustment`        |      | 数字或按键对象（见下方"价格调整"）                       |
-| `perUpstreamConcurrency` |      | 覆盖全局的单上游并发上限                                 |
 
 ### OpenRouter 提供商 (`type: "openrouter"`)
 
@@ -234,7 +218,7 @@ skipUnprofitableText: false
 
 ### 硬性价格上限
 
-除了无利润文本门槛之外，任何会让用户支付高于官方零售倍率（按 LiteLLM、OpenRouter、basellm 顺序解析）的报价都会在同步前被丢弃。这一上限没有用户侧开关，恒为官方零售的 1 倍。该规则适用于 sub2api 报价以及 OpenRouter 付费报价。
+除了无利润文本门槛之外，任何会让用户支付高于官方零售倍率（按 LiteLLM、OpenRouter、basellm 顺序解析）的报价都会在同步前被丢弃。这一上限没有用户侧开关，恒为官方零售的 1 倍。该规则适用于 OpenRouter 付费报价。
 
 ### 任务模型渠道固定
 

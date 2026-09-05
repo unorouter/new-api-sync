@@ -13,7 +13,7 @@ type ProviderKind = string;
 export interface OfferModel {
   exposed: string;
   upstream: string;
-  /** Undefined = no per-model pricing (sub2api). Compute falls back to cheapest existing group ratio. */
+  /** Undefined = no per-model pricing. Compute falls back to cheapest existing group ratio. */
   upstreamRatio?: number;
   upstreamCompletionRatio?: number;
   cacheRatio?: number;
@@ -73,7 +73,7 @@ export interface ProviderRunContext {
 export interface UpstreamOffer {
   provider: string;
   providerKind: ProviderKind;
-  /** Upstream group name (synthetic placeholder for sub2api). */
+  /** Upstream group name. */
   group: string;
   /** Tier channel-name base; already sanitized + collision-disambiguated. */
   sanitizedBase: string;
@@ -81,7 +81,7 @@ export interface UpstreamOffer {
   channelType: number;
   baseUrl: string;
   apiKey: string;
-  /** 1.0 = no group concept (sub2api). 0 = free (NVIDIA, OpenRouter free). */
+  /** 1.0 = no group concept. 0 = free (NVIDIA, OpenRouter free). */
   groupRatio: number;
   channelRemark: string;
   models: OfferModel[];
@@ -99,7 +99,7 @@ export interface UpstreamOffer {
   upstreamDown?: boolean;
 }
 
-/** newapi only; empty for sub2api/nvidia/openrouter. */
+/** newapi only; empty for nvidia/openrouter. */
 export interface EndpointPathInfo {
   path: string;
   method: string;
