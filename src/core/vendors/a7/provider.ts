@@ -126,7 +126,7 @@ function sweepLiveLanes(
       model,
     );
   for (const ch of ctx.liveChannels ?? []) {
-    if (ch.tag !== provider.name || ch.status !== 1 || !ch.group) continue;
+    if (ch.tag !== provider.name || !ch.group) continue;
     const exposed = ch.models.split(",")[0]?.trim().toLowerCase();
     const market = exposed ? marketByExposed.get(exposed) : undefined;
     if (!exposed || !market) continue;
