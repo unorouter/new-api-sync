@@ -83,10 +83,10 @@ export function printPricingAudit(
   if (unpriced.length > 0)
     lines.push(`unpriced on enabled channels: ${unpriced.join(", ")}`);
   if (lines.length === 0) {
-    consola.info("[pricing] clean");
+    consola.info("[pricing-audit] clean");
     return;
   }
-  for (const line of lines) consola.error(`[pricing] ${line}`);
+  for (const line of lines) consola.error(`[pricing-audit] ${line}`);
 }
 
 export class OptionStore {
