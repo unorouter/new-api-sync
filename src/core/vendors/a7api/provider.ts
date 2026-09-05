@@ -136,7 +136,20 @@ function sweepLiveLanes(
     const listing = id
       ? byModel.get(market)?.find((l) => l.channel_id === Number(id))
       : undefined;
-    if (!listing) continue;
+    if (!listing) {
+      // Merchant gone from the listings but the lane is live (the gateway
+      // re-enables lanes on its own retest); no cost to price from, so hold
+      // the floor until the full run culls it.
+      const minSell = resolvePerModel(provider.minSellFraction, market, 0);
+      if (minSell > 0)
+        out.push({
+          name: ch.group,
+          ratio: minSell,
+          description: `${market} via ${provider.name} merchant #${id} (unlisted, floor)`,
+          provider: provider.name,
+        });
+      continue;
+    }
     const cluster = canonicalVote(market, config, ctx);
     if (!cluster || cluster.modelRatio <= 0) continue;
     // The emitted path resolves offer.groupRatio through cost / sticker in
