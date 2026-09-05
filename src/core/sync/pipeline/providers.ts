@@ -88,7 +88,8 @@ export async function runAllProviders(
   // comfyui + aihorde + runware build channels separately; private providers are
   // declarative-only (no discovery/testing/pricing) and handled in the pipeline.
   const pricingProviders = config.providers.filter(
-    (p) => p.type !== "comfyui" && p.type !== "aihorde" && p.type !== "runware",
+    (p): p is Exclude<typeof p, { type: "comfyui" | "aihorde" | "runware" }> =>
+      p.type !== "comfyui" && p.type !== "aihorde" && p.type !== "runware",
   );
   const sorted = [...pricingProviders].sort(
     (a, b) => typeOrder(a.type) - typeOrder(b.type),
@@ -99,33 +100,15 @@ export async function runAllProviders(
       timingTrack(`provider:${provider.name}`, async () => {
         throwIfRunAborted();
         if (provider.type === "newapi")
-          return processNewApiProvider(provider as ProviderConfig, config, ctx);
+          return processNewApiProvider(provider, config, ctx);
         if (provider.type === "a7api")
-          return processA7ApiProvider(
-            provider as A7ApiProviderConfig,
-            config,
-            ctx,
-          );
+          return processA7ApiProvider(provider, config, ctx);
         if (provider.type === "nvidia")
-          return processNvidiaProvider(
-            provider as NvidiaProviderConfig,
-            config,
-            ctx,
-          );
+          return processNvidiaProvider(provider, config, ctx);
         if (provider.type === "openrouter")
-          return processOpenRouterProvider(
-            provider as OpenRouterProviderConfig,
-            config,
-            ctx,
-          );
+          return processOpenRouterProvider(provider, config, ctx);
         const def = SIMPLE_PROVIDER_MAP[provider.type];
-        if (def)
-          return processSimpleProvider(
-            def,
-            provider as SimpleFreeProviderConfig,
-            config,
-            ctx,
-          );
+        if (def) return processSimpleProvider(def, provider, config, ctx);
         throw new Error(`unknown provider type: ${provider.type}`);
       }),
     ),

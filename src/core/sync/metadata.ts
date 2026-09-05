@@ -64,7 +64,11 @@ import {
   buildRunwareModels,
   pickBetterDescription,
 } from "@core/sync/pipeline/desired-models";
-import { OptionStore, printPricingAudit } from "@core/sync/option-store";
+import {
+  OptionStore,
+  parseJsonObject,
+  printPricingAudit,
+} from "@core/sync/option-store";
 import { expandRateLimitModels } from "@core/sync/pipeline/option-maps";
 import { acceptPriceNotices } from "@core/vendors/a7api/pins";
 import type { Channel, ModelMeta, TargetSnapshot, Vendor } from "@core/types";
@@ -440,6 +444,93 @@ export async function reconcileSystemPrompt(
   return changed;
 }
 
+// What a re-seed would change on an existing row, and why. Pure so the reasons
+// can be logged and the churn diagnosed from the cluster log.
+function planRowPatch(
+  name: string,
+  existing: ModelMeta,
+  computed: {
+    merged: Record<string, unknown> | undefined;
+    vendorId: number | undefined;
+    tags: string;
+    description: string | undefined;
+    isImageChannel: boolean;
+  },
+): { patch: Partial<ModelMeta>; reasons: string[] } {
+  const patch: Partial<ModelMeta> = {};
+  const reasons: string[] = [];
+  const { merged, vendorId, tags, description } = computed;
+
+  if (
+    merged &&
+    stringify(parseJsonObject(existing.metadata)) !== stringify(merged)
+  ) {
+    patch.metadata = JSON.stringify(merged);
+    const was = parseJsonObject(existing.metadata);
+    const fields = [...new Set([...Object.keys(was), ...Object.keys(merged)])]
+      .filter((k) => stringify(was[k]) !== stringify(merged[k]))
+      .sort();
+    reasons.push(`metadata(${fields.join(" ")})`);
+  }
+  if (vendorId != null && existing.vendor_id !== vendorId) {
+    patch.vendor_id = vendorId;
+    reasons.push(`vendor(${existing.vendor_id ?? "none"}->${vendorId})`);
+  }
+
+  // Overwrite when we have a description AND it differs; a truncated stored value
+  // is replaced by the fuller re-seeded text (do not clobber a full one with a
+  // truncated one).
+  const descriptionChanged =
+    !!description &&
+    description !== (existing.description ?? "") &&
+    !(
+      looksTruncated(description) &&
+      !!existing.description &&
+      !looksTruncated(existing.description)
+    );
+  if (descriptionChanged) {
+    patch.description = description;
+    reasons.push("description");
+  } else if (
+    !!existing.description &&
+    contradictsFamily(name, existing.description)
+  ) {
+    // Rows seeded before the description ranker landed can hold a blurb belonging
+    // to a different model family; the sources no longer offer that text, so only
+    // clearing heals them.
+    patch.description = "";
+    reasons.push("description(stale family)");
+  }
+
+  // The first tag drives the UI modality tab. A full sync builds the richest
+  // tags; only correct the row when its leading tag is missing or the WRONG
+  // type, so a good full-sync tag set is never clobbered. A context-size tag on
+  // an image model is always wrong and the full sync will not remove it.
+  const liveFirstTag = (existing.tags ?? "").split(",")[0]?.trim();
+  const wantFirstTag = tags.split(",")[0];
+  const staleContextTag =
+    computed.isImageChannel &&
+    (existing.tags ?? "")
+      .split(",")
+      .some((tag) => /^\d+(\.\d+)?[KM]?$/.test(tag.trim()));
+  if (staleContextTag || (!!wantFirstTag && liveFirstTag !== wantFirstTag)) {
+    patch.tags = tags;
+    reasons.push(`tags(${liveFirstTag || "none"}->${wantFirstTag})`);
+  }
+
+  // Classifiers seeded while "moderation" still inferred as image carry an
+  // image-generation endpoint; only the create path sets endpoints, so a
+  // re-seed alone never heals the row.
+  const wantEndpoints = isModerationModel(name)
+    ? inferEndpoints(name)
+    : undefined;
+  if (!!wantEndpoints && (existing.endpoints ?? "") !== wantEndpoints) {
+    patch.endpoints = wantEndpoints;
+    reasons.push("endpoints");
+  }
+  return { patch, reasons };
+}
+
 export async function runMetadataSync(
   config: RuntimeConfig,
   opts?: { dryRun?: boolean },
@@ -634,79 +725,19 @@ export async function runMetadataSync(
       continue;
     }
 
-    const nextMetadata = merged ? JSON.stringify(merged) : existing.metadata;
-    const metadataChanged =
-      merged != null && (existing.metadata ?? "") !== nextMetadata;
-    const vendorChanged = vendorId != null && existing.vendor_id !== vendorId;
-
-    // Overwrite when we have a description AND it differs; a truncated stored value
-    // is replaced by the fuller re-seeded text (do not clobber a full one with a
-    // truncated one).
-    const descriptionChanged =
-      !!description &&
-      description !== (existing.description ?? "") &&
-      !(
-        looksTruncated(description) &&
-        !!existing.description &&
-        !looksTruncated(existing.description)
-      );
-
-    // Rows seeded before the description ranker landed can hold a blurb belonging to a
-    // different model family. Re-seeding alone never heals them: the sources no longer
-    // offer that text, and "no description now" cannot overwrite a stored one. Clear it
-    // so the row falls back to blank rather than staying confidently wrong.
-    const staleDescription =
-      !descriptionChanged &&
-      !!existing.description &&
-      contradictsFamily(name, existing.description);
-
-    // The first tag drives the UI modality tab. A full sync builds the richest
-    // tags; only correct the row when its leading tag is missing or the WRONG
-    // type (e.g. an audio model left untagged -> mis-filed under Text), so we
-    // never clobber a good full-sync tag set.
-    const liveFirstTag = (existing.tags ?? "").split(",")[0]?.trim();
-    const wantFirstTag = tags.split(",")[0];
-    // A context-size tag on an image model is always wrong and the full sync will not
-    // remove it, since only the leading tag is compared.
-    const staleContextTag =
-      imageChannelModels.has(name) &&
-      (existing.tags ?? "")
-        .split(",")
-        .some((tag) => /^\d+(\.\d+)?[KM]?$/.test(tag.trim()));
-    const tagsChanged =
-      staleContextTag || (!!wantFirstTag && liveFirstTag !== wantFirstTag);
-
-    // Classifiers seeded while "moderation" still inferred as image carry an
-    // image-generation endpoint, which routes them to /v1/images/generations and
-    // lists them as an image model. Only the create path sets endpoints, so a
-    // re-seed alone never heals the row.
-    const wantEndpoints = isModerationModel(name)
-      ? inferEndpoints(name)
-      : undefined;
-    const endpointsChanged =
-      !!wantEndpoints && (existing.endpoints ?? "") !== wantEndpoints;
-
-    if (
-      !metadataChanged &&
-      !vendorChanged &&
-      !tagsChanged &&
-      !descriptionChanged &&
-      !staleDescription &&
-      !endpointsChanged
-    ) {
+    const row = planRowPatch(name, existing, {
+      merged,
+      vendorId,
+      tags,
+      description,
+      isImageChannel: imageChannelModels.has(name),
+    });
+    if (row.reasons.length === 0) {
       result.skipped++;
       continue;
     }
-
-    const patched = {
-      ...existing,
-      ...(merged ? { metadata: nextMetadata } : {}),
-      ...(vendorId != null ? { vendor_id: vendorId } : {}),
-      ...(tagsChanged ? { tags } : {}),
-      ...(descriptionChanged ? { description } : {}),
-      ...(staleDescription ? { description: "" } : {}),
-      ...(endpointsChanged ? { endpoints: wantEndpoints } : {}),
-    };
+    consola.info(`[metadata] patch ${name}: ${row.reasons.join(", ")}`);
+    const patched = { ...existing, ...row.patch };
     if (await target.updateModel(patched)) {
       result.patched++;
     } else {

@@ -31,7 +31,6 @@ import { discoverGithubModels } from "./github/discovery";
 import { discoverZaiModels } from "./zai/discovery";
 import { discoverOvhModels } from "./ovh/discovery";
 import { discoverPollinationsModels } from "./pollinations/discovery";
-import { discoverAiHordeModels } from "./aihorde/discovery";
 import { discoverJinaModels } from "./jina/discovery";
 import { discoverCohereModels } from "./cohere/discovery";
 import { discoverHuggingFaceModels } from "./huggingface/discovery";
@@ -124,7 +123,6 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   zai: discoverZaiModels,
   ovh: discoverOvhModels,
   pollinations: discoverPollinationsModels,
-  aihorde: discoverAiHordeModels,
   jina: discoverJinaModels,
   cohere: discoverCohereModels,
   huggingface: discoverHuggingFaceModels,
