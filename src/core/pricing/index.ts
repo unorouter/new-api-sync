@@ -1,7 +1,7 @@
 import { matchesAnyPattern } from "@core/catalog/constants/patterns";
 import type { ProviderConfig } from "@core/validations/config";
 
-export const MAX_ABOVE_1X = 1.05;
+const MAX_ABOVE_1X = 1.05;
 
 /**
  * THE universal priceAdjustment rule. Every path that prices an offer goes

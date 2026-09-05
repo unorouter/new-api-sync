@@ -28,6 +28,37 @@ export const MANAGED_OPTION_KEYS = [
   "ModelRequestRateLimitModels",
 ] as const;
 
+export const GROUP_OPTION_KEYS = [
+  "GroupRatio",
+  "UserUsableGroups",
+  "AutoGroups",
+] as const;
+
+// A model on an enabled channel must hold an entry in at least one of these or
+// the gateway answers "not priced by the administrator".
+export const PRICING_KEYS = [
+  "ModelRatio",
+  "ModelPrice",
+  "billing_setting.billing_expr",
+] as const;
+
+export const MODEL_OPTION_KEYS = [
+  "ModelRatio",
+  "CompletionRatio",
+  "ModelPrice",
+  "ImageRatio",
+  "CacheRatio",
+  "CreateCacheRatio",
+  "AudioRatio",
+  "AudioCompletionRatio",
+  "ModelQuotaType",
+  "ModelGridPricing",
+  "billing_setting.billing_mode",
+  "billing_setting.billing_expr",
+  "ModelRequestRateLimitModels",
+] as const;
+export type ModelOptionKey = (typeof MODEL_OPTION_KEYS)[number];
+
 export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 100,
   START_PAGE_ZERO: 0,
@@ -158,6 +189,40 @@ export interface ManagedOptionMaps {
   modelRateLimits: Record<string, number[]>;
 }
 
+export const MODEL_OPTION_FIELD: Record<
+  ModelOptionKey,
+  keyof Pick<
+    ManagedOptionMaps,
+    | "modelRatio"
+    | "completionRatio"
+    | "modelPrice"
+    | "imageRatio"
+    | "cacheRatio"
+    | "createCacheRatio"
+    | "audioRatio"
+    | "audioCompletionRatio"
+    | "modelQuotaType"
+    | "modelGridPricing"
+    | "billingMode"
+    | "billingExpr"
+    | "modelRateLimits"
+  >
+> = {
+  ModelRatio: "modelRatio",
+  CompletionRatio: "completionRatio",
+  ModelPrice: "modelPrice",
+  ImageRatio: "imageRatio",
+  CacheRatio: "cacheRatio",
+  CreateCacheRatio: "createCacheRatio",
+  AudioRatio: "audioRatio",
+  AudioCompletionRatio: "audioCompletionRatio",
+  ModelQuotaType: "modelQuotaType",
+  ModelGridPricing: "modelGridPricing",
+  "billing_setting.billing_mode": "billingMode",
+  "billing_setting.billing_expr": "billingExpr",
+  ModelRequestRateLimitModels: "modelRateLimits",
+};
+
 export interface DesiredState {
   channels: Channel[];
   models: Map<string, DesiredModelSpec>;
@@ -196,10 +261,16 @@ export interface EntityChangeSet {
   deleted: string[];
 }
 
+export interface PricingAudit {
+  dropped: { key: string; names: string[] }[];
+  healed: { key: string; names: string[] }[];
+}
+
 export interface ApplyReport {
   channels: EntityChangeSet & { orphanAbilitiesDeleted: number };
   models: EntityChangeSet & { orphansDeleted: number };
   options: { updated: string[] };
+  pricing: PricingAudit;
   errors: ApplyError[];
 }
 

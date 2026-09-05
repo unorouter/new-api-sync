@@ -1,23 +1,8 @@
-// Metadata-only re-seed: ensure every PUBLISHED model (every name served by a
-// channel) has a models-table row carrying vendor + metadata (release date,
-// params, context, description), WITHOUT any probing/testing, pricing, or channel
-// changes. Missing rows are CREATED, stale rows are UPDATED; nothing is skipped
-// just because a row lacked metadata before.
-//
-// Why this exists as a first-class command:
-//  1. The first sync after `reset` writes empty metadata (the snapshot is empty,
-//     so diff.ts can't detect metadata support). This re-seeds without a full run.
-//  2. Metadata sources update independently of pricing/availability; refreshing
-//     them shouldn't require re-probing every model (slow + costs upstream calls).
-//  3. Published names that only ever got an abilities/channel entry (never a
-//     models-table row) show blank vendor/date/context in the catalog; this
-//     backfills them.
-//
-// The published universe is derived from channels (each channel's `models` list,
-// minus routing-only `[1m]` aliases), unioned with existing models-table rows.
-// Vendor is inferred from the name and resolved to a vendor_id (creating the
-// vendor row if absent), so rows synced before a matcher existed get their icon
-// backfilled too.
+// Metadata-only re-seed: every published model (served by a channel, or already
+// a models-table row) gets a row with vendor + metadata, and the gateway's
+// option maps are re-priced from the read-only pricing fetch, without probing.
+// Metadata sources move independently of availability, so this runs every 15
+// minutes while the probing full sync runs nightly.
 
 import { toBareName } from "@core/catalog/bare-name";
 import {
@@ -40,7 +25,10 @@ import {
 } from "@core/catalog/constants/inference";
 import {
   buildReverseMapping,
+  groupsOnChannels,
+  isRoutingOnlyAlias,
   matchesAnyPattern,
+  modelsOnChannels,
   parseModelList,
   sanitizeGroupName,
 } from "@core/catalog/constants/patterns";
@@ -74,17 +62,17 @@ import { runProviderPipeline } from "@core/sync/pipeline";
 import {
   buildAiHordeModels,
   buildRunwareModels,
-  isRoutingOnlyAlias,
   pickBetterDescription,
 } from "@core/sync/pipeline/desired-models";
+import { OptionStore, printPricingAudit } from "@core/sync/option-store";
 import { expandRateLimitModels } from "@core/sync/pipeline/option-maps";
-import { setDryRunMode } from "@core/testing/runner";
 import { acceptPriceNotices } from "@core/vendors/a7api/pins";
 import type { Channel, ModelMeta, TargetSnapshot, Vendor } from "@core/types";
-import { MANAGED_OPTION_KEYS } from "@core/types";
+import { MODEL_OPTION_FIELD, MODEL_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
 import { t } from "@server/i18n";
 import { consola } from "consola";
+import stringify from "safe-stable-stringify";
 
 export interface MetadataSyncResult {
   total: number;
@@ -98,8 +86,8 @@ export interface MetadataSyncResult {
   dryRun?: boolean;
   passThroughEnabled: number;
   paramOverrideChanged: number;
-  thinkingEnabled: number;
   systemPromptChanged: number;
+  optionErrors: string[];
 }
 
 // Resolve a model's canonical vendor to an existing vendor_id, creating the
@@ -186,13 +174,11 @@ function buildTags(
     .join(",");
 }
 
-// Every published model name a channel serves (minus routing-only [1m] aliases).
 function publishedNamesFromChannels(channels: Channel[]): Set<string> {
-  const names = new Set<string>();
-  for (const ch of channels)
-    for (const name of parseModelList(ch.models))
-      if (!isRoutingOnlyAlias(name)) names.add(name);
-  return names;
+  return modelsOnChannels(channels, {
+    enabledOnly: false,
+    includeAliases: false,
+  });
 }
 
 // The published name a channel SHOULD use for `published` given the current
@@ -265,6 +251,28 @@ async function normalizePublishedNames(
   return renamed;
 }
 
+// Parse, let the caller edit, write back only when the edit reports a change.
+// An unparseable setting is left alone rather than clobbered.
+async function patchSetting(
+  target: NewApiClient,
+  ch: Channel,
+  edit: (setting: Record<string, unknown>) => boolean,
+): Promise<boolean> {
+  let setting: Record<string, unknown> = {};
+  if (ch.setting) {
+    try {
+      setting = JSON.parse(ch.setting);
+    } catch {
+      return false;
+    }
+  }
+  if (!edit(setting)) return false;
+  const next = JSON.stringify(setting);
+  if (!(await target.updateChannel({ ...ch, setting: next }))) return false;
+  ch.setting = next;
+  return true;
+}
+
 // Media channels (image/video/audio/embedding) must forward the raw client body so non-struct fields
 // (image_urls, vendor extras) survive new-api's ImageRequest re-marshal, which drops unknown fields.
 // Patch pass_through_body_enabled onto any media channel missing it. Gateway-only, no probing.
@@ -295,33 +303,21 @@ async function reconcilePassThrough(
     const wantPassThrough =
       ch.type !== CHANNEL_TYPES.GEMINI ||
       served.some((name) => getTaskModelOverride(name));
-
-    let setting: Record<string, unknown> = {};
-    if (ch.setting) {
-      try {
-        setting = JSON.parse(ch.setting);
-      } catch {
-        // Unparseable existing setting: skip rather than clobber other fields.
-        continue;
-      }
-    }
-    if (setting.pass_through_body_enabled === wantPassThrough) continue;
-
-    setting.pass_through_body_enabled = wantPassThrough;
-    const nextSetting = JSON.stringify(setting);
-    const ok = await target.updateChannel({ ...ch, setting: nextSetting });
-    if (ok) {
-      ch.setting = nextSetting;
-      changed++;
-      consola.info(
-        t(
-          wantPassThrough
-            ? "CORE.METADATA.CHANNEL_PASSTHROUGH_ENABLED"
-            : "CORE.METADATA.CHANNEL_PASSTHROUGH_DISABLED",
-          { name: ch.name },
-        ),
-      );
-    }
+    const ok = await patchSetting(target, ch, (setting) => {
+      if (setting.pass_through_body_enabled === wantPassThrough) return false;
+      setting.pass_through_body_enabled = wantPassThrough;
+      return true;
+    });
+    if (!ok) continue;
+    changed++;
+    consola.info(
+      t(
+        wantPassThrough
+          ? "CORE.METADATA.CHANNEL_PASSTHROUGH_ENABLED"
+          : "CORE.METADATA.CHANNEL_PASSTHROUGH_DISABLED",
+        { name: ch.name },
+      ),
+    );
   }
   return changed;
 }
@@ -335,51 +331,15 @@ function buildDisableThinkingByProvider(
 ): { prefix: string; globs: string[] }[] {
   const out: { prefix: string; globs: string[] }[] = [];
   for (const provider of config.providers) {
-    const enabledModels = (provider as { enabledModels?: unknown })
-      .enabledModels as Parameters<typeof getMetadataFromEnabledModels>[0];
-    const metaByModel = getMetadataFromEnabledModels(enabledModels);
+    const metaByModel = getMetadataFromEnabledModels(provider.enabledModels);
     const globs = Object.entries(metaByModel)
-      .filter(
-        ([, meta]) => (meta as { disableThinking?: boolean }).disableThinking,
-      )
+      .filter(([, meta]) => meta.disableThinking)
       .map(([glob]) => glob);
     if (globs.length > 0) {
       out.push({ prefix: `${sanitizeGroupName(provider.name)}-`, globs });
     }
   }
   return out;
-}
-
-// thinking_to_content folded a model's reasoning into the visible answer as
-// <think> tags, so a reasoning-only turn was never billed as an empty 502. That
-// was a workaround for new-api judging stream emptiness on the billing buffer;
-// it now judges on content and accepts reasoning when the turn finished
-// (streamHadOutput), so the flag only corrupts output for clients that read
-// reasoning_content. Cleared rather than merely no longer set, because channels
-// carrying it would otherwise keep shipping <think> tags forever.
-async function clearThinkingToContent(
-  target: NewApiClient,
-  channels: Channel[],
-): Promise<number> {
-  let changed = 0;
-  for (const ch of channels) {
-    if (!ch.setting) continue;
-    let setting: Record<string, unknown> = {};
-    try {
-      setting = JSON.parse(ch.setting);
-    } catch {
-      continue; // unparseable: skip rather than clobber other fields
-    }
-    if (setting.thinking_to_content === undefined) continue;
-
-    delete setting.thinking_to_content;
-    const nextSetting = JSON.stringify(setting);
-    if (await target.updateChannel({ ...ch, setting: nextSetting })) {
-      ch.setting = nextSetting;
-      changed++;
-    }
-  }
-  return changed;
 }
 
 async function reconcileParamOverride(
@@ -451,42 +411,31 @@ export async function reconcileSystemPrompt(
       ),
     );
 
-    let setting: Record<string, unknown> = {};
-    if (ch.setting) {
-      try {
-        setting = JSON.parse(ch.setting);
-      } catch {
-        // Unparseable existing setting: skip rather than clobber other fields.
-        continue;
-      }
-    }
-
-    const curPrompt =
-      typeof setting.system_prompt === "string" ? setting.system_prompt : "";
-    const curOverride = setting.system_prompt_override === true;
     const wantPrompt = rule?.prompt ?? "";
     const wantOverride = rule ? rule.override === true : false;
-    if (curPrompt === wantPrompt && curOverride === wantOverride) continue;
-
-    if (wantPrompt) {
-      setting.system_prompt = wantPrompt;
-      setting.system_prompt_override = wantOverride;
-    } else {
-      delete setting.system_prompt;
-      delete setting.system_prompt_override;
-    }
-    const nextSetting = JSON.stringify(setting);
-    const ok = await target.updateChannel({ ...ch, setting: nextSetting });
-    if (ok) {
-      ch.setting = nextSetting;
-      changed++;
-      consola.info(
-        t("CORE.METADATA.CHANNEL_SYSTEM_PROMPT_SET", {
-          name: ch.name,
-          action: wantPrompt ? "set" : "cleared",
-        }),
-      );
-    }
+    const ok = await patchSetting(target, ch, (setting) => {
+      const curPrompt =
+        typeof setting.system_prompt === "string" ? setting.system_prompt : "";
+      const curOverride = setting.system_prompt_override === true;
+      if (curPrompt === wantPrompt && curOverride === wantOverride)
+        return false;
+      if (wantPrompt) {
+        setting.system_prompt = wantPrompt;
+        setting.system_prompt_override = wantOverride;
+      } else {
+        delete setting.system_prompt;
+        delete setting.system_prompt_override;
+      }
+      return true;
+    });
+    if (!ok) continue;
+    changed++;
+    consola.info(
+      t("CORE.METADATA.CHANNEL_SYSTEM_PROMPT_SET", {
+        name: ch.name,
+        action: wantPrompt ? "set" : "cleared",
+      }),
+    );
   }
   return changed;
 }
@@ -504,27 +453,30 @@ export async function runMetadataSync(
       }),
     );
 
+  const result: MetadataSyncResult = {
+    total: 0,
+    created: 0,
+    patched: 0,
+    skipped: 0,
+    failed: 0,
+    failedModels: [],
+    renamedChannels: 0,
+    renamedGroups: 0,
+    passThroughEnabled: 0,
+    paramOverrideChanged: 0,
+    systemPromptChanged: 0,
+    optionErrors: [],
+  };
+
   // Dry-run previews the one metadata step that renames gateway rows (the
   // groupMapping pass) and writes nothing; the remaining steps are idempotent
   // re-seeds a normal run performs.
   if (opts?.dryRun) {
     const plan = planGroupRenames(await target.listChannels(), config);
     printGroupRenamePlan(plan);
-    return {
-      total: 0,
-      created: 0,
-      patched: 0,
-      skipped: 0,
-      failed: 0,
-      failedModels: [],
-      renamedChannels: 0,
-      renamedGroups: plan.renames.length,
-      dryRun: true,
-      passThroughEnabled: 0,
-      paramOverrideChanged: 0,
-      thinkingEnabled: 0,
-      systemPromptChanged: 0,
-    };
+    result.renamedGroups = plan.renames.length;
+    result.dryRun = true;
+    return result;
   }
 
   const filter = config.modelFilter ?? [];
@@ -548,37 +500,32 @@ export async function runMetadataSync(
   const reverseMapping = buildReverseMapping(config.modelMapping);
   const vendorIdCache = new Map<string, number | undefined>();
 
-  // Re-derive published names against the current modelMapping and rename any
-  // stale ones on their channels (e.g. a `{slug}-free:free` left over from before
-  // a `{slug}-free -> {canonical}` mapping existed). Gateway-only, no probing.
-  const renamedChannels = await normalizePublishedNames(
+  result.renamedChannels = await normalizePublishedNames(
     target,
     channels,
     config,
   );
-  // Group labels a groupMapping rule now splices: rename the channel rows in
-  // place (ids kept) and move their option keys, before anything downstream
-  // reads channel names.
-  const renamedGroups = await applyGroupRenames(
+  // Before anything downstream reads channel names.
+  const store = await OptionStore.load(target);
+  result.renamedGroups = await applyGroupRenames(
     target,
     planGroupRenames(channels, config),
+    store,
+    channels,
   );
 
-  // Ensure media channels forward the raw body (image_urls / vendor extras survive new-api re-marshal).
-  const passThroughEnabled = await reconcilePassThrough(target, channels);
-  const paramOverrideChanged = await reconcileParamOverride(
+  result.passThroughEnabled = await reconcilePassThrough(target, channels);
+  result.paramOverrideChanged = await reconcileParamOverride(
     target,
     channels,
     config,
   );
-  const thinkingEnabled = await clearThinkingToContent(target, channels);
-  const systemPromptChanged = await reconcileSystemPrompt(
+  result.systemPromptChanged = await reconcileSystemPrompt(
     target,
     channels,
     config,
   );
 
-  // Union of every served name and every existing models-table row.
   const existingByName = new Map<string, ModelMeta>();
   for (const m of existingModels)
     if (m.model_name) existingByName.set(m.model_name, m);
@@ -600,21 +547,7 @@ export async function runMetadataSync(
   });
 
   consola.info(t("CORE.METADATA.RESEED_START", { count: names.length }));
-
-  const result: MetadataSyncResult = {
-    total: names.length,
-    created: 0,
-    patched: 0,
-    skipped: 0,
-    failed: 0,
-    failedModels: [],
-    renamedChannels,
-    renamedGroups,
-    passThroughEnabled,
-    paramOverrideChanged,
-    thinkingEnabled,
-    systemPromptChanged,
-  };
+  result.total = names.length;
 
   const aiHordeModels = buildAiHordeModels(channels);
   const runwareModels = buildRunwareModels(channels);
@@ -782,34 +715,34 @@ export async function runMetadataSync(
     }
   }
 
-  await syncRateLimitOptions(target, config, allNames, inScope);
+  syncRateLimitOptions(store, config, allNames, inScope);
 
-  // Recompute paid pricing for models the current channels serve, pulled from the
-  // upstream newapi providers (cap + canonical vote + priceAdjustment), without
-  // probing. Runs before syncFreePricing so `:free` -> 0 still wins below.
-  const options = await target.getOptions([...MANAGED_OPTION_KEYS]);
+  // Order matters: grid collapse overrides the pipeline's flat prices, and
+  // `:free` -> 0 overrides both.
   const snap: TargetSnapshot = {
     channels,
     models: existingModels,
     vendors,
-    options,
+    options: store.raw(),
   };
-  await syncUpstreamPricing(target, config, snap, inScope);
+  await syncUpstreamPricing(store, config, snap, inScope);
 
-  // Collapse EVERY config pricing grid (all providers, served or not) to a flat
-  // per-request price = the most expensive grid row. Runs after syncUpstreamPricing
-  // so this max-grid price wins over any flat price the pipeline set.
-  await syncGridCollapse(target, config, inScope);
+  syncGridCollapse(store, config, inScope);
 
-  // Every served `:free` name must be priced at ratio 0 (always free). Paid
-  // ("general") models keep their existing ratios untouched. This also backfills
-  // names that drifted (e.g. a published `minimax-m3-thinking:free` whose ratio
-  // key was stuck under the old `-free:free` name) so they stop hitting the
-  // "not priced by the administrator" gate.
   const freeNames = [...allNames]
     .filter((name) => name.endsWith(":free") && inScope(name))
     .sort();
-  await syncFreePricing(target, freeNames, channels, inScope);
+  syncFreePricing(store, freeNames, channels, inScope);
+  const flushed = await store.flush(target, channels);
+  const unpriced = store.unpricedLiveModels(channels);
+  printPricingAudit(flushed, unpriced);
+  result.optionErrors.push(
+    ...flushed.errors.map((e) => `${e.key}: ${e.message}`),
+  );
+  if (unpriced.length > 0)
+    result.optionErrors.push(
+      `${unpriced.length} model(s) on enabled channels carry no price: ${unpriced.join(", ")}`,
+    );
 
   // Keep the guest token's allowed-models in step with the served `:free`
   // catalog. Deliberately NOT freeNames: that list is inScope-filtered, and
@@ -820,29 +753,26 @@ export async function runMetadataSync(
   return result;
 }
 
-// Recompute pricing from the upstream newapi providers for models the current
-// target channels serve, then write only those keys (merge-preserving everything
-// else). Runs the provider pipeline in dry-run mode: fetchPricing per provider
-// (read-only), canonical vote, computePricedPlan (hard cap + per-provider
-// priceAdjustment), buildOptionMaps - but NO probes/tests/token-creation, and the
-// pipeline itself writes nothing. We then intersect the computed option maps with
-// the names current channels publish so out-of-scope/paid-elsewhere entries are
-// untouched.
+// Re-price the models current channels serve from a dry-run provider pipeline
+// (read-only pricing fetch, canonical vote, cap, priceAdjustment; no probes, no
+// tokens), touching only the names those channels publish.
 async function syncUpstreamPricing(
-  target: NewApiClient,
+  store: OptionStore,
   config: RuntimeConfig,
   snap: TargetSnapshot,
   inScope: (name: string) => boolean,
 ): Promise<void> {
-  const served = new Set<string>();
-  for (const ch of snap.channels)
-    for (const name of parseModelList(ch.models))
-      if (!isRoutingOnlyAlias(name) && inScope(name)) served.add(name);
-  if (served.size === 0) return;
+  const served = [
+    ...modelsOnChannels(snap.channels, {
+      enabledOnly: false,
+      includeAliases: false,
+    }),
+  ].filter(inScope);
+  if (served.length === 0) return;
 
   // Scoped to kinds whose discovery is a read-only pricing fetch that honors
   // dryRun end to end: newapi (/api/pricing) and a7api (one marketplace
-  // snapshot). nvidia/openrouter/sub2api still run live discovery probes even
+  // snapshot). nvidia/openrouter still run live discovery probes even
   // under dryRun, so including them would burn upstream test traffic.
   const newapiConfig: RuntimeConfig = {
     ...config,
@@ -852,78 +782,43 @@ async function syncUpstreamPricing(
   };
   if (newapiConfig.providers.length === 0) return;
 
-  // The runner's dry mode is a module global that only runSync sets; without it
-  // a7api's per-lane testAndFilterModels probes for real against the dry-run
-  // stub tokens, every lane fails, and the pipeline emits zero offers (so no
-  // repricing happens at all).
-  setDryRunMode(true);
-  let result: Awaited<ReturnType<typeof runProviderPipeline>>;
-  try {
-    result = await runProviderPipeline(newapiConfig, snap, {
-      dryRun: true,
-    });
-  } finally {
-    setDryRunMode(false);
-  }
+  const result = await runProviderPipeline(newapiConfig, snap, {
+    dryRun: true,
+  });
   const opts = result.desired.options;
-
-  // Same field -> option-key map the apply path uses (sync/diff.ts).
-  const MODEL_OPTIONS: [string, Record<string, unknown>][] = [
-    ["ModelRatio", opts.modelRatio],
-    ["CompletionRatio", opts.completionRatio],
-    ["ModelPrice", opts.modelPrice],
-    ["ImageRatio", opts.imageRatio],
-    ["CacheRatio", opts.cacheRatio],
-    ["CreateCacheRatio", opts.createCacheRatio],
-    ["AudioRatio", opts.audioRatio],
-    ["AudioCompletionRatio", opts.audioCompletionRatio],
-    ["ModelQuotaType", opts.modelQuotaType],
-    ["ModelGridPricing", opts.modelGridPricing],
-    ["billing_setting.billing_mode", opts.billingMode],
-    ["billing_setting.billing_expr", opts.billingExpr],
-  ];
-
-  const current = await target.getOptions(MODEL_OPTIONS.map(([k]) => k));
 
   // A served model the pipeline now flat-prices (modelPrice set) must NOT keep a
   // stale grid or ratio for the same name, or new-api would still bill the old
   // way. Clear those collisions; scoped to names we actually re-priced so we
   // never touch models priced elsewhere or left untouched.
-  const flatPriced = new Set<string>();
-  for (const name of served) if (name in opts.modelPrice) flatPriced.add(name);
+  const flatPriced = new Set(served.filter((name) => name in opts.modelPrice));
 
-  let pricedNames = 0;
   let changedKeys = 0;
   const counted = new Set<string>();
-  for (const [key, computed] of MODEL_OPTIONS) {
-    let map: Record<string, unknown> = {};
-    try {
-      map = JSON.parse(current[key] || "{}");
-    } catch {
-      map = {};
-    }
-    let dirty = false;
-    const isRatioKey = key === "ModelRatio" || key === "CompletionRatio";
-    const isGridKey = key === "ModelGridPricing";
+  for (const key of MODEL_OPTION_KEYS) {
+    if (key === "ModelRequestRateLimitModels") continue;
+    const computed: Record<string, unknown> = opts[MODEL_OPTION_FIELD[key]];
+    const map = store.object(key);
+    const set: Record<string, unknown> = {};
+    const del: string[] = [];
+    const clearsForFlat =
+      key === "ModelRatio" ||
+      key === "CompletionRatio" ||
+      key === "ModelGridPricing";
     for (const name of served) {
       if (name in computed) {
         counted.add(name);
-        if (map[name] !== computed[name]) {
-          map[name] = computed[name];
-          dirty = true;
+        if (stringify(map[name]) !== stringify(computed[name])) {
+          set[name] = computed[name];
           changedKeys++;
         }
-      } else if (
-        (isGridKey || isRatioKey) &&
-        flatPriced.has(name) &&
-        name in map
-      ) {
-        delete map[name];
-        dirty = true;
+      } else if (clearsForFlat && flatPriced.has(name) && name in map) {
+        del.push(name);
         changedKeys++;
       }
     }
-    if (dirty) await target.updateOption(key, JSON.stringify(map));
+    store.setEntries(key, set);
+    store.deleteEntries(key, del);
   }
 
   // GroupRatio is keyed by channel-group name (not model name), so it falls
@@ -931,80 +826,37 @@ async function syncUpstreamPricing(
   // group ratios for in-scope newapi channels, so merge those over the live map
   // (preserving every out-of-scope group). This is what carries the per-request
   // upstream-cost x adjustment group ratio computed in compute.ts.
-  const computedGroupRatio = opts.groupRatio;
-  if (Object.keys(computedGroupRatio).length > 0) {
-    const liveGroupRatio = await target.getOptions(["GroupRatio"]);
-    let gr: Record<string, number> = {};
-    try {
-      gr = JSON.parse(liveGroupRatio["GroupRatio"] || "{}");
-    } catch {
-      gr = {};
-    }
-    let grDirty = false;
-    for (const [group, ratio] of Object.entries(computedGroupRatio)) {
-      if (gr[group] !== ratio) {
-        gr[group] = ratio;
-        grDirty = true;
-        changedKeys++;
-      }
-    }
-    if (grDirty) await target.updateOption("GroupRatio", JSON.stringify(gr));
-
-    // AutoGroups + UserUsableGroups are channel-routing membership, not pricing, so
-    // the apply path normally owns them. But a partial `sync run` can erode them: a
-    // group present in abilities + GroupRatio yet absent from AutoGroups is invisible
-    // (the auto token can't route to it, so the catalog hides the model). doubao image
-    // groups drifted out this way. Union the dry-run's computed groups over the live
-    // lists (never remove — metadata only adds in-scope groups, preserves the rest),
-    // re-sorted cheapest-first to match the apply path.
-    const liveGM = await target.getOptions(["AutoGroups", "UserUsableGroups"]);
-    let liveAuto: string[] = [];
-    let liveUsable: Record<string, string> = {};
-    try {
-      liveAuto = JSON.parse(liveGM["AutoGroups"] || "[]");
-    } catch {
-      liveAuto = [];
-    }
-    try {
-      liveUsable = JSON.parse(liveGM["UserUsableGroups"] || "{}");
-    } catch {
-      liveUsable = {};
-    }
-    // Only groups an ENABLED channel carries: the dry-run pipeline emits every
-    // candidate merchant, probed or not, and publishing those hands the token
-    // group picker pins that route nowhere (four fable-5.1 a7 candidates, one a
-    // model-substituting merchant the probe had already rejected).
-    const routable = new Set<string>();
-    for (const ch of snap.channels) {
-      if (ch.status !== 1) continue;
-      for (const g of (ch.group ?? "").split(","))
-        if (g.trim()) routable.add(g.trim());
-    }
-    const ownAuto = opts.autoGroups.filter((g) => routable.has(g));
+  if (Object.keys(opts.groupRatio).length > 0) {
+    const gr = store.object("GroupRatio");
+    for (const [group, ratio] of Object.entries(opts.groupRatio))
+      if (gr[group] !== ratio) changedKeys++;
+    // AutoGroups + UserUsableGroups are channel-routing membership, not pricing,
+    // so the apply path normally owns them. But a partial `sync run` can erode
+    // them: a group present in abilities + GroupRatio yet absent from AutoGroups
+    // is invisible (the auto token can't route to it, so the catalog hides the
+    // model). Only groups an ENABLED channel carries: the dry-run pipeline emits
+    // every candidate merchant, probed or not, and publishing those hands the
+    // token group picker pins that route nowhere.
+    const routable = groupsOnChannels(snap.channels, { enabledOnly: true });
     const ownUsable: Record<string, string> = {};
     for (const [g, label] of Object.entries(opts.userUsableGroups))
       if (routable.has(g)) ownUsable[g] = label;
-    const mergedAuto = [...new Set([...liveAuto, ...ownAuto])].sort(
-      (a, b) => (gr[a] ?? 1) - (gr[b] ?? 1),
+    const before = [store.autoGroups(), store.object("UserUsableGroups")].map(
+      (v) => stringify(v),
     );
-    if (JSON.stringify(mergedAuto) !== JSON.stringify(liveAuto)) {
-      await target.updateOption("AutoGroups", JSON.stringify(mergedAuto));
-      changedKeys++;
-    }
-    const mergedUsable = { ...liveUsable, ...ownUsable };
-    if (JSON.stringify(mergedUsable) !== JSON.stringify(liveUsable)) {
-      await target.updateOption(
-        "UserUsableGroups",
-        JSON.stringify(mergedUsable),
-      );
-      changedKeys++;
-    }
+    store.mergeGroups({
+      ratio: opts.groupRatio,
+      usable: ownUsable,
+      auto: opts.autoGroups.filter((g) => routable.has(g)),
+    });
+    const after = [store.autoGroups(), store.object("UserUsableGroups")].map(
+      (v) => stringify(v),
+    );
+    changedKeys += before.filter((v, i) => v !== after[i]).length;
   }
-  pricedNames = counted.size;
-
   consola.info(
     t("CORE.METADATA.UPSTREAM_PRICING_SYNCED", {
-      count: pricedNames,
+      count: counted.size,
       changed: changedKeys,
     }),
   );
@@ -1026,11 +878,11 @@ async function syncUpstreamPricing(
 // + any ratio for that name. new-api prices globally per model name, so a grid
 // and a per-request provider of the same model cannot coexist; the max-row flat
 // price bills consistently and never underbills regardless of resolution/channel.
-async function syncGridCollapse(
-  target: NewApiClient,
+function syncGridCollapse(
+  store: OptionStore,
   config: RuntimeConfig,
   inScope: (name: string) => boolean,
-): Promise<void> {
+): void {
   // Mapped published name -> flat max grid price (duration/mode grids, adaptor-handled).
   // Resolution grids (gemini-image 1K/2K/4K) are kept as real ModelGridPricing (the gateway
   // applies them via GetGridPrice); their base ModelPrice is the cheapest tier.
@@ -1063,47 +915,34 @@ async function syncGridCollapse(
     }
   }
 
-  const KEYS = [
-    "ModelPrice",
-    "ModelGridPricing",
-    "ModelRatio",
-    "CompletionRatio",
-    "ModelQuotaType",
-  ];
-  const current = await target.getOptions(KEYS);
-
   const names = Object.keys(flat);
   if (names.length === 0) return;
   const r4 = (n: number) => Math.round(n * 10000) / 10000;
 
   let changed = 0;
-  for (const key of KEYS) {
-    let map: Record<string, unknown> = {};
-    try {
-      map = JSON.parse(current[key] || "{}");
-    } catch {
-      map = {};
+  const price = store.object("ModelPrice");
+  const grid = store.object("ModelGridPricing");
+  for (const name of names) {
+    const flatPrice = r4(flat[name]!);
+    if (price[name] !== flatPrice) {
+      store.setEntries("ModelPrice", { [name]: flatPrice });
+      changed++;
     }
-    let dirty = false;
-    for (const name of names) {
-      if (key === "ModelPrice") {
-        const price = r4(flat[name]!);
-        if (map[name] !== price) {
-          map[name] = price;
-          dirty = true;
-          changed++;
-        }
-      } else if (key === "ModelGridPricing" && name in resolutionGrids) {
-        map[name] = resolutionGrids[name];
-        dirty = true;
-        changed++;
-      } else if (name in map) {
-        delete map[name];
-        dirty = true;
+    const rows = resolutionGrids[name];
+    if (rows) {
+      if (stringify(grid[name]) !== stringify(rows)) {
+        store.setEntries("ModelGridPricing", { [name]: rows });
         changed++;
       }
+    } else if (name in grid) {
+      store.deleteEntries("ModelGridPricing", [name]);
+      changed++;
     }
-    if (dirty) await target.updateOption(key, JSON.stringify(map));
+    for (const key of ["ModelRatio", "CompletionRatio", "ModelQuotaType"])
+      if (name in store.object(key)) {
+        store.deleteEntries(key, [name]);
+        changed++;
+      }
   }
 
   consola.info(
@@ -1114,119 +953,66 @@ async function syncGridCollapse(
   );
 }
 
-// Force ratio 0 for every served `:free` model, preserving all other (paid)
-// entries verbatim. The gateway stores ModelRatio/CompletionRatio as single JSON
-// blobs, so we read, set the in-scope free keys to 0, and write back the merge.
-// ALSO forces GroupRatio 0 for every channel-group serving a `:free` model: the
+// Every served `:free` model is ratio 0, and so is every group serving one: the
 // zero-balance billing gate keys off GroupRatio, and an unlisted group defaults
-// to 1.0 (paid), which blocked $0 users from free GLM channels whose group was
-// never written by the pipeline.
-async function syncFreePricing(
-  target: NewApiClient,
+// to 1.0 (paid), which blocked $0 users from free GLM channels whose group the
+// pipeline never wrote.
+function syncFreePricing(
+  store: OptionStore,
   freeNames: string[],
   channels: Channel[],
   inScope: (name: string) => boolean,
-): Promise<void> {
+): void {
   if (freeNames.length === 0) return;
 
-  const KEYS = ["ModelRatio", "CompletionRatio"];
-  const current = await target.getOptions(KEYS);
-
   let changed = 0;
-  for (const key of KEYS) {
-    let map: Record<string, number> = {};
-    try {
-      map = JSON.parse(current[key] || "{}");
-    } catch {
-      map = {};
-    }
-    let dirty = false;
-    for (const name of freeNames) {
-      if (map[name] !== 0) {
-        map[name] = 0;
-        dirty = true;
-        changed++;
-      }
-    }
-    if (dirty) await target.updateOption(key, JSON.stringify(map));
+  for (const key of ["ModelRatio", "CompletionRatio"]) {
+    const map = store.object(key);
+    const zero = freeNames.filter((name) => map[name] !== 0);
+    store.setEntries(key, Object.fromEntries(zero.map((name) => [name, 0])));
+    changed += zero.length;
   }
 
-  // A channel-group is free when it serves any in-scope `:free` model; force its
-  // GroupRatio to 0 so the gateway treats it as free for zero-balance users.
-  const freeGroups = new Set<string>();
-  for (const ch of channels) {
-    if (!ch.group) continue;
-    const servesFree = parseModelList(ch.models).some(
-      (name) => name.endsWith(":free") && inScope(name),
-    );
-    if (servesFree)
-      for (const g of ch.group.split(",").map((s) => s.trim()))
-        if (g) freeGroups.add(g);
-  }
-
-  let groupChanged = 0;
-  if (freeGroups.size > 0) {
-    const liveGr = await target.getOptions(["GroupRatio"]);
-    let gr: Record<string, number> = {};
-    try {
-      gr = JSON.parse(liveGr["GroupRatio"] || "{}");
-    } catch {
-      gr = {};
-    }
-    let grDirty = false;
-    for (const g of freeGroups) {
-      if (gr[g] !== 0) {
-        gr[g] = 0;
-        grDirty = true;
-        groupChanged++;
-      }
-    }
-    if (grDirty) await target.updateOption("GroupRatio", JSON.stringify(gr));
-  }
+  const freeGroups = groupsOnChannels(
+    channels.filter((ch) =>
+      parseModelList(ch.models).some(
+        (name) => name.endsWith(":free") && inScope(name),
+      ),
+    ),
+    { enabledOnly: false },
+  );
+  const gr = store.object("GroupRatio");
+  const zeroGroups = [...freeGroups].filter((g) => gr[g] !== 0);
+  store.setEntries(
+    "GroupRatio",
+    Object.fromEntries(zeroGroups.map((g) => [g, 0])),
+  );
+  changed += zeroGroups.length;
 
   consola.info(
     t("CORE.METADATA.FREE_PRICING_SYNCED", {
       count: freeNames.length,
-      changed: changed + groupChanged,
+      changed,
     }),
   );
 }
 
-// Push the per-model rate-limit option (and new-user scalars) the same way a full
-// sync does, so `sync metadata` keeps the gateway's rate limits in step with the
-// `:free` catalog. Out-of-scope entries (under a `--models` filter) are preserved.
-// No-op when config carries no `rateLimit` block.
-async function syncRateLimitOptions(
-  target: NewApiClient,
+function syncRateLimitOptions(
+  store: OptionStore,
   config: RuntimeConfig,
   publishedNames: Set<string>,
   inScope: (name: string) => boolean,
-): Promise<void> {
+): void {
   if (!config.rateLimit) return;
-
   const desired = expandRateLimitModels(publishedNames, config.rateLimit);
-
-  const current = await target.getOptions(["ModelRequestRateLimitModels"]);
-
-  // Preserve out-of-scope entries: in a partial run only in-scope `:free` keys are
-  // managed; everything else keeps its existing value.
-  let existing: Record<string, number[]> = {};
-  try {
-    existing = JSON.parse(current.ModelRequestRateLimitModels || "{}");
-  } catch {
-    existing = {};
-  }
-  const merged: Record<string, number[]> = {};
-  for (const [k, v] of Object.entries(existing)) if (!inScope(k)) merged[k] = v;
+  // A `--models` run manages only in-scope keys; the rest keep their value.
+  const merged: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(
+    store.object("ModelRequestRateLimitModels"),
+  ))
+    if (!inScope(k)) merged[k] = v;
   for (const [k, v] of Object.entries(desired)) merged[k] = v;
-
-  const updates: Record<string, string> = {
-    ModelRequestRateLimitModels: JSON.stringify(merged),
-  };
-
-  for (const [key, value] of Object.entries(updates)) {
-    if (current[key] !== value) await target.updateOption(key, value);
-  }
+  store.replace("ModelRequestRateLimitModels", JSON.stringify(merged));
 }
 
 export function printMetadataSummary(result: MetadataSyncResult): void {
@@ -1253,10 +1039,6 @@ export function printMetadataSummary(result: MetadataSyncResult): void {
     consola.info(
       `[metadata] renamed ${result.renamedGroups} channels to their spliced group labels`,
     );
-  if (result.thinkingEnabled > 0)
-    consola.info(
-      `[metadata] cleared obsolete thinking_to_content on ${result.thinkingEnabled} channels`,
-    );
   if (result.passThroughEnabled > 0)
     consola.info(
       `[metadata] enabled body pass-through on ${result.passThroughEnabled} media channels`,
@@ -1275,4 +1057,6 @@ export function printMetadataSummary(result: MetadataSyncResult): void {
         items: result.failedModels.join(", "),
       }),
     );
+  for (const error of result.optionErrors)
+    consola.error(`[metadata] option error: ${error}`);
 }

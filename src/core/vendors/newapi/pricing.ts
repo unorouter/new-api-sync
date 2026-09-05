@@ -131,14 +131,17 @@ function groupPriceRatio(
   return prices.length ? Math.min(...prices) : undefined;
 }
 
-// new-api answers model_ratio 37.5 / completion_ratio 1 for any model it holds no
-// price for, so a relay publishing that pair is saying "unpriced", not $75/M.
+// new-api answers this model_ratio (with completion_ratio 1) for any model it
+// holds no price for, so a relay publishing that pair is saying "unpriced",
+// not $75/M.
+export const NEW_API_UNPRICED_RATIO = 37.5;
+
 function publishedRatio(
   modelRatio: number | undefined,
   completionRatio: number | undefined,
   groupPrice: Parameters<typeof groupPriceRatio>[0],
 ): number | undefined {
-  if (modelRatio === 37.5 && (completionRatio ?? 1) === 1)
+  if (modelRatio === NEW_API_UNPRICED_RATIO && (completionRatio ?? 1) === 1)
     return groupPriceRatio(groupPrice);
   return modelRatio ?? groupPriceRatio(groupPrice);
 }

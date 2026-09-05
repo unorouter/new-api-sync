@@ -20,7 +20,7 @@ import type { BaseModelPricing, SourceMetadata } from "./types";
 // context window into the output field when a vendor publishes only one number
 // (litellm does it for every xAI entry, ephone reports 2M out on a 500k context),
 // and publishing that lets a client request an impossible max_tokens.
-export const MAX_PLAUSIBLE_OUTPUT_TOKENS = 200_000;
+const MAX_PLAUSIBLE_OUTPUT_TOKENS = 200_000;
 
 // An output cap is implausible when it exceeds the plausibility ceiling AND is not
 // smaller than the context window it belongs to. Below the ceiling a value equal to

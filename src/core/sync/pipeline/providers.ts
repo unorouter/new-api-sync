@@ -3,6 +3,7 @@ import {
   FLAT_VARIANT_SUFFIX,
   GRID_VARIANT_SUFFIX,
 } from "@core/pricing/image-per-call";
+import { isFixed } from "@core/pricing/compute";
 import type { ProviderRunContext, UpstreamOffer } from "@core/pricing/offers";
 import { throwIfRunAborted } from "@core/infra/abort";
 import { timingTrack } from "@core/infra/timing";
@@ -12,14 +13,12 @@ import type {
   OpenRouterProviderConfig,
   ProviderConfig,
   SimpleFreeProviderConfig,
-  Sub2ApiProviderConfig,
   A7ApiProviderConfig,
 } from "@core/validations/config";
 import { processA7ApiProvider } from "@core/vendors/a7api/provider";
 import { processNewApiProvider } from "@core/vendors/newapi/provider";
 import { processNvidiaProvider } from "@core/vendors/nvidia/provider";
 import { processOpenRouterProvider } from "@core/vendors/openrouter/provider";
-import { processSub2ApiProvider } from "@core/vendors/sub2api/provider";
 import {
   SIMPLE_PROVIDER_MAP,
   processSimpleProvider,
@@ -37,9 +36,7 @@ function applyFlatVariantSplit(offers: UpstreamOffer[]): void {
   for (const offer of offers)
     for (const m of offer.models) {
       if (m.modelType === "text" || m.isFree) continue;
-      const fixed =
-        (m.modelPrice !== undefined && m.modelPrice > 0) ||
-        (m.quotaType !== undefined && m.quotaType >= 1);
+      const fixed = isFixed(m);
       (fixed ? perCall : perToken).add(m.exposed);
     }
   // Only names that are BOTH per-token somewhere AND per-call somewhere need the split.
@@ -48,9 +45,7 @@ function applyFlatVariantSplit(offers: UpstreamOffer[]): void {
   for (const offer of offers)
     for (const m of offer.models) {
       if (!split.has(m.exposed)) continue;
-      const fixed =
-        (m.modelPrice !== undefined && m.modelPrice > 0) ||
-        (m.quotaType !== undefined && m.quotaType >= 1);
+      const fixed = isFixed(m);
       if (fixed && !m.exposed.endsWith(FLAT_VARIANT_SUFFIX))
         m.exposed = `${m.exposed}${FLAT_VARIANT_SUFFIX}`;
     }
@@ -68,13 +63,12 @@ function applyGridVariantSplit(offers: UpstreamOffer[]): void {
 }
 
 // Bespoke providers get explicit ordering; simple registry providers slot in the
-// middle. sub2api runs last (depends on nothing but is cheapest to retry).
+// middle.
 const BESPOKE_ORDER: Record<string, number> = {
   newapi: 0,
   nvidia: 1,
   openrouter: 2,
   a7api: 3,
-  sub2api: 100,
 };
 function typeOrder(type: string): number {
   return BESPOKE_ORDER[type] ?? 50;
@@ -121,12 +115,6 @@ export async function runAllProviders(
         if (provider.type === "openrouter")
           return processOpenRouterProvider(
             provider as OpenRouterProviderConfig,
-            config,
-            ctx,
-          );
-        if (provider.type === "sub2api")
-          return processSub2ApiProvider(
-            provider as Sub2ApiProviderConfig,
             config,
             ctx,
           );

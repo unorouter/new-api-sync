@@ -4,6 +4,7 @@ import {
 } from "@core/catalog/constants/patterns";
 import type { RuntimeConfig } from "@core/config";
 import { throwIfRunAborted } from "@core/infra/abort";
+import { OptionStore } from "@core/sync/option-store";
 import { MANAGED_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
 import { t } from "@server/i18n";
@@ -128,11 +129,13 @@ export async function runReset(
 
   const optionsUpdated: string[] = [];
   if (!hasAnyFilter) {
+    const store = await OptionStore.load(target);
     const resetValues = buildOptionResetValues();
-    for (const key of MANAGED_OPTION_KEYS) {
-      if (await target.updateOption(key, resetValues[key] ?? "{}"))
-        optionsUpdated.push(key);
-    }
+    for (const key of MANAGED_OPTION_KEYS)
+      store.replace(key, resetValues[key] ?? "{}");
+    optionsUpdated.push(
+      ...(await store.flush(target, await target.listChannels())).written,
+    );
   }
 
   return {

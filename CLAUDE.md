@@ -56,7 +56,7 @@ src/
     config.ts             config load/merge, ENV expansion, builtin blacklist
     sync/                 orchestration: run, diff, apply, reset, pipeline/
     pricing/              the economic core: compute, vote, resolver, sources/, tiered-expr
-    vendors/              per-provider adapters: newapi (reference), sub2api, openrouter, nvidia, comfyui,
+    vendors/              per-provider adapters: newapi (reference), a7api, openrouter, nvidia, comfyui,
                           shared/openai-free-provider (keyless/free OpenAI-compat providers), plus
                           per-provider discovery dirs (blockrun, freeai, bleak, longcat, publicai, voyage,
                           sealion, llmgateway). New free provider = discovery.ts + registry-meta.ts
@@ -77,16 +77,17 @@ Path aliases (use these, never relative cross-package imports): `@core/*`, `@ser
 `runSync` in `src/core/sync/run.ts` is the 6-step spine:
 
 1. **Health + snapshot** current channels/models/vendors/options into a `TargetSnapshot`.
-2. **Discover + test** per provider in TYPE_ORDER (newapi, nvidia, openrouter, sub2api). Each
+2. **Discover + test** per provider in TYPE_ORDER (newapi, nvidia, openrouter, a7api). Each
    processor returns `UpstreamOffer[]`.
 3. **Canonical retail** resolved by VOTE across pricing sources (`pricing/vote.ts`).
 4. **Price + emit**: `computePricedPlan` (pricing/compute.ts) builds tiers under the cap, `emitChannels`
    makes channels, `buildDesiredModels` + `buildOptionMaps` make the rest. Result: `DesiredState`.
 5. **Diff** desired vs snapshot into create/update/delete ops (`sync/diff.ts`).
-6. **Apply + cleanup**: options -> channels -> models -> always-on janitor (new-api FixAbility rebuilds
-   the abilities table from channels, healing enabled-drift and orphans from out-of-band edits; then
-   orphaned-model cleanup deletes model rows with no ability at all - disabled abilities count as
-   bound, so it is partial-safe), then guest token, then write logs.
+6. **Apply + cleanup**: options (one `OptionStore.flush`) -> channels -> models -> always-on janitor
+   (new-api FixAbility rebuilds the abilities table from channels, healing enabled-drift and orphans
+   from out-of-band edits; then orphaned-model cleanup deletes model rows with no ability at all -
+   disabled abilities count as bound, so it is partial-safe) -> group prune (second flush) -> guest
+   token -> the `[pricing]` audit block -> logs.
 
 Each upstream model flows: provider row -> `OfferModel{exposed, upstream, upstreamRatio}` -> canonical
 vote -> `MergedModel` + `PricedTier` -> `Channel` (with `model_mapping: {exposed -> upstream}`) ->
@@ -95,8 +96,8 @@ gets forwarded.
 
 ### `bun sync metadata` (no-probe re-seed + re-price)
 
-`metadata` runs `runProviderPipeline({dryRun:true})` over ONLY the `newapi` providers (the others run
-live probes even under dryRun), then writes a SUBSET of options merge-preserving everything else: it
+`metadata` runs `runProviderPipeline({dryRun:true})` over ONLY the `newapi` and `a7api` providers (the
+others run live probes even under dryRun), then writes a SUBSET of options merge-preserving everything else: it
 re-seeds model metadata (context/release/series/tags via `curated.ts` + `CURATED_OVERRIDE` + fuzzy
 sources) AND re-prices the option maps `ModelRatio`/`CompletionRatio`/`ModelPrice`/`ImageRatio`/
 `Cache*`/`Audio*`/`ModelQuotaType`/`ModelGridPricing`/`billing_setting.*` AND `GroupRatio` (the last is
@@ -104,6 +105,9 @@ keyed by channel-group, not model name, so it is merged separately at the end of
 It does NO live probes, NO channel create/delete, NO token creation. Use it to apply pricing-engine
 changes (e.g. the per-request group-ratio formula) WITHOUT a full `sync run`. It only touches names the
 current target channels already publish (in-scope), so out-of-scope/paid-elsewhere entries stay intact.
+All option edits accumulate in one `OptionStore` and land in a single flush at the end; the run exits 1
+(and the cluster Job fails, alert `NewApiSyncJobFailed`) when that flush healed an entry or a model on an
+enabled channel carries no price. Read the `[pricing]` block at the end of the log.
 
 ### Fixing a bad/fake channel: delete in DB, then re-sync with precision
 
@@ -164,13 +168,14 @@ recreate with precision; never a full `sync run` to fix one model.
   this true. A managed model leaves the guard ONLY when the run prices it: stripping every
   model a managed provider serves let a `--only <provider>` run whose in-scope lanes all failed the
   live probe erase the sticker while another provider's lanes kept serving it, and the gateway then
-  answered "not priced by the administrator" (41 models, 2026-09-05). The diff logs
-  `[diff] ModelRatio drops N model(s): ...` whenever a write shrinks a pricing map; a non-empty list
-  on a partial run is a bug. Independently, `NewApiClient.updateOption` REFUSES any ModelRatio /
-  ModelPrice / billing_expr write that would leave a model on an enabled channel with none of the
-  three (`[guard] refusing ...`, names listed, write returns false and the run reports it): six
-  incidents since June each unpriced live models through a different path, and this is the one
-  write they all share. `reset` passes because it deletes the channels first. The apply-phase janitor (FixAbility + orphaned-model cleanup) runs on EVERY sync
+  answered "not priced by the administrator" (41 models, 2026-09-05). Independently, EVERY option-map
+  write goes through `OptionStore` (`sync/option-store.ts`) and its `settle` invariant: a model on an
+  enabled channel keeps at least one of ModelRatio / ModelPrice / billing_expr, and a group any
+  channel carries keeps its GroupRatio / UserUsableGroups / AutoGroups entries. An endangered entry is
+  HEALED (copied forward from the loaded value, `[option-store] healed ...`), the rest of the write
+  lands, and the run exits 1 so the cluster Job fails and alerts. Six incidents since June each
+  unpriced live models through a different path; the store is the one write they all share.
+  `reset` passes because it deletes the channels first. The apply-phase janitor (FixAbility + orphaned-model cleanup) runs on EVERY sync
   because it is partial-safe by construction: abilities rebuild from whatever channels exist, and a
   model row only counts as orphaned with zero ability rows (disabled ones from rate-limited-preserved
   channels count as bound - requires new-api >= a0f589a1).
@@ -179,8 +184,8 @@ recreate with precision; never a full `sync run` to fix one model.
   that passed ITS OWN probe, so removal-by-omission deleted the group entries of every live channel
   whose model merely throttled during that run's probe (free tiers throttle constantly) - the
   recurring "channel live but model invisible/unroutable" incident (gemini groups, di1, 149 free
-  groups, 20 paid groups all hit this). The ONLY removal authority is `pruneDeadOptionGroups`
-  (apply.ts): full post-apply channel list, protects the run's own diff groups, removes a
+  groups, 20 paid groups all hit this). The ONLY removal authority is `OptionStore.pruneGroups`
+  (called from apply.ts): full post-apply channel list, protects the run's own diff groups, removes a
   usable/auto entry only when NO channel of any status carries the group. GroupRatio is never
   pruned at all (subscription tiers bill through it). Do not reintroduce a group guard in the merge.
   The prune also logs the group NAMES it removed, not just a count - a bare count left the
@@ -338,7 +343,11 @@ issues.
   `GroupRatio` before a manual write and merge its stale copy back afterwards; write option maps
   only while no sync job is active, recompute from live at write time, and re-check after the
   next cron tick. That job also writes a ratio for every unprobed candidate group, so lane-shaped
-  `GroupRatio` keys without a channel accumulate; `pruneDeadOptionGroups` never touches them.
+  `GroupRatio` keys without a channel accumulate; the group prune never touches them.
+- Never call `client.updateOption` from a script; it bypasses the pricing invariant. Recipe:
+  `const store = await OptionStore.load(target); store.setEntries("ModelRatio", { name: 1.5 });
+await store.flush(target, await target.listChannels());` (`deleteEntries`, `mergeGroups`,
+  `pruneGroups`, `replace` for scalar keys). The flush logs drops and heals and returns `errors`.
 
 ## a7 cluster crons (cluster runs the cadence, this machine is for development)
 
@@ -430,11 +439,12 @@ mount it, so it keeps working while the daily run is stuck.
 every 15 min (:00/:15/:30/:45, ~35s: listings, pin list, notice accepts, unpin+pin
 on price drops) on its own schedule. Local a7 runs share a7's rate budget with it
 and can race its re-pins. Rules:
+
 - One a7 run at a time, anywhere. Start local a7 runs in the gap after a tick
   (:01-:13) and check `kubectl -n services get jobs` shows no active
   `new-api-sync-*` first; for anything long (`--only a7` full, ~25 min) suspend
   the metadata cron (`kubectl -n services patch cronjob new-api-sync -p
-  '{"spec":{"suspend":true}}'`, un-suspend after; ArgoCD does not revert it).
+'{"spec":{"suspend":true}}'`, un-suspend after; ArgoCD does not revert it).
 - Space a7 runs >= 30 min apart. Five in one hour tripped 429s on pin/token
   calls and "no key for lane ..., skipping" for healthy merchants.
 - A THROTTLED FULL `--only a7` RUN IS DESTRUCTIVE: a lane skipped for "no key"

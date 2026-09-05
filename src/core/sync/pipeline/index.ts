@@ -1,5 +1,6 @@
 import {
   buildReverseMapping,
+  isRoutingOnlyAlias,
   parseModelList,
 } from "@core/catalog/constants/patterns";
 import {
@@ -36,9 +37,10 @@ import { resolveCanonicalRetail } from "./canonical";
 import {
   buildDesiredModels,
   collectResponsesApiModels,
-  isRoutingOnlyAlias,
   type ToolEvidence,
 } from "./desired-models";
+import { parseJsonObject } from "@core/sync/option-store";
+import { setDryRunMode } from "@core/testing/runner";
 import { buildOptionMaps, buildSurvivingGroups } from "./option-maps";
 import { runAllProviders } from "./providers";
 import { timingMark } from "@core/infra/timing";
@@ -53,30 +55,26 @@ interface SnapshotPricing {
 }
 
 function parseSnapshotPricing(snapshot?: TargetSnapshot): SnapshotPricing {
-  const empty: SnapshotPricing = {
-    modelRatio: {},
-    modelPrice: {},
-    completionRatio: {},
-    modelQuotaType: {},
-    billingExpr: {},
-    billingMode: {},
+  const pick = <T>(
+    key: string,
+    is: (v: unknown) => v is T,
+  ): Record<string, T> => {
+    const out: Record<string, T> = {};
+    for (const [k, v] of Object.entries(
+      parseJsonObject(snapshot?.options[key]),
+    ))
+      if (is(v)) out[k] = v;
+    return out;
   };
-  if (!snapshot) return empty;
-  const parse = <T>(key: string): Record<string, T> => {
-    try {
-      const raw = snapshot.options[key];
-      return raw ? (JSON.parse(raw) as Record<string, T>) : {};
-    } catch {
-      return {};
-    }
-  };
+  const isNumber = (v: unknown): v is number => typeof v === "number";
+  const isString = (v: unknown): v is string => typeof v === "string";
   return {
-    modelRatio: parse<number>("ModelRatio"),
-    modelPrice: parse<number>("ModelPrice"),
-    completionRatio: parse<number>("CompletionRatio"),
-    modelQuotaType: parse<number>("ModelQuotaType"),
-    billingExpr: parse<string>("billing_setting.billing_expr"),
-    billingMode: parse<string>("billing_setting.billing_mode"),
+    modelRatio: pick("ModelRatio", isNumber),
+    modelPrice: pick("ModelPrice", isNumber),
+    completionRatio: pick("CompletionRatio", isNumber),
+    modelQuotaType: pick("ModelQuotaType", isNumber),
+    billingExpr: pick("billing_setting.billing_expr", isString),
+    billingMode: pick("billing_setting.billing_mode", isString),
   };
 }
 
@@ -146,6 +144,19 @@ function buildManagedProviders(
 }
 
 export async function runProviderPipeline(
+  config: RuntimeConfig,
+  targetSnapshot?: TargetSnapshot,
+  opts?: { dryRun?: boolean },
+): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
+  setDryRunMode(opts?.dryRun ?? false);
+  try {
+    return await buildDesiredState(config, targetSnapshot, opts);
+  } finally {
+    setDryRunMode(false);
+  }
+}
+
+async function buildDesiredState(
   config: RuntimeConfig,
   targetSnapshot?: TargetSnapshot,
   opts?: { dryRun?: boolean },

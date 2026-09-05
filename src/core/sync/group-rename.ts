@@ -10,12 +10,11 @@ import {
   sanitizeGroupName,
   spliceGroupLabel,
 } from "@core/catalog/constants/patterns";
+import type { OptionStore } from "@core/sync/option-store";
 import type { Channel } from "@core/types";
 import type { NewApiClient } from "@core/vendors/newapi/client";
 import { t } from "@server/i18n";
 import { consola } from "consola";
-
-const GROUP_OPTION_KEYS = ["GroupRatio", "UserUsableGroups", "AutoGroups"];
 
 export interface GroupRename {
   channel: Channel;
@@ -85,68 +84,6 @@ export function printGroupRenamePlan(plan: GroupRenamePlan): void {
     );
 }
 
-function parseObject(json: string | undefined): Record<string, unknown> {
-  try {
-    const parsed: unknown = JSON.parse(json || "{}");
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
-      return { ...parsed };
-  } catch {
-    // fall through: an unparseable live map is treated as empty
-  }
-  return {};
-}
-
-function parseStringArray(json: string | undefined): string[] {
-  try {
-    const parsed: unknown = JSON.parse(json || "[]");
-    if (Array.isArray(parsed))
-      return parsed.filter((v): v is string => typeof v === "string");
-  } catch {
-    // fall through
-  }
-  return [];
-}
-
-/**
- * The option values after moving group keys for `renames`. Phase "add" copies
- * every old key to the new name; phase "remove" drops the old keys. Returns only
- * the keys whose serialized value changed.
- */
-export function moveGroupOptionKeys(
-  live: Record<string, string>,
-  renames: ReadonlyArray<{ from: string; to: string }>,
-  phase: "add" | "remove",
-): Record<string, string> {
-  const ratio = parseObject(live["GroupRatio"]);
-  const usable = parseObject(live["UserUsableGroups"]);
-  let auto = parseStringArray(live["AutoGroups"]);
-  for (const { from, to } of renames) {
-    if (phase === "add") {
-      if (from in ratio && !(to in ratio)) ratio[to] = ratio[from];
-      if (from in usable && !(to in usable)) usable[to] = usable[from];
-      if (auto.includes(from) && !auto.includes(to)) auto.push(to);
-    } else {
-      delete ratio[from];
-      delete usable[from];
-      auto = auto.filter((g) => g !== from);
-    }
-  }
-  const ratioOf = (g: string) => {
-    const r = ratio[g];
-    return typeof r === "number" ? r : 1;
-  };
-  auto.sort((a, b) => ratioOf(a) - ratioOf(b));
-  const next: Record<string, string> = {
-    GroupRatio: JSON.stringify(ratio),
-    UserUsableGroups: JSON.stringify(usable),
-    AutoGroups: JSON.stringify(auto),
-  };
-  const changed: Record<string, string> = {};
-  for (const key of GROUP_OPTION_KEYS)
-    if (next[key] !== (live[key] ?? "")) changed[key] = next[key]!;
-  return changed;
-}
-
 /** Mutates the plan's channel objects to their post-rename names (dry-run preview, or after a real rename). */
 export function applyGroupRenamesToChannels(renames: GroupRename[]): void {
   for (const r of renames) {
@@ -155,26 +92,16 @@ export function applyGroupRenamesToChannels(renames: GroupRename[]): void {
   }
 }
 
-async function writeOptions(
-  target: NewApiClient,
-  changed: Record<string, string>,
-): Promise<void> {
-  // GroupRatio first: the gateway treats a group as selectable only once it
-  // has a ratio, so the new name must be priced before it is usable or auto.
-  for (const key of GROUP_OPTION_KEYS)
-    if (key in changed) await target.updateOption(key, changed[key]!);
-}
-
 export async function applyGroupRenames(
   target: NewApiClient,
   plan: GroupRenamePlan,
+  store: OptionStore,
+  channels: Channel[],
 ): Promise<number> {
   printGroupRenamePlan(plan);
   if (plan.renames.length === 0) return 0;
-  const live = await target.getOptions(GROUP_OPTION_KEYS);
-  const added = moveGroupOptionKeys(live, plan.renames, "add");
-  await writeOptions(target, added);
-  Object.assign(live, added);
+  store.renameGroups(plan.renames, "add");
+  await store.flush(target, channels);
 
   const done: GroupRename[] = [];
   for (const r of plan.renames) {
@@ -205,6 +132,7 @@ export async function applyGroupRenames(
   applyGroupRenamesToChannels(done);
   // Old keys go only for groups whose channel really moved; a failed rename
   // keeps its old key so the still-old channel stays routable.
-  await writeOptions(target, moveGroupOptionKeys(live, done, "remove"));
+  store.renameGroups(done, "remove");
+  await store.flush(target, channels);
   return done.length;
 }

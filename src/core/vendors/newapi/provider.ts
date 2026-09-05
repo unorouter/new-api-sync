@@ -438,17 +438,19 @@ export async function processNewApiProvider(
           !matchesBlacklist(g.description, config.blacklist, pName),
       );
     }
+    // Tiered models ship a placeholder model_ratio that would trip the canonical
+    // cap; the effective ratio comes from the DEAREST tier, since one published
+    // price has to cover every request.
+    const tieredByName = new Map<
+      string,
+      ReturnType<typeof effectiveTieredOrWarn>
+    >();
     const upstreamPricing = new Map<string, number>();
     for (const m of pricing.models) {
-      // Tiered models ship a placeholder model_ratio (often 37.5) that would
-      // trip the canonical cap. Derive the effective input ratio from the
-      // DEAREST tier's `p` coefficient (same units as model_ratio), which is
-      // what effectiveRatioFromBillingExpr defaults to. Dearest, not cheapest:
-      // one published price has to cover every request, and a long-context call
-      // billed at the cheap tier's rate loses money on the difference.
       const effective = m.billingExpr
         ? effectiveTieredOrWarn(m.billingExpr, m.name)
         : undefined;
+      tieredByName.set(m.name, effective);
       if (effective !== undefined)
         upstreamPricing.set(m.name, effective.modelRatio);
       else if (typeof m.ratio === "number")
@@ -669,12 +671,7 @@ export async function processNewApiProvider(
               const normalized = localNormalizedEndpoints.get(upstreamName);
               const m = pricingByName.get(upstreamName);
               const modelType = inferModelType(exposed, normalized);
-              // Replace placeholder ratios with effective values from the
-              // billing expression so downstream cap/canonical checks compare
-              // in the same units.
-              const tieredEff = m?.billingExpr
-                ? effectiveTieredOrWarn(m.billingExpr, upstreamName)
-                : undefined;
+              const tieredEff = tieredByName.get(upstreamName);
               // A relay model priced at zero (ratio 0 AND no per-call price) is a
               // genuine free lane: mark it so the pricing engine emits groupRatio 0
               // and publishes it as `{name}:free`, not a bare paid-looking name.

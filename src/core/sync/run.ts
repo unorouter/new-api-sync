@@ -7,24 +7,27 @@ import type { RuntimeConfig } from "@core/config";
 import { throwIfRunAborted } from "@core/infra/abort";
 import { writeJsonAtomic } from "@core/infra/fs";
 import { logsDir } from "@core/infra/paths";
-import { applySyncDiff } from "@core/sync/apply";
+import { applySyncDiff, projectChannels } from "@core/sync/apply";
 import { buildSyncDiff } from "@core/sync/diff";
 import {
   applyGroupRenames,
   applyGroupRenamesToChannels,
-  moveGroupOptionKeys,
   planGroupRenames,
   printGroupRenamePlan,
 } from "@core/sync/group-rename";
 import { updateGuestTokenIfConfigured } from "@core/sync/guest-token";
 import { reconcileSystemPrompt } from "@core/sync/metadata";
+import {
+  OptionStore,
+  parseJsonObject,
+  printPricingAudit,
+} from "@core/sync/option-store";
 import { runProviderPipeline } from "@core/sync/pipeline";
 import type { ResetResult } from "@core/sync/reset";
 import { loadVerdictCache } from "@core/testing/verdict-cache";
 import {
   recordRunSummary,
   resetTestState,
-  setDryRunMode,
   writeTestReport,
 } from "@core/testing/runner";
 import type {
@@ -33,8 +36,8 @@ import type {
   SyncRunResult,
   TargetSnapshot,
 } from "@core/types";
-import { MANAGED_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
+import { NEW_API_UNPRICED_RATIO } from "@core/vendors/newapi/pricing";
 import { drainUpstreamErrors } from "@core/vendors/newapi/resources";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -100,14 +103,16 @@ async function ensureVendors(
   return changed;
 }
 
-async function snapshot(client: NewApiClient): Promise<TargetSnapshot> {
-  const [channels, models, vendors, options] = await Promise.all([
+async function snapshot(
+  client: NewApiClient,
+): Promise<{ snap: TargetSnapshot; store: OptionStore }> {
+  const [channels, models, vendors, store] = await Promise.all([
     client.listChannels(),
     client.listModels(),
     client.listVendors(),
-    client.getOptions([...MANAGED_OPTION_KEYS]),
+    OptionStore.load(client),
   ]);
-  return { channels, models, vendors, options };
+  return { snap: { channels, models, vendors, options: store.raw() }, store };
 }
 
 export async function runSync(
@@ -120,7 +125,6 @@ export async function runSync(
   const dryRun = opts?.dryRun ?? false;
   const target = new NewApiClient(config.target, "target");
   resetTestState();
-  setDryRunMode(dryRun);
   loadVerdictCache();
 
   // Logs written in finally so a crash/abort still flushes buffered errors.
@@ -135,26 +139,20 @@ export async function runSync(
       );
 
     throwIfRunAborted();
-    const snap = await snapshot(target);
+    const { snap, store } = await snapshot(target);
     // Splice-rule renames happen in place BEFORE the diff, or the name-keyed
     // diff would turn each one into a create + delete. Dry-run applies the
     // plan to the in-memory snapshot so the preview shows the same diff.
     const groupPlan = planGroupRenames(snap.channels, config);
     if (dryRun) {
       printGroupRenamePlan(groupPlan);
-      Object.assign(
-        snap.options,
-        moveGroupOptionKeys(snap.options, groupPlan.renames, "add"),
-      );
-      Object.assign(
-        snap.options,
-        moveGroupOptionKeys(snap.options, groupPlan.renames, "remove"),
-      );
+      store.renameGroups(groupPlan.renames, "add");
+      store.renameGroups(groupPlan.renames, "remove");
       applyGroupRenamesToChannels(groupPlan.renames);
     } else if (groupPlan.renames.length > 0) {
-      await applyGroupRenames(target, groupPlan);
-      snap.options = await target.getOptions([...MANAGED_OPTION_KEYS]);
+      await applyGroupRenames(target, groupPlan, store, snap.channels);
     }
+    snap.options = store.raw();
     timingMark("snapshot");
     throwIfRunAborted();
     const { desired, providerReports } = await runProviderPipeline(
@@ -173,6 +171,14 @@ export async function runSync(
     if (dryRun) {
       const diff = buildSyncDiff(config, desired, snap);
       printDryRunPricing(desired, snap, config);
+      const preview = OptionStore.fromRaw(snap.options);
+      for (const op of diff.options)
+        if (op.type !== "delete") preview.replace(op.key, op.value);
+      const after = projectChannels(snap.channels, diff);
+      printPricingAudit(
+        preview.settle(after),
+        preview.unpricedLiveModels(after),
+      );
       // Project the computed diff into the summary changeset so the dry-run
       // prints what WOULD be created/updated/deleted (no writes happen).
       const byType = <T>(
@@ -193,6 +199,7 @@ export async function runSync(
           orphansDeleted: 0,
         },
         options: { updated: byType(diff.options, "update") },
+        pricing: { dropped: [], healed: [] },
         errors: [],
       };
       const successfulProviders = providerReports.filter(
@@ -226,7 +233,7 @@ export async function runSync(
     throwIfRunAborted();
     const diff = buildSyncDiff(config, desired, liveSnap);
     timingMark("diff");
-    const apply = await applySyncDiff(target, diff);
+    const apply = await applySyncDiff(target, diff, store, liveSnap.channels);
     timingMark("apply");
     applyErrors = apply.errors;
 
@@ -234,10 +241,19 @@ export async function runSync(
     // existing channel whose model wasn't re-tiered this run keeps a stale/absent
     // prompt. Reconcile it onto ALL current channels so a prompt/scope edit
     // propagates without recreating them (mirrors the metadata-sync reconcile).
-    await reconcileSystemPrompt(target, await target.listChannels(), config);
+    const liveChannels = await target.listChannels();
+    await reconcileSystemPrompt(target, liveChannels, config);
     throwIfRunAborted();
-    await updateGuestTokenIfConfigured(target, await target.listChannels());
+    await updateGuestTokenIfConfigured(target, liveChannels);
     timingMark("reconcile+token");
+    const unpriced = store.unpricedLiveModels(liveChannels);
+    printPricingAudit(apply.pricing, unpriced);
+    if (unpriced.length > 0)
+      apply.errors.push({
+        phase: "cleanup",
+        key: "unpriced-models",
+        message: `${unpriced.length} model(s) on enabled channels carry no price: ${unpriced.join(", ")}`,
+      });
 
     const successfulProviders = providerReports.filter((p) => p.success).length;
     const hasProviderSuccess =
@@ -258,23 +274,15 @@ export async function runSync(
 // Dry-run pricing preview: for every in-scope model, show the computed
 // model_ratio/completion (what WOULD be written) vs what new-api currently
 // stores, and the channels that would serve it. Surfaces ratio discrepancies
-// (e.g. a model falling back to new-api's 37.5 default because no tier survived
-// the cap) without any upstream cost or write.
+// (e.g. a model falling back to new-api's unpriced default because no tier
+// survived the cap) without any upstream cost or write.
 function printDryRunPricing(
   desired: DesiredState,
   snapshot: TargetSnapshot,
   config: RuntimeConfig,
 ): void {
   const opts = desired.options;
-  const currentRatio = ((): Record<string, number> => {
-    try {
-      return snapshot.options.ModelRatio
-        ? (JSON.parse(snapshot.options.ModelRatio) as Record<string, number>)
-        : {};
-    } catch {
-      return {};
-    }
-  })();
+  const currentRatio = parseJsonObject(snapshot.options.ModelRatio);
 
   const channelsByModel = new Map<string, { name: string; ratio: number }[]>();
   for (const ch of desired.channels)
@@ -305,10 +313,10 @@ function printDryRunPricing(
       ratio !== undefined || price !== undefined || expr !== undefined;
     const stored = currentRatio[name];
     // Channels exist but no computed ratio/price/expr => new-api keeps its
-    // stored/default value (37.5 for unknown models). That is the discrepancy.
+    // stored value, or the unpriced default. That is the discrepancy.
     const flag =
       !hasComputed && chans.length > 0
-        ? ` <= NO COMPUTED RATIO; new-api keeps stored=${stored ?? "default(37.5)"}`
+        ? ` <= NO COMPUTED RATIO; new-api keeps stored=${stored ?? `default(${NEW_API_UNPRICED_RATIO})`}`
         : "";
     const priced =
       expr !== undefined

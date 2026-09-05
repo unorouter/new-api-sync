@@ -8,7 +8,7 @@ export interface RunContext {
 // Per-run context, ALS-isolated so concurrent SSE clients don't share signal or error buffer.
 const runStorage = new AsyncLocalStorage<RunContext>();
 
-export function runInContext<T>(
+function runInContext<T>(
   signal: AbortSignal | undefined,
   task: () => Promise<T>,
 ): Promise<T> {
