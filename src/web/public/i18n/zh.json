@@ -461,7 +461,9 @@
       "FIX_ABILITIES_FAILED": "[{name}] 能力表重建（channel/fix）失败或不受支持",
       "FIX_ABILITIES_PARTIAL": "[{name}] 能力表重建有 {fails} 个渠道失败，跳过孤立模型清理",
       "GUEST_TOKEN_UPDATED": "已更新访客令牌 \"{name}\"：{count} 个完全免费模型",
-      "CONDITIONAL_PRICING": "[{name}] 已将 {count} 个模型的价格提升至最高上下文阶梯（阶梯计价）"
+      "CONDITIONAL_PRICING": "[{name}] 已将 {count} 个模型的价格提升至最高上下文阶梯（阶梯计价）",
+      "VANILLA_GATEWAY": "[{name}] 原版 new-api（无同步专用路由）：跳过孤立模型清理，模型列表走 /api/models/，访客限制改经标准令牌更新写入",
+      "GUEST_TOKEN_NOT_FOUND": "[{name}] 按密钥未找到访客令牌，未更新模型限制"
     },
     "SYNC": {
       "VENDOR_UPDATED": "已更新供应商 \"{name}\"（id={id}，图标={icon}）",

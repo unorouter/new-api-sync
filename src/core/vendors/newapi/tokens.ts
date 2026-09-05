@@ -163,6 +163,28 @@ export async function updateGuestTokenModelLimits(
   guestKey: string,
   modelLimits: string,
 ): Promise<boolean> {
+  if (!(await ctx.caps()).syncRoutes) {
+    // Vanilla new-api: the standard update route, which needs the token's owner
+    // (the admin PAT the sync holds there).
+    const token = await findTokenByKey(ctx, guestKey);
+    if (!token) {
+      consola.warn(t("CORE.NEWAPI.GUEST_TOKEN_NOT_FOUND", { name: ctx.name }));
+      return false;
+    }
+    const updated = await tryFetchJson<{ success: boolean }>(
+      `${ctx.baseUrl}/api/token/`,
+      {
+        method: "PUT",
+        headers: ctx.headers,
+        body: {
+          ...token,
+          model_limits_enabled: true,
+          model_limits: modelLimits,
+        },
+      },
+    );
+    return updated?.success ?? false;
+  }
   const data = await tryFetchJson<{ success: boolean; message?: string }>(
     `${ctx.baseUrl}/api/token/guest-model-limits`,
     {

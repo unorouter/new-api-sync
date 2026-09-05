@@ -76,17 +76,18 @@ export function printPricingAudit(
   audit: PricingAudit,
   unpriced: string[],
 ): void {
-  const lines = [
-    ...audit.healed.map((h) => `healed ${h.key}: ${h.names.join(", ")}`),
-    ...audit.dropped.map((d) => `dropped ${d.key}: ${d.names.join(", ")}`),
-  ];
+  for (const d of audit.dropped)
+    consola.warn(`[pricing-audit] dropped ${d.key}: ${d.names.join(", ")}`);
+  const errors = audit.healed.map(
+    (h) => `healed ${h.key}: ${h.names.join(", ")}`,
+  );
   if (unpriced.length > 0)
-    lines.push(`unpriced on enabled channels: ${unpriced.join(", ")}`);
-  if (lines.length === 0) {
+    errors.push(`unpriced on enabled channels: ${unpriced.join(", ")}`);
+  if (errors.length === 0) {
     consola.info("[pricing-audit] clean");
     return;
   }
-  for (const line of lines) consola.error(`[pricing-audit] ${line}`);
+  for (const line of errors) consola.error(`[pricing-audit] ${line}`);
 }
 
 export class OptionStore {

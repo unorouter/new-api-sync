@@ -344,6 +344,11 @@ issues.
   only while no sync job is active, recompute from live at write time, and re-check after the
   next cron tick. That job also writes a ratio for every unprobed candidate group, so lane-shaped
   `GroupRatio` keys without a channel accumulate; the group prune never touches them.
+- The sync also runs against upstream new-api. `makeClientContext` (vendors/newapi/context.ts)
+  probes `PUT /api/token/guest-model-limits` once per client: a real 404 means vanilla, and
+  `listModels`, orphan cleanup, guest limits and the metadata reseed degrade (README "Works with
+  upstream new-api"). Anything but a 404 counts as the fork, so a blip never flips prod onto
+  the vanilla paths. Test changes against `docker compose` from `backup/new-api` on :3300.
 - Never call `client.updateOption` from a script; it bypasses the pricing invariant. Recipe:
   `const store = await OptionStore.load(target); store.setEntries("ModelRatio", { name: 1.5 });
 await store.flush(target, await target.listChannels());` (`deleteEntries`, `mergeGroups`,

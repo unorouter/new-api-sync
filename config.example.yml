@@ -1,5 +1,7 @@
 target:
   baseUrl: https://api.unorouter.com
+  # Upstream new-api: an admin access token (root when option maps are written).
+  # unorouter fork: the scoped sync service token works too.
   systemAccessToken: target-system-access-token
   userId: 1
 blacklist:

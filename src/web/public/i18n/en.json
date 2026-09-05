@@ -461,7 +461,9 @@
       "FIX_ABILITIES_FAILED": "[{name}] Ability rebuild (channel/fix) failed or not supported",
       "FIX_ABILITIES_PARTIAL": "[{name}] Ability rebuild left {fails} channel(s) without rows - skipping orphaned-model cleanup",
       "GUEST_TOKEN_UPDATED": "Guest token \"{name}\" updated: {count} truly-free model(s)",
-      "CONDITIONAL_PRICING": "[{name}] raised {count} model(s) to their dearest context tier (conditional pricing)"
+      "CONDITIONAL_PRICING": "[{name}] raised {count} model(s) to their dearest context tier (conditional pricing)",
+      "VANILLA_GATEWAY": "[{name}] vanilla new-api (no sync routes): orphan cleanup is skipped, models list via /api/models/, guest limits go through the standard token update",
+      "GUEST_TOKEN_NOT_FOUND": "[{name}] Guest token not found by key; model limits not updated"
     },
     "SYNC": {
       "VENDOR_UPDATED": "Updated vendor \"{name}\" (id={id}, icon={icon})",

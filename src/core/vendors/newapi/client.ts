@@ -1,7 +1,7 @@
 import { tryFetchJson } from "@core/infra/http";
 import type { Channel, GroupInfo, ModelMeta, Vendor } from "@core/types";
 import { t } from "@server/i18n";
-import type { ClientContext } from "./context";
+import { type ClientContext, makeClientContext } from "./context";
 import { fetchPricing } from "./pricing";
 import {
   cleanupOrphanedModels,
@@ -43,11 +43,7 @@ export class NewApiClient {
       "X-Api-User": userId,
       "Content-Type": "application/json",
     };
-    this.ctx = {
-      baseUrl: this.baseUrl,
-      headers: this.headers,
-      name: name ?? "target",
-    };
+    this.ctx = makeClientContext(this.baseUrl, this.headers, name ?? "target");
   }
 
   // Reachability only, deliberately not /api/user/self. The target now

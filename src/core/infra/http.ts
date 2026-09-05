@@ -22,13 +22,19 @@ interface FetchOptions {
   retryDelayMs?: number;
 }
 
-export async function fetchJson<T>(
+export type FetchResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; status: number | undefined; message: string };
+
+// Keeps the HTTP status so a caller can tell "route does not exist" (404)
+// from "refused" or "unreachable"; the other two helpers flatten it.
+export async function fetchJsonResult<T>(
   url: string,
   options?: FetchOptions,
-): Promise<T> {
+): Promise<FetchResult<T>> {
   try {
-    // responseType: "json" forces parse — GitHub raw serves JSON as text/plain.
-    return await ofetch<T>(url, {
+    // responseType: "json" forces parse; GitHub raw serves JSON as text/plain.
+    const data = await ofetch<T>(url, {
       method: options?.method,
       headers: options?.headers,
       body: options?.body as Record<string, unknown> | undefined,
@@ -37,18 +43,33 @@ export async function fetchJson<T>(
       retryDelay: options?.retryDelayMs,
       responseType: "json",
     });
+    return { ok: true, data };
   } catch (err) {
-    if (err instanceof FetchError && err.response) {
-      throw new Error(
-        t("ERROR.HTTP_ERROR", {
+    if (err instanceof FetchError && err.response)
+      return {
+        ok: false,
+        status: err.response.status,
+        message: t("ERROR.HTTP_ERROR", {
           status: err.response.status,
           statusText: err.response.statusText,
           url: redactUrl(url),
         }),
-      );
-    }
-    throw err;
+      };
+    return {
+      ok: false,
+      status: undefined,
+      message: err instanceof Error ? err.message : String(err),
+    };
   }
+}
+
+export async function fetchJson<T>(
+  url: string,
+  options?: FetchOptions,
+): Promise<T> {
+  const r = await fetchJsonResult<T>(url, options);
+  if (r.ok) return r.data;
+  throw new Error(r.message);
 }
 
 export async function tryFetchJson<T>(
