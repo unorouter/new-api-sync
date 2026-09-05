@@ -18,9 +18,12 @@ groupMapping:
   claude code: CC
   claude-code: CC
   claude_code: CC
+  claudecode: CC
+  chatgpt: GPT
   codex: CX
   gemini cli: GC
   gemini-cli: GC
+  geminicli: GC
   antigravity: AG
   ai studio: AIS
   ai-studio: AIS
