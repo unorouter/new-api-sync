@@ -2,7 +2,10 @@ import { fetchJson, tryFetchJson } from "@core/infra/http";
 import { resolvePerModel } from "@core/pricing";
 import { throwIfRunAborted } from "@core/infra/abort";
 import type { A7ApiProviderConfig } from "@core/validations/config";
-import type { ClientContext } from "@core/vendors/newapi/context";
+import {
+  type ClientContext,
+  makeClientContext,
+} from "@core/vendors/newapi/context";
 import {
   createToken,
   deleteToken,
@@ -63,11 +66,11 @@ export function laneTokenName(lane: MerchantLane): string {
 }
 
 function clientContext(provider: A7ApiProviderConfig): ClientContext {
-  return {
-    baseUrl: provider.baseUrl.replace(/\/$/, ""),
-    headers: marketplaceHeaders(provider),
-    name: provider.name,
-  };
+  return makeClientContext(
+    provider.baseUrl.replace(/\/$/, ""),
+    marketplaceHeaders(provider),
+    provider.name,
+  );
 }
 
 const normalizeKey = (key: string) =>

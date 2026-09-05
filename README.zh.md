@@ -193,6 +193,20 @@ enabledModels:
 - `metadata` 会写入 new-api 的单模型 `metadata` JSON 列（客户端 UI 据此触发针对单个模型的行为，例如为推理模型放大 `max_tokens`）。
 - `modelPricingGrid` 用于为图像 / 视频 / 音频模型定义按次的固定价格表。
 
+## 兼容原版 new-api
+
+同步工具既支持 unorouter 分支，也支持原版 [new-api](https://github.com/QuantumNous/new-api)。首次使用时会探测一条仅分支才有的路由；面对原版网关时打印一次 `vanilla new-api (no sync routes)` 并自动降级：
+
+| 功能                       | 分支                                | 原版 new-api                                  |
+| -------------------------- | ----------------------------------- | --------------------------------------------- |
+| 鉴权                       | 专用同步令牌或管理员令牌            | 管理员访问令牌（写 `/api/option/` 需要 root） |
+| 模型列表                   | `GET /api/models/list`              | `GET /api/models/`                            |
+| 孤立模型清理               | `DELETE /api/models/orphaned`       | 跳过                                          |
+| 访客令牌模型限制           | `PUT /api/token/guest-model-limits` | 标准令牌更新（令牌须属于该访问令牌的用户）    |
+| 模型元数据（上下文、标签） | `models.metadata` 列                | 原版无此列；描述、标签、厂商与端点照常写入    |
+
+其余功能（渠道、厂商、选项映射、能力表重建、令牌）使用双方共有的路由。
+
 ## 工作原理
 
 1. **发现**：从每个提供商获取模型 / 组，按厂商、黑名单和 Glob 模式筛选；按 `groupMapping` 替换分组名片段

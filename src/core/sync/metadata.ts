@@ -621,6 +621,12 @@ export async function runMetadataSync(
   const existingByName = new Map<string, ModelMeta>();
   for (const m of existingModels)
     if (m.model_name) existingByName.set(m.model_name, m);
+  // Same inference as diff.ts: vanilla new-api has no metadata column, so its
+  // rows never carry the field and a metadata patch there is a no-op that
+  // would count as "patched" on every run.
+  const supportsMetadata =
+    existingModels.length === 0 ||
+    existingModels.some((m) => m.metadata !== undefined);
 
   const allNames = new Set<string>([
     ...existingByName.keys(),
@@ -727,7 +733,7 @@ export async function runMetadataSync(
     }
 
     const row = planRowPatch(name, existing, {
-      merged,
+      merged: supportsMetadata ? merged : undefined,
       vendorId,
       tags,
       description,

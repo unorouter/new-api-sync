@@ -61,6 +61,9 @@ Two files are loaded on startup:
 | `userId`            | Your user ID                           |
 | `targetPrefix`      | Optional prefix for sync resources     |
 
+On upstream new-api the token is an admin access token (root for option writes). The unorouter
+fork accepts a scoped sync service token instead; see "Works with upstream new-api" below.
+
 ### Global Options
 
 | Field                    | Description                                                                                                                                |
@@ -203,6 +206,22 @@ enabledModels:
 6. **Cleanup**: remove orphaned models
 
 Channels are named `{group}-{provider}`. When a provider's models split into multiple price tiers, channels get numeric suffixes: `{group}-{provider}-t0`, `-t1`, etc. Sub-splits (caused by per-model price overrides or task model pins) add a letter: `-t0a`, `-t0b`. Priority is dynamic: cheapest groups first, faster response times get higher priority.
+
+## Works with upstream new-api
+
+The sync targets upstream [new-api](https://github.com/QuantumNous/new-api) as well as the
+unorouter fork. On first use it probes one fork-only route and, on a vanilla gateway, logs
+`vanilla new-api (no sync routes)` once and adapts:
+
+| Feature                        | Fork                                | Upstream new-api                                                              |
+| ------------------------------ | ----------------------------------- | ----------------------------------------------------------------------------- |
+| Auth                           | scoped sync token or admin token    | admin access token (root for `/api/option/`)                                  |
+| Model list                     | `GET /api/models/list`              | `GET /api/models/`                                                            |
+| Orphaned-model cleanup         | `DELETE /api/models/orphaned`       | skipped                                                                       |
+| Guest token model limits       | `PUT /api/token/guest-model-limits` | standard token update (token must belong to the access token's user)          |
+| Model metadata (context, tags) | `models.metadata` column            | no column upstream; description, tags, vendor and endpoints are still written |
+
+Everything else (channels, vendors, option maps, ability rebuild, tokens) uses routes both have.
 
 ## Behaviors to Know
 

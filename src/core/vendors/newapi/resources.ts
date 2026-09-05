@@ -185,7 +185,11 @@ export async function listModels(ctx: ClientContext): Promise<ModelMeta[]> {
   // does not recognise, and the scoped sync token is one of those. Every run was
   // therefore writing an auth-rejected audit row (406 a week from the cluster)
   // for a request that never contributed a model.
-  const endpoints = [`${ctx.baseUrl}/api/models/list`];
+  const endpoints = [
+    (await ctx.caps()).syncRoutes
+      ? `${ctx.baseUrl}/api/models/list`
+      : `${ctx.baseUrl}/api/models/`,
+  ];
   // Pick the endpoint that returns an items array on page 0, then paginate the
   // SAME endpoint from page 0 uniformly. The old code probed `p=0` then continued
   // from `p=1`, which silently dropped or duplicated a page whenever the chosen
@@ -361,6 +365,7 @@ export async function fixAbilities(
 export async function cleanupOrphanedModels(
   ctx: ClientContext,
 ): Promise<number> {
+  if (!(await ctx.caps()).syncRoutes) return 0;
   const data = await tryFetchJson<ApiResponse<{ deleted: number }>>(
     `${ctx.baseUrl}/api/models/orphaned`,
     { method: "DELETE", headers: ctx.headers },
