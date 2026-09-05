@@ -161,7 +161,12 @@ recreate with precision; never a full `sync run` to fix one model.
 - **Partial syncs never clobber.** `isPartialSync = onlyProviders || modelFilter.length > 0`. In
   partial mode, out-of-scope MODEL ratios are preserved (`mergeProtected` + modelGuard). A
   `--only openrouter` run must not touch other providers' pricing. Any pipeline change must keep
-  this true. The apply-phase janitor (FixAbility + orphaned-model cleanup) runs on EVERY sync
+  this true. A managed model leaves the guard ONLY when the run prices it: stripping every
+  model a managed provider serves let a `--only <provider>` run whose in-scope lanes all failed the
+  live probe erase the sticker while another provider's lanes kept serving it, and the gateway then
+  answered "not priced by the administrator" (41 models, 2026-09-05). The diff logs
+  `[diff] ModelRatio drops N model(s): ...` whenever a write shrinks a pricing map; a non-empty list
+  on a partial run is a bug. The apply-phase janitor (FixAbility + orphaned-model cleanup) runs on EVERY sync
   because it is partial-safe by construction: abilities rebuild from whatever channels exist, and a
   model row only counts as orphaned with zero ability rows (disabled ones from rate-limited-preserved
   channels count as bound - requires new-api >= a0f589a1).
