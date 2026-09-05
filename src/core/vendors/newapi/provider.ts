@@ -5,6 +5,7 @@ import {
   matchesAnyPattern,
   matchesBlacklist,
   sanitizeGroupName,
+  spliceGroupLabel,
 } from "@core/catalog/constants/patterns";
 import { toBareName } from "@core/catalog/bare-name";
 import {
@@ -503,9 +504,20 @@ export async function processNewApiProvider(
     };
     const prepared: Prepared[] = [];
     for (const group of groups) {
+      // originalName stays the raw upstream label: it is the channel remark,
+      // the anchor the in-place rename pass recovers the pre-rule name from.
       const originalName = `${group.name}-${pName}`;
+      const label = spliceGroupLabel(group.name, pName, config.groupMapping);
+      if (label !== group.name)
+        consola.info(
+          t("CORE.PROVIDER.GROUP_LABEL_MAPPED", {
+            provider: pName,
+            from: group.name,
+            to: label,
+          }),
+        );
       const sanitizedName = dedupBase(
-        sanitizeGroupName(originalName),
+        sanitizeGroupName(`${label}-${pName}`),
         usedSanitizedNames,
       );
       const candidateModels = filterGroupModels(

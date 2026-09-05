@@ -108,11 +108,13 @@ program
     (value: string, prev: string[]) => [...prev, value],
     [] as string[],
   )
+  .option("--dry-run", t("CLI.OPTION.METADATA_DRY_RUN"))
   .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
   .action(
     async (options: {
       config?: string;
       models: string[];
+      dryRun?: boolean;
       verbose?: boolean;
     }) => {
       if (options.verbose) consola.level = 4;
@@ -120,7 +122,7 @@ program
         await loadConfig(options.config),
         options.models,
       );
-      const result = await runMetadataSync(config);
+      const result = await runMetadataSync(config, { dryRun: options.dryRun });
       printMetadataSummary(result);
     },
   );
@@ -174,19 +176,36 @@ program
   .action(async (options: { out: string }) => {
     const sources = await fetchAllPricingSources(await fetchBasellmEntries());
     const names = new Set<string>();
-    for (const s of sources) for (const k of s.pricing.candidates.keys()) names.add(k);
-    const out: Record<string, { input_usd_per_m: number; output_usd_per_m: number; sources: string[] }> = {};
+    for (const s of sources)
+      for (const k of s.pricing.candidates.keys()) names.add(k);
+    const out: Record<
+      string,
+      { input_usd_per_m: number; output_usd_per_m: number; sources: string[] }
+    > = {};
     for (const m of [...names].sort()) {
       const vote = resolveCanonicalByVote(m, sources, new Map());
       if (!vote.cluster) continue;
       out[m] = {
         input_usd_per_m: +(vote.cluster.modelRatio * 2).toFixed(4),
-        output_usd_per_m: +(vote.cluster.modelRatio * 2 * vote.cluster.completionRatio).toFixed(4),
+        output_usd_per_m: +(
+          vote.cluster.modelRatio *
+          2 *
+          vote.cluster.completionRatio
+        ).toFixed(4),
         sources: vote.cluster.members,
       };
     }
-    await Bun.write(options.out, JSON.stringify({ generated_at: new Date().toISOString(), models: out }, null, 1));
-    consola.info(`baseline: ${Object.keys(out).length} voted of ${names.size} names -> ${options.out}`);
+    await Bun.write(
+      options.out,
+      JSON.stringify(
+        { generated_at: new Date().toISOString(), models: out },
+        null,
+        1,
+      ),
+    );
+    consola.info(
+      `baseline: ${Object.keys(out).length} voted of ${names.size} names -> ${options.out}`,
+    );
   });
 
 program.parseAsync(process.argv).catch((error: unknown) => {

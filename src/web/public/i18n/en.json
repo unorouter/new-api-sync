@@ -119,13 +119,18 @@
       "MODEL_MAPPING": "Model mapping",
       "MODEL_MAPPING_HELP": "Rename upstream models before they land in the target.",
       "UPSTREAM_MODEL_PLACEHOLDER": "upstream model",
-      "TARGET_MODEL_PLACEHOLDER": "target model"
+      "TARGET_MODEL_PLACEHOLDER": "target model",
+      "GROUP_MAPPING": "Group label splicing",
+      "GROUP_MAPPING_HELP": "Replace a fragment inside upstream group labels before they become channel names. Key: fragment (or provider/fragment). Value: replacement. The rest of the label is kept.",
+      "UPSTREAM_GROUP_PLACEHOLDER": "fragment or provider/fragment",
+      "TARGET_GROUP_PLACEHOLDER": "replacement"
     },
     "GLOBAL_SETTINGS": {
       "TITLE": "Cross-config settings",
       "DESCRIPTION": "Stored in config.global.yml. Applies to every config. Blacklist and model mapping here merge with per-config values (global wins on conflicts).",
       "BLACKLIST_HELP": "Models excluded from every provider in every config.",
       "MODEL_MAPPING_HELP": "Renames applied to every config. Global entries override per-config entries on the same key.",
+      "GROUP_MAPPING_HELP": "Group label splices applied to every config. Global entries override per-config entries on the same key.",
       "SAVE": "Save global settings",
       "SAVING": "Saving…",
       "SAVED": "Global settings saved"
@@ -271,6 +276,7 @@
       "VERBOSE": "enable debug logging",
       "PORT": "port to listen on",
       "DRY_RUN": "preview pricing + diff without probing, testing, creating tokens, or writing to the target (no cost; logs still saved)",
+      "METADATA_DRY_RUN": "preview the group label renames the current groupMapping would apply to existing channels; writes nothing",
       "BALANCE_JSON": "print the result as JSON instead of a table"
     },
     "STATUS": {
@@ -497,6 +503,11 @@
       "RESEED_DONE": "[metadata] re-seed done: {patched} patched, {skipped} skipped, {failed} failed",
       "RESEED_FAILED_LIST": "[metadata] failed to update: {items}",
       "CHANNEL_RENAMED": "[metadata] renamed published model \"{from}\" -> \"{to}\"",
+      "GROUP_RENAME_PLANNED": "[metadata] would rename channel #{id} \"{from}\" -> \"{to}\"",
+      "GROUP_RENAMED": "[metadata] renamed channel #{id} \"{from}\" -> \"{to}\"",
+      "GROUP_RENAME_FAILED": "[metadata] failed to rename channel #{id} \"{from}\" -> \"{to}\"; its old group keys are kept",
+      "GROUP_RENAME_COLLISION": "[metadata] skipped rename \"{from}\" -> \"{to}\": a channel with the new name already exists",
+      "GROUP_RENAME_SUMMARY": "[metadata] group label renames: {count} planned, {collisions} collision(s)",
       "CHANNEL_PASSTHROUGH_ENABLED": "[metadata] enabled body pass-through on media channel \"{name}\"",
       "CHANNEL_PASSTHROUGH_DISABLED": "[metadata] disabled body pass-through on chat-completions media channel \"{name}\"",
       "CHANNEL_PARAM_OVERRIDE_SET": "[metadata] {action} disable-thinking param_override on channel \"{name}\"",
@@ -552,7 +563,8 @@
       "BALANCE": "[{name}] Balance: ${amount}",
       "BALANCE_WITH_COST": "[{name}] Balance: ${amount} | Test cost: {cost}",
       "WORKING_ACROSS_VENDORS": "[{provider}/{group}] {working}/{total} working across {vendors} vendors",
-      "PROBE_FAILED_SKIP": "[{label}] vendor={vendor} probe failed; skipping {count} models"
+      "PROBE_FAILED_SKIP": "[{label}] vendor={vendor} probe failed; skipping {count} models",
+      "GROUP_LABEL_MAPPED": "[{provider}] group label \"{from}\" published as \"{to}\""
     },
     "NVIDIA": {
       "ENABLED_IMAGE_MODEL_ADDED": "[{name}] Added image model from enabledModels: {glob}",

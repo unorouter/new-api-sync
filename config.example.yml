@@ -3,33 +3,43 @@ target:
   systemAccessToken: target-system-access-token
   userId: 1
 blacklist:
-  # Third-party PRODUCT brands that resellers use as lane labels (a reseller farming
-  # a product's quota and naming the lane after it). Not model vendors. A lane like
-  # that in the public catalog drew a trademark takedown via the host (2026-09-05).
-  # Bare words match the upstream group name and description on every provider.
-  - adobe
-  - firefly
-  - photoshop
-  - antigravity
-  - ai-studio
-  - ai studio
-  - aistudio
-  - openclaw
-  - droid
-  - copilot
-  - github-copilot
-  - cursor
-  - windsurf
-  - codeium
-  - trae
-  - lovable
-  - replit
-  - manus
-  - genspark
   - kiro
   - nsfw
 modelMapping:
   claude-sonnet-4-5-20250929-thinking: claude-sonnet-4-5-20250929
+# Splice upstream GROUP labels before they become channel names. Key = fragment
+# found inside the label (case-insensitive), optionally `provider/fragment`;
+# value replaces just that fragment, the rest of the label is kept. Unscoped
+# rules rename a brand lane on any provider instead of dropping it. The
+# blacklist above runs first on the raw label, so a rule never readmits a
+# blacklisted group. Existing channels are renamed in place by `sync metadata`
+# (preview with `--dry-run`).
+groupMapping:
+  claude code: CC
+  claude-code: CC
+  claude_code: CC
+  codex: CX
+  gemini cli: GC
+  gemini-cli: GC
+  antigravity: AG
+  ai studio: AIS
+  ai-studio: AIS
+  aistudio: AIS
+  openclaw: OC
+  droid: DR
+  adobe: AD
+  firefly: FF
+  photoshop: PS
+  github-copilot: GHCP
+  copilot: CP
+  cursor: CU
+  windsurf: WS
+  codeium: CI
+  trae: TR
+  lovable: LV
+  replit: RP
+  manus: MN
+  genspark: GS
 # Per-user, per-model rate limits for the big FREE models that get swarmed.
 # Globs match the published `:free` names only; paid models are never limited.
 # success = successful requests per user per gateway window. Optional total =

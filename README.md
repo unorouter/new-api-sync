@@ -50,7 +50,7 @@ new-api-sync-windows-x64.exe ui  # Windows
 Two files are loaded on startup:
 
 - `config.yml` (or a named variant `config.<name>.yml`): the active sync config (target, providers, etc.).
-- `config.global.yml` (optional): cross-config settings. `locale`, `theme`, and UI state are stored here. `blacklist` and `modelMapping` defined here merge into every config (global blacklist entries are unioned with per-config; global mapping wins on key collisions).
+- `config.global.yml` (optional): cross-config settings. `locale`, `theme`, and UI state are stored here. `blacklist`, `modelMapping` and `groupMapping` defined here merge into every config (global blacklist entries are unioned with per-config; global mappings win on key collisions).
 
 ### Target
 
@@ -71,6 +71,7 @@ Two files are loaded on startup:
 | `perUpstreamConcurrency` | Default per-baseUrl request cap (default: `5`). Per-provider override allowed for upstreams that tolerate more or less.                    |
 | `blacklist`              | Exclude matching groups/models (text only, case-insensitive). Supports glob wildcards and provider-scoped patterns. See Blacklist below.   |
 | `modelMapping`           | Rename models: `{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                                   |
+| `groupMapping`           | Splice upstream group labels before they become channel names: `{ "antigravity": "AG" }`. See Group label splicing below.                  |
 
 ### new-api Provider (`type: "newapi"`)
 
@@ -155,6 +156,23 @@ Pulls from [NVIDIA NIM](https://build.nvidia.com/). Text models are emitted as a
 
 A small built-in blacklist is always merged in to suppress a handful of upstream IDs that are uniformly broken or mis-typed (embedding/audio/video models served as `text`). You don't need to add these in your config.
 
+### Group label splicing
+
+`groupMapping` rewrites a fragment of an upstream group label before the label becomes a channel and group name (`<label>-<provider>-<model>`). The lane, its pricing and its upstream token are untouched; only the public name changes.
+
+- **Key** is the fragment to find inside the label, matched case-insensitively. `provider/fragment` limits the rule to one provider.
+- **Value** replaces just that fragment. The rest of the label survives, so `duck/Antigravity: pool-a` turns `Gemini-CLI-Antigravity` into `Gemini-CLI-pool-a`.
+- Scoped rules run before bare ones, longer fragments before shorter; each rule runs once.
+- The blacklist runs first, on the raw label and description; a rule never readmits a blacklisted group. To rename a brand lane instead of dropping it, keep the brand word out of the blacklist and add an unscoped rule for it.
+- **Existing channels are renamed in place**: `sync metadata` (and the start of `sync run`) finds channels whose remark still carries the pre-rule label, moves their `GroupRatio` / `UserUsableGroups` / `AutoGroups` keys to the new name, and renames the channel row. Channel ids and stats are kept; nothing is created or deleted. Preview with `sync metadata --dry-run`.
+- A rename whose target name already exists is skipped and logged as a collision.
+
+  ```yml
+  groupMapping:
+    antigravity: AG # any provider: Gemini-CLI-Antigravity -> Gemini-CLI-AG
+    pol/adobe: AD # only pol: image2c-adobe -> image2c-AD
+  ```
+
 ### Price Adjustment
 
 `priceAdjustment` accepts either a single number or a keyed object:
@@ -193,7 +211,7 @@ enabledModels:
 
 ## How It Works
 
-1. **Discover**: fetch models/groups from each provider, filter by vendor, blacklist, and glob patterns
+1. **Discover**: fetch models/groups from each provider, filter by vendor, blacklist, and glob patterns; splice group labels per `groupMapping`
 2. **Test**: verify each model with a minimal API request
 3. **Build desired state**: merge pricing (GroupRatio, ModelRatio, CompletionRatio), build channels and policy
 4. **Diff**: compare desired state against current target state

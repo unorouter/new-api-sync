@@ -214,7 +214,7 @@ export type RunResultFilterValue = Static<typeof RunResultFilterEnum>;
 export type PipelineModeValue = Static<typeof PipelineModeEnum>;
 
 // prettier-ignore
-export const GlobalConfigSchema = T.Object({ locale: Opt(LocaleEnum), theme: Opt(ThemeEnum), mainTab: Opt(MainTabEnum), historyTab: Opt(HistoryTabEnum), selectedRunId: Opt(T.Union([T.String(), T.Null()])), runResultFilter: Opt(RunResultFilterEnum), runQuery: Opt(T.String()), authenticityQuery: Opt(T.String()), selectedConfigName: Opt(T.String()), pipelineMode: Opt(PipelineModeEnum), verbose: Opt(T.Boolean()), onlyProviders: Opt(T.Record(T.String(), T.Array(T.String()))), modelFilter: Opt(T.Record(T.String(), T.String())), blacklist: Opt(T.Array(str)), modelMapping: Opt(T.Record(T.String(), T.String())) });
+export const GlobalConfigSchema = T.Object({ locale: Opt(LocaleEnum), theme: Opt(ThemeEnum), mainTab: Opt(MainTabEnum), historyTab: Opt(HistoryTabEnum), selectedRunId: Opt(T.Union([T.String(), T.Null()])), runResultFilter: Opt(RunResultFilterEnum), runQuery: Opt(T.String()), authenticityQuery: Opt(T.String()), selectedConfigName: Opt(T.String()), pipelineMode: Opt(PipelineModeEnum), verbose: Opt(T.Boolean()), onlyProviders: Opt(T.Record(T.String(), T.Array(T.String()))), modelFilter: Opt(T.Record(T.String(), T.String())), blacklist: Opt(T.Array(str)), modelMapping: Opt(T.Record(T.String(), T.String())), groupMapping: Opt(T.Record(T.String(), T.String())) });
 export type GlobalConfigType = Static<typeof GlobalConfigSchema>;
 
 export const ConfigSchema = T.Object({
@@ -226,6 +226,10 @@ export const ConfigSchema = T.Object({
   perUpstreamConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),
   blacklist: Opt(T.Array(str)),
   modelMapping: Opt(T.Record(T.String(), T.String())),
+  // Splice upstream group labels before they become channel names: key is a
+  // fragment (optionally `provider/fragment`), value replaces just that fragment.
+  // Runs after the blacklist, so it renames a lane rather than readmitting one.
+  groupMapping: Opt(T.Record(T.String(), T.String())),
   // Publish a paid model under EXTRA names on the SAME channels (one channel, N
   // published names, all routing to the same upstream + sharing pricing). For
   // pure rebrands/aliases (e.g. deepseek-v3.2-exp == deepseek-v3.2) where the alias

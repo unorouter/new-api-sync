@@ -9,6 +9,13 @@ import { writeJsonAtomic } from "@core/infra/fs";
 import { logsDir } from "@core/infra/paths";
 import { applySyncDiff } from "@core/sync/apply";
 import { buildSyncDiff } from "@core/sync/diff";
+import {
+  applyGroupRenames,
+  applyGroupRenamesToChannels,
+  moveGroupOptionKeys,
+  planGroupRenames,
+  printGroupRenamePlan,
+} from "@core/sync/group-rename";
 import { updateGuestTokenIfConfigured } from "@core/sync/guest-token";
 import { reconcileSystemPrompt } from "@core/sync/metadata";
 import { runProviderPipeline } from "@core/sync/pipeline";
@@ -129,6 +136,25 @@ export async function runSync(
 
     throwIfRunAborted();
     const snap = await snapshot(target);
+    // Splice-rule renames happen in place BEFORE the diff, or the name-keyed
+    // diff would turn each one into a create + delete. Dry-run applies the
+    // plan to the in-memory snapshot so the preview shows the same diff.
+    const groupPlan = planGroupRenames(snap.channels, config);
+    if (dryRun) {
+      printGroupRenamePlan(groupPlan);
+      Object.assign(
+        snap.options,
+        moveGroupOptionKeys(snap.options, groupPlan.renames, "add"),
+      );
+      Object.assign(
+        snap.options,
+        moveGroupOptionKeys(snap.options, groupPlan.renames, "remove"),
+      );
+      applyGroupRenamesToChannels(groupPlan.renames);
+    } else if (groupPlan.renames.length > 0) {
+      await applyGroupRenames(target, groupPlan);
+      snap.options = await target.getOptions([...MANAGED_OPTION_KEYS]);
+    }
     timingMark("snapshot");
     throwIfRunAborted();
     const { desired, providerReports } = await runProviderPipeline(

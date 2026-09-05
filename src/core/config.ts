@@ -116,7 +116,7 @@ export const CONFIG_DEFAULTS = {
 const BUILTIN_BLACKLIST: readonly string[] = ["ai-synthetic-video-detector","arctic-embed-l","bge-m3","devstral-2-123b-instruct-2512","embed-qa-4","gliner-pii","ising-calibration-1-35b-a3b","magistral-small-2506","ministral-14b-instruct-2512","mixtral-8x22b-instruct-v0.1","mixtral-8x7b-instruct-v0.1","nv-embed-v1","nv-embedcode-7b-v1","nv-embedqa-e5-v5","owl-alpha","phi-4-mini-instruct","phi-4-multimodal-instruct","riva-translate-4b-instruct-v1.1","sarvam-m","seed-oss-36b-instruct","solar-10.7b-instruct","step-3.5-flash","stockmark-2-100b-instruct"];
 
 // prettier-ignore
-type StripKeys = "blacklist" | "modelMapping" | "skipUnprofitableText" | "providers" | "globalConcurrency" | "perUpstreamConcurrency";
+type StripKeys = "blacklist" | "modelMapping" | "groupMapping" | "skipUnprofitableText" | "providers" | "globalConcurrency" | "perUpstreamConcurrency";
 
 export interface RuntimeConfig extends Omit<ConfigSchemaType, StripKeys> {
   providers: AnyProviderConfig[];
@@ -125,6 +125,7 @@ export interface RuntimeConfig extends Omit<ConfigSchemaType, StripKeys> {
   perUpstreamConcurrency: number;
   blacklist: string[];
   modelMapping: Record<string, string>;
+  groupMapping: Record<string, string>;
   onlyProviders?: Set<string>;
   modelFilter?: string[];
   modelTypeFilter?: ModelType[];
@@ -257,6 +258,14 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
   ]) {
     mergedMapping[k.includes("/") ? k : k.toLowerCase()] = v.toLowerCase();
   }
+  // Value stays verbatim: it is the public label's casing, the operator's call.
+  const mergedGroupMapping: Record<string, string> = {};
+  for (const [k, v] of [
+    ...Object.entries(typed.groupMapping ?? {}),
+    ...Object.entries(global.groupMapping ?? {}),
+  ]) {
+    mergedGroupMapping[k.toLowerCase()] = v;
+  }
 
   return {
     ...typed,
@@ -269,6 +278,7 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
       typed.perUpstreamConcurrency ?? CONFIG_DEFAULTS.perUpstreamConcurrency,
     blacklist: mergedBlacklist,
     modelMapping: mergedMapping,
+    groupMapping: mergedGroupMapping,
   };
 }
 
