@@ -65,11 +65,6 @@ providers:
       - gpt-5*
     priceAdjustment: -0.67
 
-  # ── sub2api ──
-  - type: sub2api
-    name: sub2api-fallback
-    baseUrl: https://sub2api.unorouter.com
-    adminApiKey: admin-api-key
   # disabled providers (uncomment to enable)
   # - type: openrouter
   #   name: openrouter

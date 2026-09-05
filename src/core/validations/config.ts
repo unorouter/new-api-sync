@@ -53,17 +53,6 @@ const NewApiProviderSchema = T.Object({ type: T.Literal("newapi"), ...ProviderCo
 // every model, so price comes from the per-merchant listings, and one upstream
 // token is minted and pinned per (model, merchant) lane.
 const A7ApiProviderSchema = T.Object({ type: T.Literal("a7api"), ...ProviderCommonProps, baseUrl: uri, systemAccessToken: str, userId: T.Integer({ minimum: 1 }), profitMultiple: Opt(T.Union([T.Number({ minimum: 1 }), T.Record(T.String(), T.Number({ minimum: 1 }))])), maxSellFraction: Opt(T.Union([T.Number({ exclusiveMinimum: 0, maximum: 1 }), T.Record(T.String(), T.Number({ exclusiveMinimum: 0, maximum: 1 }))])), minSellFraction: Opt(T.Union([T.Number({ minimum: 0, maximum: 1 }), T.Record(T.String(), T.Number({ minimum: 0, maximum: 1 }))])), hostsPerModel: Opt(T.Record(T.String(), T.Integer({ minimum: 1 }))), minSuccessRate: Opt(T.Union([T.Integer({ minimum: 0, maximum: 10000 }), T.Record(T.String(), T.Integer({ minimum: 0, maximum: 10000 }))])), guaranteedOnly: Opt(T.Boolean()), acceptRateLimited: Opt(T.Boolean()) });
-const Sub2ApiProviderSchema = T.Object({
-  type: T.Literal("sub2api"),
-  ...ProviderCommonProps,
-  baseUrl: uri,
-  adminApiKey: Opt(str),
-  groups: Opt(
-    T.Array(T.Object({ key: str, platform: str, name: Opt(str) }), {
-      minItems: 1,
-    }),
-  ),
-});
 // prettier-ignore
 const NvidiaProviderSchema = T.Object({ type: T.Literal("nvidia"), ...ProviderCommonProps, baseUrl: Opt(uri), imageBaseUrl: Opt(uri), apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ exclusiveMinimum: 0 })), acceptRateLimited: Opt(T.Boolean()) });
 // prettier-ignore
@@ -166,11 +155,10 @@ const RunwareProviderSchema = T.Object({
 });
 
 // prettier-ignore
-const AnyProviderSchema = T.Union([NewApiProviderSchema, A7ApiProviderSchema, Sub2ApiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, SimpleFreeProviderSchema, ComfyUiProviderSchema, AIHordeProviderSchema, RunwareProviderSchema]);
+const AnyProviderSchema = T.Union([NewApiProviderSchema, A7ApiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, SimpleFreeProviderSchema, ComfyUiProviderSchema, AIHordeProviderSchema, RunwareProviderSchema]);
 
 export type ProviderConfig = Static<typeof NewApiProviderSchema>;
 export type A7ApiProviderConfig = Static<typeof A7ApiProviderSchema>;
-export type Sub2ApiProviderConfig = Static<typeof Sub2ApiProviderSchema>;
 export type NvidiaProviderConfig = Static<typeof NvidiaProviderSchema> & {
   baseUrl: string;
   imageBaseUrl: string;
@@ -193,7 +181,7 @@ export type ComfyUiProviderConfig = Static<typeof ComfyUiProviderSchema>;
 export type AIHordeProviderConfig = Static<typeof AIHordeProviderSchema>;
 export type RunwareProviderConfig = Static<typeof RunwareProviderSchema>;
 // prettier-ignore
-export type AnyProviderConfig = ProviderConfig | A7ApiProviderConfig | Sub2ApiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | SimpleFreeProviderConfig | ComfyUiProviderConfig | AIHordeProviderConfig | RunwareProviderConfig;
+export type AnyProviderConfig = ProviderConfig | A7ApiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | SimpleFreeProviderConfig | ComfyUiProviderConfig | AIHordeProviderConfig | RunwareProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
 const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);
