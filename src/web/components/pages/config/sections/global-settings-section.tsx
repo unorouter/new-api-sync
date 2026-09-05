@@ -36,6 +36,7 @@ export function GlobalSettingsSection() {
 
   const [blacklist, setBlacklist] = useState<string[]>([]);
   const [mapping, setMapping] = useState<[string, string][]>([]);
+  const [groupMapping, setGroupMapping] = useState<[string, string][]>([]);
 
   // Sync local state from the server whenever the query resolves or
   // successfully saves.
@@ -43,6 +44,7 @@ export function GlobalSettingsSection() {
     if (!query.data) return;
     setBlacklist(query.data.blacklist ?? []);
     setMapping(Object.entries(query.data.modelMapping ?? {}));
+    setGroupMapping(Object.entries(query.data.groupMapping ?? {}));
   }, [query.data]);
 
   const handleSave = () => {
@@ -53,11 +55,21 @@ export function GlobalSettingsSection() {
       if (!k || k in mappingObject) continue;
       mappingObject[k] = value;
     }
+    const groupMappingObject: Record<string, string> = {};
+    for (const [key, value] of groupMapping) {
+      const k = key.trim();
+      if (!k || k in groupMappingObject) continue;
+      groupMappingObject[k] = value;
+    }
     const next: GlobalConfigType = {
       ...query.data,
       blacklist: filteredBlacklist.length > 0 ? filteredBlacklist : undefined,
       modelMapping:
         Object.keys(mappingObject).length > 0 ? mappingObject : undefined,
+      groupMapping:
+        Object.keys(groupMappingObject).length > 0
+          ? groupMappingObject
+          : undefined,
     };
     save.mutate(next, {
       onSuccess: () => toast.success(t("CONFIG.GLOBAL_SETTINGS.SAVED")),
@@ -172,6 +184,57 @@ export function GlobalSettingsSection() {
             variant="outline"
             size="sm"
             onClick={() => setMapping([...mapping, ["", ""]])}
+            className="self-start"
+          >
+            <PlusIcon />
+            {t("CONFIG.FIELD.ADD")}
+          </Button>
+        </div>
+        <div className="grid gap-2">
+          <Label>{t("CONFIG.GLOBAL.GROUP_MAPPING")}</Label>
+          <p className="text-muted-foreground text-xs">
+            {t("CONFIG.GLOBAL_SETTINGS.GROUP_MAPPING_HELP")}
+          </p>
+          {groupMapping.map(([key, value], index) => (
+            <div key={index} className="flex items-center gap-2">
+              <Input
+                value={key}
+                onChange={(event) => {
+                  const next: [string, string][] = [...groupMapping];
+                  next[index] = [event.target.value, value];
+                  setGroupMapping(next);
+                }}
+                placeholder={t("CONFIG.GLOBAL.UPSTREAM_GROUP_PLACEHOLDER")}
+                className="flex-1"
+              />
+              <Input
+                value={value}
+                onChange={(event) => {
+                  const next: [string, string][] = [...groupMapping];
+                  next[index] = [key, event.target.value];
+                  setGroupMapping(next);
+                }}
+                placeholder={t("CONFIG.GLOBAL.TARGET_GROUP_PLACEHOLDER")}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() =>
+                  setGroupMapping(groupMapping.filter((_, i) => i !== index))
+                }
+                aria-label={t("CONFIG.FIELD.REMOVE")}
+              >
+                <Trash2Icon />
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setGroupMapping([...groupMapping, ["", ""]])}
             className="self-start"
           >
             <PlusIcon />

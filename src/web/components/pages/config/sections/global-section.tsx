@@ -144,8 +144,32 @@ export function GlobalSection() {
             control={form.control}
             name="modelMapping"
             render={({ field }) => (
-              <ModelMappingEditor
+              <StringMappingEditor
                 value={(field.value ?? {}) as Record<string, string>}
+                keyPlaceholder={t("CONFIG.GLOBAL.UPSTREAM_MODEL_PLACEHOLDER")}
+                valuePlaceholder={t("CONFIG.GLOBAL.TARGET_MODEL_PLACEHOLDER")}
+                onChange={(next) =>
+                  field.onChange(
+                    Object.keys(next).length === 0 ? undefined : next,
+                  )
+                }
+              />
+            )}
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label>{t("CONFIG.GLOBAL.GROUP_MAPPING")}</Label>
+          <p className="text-muted-foreground text-xs">
+            {t("CONFIG.GLOBAL.GROUP_MAPPING_HELP")}
+          </p>
+          <Controller
+            control={form.control}
+            name="groupMapping"
+            render={({ field }) => (
+              <StringMappingEditor
+                value={(field.value ?? {}) as Record<string, string>}
+                keyPlaceholder={t("CONFIG.GLOBAL.UPSTREAM_GROUP_PLACEHOLDER")}
+                valuePlaceholder={t("CONFIG.GLOBAL.TARGET_GROUP_PLACEHOLDER")}
                 onChange={(next) =>
                   field.onChange(
                     Object.keys(next).length === 0 ? undefined : next,
@@ -161,12 +185,14 @@ export function GlobalSection() {
 }
 
 /**
- * Inlined string/string key-value editor for modelMapping. Kept here since
- * it's the only string-valued KV in the schema; the old standalone
- * KeyValueEditor remains for priceAdjustment's numeric variant.
+ * Inlined string/string key-value editor shared by modelMapping and
+ * groupMapping; the old standalone KeyValueEditor remains for
+ * priceAdjustment's numeric variant.
  */
-function ModelMappingEditor(props: {
+function StringMappingEditor(props: {
   value: Record<string, string>;
+  keyPlaceholder: string;
+  valuePlaceholder: string;
   onChange: (value: Record<string, string>) => void;
 }) {
   const t = useTranslations();
@@ -209,13 +235,13 @@ function ModelMappingEditor(props: {
           <Input
             value={key}
             onChange={(event) => update(i, { key: event.target.value })}
-            placeholder={t("CONFIG.GLOBAL.UPSTREAM_MODEL_PLACEHOLDER")}
+            placeholder={props.keyPlaceholder}
             className="flex-1"
           />
           <Input
             value={value}
             onChange={(event) => update(i, { value: event.target.value })}
-            placeholder={t("CONFIG.GLOBAL.TARGET_MODEL_PLACEHOLDER")}
+            placeholder={props.valuePlaceholder}
             className="flex-1"
           />
           <Button

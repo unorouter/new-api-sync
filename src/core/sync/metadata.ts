@@ -21,6 +21,11 @@
 
 import { toBareName } from "@core/catalog/bare-name";
 import {
+  applyGroupRenames,
+  planGroupRenames,
+  printGroupRenamePlan,
+} from "@core/sync/group-rename";
+import {
   ENDPOINT_DEFAULT_PATHS,
   MODEL_TYPE_CANONICAL_ENDPOINT,
   normalizeEndpointType,
@@ -89,6 +94,8 @@ export interface MetadataSyncResult {
   failed: number;
   failedModels: string[];
   renamedChannels: number;
+  renamedGroups: number;
+  dryRun?: boolean;
   passThroughEnabled: number;
   paramOverrideChanged: number;
   thinkingEnabled: number;
@@ -486,6 +493,7 @@ export async function reconcileSystemPrompt(
 
 export async function runMetadataSync(
   config: RuntimeConfig,
+  opts?: { dryRun?: boolean },
 ): Promise<MetadataSyncResult> {
   const target = new NewApiClient(config.target, "target");
   const health = await target.healthCheck();
@@ -495,6 +503,29 @@ export async function runMetadataSync(
         detail: health.error ?? "unknown",
       }),
     );
+
+  // Dry-run previews the one metadata step that renames gateway rows (the
+  // groupMapping pass) and writes nothing; the remaining steps are idempotent
+  // re-seeds a normal run performs.
+  if (opts?.dryRun) {
+    const plan = planGroupRenames(await target.listChannels(), config);
+    printGroupRenamePlan(plan);
+    return {
+      total: 0,
+      created: 0,
+      patched: 0,
+      skipped: 0,
+      failed: 0,
+      failedModels: [],
+      renamedChannels: 0,
+      renamedGroups: plan.renames.length,
+      dryRun: true,
+      passThroughEnabled: 0,
+      paramOverrideChanged: 0,
+      thinkingEnabled: 0,
+      systemPromptChanged: 0,
+    };
+  }
 
   const filter = config.modelFilter ?? [];
   const inScope = (name: string) =>
@@ -524,6 +555,13 @@ export async function runMetadataSync(
     target,
     channels,
     config,
+  );
+  // Group labels a groupMapping rule now splices: rename the channel rows in
+  // place (ids kept) and move their option keys, before anything downstream
+  // reads channel names.
+  const renamedGroups = await applyGroupRenames(
+    target,
+    planGroupRenames(channels, config),
   );
 
   // Ensure media channels forward the raw body (image_urls / vendor extras survive new-api re-marshal).
@@ -571,6 +609,7 @@ export async function runMetadataSync(
     failed: 0,
     failedModels: [],
     renamedChannels,
+    renamedGroups,
     passThroughEnabled,
     paramOverrideChanged,
     thinkingEnabled,
@@ -1191,6 +1230,12 @@ async function syncRateLimitOptions(
 }
 
 export function printMetadataSummary(result: MetadataSyncResult): void {
+  if (result.dryRun) {
+    consola.info(
+      `[metadata] dry-run: ${result.renamedGroups} group rename(s) planned, nothing written`,
+    );
+    return;
+  }
   consola.success(
     t("CORE.METADATA.RESEED_DONE", {
       patched: result.patched,
@@ -1203,6 +1248,10 @@ export function printMetadataSummary(result: MetadataSyncResult): void {
   if (result.renamedChannels > 0)
     consola.info(
       `[metadata] renamed published names on ${result.renamedChannels} channels`,
+    );
+  if (result.renamedGroups > 0)
+    consola.info(
+      `[metadata] renamed ${result.renamedGroups} channels to their spliced group labels`,
     );
   if (result.thinkingEnabled > 0)
     consola.info(

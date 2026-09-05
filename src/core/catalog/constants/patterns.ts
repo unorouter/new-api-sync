@@ -54,6 +54,60 @@ export function buildReverseMapping(
   return reverse;
 }
 
+/**
+ * `groupMapping`: rewrite fragments of an upstream group label. Each key is a
+ * case-insensitive substring, its value replaces just that substring, so the
+ * rest of the label survives. Scoped keys (`provider/fragment`) run before bare
+ * ones, longer fragments before shorter. Unmatched labels come back unchanged.
+ */
+export function spliceGroupLabel(
+  label: string,
+  scope: string,
+  mapping: Record<string, string>,
+): string {
+  const s = scope.toLowerCase();
+  const scoped: Array<[string, string]> = [];
+  const bare: Array<[string, string]> = [];
+  for (const [rawKey, value] of Object.entries(mapping)) {
+    const key = rawKey.toLowerCase();
+    const slashIdx = key.indexOf("/");
+    if (slashIdx === -1) {
+      if (key) bare.push([key, value]);
+      continue;
+    }
+    if (key.slice(0, slashIdx) !== s) continue;
+    const fragment = key.slice(slashIdx + 1);
+    if (fragment) scoped.push([fragment, value]);
+  }
+  const longestFirst = (a: [string, string], b: [string, string]) =>
+    b[0].length - a[0].length;
+  let out = label;
+  for (const [fragment, value] of [
+    ...scoped.sort(longestFirst),
+    ...bare.sort(longestFirst),
+  ])
+    out = replaceFragment(out, fragment, value);
+  return out;
+}
+
+function replaceFragment(
+  text: string,
+  fragment: string,
+  value: string,
+): string {
+  const lower = text.toLowerCase();
+  let idx = lower.indexOf(fragment);
+  if (idx === -1) return text;
+  let out = "";
+  let cursor = 0;
+  while (idx !== -1) {
+    out += text.slice(cursor, idx) + value;
+    cursor = idx + fragment.length;
+    idx = lower.indexOf(fragment, cursor);
+  }
+  return out + text.slice(cursor);
+}
+
 /** Ensure a sanitized base is unique within a provider: 2nd+ collision gets a `-N` suffix. */
 export function dedupBase(base: string, used: Map<string, number>): string {
   const count = used.get(base) ?? 0;

@@ -42,7 +42,7 @@ bun run prettier                          # format
 ```
 
 Config lives in `config.yml` (gitignored, holds secrets) + optional `config.global.yml`
-(cross-config: locale/theme/shared blacklist/shared modelMapping). Named variants are
+(cross-config: locale/theme/shared blacklist/shared modelMapping/shared groupMapping). Named variants are
 `config.<name>.yml`. Only `config.example.yml` is committed.
 
 ## Layout
@@ -340,9 +340,10 @@ Two CronJobs in the k3s `services` namespace deploy from this repo's `k8s/` dir
 
 **Mirror config.yml provider changes to the cluster.** The cluster reads a
 MINIMAL a7-only config.yml from OpenBao `secret/sync-env` (target + a7 block +
-kiro blacklist entries + the opus-4-6 modelMapping). Any edit to the local a7
-provider block, those blacklist entries, or that mapping MUST be pushed there
-too or the crons keep running the old rules. Regenerate + upload (payload file
+kiro blacklist entries + the opus-4-6 modelMapping; no groupMapping yet, a7api
+lanes carry no upstream group label). Any edit to the local a7 provider block,
+those blacklist entries, that mapping, or a groupMapping rule an a7 lane would
+need MUST be pushed there too or the crons keep running the old rules. Regenerate + upload (payload file
 plus stdin, never argv):
 
 ```bash

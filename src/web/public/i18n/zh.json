@@ -119,13 +119,18 @@
       "MODEL_MAPPING": "模型重命名",
       "MODEL_MAPPING_HELP": "在写入目标前，将上游模型重命名。",
       "UPSTREAM_MODEL_PLACEHOLDER": "上游模型",
-      "TARGET_MODEL_PLACEHOLDER": "目标模型"
+      "TARGET_MODEL_PLACEHOLDER": "目标模型",
+      "GROUP_MAPPING": "分组名片段替换",
+      "GROUP_MAPPING_HELP": "在上游分组名成为渠道名之前，替换其中的某个片段。键：片段（或 提供商/片段）。值：替换文本。分组名的其余部分保持不变。",
+      "UPSTREAM_GROUP_PLACEHOLDER": "片段或 提供商/片段",
+      "TARGET_GROUP_PLACEHOLDER": "替换文本"
     },
     "GLOBAL_SETTINGS": {
       "TITLE": "跨配置设置",
       "DESCRIPTION": "保存在 config.global.yml 中，对每个配置都生效。此处的黑名单和模型重命名会与各个配置的值合并（同键冲突时以全局为准）。",
       "BLACKLIST_HELP": "从所有配置、所有提供商中排除的模型。",
       "MODEL_MAPPING_HELP": "对所有配置都生效的模型重命名。若同一键在配置中也存在，以全局为准。",
+      "GROUP_MAPPING_HELP": "对所有配置都生效的分组名片段替换。若同一键在配置中也存在，以全局为准。",
       "SAVE": "保存全局设置",
       "SAVING": "保存中…",
       "SAVED": "全局设置已保存"
@@ -271,6 +276,7 @@
       "VERBOSE": "启用调试日志",
       "PORT": "监听端口",
       "DRY_RUN": "预览定价与差异，不探测、不测试、不创建令牌、不写入目标（无费用；仍保存日志）",
+      "METADATA_DRY_RUN": "预览当前 groupMapping 会对现有渠道执行的分组名重命名；不写入任何内容",
       "BALANCE_JSON": "以 JSON 格式输出结果，而非表格"
     },
     "STATUS": {
@@ -497,6 +503,11 @@
       "RESEED_DONE": "[metadata] 重新写入完成：{patched} 个已更新、{skipped} 个已跳过、{failed} 个失败",
       "RESEED_FAILED_LIST": "[metadata] 更新失败：{items}",
       "CHANNEL_RENAMED": "[metadata] 已重命名发布模型「{from}」->「{to}」",
+      "GROUP_RENAME_PLANNED": "[metadata] 将重命名渠道 #{id}「{from}」->「{to}」",
+      "GROUP_RENAMED": "[metadata] 已重命名渠道 #{id}「{from}」->「{to}」",
+      "GROUP_RENAME_FAILED": "[metadata] 渠道 #{id}「{from}」->「{to}」重命名失败；保留其旧分组键",
+      "GROUP_RENAME_COLLISION": "[metadata] 已跳过重命名「{from}」->「{to}」：已存在同名渠道",
+      "GROUP_RENAME_SUMMARY": "[metadata] 分组名重命名：计划 {count} 个，冲突 {collisions} 个",
       "CHANNEL_PASSTHROUGH_ENABLED": "[metadata] 已为媒体渠道「{name}」启用请求体透传",
       "CHANNEL_PASSTHROUGH_DISABLED": "[metadata] 已为对话补全媒体渠道「{name}」禁用请求体透传",
       "CHANNEL_PARAM_OVERRIDE_SET": "[metadata] 已{action}渠道「{name}」的禁用思考 param_override",
@@ -552,7 +563,8 @@
       "BALANCE": "[{name}] 余额：${amount}",
       "BALANCE_WITH_COST": "[{name}] 余额：${amount} | 测试花费：{cost}",
       "WORKING_ACROSS_VENDORS": "[{provider}/{group}] {working}/{total} 个可用，跨 {vendors} 个供应商",
-      "PROBE_FAILED_SKIP": "[{label}] 供应商 {vendor} 探测失败，跳过 {count} 个模型"
+      "PROBE_FAILED_SKIP": "[{label}] 供应商 {vendor} 探测失败，跳过 {count} 个模型",
+      "GROUP_LABEL_MAPPED": "[{provider}] 分组名「{from}」将以「{to}」发布"
     },
     "NVIDIA": {
       "ENABLED_IMAGE_MODEL_ADDED": "[{name}] 从 enabledModels 添加图像模型：{glob}",

@@ -50,7 +50,7 @@ new-api-sync-windows-x64.exe ui  # Windows
 启动时会加载两份文件：
 
 - `config.yml`（或具名变体 `config.<名称>.yml`）：当前激活的同步配置（目标、提供商等）。
-- `config.global.yml`（可选）：跨配置共享设置。`locale`、`theme` 以及界面状态都保存于此。这里定义的 `blacklist` 与 `modelMapping` 会合并到每份配置中（黑名单做并集去重，模型映射在键冲突时全局优先）。
+- `config.global.yml`（可选）：跨配置共享设置。`locale`、`theme` 以及界面状态都保存于此。这里定义的 `blacklist`、`modelMapping` 与 `groupMapping` 会合并到每份配置中（黑名单做并集去重，映射在键冲突时全局优先）。
 
 ### 目标 (target)
 
@@ -71,6 +71,7 @@ new-api-sync-windows-x64.exe ui  # Windows
 | `perUpstreamConcurrency` | 单个 baseUrl 的默认并发上限（默认：`5`）。可在提供商级别覆盖以适配各上游的限频策略。                                     |
 | `blacklist`              | 排除匹配的文本模型（大小写不敏感）。支持 Glob 通配符和提供商作用域模式。详见下方"黑名单"。                               |
 | `modelMapping`           | 重命名模型：`{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                    |
+| `groupMapping`           | 在上游分组名成为渠道名之前替换其中的片段：`{ "antigravity": "AG" }`。详见下方"分组名片段替换"。                          |
 
 ### new-api 提供商 (`type: "newapi"`)
 
@@ -155,6 +156,23 @@ new-api-sync-windows-x64.exe ui  # Windows
 
 此外还会自动合并一份内置黑名单，用于过滤一小批上游一致出错或类型错配（被当作 `text` 暴露的嵌入 / 音频 / 视频模型）的模型 ID。无需在你的配置里重复。
 
+### 分组名片段替换
+
+`groupMapping` 会在上游分组名成为渠道名与分组名（`<分组名>-<提供商>-<模型>`）之前，替换其中的一个片段。通道本身、定价和上游令牌都不受影响，只有对外名称改变。
+
+- **键**是要在分组名中查找的片段，大小写不敏感。`provider/fragment` 形式将规则限定到某一个提供商。
+- **值**只替换该片段，分组名的其余部分保持不变，例如 `duck/Antigravity: pool-a` 会把 `Gemini-CLI-Antigravity` 变为 `Gemini-CLI-pool-a`。
+- 作用域规则先于全局规则执行，较长片段先于较短片段，每条规则执行一次。
+- 黑名单先按原始分组名与描述执行；规则不会让已被黑名单排除的分组重新进入。若想重命名而不是丢弃某个品牌通道，请把该品牌词从黑名单中移除，并为它添加一条不限作用域的规则。
+- **现有渠道会就地重命名**：`sync metadata`（以及 `sync run` 开始时）会找出备注中仍带有改写前分组名的渠道，把它们的 `GroupRatio` / `UserUsableGroups` / `AutoGroups` 键迁移到新名称，再重命名渠道记录。渠道 ID 与统计保留，不创建也不删除任何内容。可用 `sync metadata --dry-run` 预览。
+- 若目标名称已存在同名渠道，该重命名会被跳过并记录为冲突。
+
+  ```yml
+  groupMapping:
+    antigravity: AG # 所有提供商：Gemini-CLI-Antigravity -> Gemini-CLI-AG
+    pol/adobe: AD # 仅 pol：image2c-adobe -> image2c-AD
+  ```
+
 ### 价格调整
 
 `priceAdjustment` 接受单个数字或按键对象：
@@ -193,7 +211,7 @@ enabledModels:
 
 ## 工作原理
 
-1. **发现**：从每个提供商获取模型 / 组，按厂商、黑名单和 Glob 模式筛选
+1. **发现**：从每个提供商获取模型 / 组，按厂商、黑名单和 Glob 模式筛选；按 `groupMapping` 替换分组名片段
 2. **测试**：通过最小化 API 请求验证每个模型
 3. **构建目标状态**：合并定价（GroupRatio、ModelRatio、CompletionRatio），构建渠道和策略
 4. **差异比较**：将目标状态与当前目标实例状态进行比较
