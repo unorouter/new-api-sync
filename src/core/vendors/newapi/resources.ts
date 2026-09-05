@@ -23,7 +23,7 @@ export interface UpstreamErrorEntry {
 const fallbackErrors: UpstreamErrorEntry[] = [];
 const errorBuffer = (): UpstreamErrorEntry[] =>
   (getRunContext()?.upstreamErrors as UpstreamErrorEntry[]) ?? fallbackErrors;
-export const recordUpstreamError = (
+const recordUpstreamError = (
   e: Omit<UpstreamErrorEntry, "at">,
 ): void => {
   errorBuffer().push({ ...e, at: new Date().toISOString() });

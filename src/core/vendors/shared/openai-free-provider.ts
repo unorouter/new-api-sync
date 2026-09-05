@@ -83,7 +83,7 @@ export interface OpenAIFreeOpts {
 type Resolution = ReturnType<typeof resolveBareNames>[number];
 
 /** Emit one free UpstreamOffer per inferred vendor. Reusable by nvidia text + openrouter free branches. */
-export function emitFreeTextOffers(opts: {
+function emitFreeTextOffers(opts: {
   resolutions: Resolution[];
   rev: Record<string, string>;
   details: NonNullable<

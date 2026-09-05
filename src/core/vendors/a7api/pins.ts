@@ -163,7 +163,7 @@ export async function cleanupStaleLaneTokens(
   }
 }
 
-export async function listPins(
+async function listPins(
   provider: A7ApiProviderConfig,
 ): Promise<PinRecord[]> {
   const url = `${provider.baseUrl.replace(/\/$/, "")}/api/marketplace/pins`;

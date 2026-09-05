@@ -219,7 +219,7 @@ export interface SimpleProviderDef extends SimpleProviderMeta {
   discover: Discover;
 }
 
-export const SIMPLE_PROVIDERS: SimpleProviderDef[] = SIMPLE_PROVIDER_META.map(
+const SIMPLE_PROVIDERS: SimpleProviderDef[] = SIMPLE_PROVIDER_META.map(
   (m) => ({ ...m, discover: DISCOVERERS[m.kind] }),
 );
 

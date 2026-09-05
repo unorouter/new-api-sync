@@ -17,7 +17,7 @@ import YAML, { isMap, isScalar, isSeq, type Document, type Node } from "yaml";
  *
  * Returns the mutated document (same reference).
  */
-export function syncYamlDocument(doc: Document, next: unknown): Document {
+function syncYamlDocument(doc: Document, next: unknown): Document {
   syncNode(doc, [], next);
   return doc;
 }
