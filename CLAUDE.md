@@ -325,6 +325,11 @@ issues.
   re-probe; migrates the legacy `authenticity-cache.json` on first load).
 - Builtin blacklist (`config.ts`) is merged last and additively; local config can add but never remove
   builtins.
+- Option maps are read-modify-write with no lock. The 15-min cluster `metadata` job can read
+  `GroupRatio` before a manual write and merge its stale copy back afterwards; write option maps
+  only while no sync job is active, recompute from live at write time, and re-check after the
+  next cron tick. That job also writes a ratio for every unprobed candidate group, so lane-shaped
+  `GroupRatio` keys without a channel accumulate; `pruneDeadOptionGroups` never touches them.
 
 ## a7 cluster crons (cluster runs the cadence, this machine is for development)
 
