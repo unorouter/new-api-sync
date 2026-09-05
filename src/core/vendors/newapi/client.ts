@@ -1,5 +1,12 @@
 import { tryFetchJson } from "@core/infra/http";
 import type { Channel, GroupInfo, ModelMeta, Vendor } from "@core/types";
+import { consola } from "consola";
+
+const PRICING_KEYS = [
+  "ModelRatio",
+  "ModelPrice",
+  "billing_setting.billing_expr",
+] as const;
 import { t } from "@server/i18n";
 import type { ClientContext } from "./context";
 import { fetchPricing } from "./pricing";
@@ -94,7 +101,50 @@ export class NewApiClient {
     return result;
   }
 
+  // Every path that ever unpriced a live model (six incidents since June) went
+  // through this write. A model on an enabled channel must keep at least one of
+  // ratio, flat price, or billing expression, or the gateway 400s every request.
+  private async unpricedByWrite(key: string, value: string): Promise<string[]> {
+    const [channels, current] = await Promise.all([
+      this.listChannels(),
+      this.getOptions([...PRICING_KEYS]),
+    ]);
+    const parse = (raw: string | undefined): Record<string, unknown> => {
+      try {
+        const v: unknown = JSON.parse(raw ?? "");
+        return v !== null && typeof v === "object" && !Array.isArray(v)
+          ? (v as Record<string, unknown>)
+          : {};
+      } catch {
+        return {};
+      }
+    };
+    const before = PRICING_KEYS.map((k) => parse(current[k]));
+    const after = PRICING_KEYS.map((k) =>
+      k === key ? parse(value) : parse(current[k]),
+    );
+    const live = new Set<string>();
+    for (const ch of channels)
+      if (ch.status === 1)
+        for (const raw of ch.models.split(",")) {
+          const m = raw.trim();
+          if (m && !m.endsWith("[1m]")) live.add(m);
+        }
+    return [...live].filter(
+      (m) => before.some((x) => m in x) && !after.some((x) => m in x),
+    );
+  }
+
   async updateOption(key: string, value: string): Promise<boolean> {
+    if ((PRICING_KEYS as readonly string[]).includes(key)) {
+      const lost = await this.unpricedByWrite(key, value);
+      if (lost.length > 0) {
+        consola.error(
+          `[guard] refusing ${key} write: ${lost.length} live model(s) would lose their only price: ${lost.sort().join(", ")}`,
+        );
+        return false;
+      }
+    }
     const data = await tryFetchJson<{ success: boolean }>(
       `${this.baseUrl}/api/option/`,
       {
