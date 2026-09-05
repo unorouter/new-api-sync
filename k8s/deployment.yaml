@@ -72,7 +72,8 @@ metadata:
   name: new-api-sync-full
   namespace: services
 spec:
-  schedule: "3 7 * * *"
+  schedule: "0 22 * * *"
+  timeZone: "Europe/Berlin"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 3600
   successfulJobsHistoryLimit: 3
