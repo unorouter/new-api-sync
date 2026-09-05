@@ -344,11 +344,13 @@ Two CronJobs in the k3s `services` namespace deploy from this repo's `k8s/` dir
   runs live probes.
 
 **Mirror config.yml provider changes to the cluster.** The cluster reads a
-MINIMAL a7-only config.yml from OpenBao `secret/sync-env` (target + a7 block +
-kiro blacklist entries + the opus-4-6 modelMapping; no groupMapping yet, a7api
-lanes carry no upstream group label). Any edit to the local a7 provider block,
-those blacklist entries, that mapping, or a groupMapping rule an a7 lane would
-need MUST be pushed there too or the crons keep running the old rules. Regenerate + upload (payload file
+MINIMAL config.yml from OpenBao `secret/sync-env` (target + the a7, fish and
+open1 provider blocks + kiro blacklist entries + the opus-4-6 modelMapping + the
+full groupMapping block). Any edit to those provider blocks, those blacklist
+entries, either mapping, or any groupMapping rule MUST be pushed there too or
+the crons keep running the old rules. Missing groupMapping there is not
+cosmetic: the 15-min metadata job prices fish's candidate groups under their
+RAW labels and writes brand-named `GroupRatio` keys back every tick. Regenerate + upload (payload file
 plus stdin, never argv):
 
 ```bash
