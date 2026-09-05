@@ -351,7 +351,10 @@ function buildManagedOptionValues(
 
 function buildVendorIdMap(vendors: Vendor[]): Record<string, number> {
   const map: Record<string, number> = {};
-  for (const vendor of vendors) map[vendor.name.toLowerCase()] = vendor.id;
+  // Lowest id wins: the vendors table carries duplicate names, and
+  // findVendorByAlias (the metadata path) also takes the first one.
+  for (const vendor of [...vendors].sort((a, b) => a.id - b.id))
+    map[vendor.name.toLowerCase()] ??= vendor.id;
   forEachVendor((canonical, matcher) => {
     const names = matcher.nameAliases;
     if (!names || names.length === 0 || map[canonical] !== undefined) return;

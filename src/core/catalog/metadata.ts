@@ -24,10 +24,10 @@ const DESCRIPTION_FAMILIES: ReadonlyArray<readonly [string, RegExp]> = [
   ["glm", /\bglm\b/i], ["qwen", /\bqwen\b/i], ["llama", /\bllama\b/i],
   ["deepseek", /\bdeepseek\b/i], ["mistral", /\bmistral\b/i], ["kimi", /\bkimi\b/i],
   ["gemma", /\bgemma\b/i], ["ernie", /\bernie\b/i], ["minimax", /\bminimax\b/i],
-  ["grok", /\bgrok\b/i], ["nova", /\bnova\b/i], ["phi", /\bphi\b/i],
-  ["doubao", /\bdoubao\b/i], ["command", /\bcommand\b/i], ["seedance", /\bseedance\b/i],
-  ["venice", /\bvenice\b/i], ["kat", /\bkat\b/i], ["hunyuan", /\bhunyuan\b/i],
-  ["yi", /\byi\b/i], ["step", /\bstep\b/i], ["moonshot", /\bmoonshot\b/i],
+  ["grok", /\bgrok\b/i], ["nova", /\bnova\b/i], ["phi", /\bphi[- ]?\d/i],
+  ["doubao", /\bdoubao\b/i], ["command", /\bcommand[- ]?[ar]\d*\b/i], ["seedance", /\bseedance\b/i],
+  ["venice", /\bvenice\b/i], ["kat", /\bkat[- ]?(coder|dev|\d)/i], ["hunyuan", /\bhunyuan\b/i],
+  ["yi", /\byi[- ]?\d/i], ["step", /\bstep[- ]?\d/i], ["moonshot", /\bmoonshot\b/i],
 ];
 
 const familiesIn = (text: string): string[] =>
