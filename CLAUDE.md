@@ -354,22 +354,26 @@ await store.flush(target, await target.listChannels());` (`deleteEntries`, `merg
 Two CronJobs in the k3s `services` namespace deploy from this repo's `k8s/` dir
 (build via `infra/scripts/build-local.sh new-api-sync --deploy`):
 
-- `new-api-sync` (every 15min): `sync metadata`. Reprices option maps from live
+- `new-api-sync` (every 15 min, Europe/Berlin, skips hour 22 while the nightly runs): `sync metadata`. Reprices option maps from live
   marketplace listings AND accepts a7 pin price-change notices (ceiling-gated).
   Zero probes, zero channel writes. Needs no verdict cache.
 - `new-api-sync-full` (daily 22:00 Europe/Berlin): `sync run --only a7`. Membership churn:
   probes + admits new merchants, deletes dead lanes, re-pins. The ONLY job that
   runs live probes.
 
-**Mirror config.yml provider changes to the cluster.** The cluster reads a
-MINIMAL config.yml from OpenBao `secret/sync-env` (target + the a7, fish and
-open1 provider blocks + kiro blacklist entries + the opus-4-6 modelMapping + the
-full groupMapping block). Any edit to those provider blocks, those blacklist
-entries, either mapping, or any groupMapping rule MUST be pushed there too or
-the crons keep running the old rules. Missing groupMapping there is not
-cosmetic: the 15-min metadata job prices fish's candidate groups under their
-RAW labels and writes brand-named `GroupRatio` keys back every tick. Regenerate + upload (payload file
-plus stdin, never argv):
+**Mirror config.yml changes to the cluster.** The cluster reads a config.yml
+from OpenBao `secret/sync-env` (v30+): target + ONLY the a7, fish and open1
+provider blocks, plus the FULL shared blocks copied verbatim from the local
+file: `rateLimit`, `modelMapping`, `groupMapping`, `blacklist` (union with the
+brand entries only the cluster carries), `modelAlias`. Any edit to those
+provider blocks or to any shared block MUST be pushed there too or the crons
+keep running the old rules. The shared blocks were minimal until 2026-09-06 and
+the cluster's 15-min metadata tick re-seeded metadata with 2 mappings while
+local `bun sync metadata` used 480, so every tick re-patched the 9 to 30 rows
+the last local run had fixed (`[metadata] patch <name>: <reasons>` shows this
+per row). Missing groupMapping is not cosmetic either: the tick prices fish's
+candidate groups under their RAW labels and writes brand-named `GroupRatio`
+keys back. Regenerate + upload (payload file plus stdin, never argv):
 
 ```bash
 bun scripts/... # build {"config.yml": <minimal>} JSON from local config.yml
