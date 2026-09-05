@@ -87,7 +87,7 @@ Path aliases (use these, never relative cross-package imports): `@core/*`, `@ser
    (new-api FixAbility rebuilds the abilities table from channels, healing enabled-drift and orphans
    from out-of-band edits; then orphaned-model cleanup deletes model rows with no ability at all -
    disabled abilities count as bound, so it is partial-safe) -> group prune (second flush) -> guest
-   token -> the `[pricing]` audit block -> logs.
+   token -> the `[pricing-audit]` block -> logs.
 
 Each upstream model flows: provider row -> `OfferModel{exposed, upstream, upstreamRatio}` -> canonical
 vote -> `MergedModel` + `PricedTier` -> `Channel` (with `model_mapping: {exposed -> upstream}`) ->
@@ -107,7 +107,7 @@ changes (e.g. the per-request group-ratio formula) WITHOUT a full `sync run`. It
 current target channels already publish (in-scope), so out-of-scope/paid-elsewhere entries stay intact.
 All option edits accumulate in one `OptionStore` and land in a single flush at the end; the run exits 1
 (and the cluster Job fails, alert `NewApiSyncJobFailed`) when that flush healed an entry or a model on an
-enabled channel carries no price. Read the `[pricing]` block at the end of the log.
+enabled channel carries no price. Read the `[pricing-audit]` block at the end of the log.
 
 ### Fixing a bad/fake channel: delete in DB, then re-sync with precision
 
