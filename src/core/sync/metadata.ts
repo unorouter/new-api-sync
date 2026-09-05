@@ -482,6 +482,7 @@ function planRowPatch(
   // truncated one).
   const descriptionChanged =
     !!description &&
+    !contradictsFamily(name, description) &&
     description !== (existing.description ?? "") &&
     !(
       looksTruncated(description) &&
