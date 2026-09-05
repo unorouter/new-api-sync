@@ -1,5 +1,38 @@
+import type { Channel } from "@core/types";
 import micromatch from "micromatch";
-import { CHANNEL_TYPES } from "./channel-types";
+
+export const CLAUDE_CONTEXT_1M_SUFFIX = "[1m]";
+
+// `[1m]` aliases exist only to route the 1M-context beta; they carry no price
+// or metadata of their own.
+export function isRoutingOnlyAlias(modelName: string): boolean {
+  return modelName.endsWith(CLAUDE_CONTEXT_1M_SUFFIX);
+}
+
+export function modelsOnChannels(
+  channels: Channel[],
+  opts: { enabledOnly: boolean; includeAliases: boolean },
+): Set<string> {
+  const models = new Set<string>();
+  for (const ch of channels) {
+    if (opts.enabledOnly && ch.status !== 1) continue;
+    for (const m of parseModelList(ch.models))
+      if (opts.includeAliases || !isRoutingOnlyAlias(m)) models.add(m);
+  }
+  return models;
+}
+
+export function groupsOnChannels(
+  channels: Channel[],
+  opts: { enabledOnly: boolean },
+): Set<string> {
+  const groups = new Set<string>();
+  for (const ch of channels) {
+    if (opts.enabledOnly && ch.status !== 1) continue;
+    for (const g of parseModelList(ch.group ?? "")) groups.add(g);
+  }
+  return groups;
+}
 
 /** Substring for bare patterns; globs go through micromatch. */
 function matchBlacklistEntry(text: string, pattern: string): boolean {
@@ -127,22 +160,3 @@ export function sanitizeGroupName(name: string): string {
   for (const ch of name) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
   return `g-${(h >>> 0).toString(16).padStart(8, "0").slice(0, 6)}`;
 }
-
-export const SUB2API_PLATFORM_CHANNEL_TYPES: Record<string, number> = {
-  anthropic: CHANNEL_TYPES.ANTHROPIC,
-  gemini: CHANNEL_TYPES.GEMINI,
-  openai: CHANNEL_TYPES.OPENAI,
-};
-
-export const VENDOR_TO_SUB2API_PLATFORMS: Record<string, string[]> = {
-  google: ["gemini", "antigravity"],
-  anthropic: ["anthropic"],
-  openai: ["openai"],
-};
-
-export const SUB2API_PLATFORM_TO_VENDOR: Record<string, string> =
-  Object.fromEntries(
-    Object.entries(VENDOR_TO_SUB2API_PLATFORMS).flatMap(([vendor, platforms]) =>
-      platforms.map((platform) => [platform, vendor]),
-    ),
-  );

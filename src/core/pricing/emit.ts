@@ -98,13 +98,6 @@ function buildSettingJson(tier: PricedTier): string | undefined {
     if (http !== undefined) capabilities.http = http;
     if (Object.keys(capabilities).length > 0)
       setting.capabilities = capabilities;
-
-    // thinking_to_content is deliberately NOT set. It existed because new-api judged
-    // stream emptiness on the billing buffer, so a reasoning-only turn was billed as
-    // an empty 502; folding reasoning into content dodged that at the cost of shipping
-    // raw <think> tags to every client. new-api now judges emptiness on content and
-    // accepts reasoning when the turn finished (streamHadOutput), so the workaround is
-    // obsolete and only corrupts output for clients that read reasoning_content.
   }
 
   if (tier.passThroughBody) setting.pass_through_body_enabled = true;

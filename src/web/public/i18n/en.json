@@ -26,7 +26,6 @@
     "CONFIG_FILES": "config files",
     "PROVIDERS": "providers",
     "PROVIDERS_BREAKDOWN": "provider split",
-    "PROVIDERS_BREAKDOWN_VALUE": "{newapi} newapi, {sub2api} sub2api, {nvidia} nvidia, {openrouter} openrouter",
     "CONFIG_BLACKLIST_COUNT": "config blacklist",
     "CONFIG_MODEL_MAPPING_COUNT": "model mappings",
     "CONFIG_PROVIDER_OVERRIDES_COUNT": "providers with overrides",
@@ -196,11 +195,6 @@
       "REMOVE_COLUMN": "Remove column",
       "REMOVE_ROW": "Remove row"
     },
-    "SUB2API": {
-      "KEY_PLACEHOLDER": "key",
-      "PLATFORM_PLACEHOLDER": "platform",
-      "NAME_PLACEHOLDER": "name (optional)"
-    },
     "FIELD": {
       "ADD": "Add",
       "REMOVE": "Remove",
@@ -242,10 +236,6 @@
     "GLOBAL_CONFIG_INVALID_YAML": "Invalid YAML in {path}: {detail}",
     "GLOBAL_CONFIG_VALIDATION_FAILED": "{detail}",
     "HTTP_ERROR": "HTTP {status} {statusText} from {url}",
-    "SUB2API_ACCOUNT_LIST_FAILED": "Account list failed: {detail}",
-    "SUB2API_GET_MODELS_FAILED": "Get models failed: {detail}",
-    "SUB2API_GROUP_LIST_FAILED": "Group list failed: {detail}",
-    "SUB2API_GET_GROUP_API_KEYS_FAILED": "Get group API keys failed: {detail}",
     "NEWAPI_FETCH_PRICING_FAILED": "Failed to fetch pricing from both /api/pricing_new and /api/pricing",
     "NEWAPI_TOKEN_LIST_API_FAILED": "Token list API returned success: false{detail}",
     "NEWAPI_CHANNEL_LIST_API_FAILED": "Channel list API returned success: false",
@@ -255,7 +245,6 @@
     "CONFIG_DUPLICATE_PROVIDER": "providers.{index}.name: duplicate provider name: {name}",
     "CONFIG_PRICE_ADJUSTMENT_NEEDS_DEFAULT": "{path}: priceAdjustment object must contain a default key",
     "CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT": "{path}.{key}: priceAdjustment values for text types (vendors/default) must be < 1; only non-text types (image, video, audio, embedding) can be >= 1",
-    "CONFIG_SUB2API_REQUIRES_KEY": "providers.{index}: sub2api provider requires adminApiKey or groups",
     "PRICING_EMPTY_SOURCES": "[pricing] empty pricing sources: {sources}. Aborting sync — canonical resolution requires LiteLLM + OpenRouter + basellm.",
     "PRICING_CHANNEL_COLLISION": "Channel name collision: \"{name}\" produced twice ({first} and plan {second}). Each (provider, group, vendor, ratio-tier, base-url-suffix) bucket must produce a unique channel name."
   },
@@ -288,7 +277,6 @@
       "ROW": "[{type}] {name}: {amount}",
       "ROW_NONE": "[{type}] {name}: no balance endpoint",
       "ROW_ERROR": "[{type}] {name}: {error}",
-      "PART": "    {name}: {amount}",
       "TOTAL": "Total: {amount} across {counted} providers ({skipped} without a balance)"
     },
     "ERROR": {
@@ -575,17 +563,6 @@
       "IMAGE_CHANNEL": "[{name}] {count} image model(s) → channel \"{group}\" (type={type})",
       "TEXT_VENDOR_CHANNELS": "[{name}] {count} text model(s) across {vendors} vendor channel(s)",
       "IMAGE_VENDOR_CHANNELS": "[{name}] {count} image model(s) across {vendors} vendor channel(s)"
-    },
-    "SUB2API": {
-      "NO_API_KEY": "[{name}] No API key for group \"{group}\", skipping",
-      "GROUPS_WITH_KEYS": "[{name}] {count} groups with API keys",
-      "ACTIVE_ACCOUNTS": "[{name}] {active}/{total} active accounts",
-      "NO_MODELS_FOR_GROUP": "[{name}] No models for group \"{group}\"",
-      "GROUPS_WITH_MODELS": "[{name}] {count} groups with models",
-      "NO_WORKING_MODELS": "[{name}] No working models for group \"{group}\" (0/{total} passed)",
-      "GROUP_WORKING": "[{name}/{platform}] {working}/{total} working",
-      "GROUP_TIERS_SUMMARY": "[{name}/{platform}] {count} models, {tiers} tier(s): {ratios}",
-      "ACCOUNTS_FOUND": "[{name}] {count} accounts found"
     },
     "OPENROUTER": {
       "PROBING_ENDPOINTS": "Probing per-endpoint pricing for {count} candidate model(s)",

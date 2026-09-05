@@ -124,6 +124,8 @@ program
       );
       const result = await runMetadataSync(config, { dryRun: options.dryRun });
       printMetadataSummary(result);
+      if (result.failed > 0 || result.optionErrors.length > 0)
+        process.exitCode = 1;
     },
   );
 

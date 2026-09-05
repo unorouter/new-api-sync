@@ -65,7 +65,8 @@ const passingByKey = new Map<string, ModelTestLog>();
 const passKey = (provider: string, model: string) => `${provider}|${model}`;
 
 // Dry-run gate: when set, testAndFilterModels treats every testable model as
-// working and sends no upstream requests (no cost). Set per run by runSync.
+// working and sends no upstream requests (no cost). runProviderPipeline sets
+// it for the duration of one pipeline run.
 let dryRunMode = false;
 export function setDryRunMode(on: boolean): void {
   dryRunMode = on;

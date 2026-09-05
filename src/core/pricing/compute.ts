@@ -3,6 +3,7 @@ import {
   getTaskModelOverride,
 } from "@core/catalog/constants/channel-types";
 import {
+  CLAUDE_CONTEXT_1M_SUFFIX,
   matchesAnyPattern,
   parseModelList,
   sanitizeGroupName,
@@ -47,7 +48,6 @@ interface ComputeArgs {
 
 const PAID_GROUP_RATIO_CANDIDATES = [1, 0.5, 0.25, 0.1, 0.05, 0.01] as const;
 
-const CLAUDE_CONTEXT_1M_SUFFIX = "[1m]";
 const CLAUDE_CONTEXT_1M_PATTERN = /^claude-/i;
 const CLAUDE_CONTEXT_1M_BETA = "context-1m-2025-08-07";
 

@@ -26,7 +26,6 @@
     "CONFIG_FILES": "配置文件",
     "PROVIDERS": "提供方",
     "PROVIDERS_BREAKDOWN": "提供方分布",
-    "PROVIDERS_BREAKDOWN_VALUE": "newapi {newapi}，sub2api {sub2api}，nvidia {nvidia}，openrouter {openrouter}",
     "CONFIG_BLACKLIST_COUNT": "配置黑名单",
     "CONFIG_MODEL_MAPPING_COUNT": "模型映射数",
     "CONFIG_PROVIDER_OVERRIDES_COUNT": "有覆盖项的提供方",
@@ -196,11 +195,6 @@
       "REMOVE_COLUMN": "移除列",
       "REMOVE_ROW": "移除行"
     },
-    "SUB2API": {
-      "KEY_PLACEHOLDER": "键",
-      "PLATFORM_PLACEHOLDER": "平台",
-      "NAME_PLACEHOLDER": "名称（可选）"
-    },
     "FIELD": {
       "ADD": "添加",
       "REMOVE": "移除",
@@ -242,10 +236,6 @@
     "GLOBAL_CONFIG_INVALID_YAML": "{path} 中的 YAML 无效：{detail}",
     "GLOBAL_CONFIG_VALIDATION_FAILED": "{detail}",
     "HTTP_ERROR": "HTTP {status} {statusText}，来自 {url}",
-    "SUB2API_ACCOUNT_LIST_FAILED": "获取账号列表失败：{detail}",
-    "SUB2API_GET_MODELS_FAILED": "获取模型失败：{detail}",
-    "SUB2API_GROUP_LIST_FAILED": "获取分组列表失败：{detail}",
-    "SUB2API_GET_GROUP_API_KEYS_FAILED": "获取分组 API 密钥失败：{detail}",
     "NEWAPI_FETCH_PRICING_FAILED": "从 /api/pricing_new 和 /api/pricing 获取定价失败",
     "NEWAPI_TOKEN_LIST_API_FAILED": "Token 列表接口返回 success=false{detail}",
     "NEWAPI_CHANNEL_LIST_API_FAILED": "Channel 列表接口返回 success=false",
@@ -255,7 +245,6 @@
     "CONFIG_DUPLICATE_PROVIDER": "providers.{index}.name：提供方名称重复：{name}",
     "CONFIG_PRICE_ADJUSTMENT_NEEDS_DEFAULT": "{path}：priceAdjustment 对象必须包含 default 键",
     "CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT": "{path}.{key}：文本类型（vendors/default）的 priceAdjustment 取值必须 < 1；仅非文本类型（image、video、audio、embedding）可以 >= 1",
-    "CONFIG_SUB2API_REQUIRES_KEY": "providers.{index}：sub2api 提供方必须设置 adminApiKey 或 groups",
     "PRICING_EMPTY_SOURCES": "[pricing] 定价数据源为空：{sources}。终止同步——基准定价解析需要 LiteLLM、OpenRouter、basellm 同时可用。",
     "PRICING_CHANNEL_COLLISION": "渠道名称冲突：\"{name}\" 重复出现（{first} 与计划 {second}）。每个（提供方、分组、供应商、倍率档位、base-url 后缀）组合都必须产生唯一的渠道名。"
   },
@@ -288,7 +277,6 @@
       "ROW": "[{type}] {name}：{amount}",
       "ROW_NONE": "[{type}] {name}：无余额接口",
       "ROW_ERROR": "[{type}] {name}：{error}",
-      "PART": "    {name}：{amount}",
       "TOTAL": "合计：{amount}，共 {counted} 个供应商（{skipped} 个无余额）"
     },
     "ERROR": {
@@ -575,17 +563,6 @@
       "IMAGE_CHANNEL": "[{name}] {count} 个图像模型 → 渠道 \"{group}\"（类型={type}）",
       "TEXT_VENDOR_CHANNELS": "[{name}] {count} 个文本模型，跨 {vendors} 个供应商渠道",
       "IMAGE_VENDOR_CHANNELS": "[{name}] {count} 个图像模型，跨 {vendors} 个供应商渠道"
-    },
-    "SUB2API": {
-      "NO_API_KEY": "[{name}] 分组 \"{group}\" 无 API 密钥，跳过",
-      "GROUPS_WITH_KEYS": "[{name}] {count} 个分组具有 API 密钥",
-      "ACTIVE_ACCOUNTS": "[{name}] {active}/{total} 个活跃账号",
-      "NO_MODELS_FOR_GROUP": "[{name}] 分组 \"{group}\" 无可用模型",
-      "GROUPS_WITH_MODELS": "[{name}] {count} 个分组拥有模型",
-      "NO_WORKING_MODELS": "[{name}] 分组 \"{group}\" 无可用模型（0/{total} 通过）",
-      "GROUP_WORKING": "[{name}/{platform}] {working}/{total} 个可用",
-      "GROUP_TIERS_SUMMARY": "[{name}/{platform}] {count} 个模型，{tiers} 档倍率：{ratios}",
-      "ACCOUNTS_FOUND": "[{name}] 找到 {count} 个账号"
     },
     "OPENROUTER": {
       "PROBING_ENDPOINTS": "正在探测 {count} 个候选模型的端点定价",

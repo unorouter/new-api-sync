@@ -13,7 +13,10 @@ import {
   isModerationModel,
 } from "@core/catalog/constants/inference";
 import type { ModelType } from "@core/types";
-import { parseModelList } from "@core/catalog/constants/patterns";
+import {
+  isRoutingOnlyAlias,
+  parseModelList,
+} from "@core/catalog/constants/patterns";
 import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
 import { type BasellmEntry, buildMetadataMap } from "@core/catalog/metadata";
 import {
@@ -25,8 +28,6 @@ import {
 import type { PricingSource } from "@core/pricing/sources/types";
 import type { Channel, DesiredModelSpec } from "@core/types";
 import { consola } from "consola";
-
-const CLAUDE_CONTEXT_1M_SUFFIX = "[1m]";
 
 // Prefer the non-truncated, then the longer description. Keeps the current
 // OpenRouter win when both are complete; lets ePhone's full text override a
@@ -86,10 +87,6 @@ export function buildRunwareModels(channels: Channel[]): Set<string> {
       if (!isRoutingOnlyAlias(m)) set.add(m);
   }
   return set;
-}
-
-export function isRoutingOnlyAlias(modelName: string): boolean {
-  return modelName.endsWith(CLAUDE_CONTEXT_1M_SUFFIX);
 }
 
 export interface ToolEvidence {

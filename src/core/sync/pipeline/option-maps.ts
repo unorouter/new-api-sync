@@ -1,5 +1,7 @@
 import { inferModelType } from "@core/catalog/constants/inference";
 import type { RuntimeConfig } from "@core/config";
+import { isFixed } from "@core/pricing/compute";
+import { parseJsonObject } from "@core/sync/option-store";
 import type {
   GridPricingInfo,
   ManagedOptionMaps,
@@ -21,15 +23,8 @@ export function buildSurvivingGroups(
   channels: { group?: string; status?: number }[],
   options: Record<string, string>,
 ): SurvivingGroups {
-  const parse = <T>(key: string, fallback: T): T => {
-    try {
-      return JSON.parse(options[key] ?? "") as T;
-    } catch {
-      return fallback;
-    }
-  };
-  const publishedLabels = parse<Record<string, string>>("UserUsableGroups", {});
-  const publishedRatios = parse<Record<string, number>>("GroupRatio", {});
+  const publishedLabels = parseJsonObject(options["UserUsableGroups"]);
+  const publishedRatios = parseJsonObject(options["GroupRatio"]);
 
   const labels = new Map<string, string>();
   const ratios = new Map<string, number>();
@@ -39,9 +34,12 @@ export function buildSurvivingGroups(
       const g = raw.trim();
       // Only groups the gateway ALREADY published: this restores what a blip
       // dropped, it does not publish a group that was never user-visible.
-      if (!g || !(g in publishedLabels)) continue;
-      labels.set(g, publishedLabels[g]!);
-      if (publishedRatios[g] !== undefined) ratios.set(g, publishedRatios[g]!);
+      if (!g) continue;
+      const label = publishedLabels[g];
+      if (typeof label !== "string") continue;
+      labels.set(g, label);
+      const ratio = publishedRatios[g];
+      if (typeof ratio === "number") ratios.set(g, ratio);
     }
   }
   return { labels, ratios };
@@ -135,13 +133,8 @@ export function buildOptionMaps(
 
   for (const [name, ratios] of mergedModels) {
     const mappedName = modelMapping?.[name] ?? name;
-    const isPerRequest =
-      ratios.quotaType !== undefined && ratios.quotaType >= 1;
     const isTiered = Boolean(ratios.billingExpr);
-    if (
-      (ratios.modelPrice !== undefined && ratios.modelPrice > 0) ||
-      isPerRequest
-    ) {
+    if (isFixed(ratios)) {
       modelPrice[mappedName] = r4(ratios.modelPrice ?? 0);
     } else if (!isTiered) {
       modelRatio[mappedName] = r4(ratios.ratio);

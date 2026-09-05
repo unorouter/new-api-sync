@@ -210,10 +210,7 @@ function collectCandidates(
     // The vote's modelRatio is the input price in ratio units; USD list output.
     const canonicalListUsd = canonicalListUsdFor(model, config, ctx);
 
-    const wanted =
-      Object.entries(provider.hostsPerModel ?? {}).find(([glob]) =>
-        matchesAnyPattern(model, [glob]),
-      )?.[1] ?? 1;
+    const wanted = resolvePerModel(provider.hostsPerModel, model, 1);
     const candidates = selectMerchants(
       model,
       rows,

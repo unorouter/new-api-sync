@@ -1,10 +1,12 @@
 import { inferModelType } from "@core/catalog/constants/inference";
 import {
   matchesAnyPattern,
+  modelsOnChannels,
   parseModelList,
 } from "@core/catalog/constants/patterns";
 import { forEachVendor } from "@core/catalog/constants/vendor-matchers";
 import type { RuntimeConfig } from "@core/config";
+import { OptionStore } from "@core/sync/option-store";
 import type {
   Channel,
   DesiredState,
@@ -15,28 +17,10 @@ import type {
   TargetSnapshot,
   Vendor,
 } from "@core/types";
-import { t } from "@server/i18n";
+import { MODEL_OPTION_FIELD, MODEL_OPTION_KEYS } from "@core/types";
 import { consola } from "consola";
 import { deepEqual } from "fast-equals";
 import stringify from "safe-stable-stringify";
-
-function parseJsonObject(raw: string | undefined): Record<string, unknown> {
-  try {
-    const v: unknown = JSON.parse(raw ?? "");
-    return v !== null && typeof v === "object" && !Array.isArray(v)
-      ? (v as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
-  }
-}
-
-function collectModelsFromChannels(channels: Channel[]): Set<string> {
-  const models = new Set<string>();
-  for (const ch of channels)
-    for (const m of parseModelList(ch.models)) models.add(m);
-  return models;
-}
 
 function extractCapabilities(
   setting?: string,
@@ -156,9 +140,6 @@ function mergeSettingCapabilities(
     existing.system_prompt = desiredSysPrompt.prompt;
     existing.system_prompt_override = desiredSysPrompt.override;
   }
-  // Clear the obsolete thinking_to_content workaround (see emit.ts) so a resync
-  // strips it from channels that still carry it.
-  delete existing.thinking_to_content;
   if (desiredAutoTestInterval !== undefined)
     existing.auto_test_interval_minutes = desiredAutoTestInterval;
   if (desiredAutoTestIntervalMax !== undefined)
@@ -255,21 +236,18 @@ function normalizeParamOverride(po?: string): string | undefined {
   }
 }
 
-function mergeProtected<T>(
-  existing: Record<string, T>,
+function mergeProtected(
+  existing: Record<string, unknown>,
   guard: Set<string>,
-  desired: Record<string, T>,
-): Record<string, T> {
-  const merged: Record<string, T> = {};
+  desired: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(existing))
     if (guard.has(k)) merged[k] = v;
   for (const [k, v] of Object.entries(desired))
     if (!(k in merged)) merged[k] = v;
   return merged;
 }
-
-// prettier-ignore
-const PARTIAL_MODEL_OPTION_KEYS = ["ModelRatio","ModelPrice","CompletionRatio","ImageRatio","CacheRatio","CreateCacheRatio","AudioRatio","AudioCompletionRatio","ModelQuotaType","ModelGridPricing","billing_setting.billing_mode","billing_setting.billing_expr","ModelRequestRateLimitModels"] as const;
 
 function buildManagedOptionValues(
   desired: DesiredState,
@@ -280,6 +258,8 @@ function buildManagedOptionValues(
   modelTypeFilter?: ModelType[],
 ): Record<string, string> {
   const opts = desired.options;
+  const store = OptionStore.fromRaw(snapshot.options);
+  const all = { enabledOnly: false, includeAliases: true };
   const typeSet = modelTypeFilter?.length
     ? new Set(modelTypeFilter)
     : undefined;
@@ -290,7 +270,7 @@ function buildManagedOptionValues(
   const isManaged = (ch: Channel) =>
     ch.tag && desired.managedProviders.has(ch.tag);
   const unmanagedChannels = snapshot.channels.filter((ch) => !isManaged(ch));
-  const protectedModels = collectModelsFromChannels(unmanagedChannels);
+  const protectedModels = modelsOnChannels(unmanagedChannels, all);
 
   const desiredModelsWithoutRatio = new Set<string>();
   for (const channel of desired.channels)
@@ -301,23 +281,6 @@ function buildManagedOptionValues(
     ...protectedModels,
     ...desiredModelsWithoutRatio,
   ]);
-
-  const parse = <T>(key: string, fallback: T): T => {
-    try {
-      const raw = snapshot.options[key];
-      return raw ? (JSON.parse(raw) as T) : fallback;
-    } catch {
-      return fallback;
-    }
-  };
-  const mergeOption = <T>(
-    key: string,
-    guard: Set<string>,
-    d: Record<string, T>,
-  ) => mergeProtected(parse<Record<string, T>>(key, {}), guard, d);
-
-  const partialKeys = (k: string) =>
-    Object.keys(parse<Record<string, unknown>>(k, {}));
 
   // A managed model leaves the guard only when this run actually prices it.
   // Stripping every managed model let a --only run whose in-scope lanes all
@@ -335,10 +298,13 @@ function buildManagedOptionValues(
     ...Object.keys(opts.modelPrice),
     ...Object.keys(opts.billingExpr),
   ]);
-  const servedAfter = collectModelsFromChannels(
+  const servedAfter = modelsOnChannels(
     snapshot.channels.filter((ch) => !deletedChannels.has(ch.name)),
+    all,
   );
-  const existingKeys = new Set(PARTIAL_MODEL_OPTION_KEYS.flatMap(partialKeys));
+  const existingKeys = new Set(
+    MODEL_OPTION_KEYS.flatMap((k) => Object.keys(store.object(k))),
+  );
   const modelGuard = new Set(
     [...modelRatioGuard, ...existingKeys].filter((m) =>
       isPartialSync
@@ -348,48 +314,39 @@ function buildManagedOptionValues(
     ),
   );
 
-  // Group options are ADDITIVE here: desired entries add/update, existing ones
-  // are never removed by the merge. A run only computes tiers for models that
-  // passed ITS probe, so removal-by-omission deleted the usable/auto/ratio
-  // entries of every live channel whose model merely throttled during that
-  // run's probe (free tiers do constantly) - recurring "live channel, invisible
-  // model" incidents. The ONLY removal authority is pruneDeadOptionGroups in
-  // apply.ts, which sees the full post-apply channel list.
-  const mergedGroupRatio = {
-    ...parse<Record<string, number>>("GroupRatio", {}),
-    ...opts.groupRatio,
-  };
-  const mergedUserGroups = {
-    ...parse<Record<string, string>>("UserUsableGroups", {}),
-    auto: t("CORE.GROUPS.AUTO_LABEL"),
-    ...opts.userUsableGroups,
-  };
-  const mergedAutoGroups = [
-    ...new Set([...parse<string[]>("AutoGroups", []), ...opts.autoGroups]),
-  ].sort((a, b) => (mergedGroupRatio[a] ?? 1) - (mergedGroupRatio[b] ?? 1));
-
-  // prettier-ignore
-  const modelOptions: [string, Record<string, unknown>][] = [["ModelRatio", opts.modelRatio],["CompletionRatio", opts.completionRatio],["ModelPrice", opts.modelPrice],["ImageRatio", opts.imageRatio],["CacheRatio", opts.cacheRatio],["CreateCacheRatio", opts.createCacheRatio],["AudioRatio", opts.audioRatio],["AudioCompletionRatio", opts.audioCompletionRatio],["ModelQuotaType", opts.modelQuotaType],["ModelGridPricing", opts.modelGridPricing],["billing_setting.billing_mode", opts.billingMode],["billing_setting.billing_expr", opts.billingExpr],["ModelRequestRateLimitModels", opts.modelRateLimits]];
-
+  store.mergeGroups({
+    ratio: opts.groupRatio,
+    usable: opts.userUsableGroups,
+    auto: opts.autoGroups,
+  });
+  for (const key of MODEL_OPTION_KEYS)
+    store.replace(
+      key,
+      stringify(
+        mergeProtected(
+          store.object(key),
+          modelGuard,
+          opts[MODEL_OPTION_FIELD[key]],
+        ),
+      ) ?? "{}",
+    );
+  store.replace(
+    "DefaultUseAutoGroup",
+    opts.defaultUseAutoGroup ? "true" : "false",
+  );
   const modelPatterns = opts.responsesApiModels.map(
     (m) => `^${m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
   );
-  const sj = (x: Record<string, unknown>) => stringify(x) ?? "{}";
-  return {
-    GroupRatio: sj(mergedGroupRatio),
-    UserUsableGroups: sj(mergedUserGroups),
-    AutoGroups: JSON.stringify(mergedAutoGroups),
-    DefaultUseAutoGroup: opts.defaultUseAutoGroup ? "true" : "false",
-    ...Object.fromEntries(
-      modelOptions.map(([k, v]) => [k, sj(mergeOption(k, modelGuard, v))]),
-    ),
-    "global.chat_completions_to_responses_policy": JSON.stringify({
+  store.replace(
+    "global.chat_completions_to_responses_policy",
+    JSON.stringify({
       enabled: modelPatterns.length > 0,
       all_channels: false,
       channel_types: [1],
       model_patterns: modelPatterns,
     }),
-  };
+  );
+  return store.raw();
 }
 
 function buildVendorIdMap(vendors: Vendor[]): Record<string, number> {
@@ -533,8 +490,9 @@ export function buildSyncDiff(
       });
   }
 
-  const protectedModels = collectModelsFromChannels(
+  const protectedModels = modelsOnChannels(
     snapshot.channels.filter((ch) => !ch.tag || !managedProviders.has(ch.tag)),
+    { enabledOnly: false, includeAliases: true },
   );
 
   for (const [modelName, desiredModel] of desired.models.entries()) {
@@ -613,17 +571,6 @@ export function buildSyncDiff(
     modelFilter,
     typeFilter,
   );
-  for (const key of ["ModelRatio", "ModelPrice"]) {
-    const next = desiredOptionValues[key];
-    if (next === undefined) continue;
-    const before = Object.keys(parseJsonObject(snapshot.options[key]));
-    const after = new Set(Object.keys(parseJsonObject(next)));
-    const removed = before.filter((k) => !after.has(k));
-    if (removed.length > 0)
-      consola.warn(
-        `[diff] ${key} drops ${removed.length} model(s): ${removed.sort().join(", ")}`,
-      );
-  }
   const optionOps: DiffOperation<string>[] = [];
   for (const [key, value] of Object.entries(desiredOptionValues)) {
     const existing = snapshot.options[key];

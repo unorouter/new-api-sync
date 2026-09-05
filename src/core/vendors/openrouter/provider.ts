@@ -21,7 +21,7 @@ import type {
   ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import { resolvePriceAdjustment } from "@core/pricing";
+import { resolvePerModel, resolvePriceAdjustment } from "@core/pricing";
 import { tryFetchJson } from "@core/infra/http";
 import { testAndFilterModels } from "@core/testing/runner";
 import type { ModelTestDetail } from "@core/testing/types";
@@ -430,10 +430,11 @@ export async function processOpenRouterProvider(
             // only catch the overflow when it is down or rate-limited.
             // Keyed by glob against the exposed name, matching priceAdjustment. Absent
             // key = 1 host, so fanning out stays opt-in per model.
-            const hostsWanted =
-              Object.entries(providerConfig.hostsPerModel ?? {}).find(
-                ([glob]) => matchesAnyPattern(r.exposed, [glob]),
-              )?.[1] ?? 1;
+            const hostsWanted = resolvePerModel(
+              providerConfig.hostsPerModel,
+              r.exposed,
+              1,
+            );
             // OpenRouter can list the SAME provider+quantization several times
             // for one model at different prices (BaseTen served glm-5.2 four
             // times, at $4.40 and $6.60 out). The channel name is built from

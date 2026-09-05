@@ -16,8 +16,8 @@
 // Representative single image generation. Calibrated against a live upstream console: gpt-image-2
 // generations report ~765 output tokens regardless of prompt (the image IS the output), with a
 // small prompt. Raising OUTPUT makes the cap/derived-price treat per-token image models as costlier.
-export const IMAGE_REPRESENTATIVE_PROMPT_TOKENS = 96;
-export const IMAGE_REPRESENTATIVE_OUTPUT_TOKENS = 765;
+const IMAGE_REPRESENTATIVE_PROMPT_TOKENS = 96;
+const IMAGE_REPRESENTATIVE_OUTPUT_TOKENS = 765;
 
 // modelRatio*2 == $/1M tokens (codebase convention). Cost of one representative generation in dollars:
 //   $/call = (promptTok * modelRatio*2 + completionTok * modelRatio*2*completionRatio) / 1e6
