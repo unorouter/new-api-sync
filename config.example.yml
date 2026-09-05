@@ -3,6 +3,29 @@ target:
   systemAccessToken: target-system-access-token
   userId: 1
 blacklist:
+  # Third-party PRODUCT brands that resellers use as lane labels (a reseller farming
+  # a product's quota and naming the lane after it). Not model vendors. A lane like
+  # that in the public catalog drew a trademark takedown via the host (2026-09-05).
+  # Bare words match the upstream group name and description on every provider.
+  - adobe
+  - firefly
+  - photoshop
+  - antigravity
+  - ai-studio
+  - ai studio
+  - aistudio
+  - openclaw
+  - droid
+  - copilot
+  - github-copilot
+  - cursor
+  - windsurf
+  - codeium
+  - trae
+  - lovable
+  - replit
+  - manus
+  - genspark
   - kiro
   - nsfw
 modelMapping:
