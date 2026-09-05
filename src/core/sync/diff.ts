@@ -20,6 +20,17 @@ import { consola } from "consola";
 import { deepEqual } from "fast-equals";
 import stringify from "safe-stable-stringify";
 
+function parseJsonObject(raw: string | undefined): Record<string, unknown> {
+  try {
+    const v: unknown = JSON.parse(raw ?? "");
+    return v !== null && typeof v === "object" && !Array.isArray(v)
+      ? (v as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 function collectModelsFromChannels(channels: Channel[]): Set<string> {
   const models = new Set<string>();
   for (const ch of channels)
@@ -264,13 +275,11 @@ function buildManagedOptionValues(
   desired: DesiredState,
   snapshot: TargetSnapshot,
   isPartialSync: boolean,
+  deletedChannels: Set<string>,
   modelFilter?: string[],
   modelTypeFilter?: ModelType[],
 ): Record<string, string> {
   const opts = desired.options;
-  // In a partial (--models / --type) sync, a model on a managed channel is only
-  // "in scope" if it matches the filter. Managed-channel models outside the
-  // filter must keep their existing options, else their ratios get wiped.
   const typeSet = modelTypeFilter?.length
     ? new Set(modelTypeFilter)
     : undefined;
@@ -310,6 +319,10 @@ function buildManagedOptionValues(
   const partialKeys = (k: string) =>
     Object.keys(parse<Record<string, unknown>>(k, {}));
 
+  // A managed model leaves the guard only when this run actually prices it.
+  // Stripping every managed model let a --only run whose in-scope lanes all
+  // failed the live probe erase a sticker another provider's lanes still
+  // served, and the gateway answered "not priced" (41 models, 2026-09-05).
   const managedModels = new Set<string>();
   for (const ch of snapshot.channels)
     if (isManaged(ch))
@@ -317,15 +330,23 @@ function buildManagedOptionValues(
         if (inFilterScope(m)) managedModels.add(m);
   for (const ch of desired.channels)
     for (const m of parseModelList(ch.models)) managedModels.add(m);
-
-  const modelGuard = isPartialSync
-    ? new Set(
-        [
-          ...modelRatioGuard,
-          ...PARTIAL_MODEL_OPTION_KEYS.flatMap(partialKeys),
-        ].filter((m) => !managedModels.has(m)),
-      )
-    : modelRatioGuard;
+  const desiredPriced = new Set([
+    ...Object.keys(opts.modelRatio),
+    ...Object.keys(opts.modelPrice),
+    ...Object.keys(opts.billingExpr),
+  ]);
+  const servedAfter = collectModelsFromChannels(
+    snapshot.channels.filter((ch) => !deletedChannels.has(ch.name)),
+  );
+  const existingKeys = new Set(PARTIAL_MODEL_OPTION_KEYS.flatMap(partialKeys));
+  const modelGuard = new Set(
+    [...modelRatioGuard, ...existingKeys].filter((m) =>
+      isPartialSync
+        ? !(managedModels.has(m) && desiredPriced.has(m))
+        : modelRatioGuard.has(m) ||
+          (servedAfter.has(m) && !desiredPriced.has(m)),
+    ),
+  );
 
   // Group options are ADDITIVE here: desired entries add/update, existing ones
   // are never removed by the merge. A run only computes tiers for models that
@@ -586,9 +607,23 @@ export function buildSyncDiff(
     desired,
     snapshot,
     isPartialSync,
+    new Set(
+      channelOps.filter((op) => op.type === "delete").map((op) => op.key),
+    ),
     modelFilter,
     typeFilter,
   );
+  for (const key of ["ModelRatio", "ModelPrice"]) {
+    const next = desiredOptionValues[key];
+    if (next === undefined) continue;
+    const before = Object.keys(parseJsonObject(snapshot.options[key]));
+    const after = new Set(Object.keys(parseJsonObject(next)));
+    const removed = before.filter((k) => !after.has(k));
+    if (removed.length > 0)
+      consola.warn(
+        `[diff] ${key} drops ${removed.length} model(s): ${removed.sort().join(", ")}`,
+      );
+  }
   const optionOps: DiffOperation<string>[] = [];
   for (const [key, value] of Object.entries(desiredOptionValues)) {
     const existing = snapshot.options[key];
