@@ -166,7 +166,11 @@ recreate with precision; never a full `sync run` to fix one model.
   live probe erase the sticker while another provider's lanes kept serving it, and the gateway then
   answered "not priced by the administrator" (41 models, 2026-09-05). The diff logs
   `[diff] ModelRatio drops N model(s): ...` whenever a write shrinks a pricing map; a non-empty list
-  on a partial run is a bug. The apply-phase janitor (FixAbility + orphaned-model cleanup) runs on EVERY sync
+  on a partial run is a bug. Independently, `NewApiClient.updateOption` REFUSES any ModelRatio /
+  ModelPrice / billing_expr write that would leave a model on an enabled channel with none of the
+  three (`[guard] refusing ...`, names listed, write returns false and the run reports it): six
+  incidents since June each unpriced live models through a different path, and this is the one
+  write they all share. `reset` passes because it deletes the channels first. The apply-phase janitor (FixAbility + orphaned-model cleanup) runs on EVERY sync
   because it is partial-safe by construction: abilities rebuild from whatever channels exist, and a
   model row only counts as orphaned with zero ability rows (disabled ones from rate-limited-preserved
   channels count as bound - requires new-api >= a0f589a1).
