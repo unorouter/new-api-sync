@@ -431,14 +431,11 @@ export async function processNewApiProvider(
         g.models.some((m) => matchesAnyPattern(m, enabledGlobs)),
       );
     if (config.blacklist?.length) {
-      for (const g of groups) {
-        if (
-          matchesBlacklist(g.name, config.blacklist, pName) ||
-          matchesBlacklist(g.description, config.blacklist, pName)
-        )
-          g.models = g.models.filter((m) => inferModelType(m) !== "text");
-      }
-      groups = groups.filter((g) => g.models.length > 0);
+      groups = groups.filter(
+        (g) =>
+          !matchesBlacklist(g.name, config.blacklist, pName) &&
+          !matchesBlacklist(g.description, config.blacklist, pName),
+      );
     }
     const upstreamPricing = new Map<string, number>();
     for (const m of pricing.models) {

@@ -349,9 +349,14 @@ plus stdin, never argv):
 bun scripts/... # build {"config.yml": <minimal>} JSON from local config.yml
 cd ../infra && BT=$(sops -d secrets/openbao-init.sops.yaml | grep -oP 'root_token:\s*\K\S+')
 { printf '%s\n' "$BT"; cat payload.json; } | kubectl -n openbao exec -i openbao-0 -- \
-  sh -c 'read -r BAO_TOKEN && export BAO_TOKEN && bao kv put secret/sync-env -'
+  sh -c 'read -r BAO_TOKEN && export BAO_TOKEN && bao kv patch -method=rw secret/sync-env -'
 kubectl -n services annotate externalsecret sync-env force-sync=$(date +%s) --overwrite
 ```
+
+`patch`, never `put`: the secret also holds `GUEST_API_KEY`, which the guest
+token refresh reads. `put` replaces the whole secret and silently drops it; that
+happened eight times before the recipe above was corrected (v16 through v25).
+Read the secret back after every write and confirm both keys are present.
 
 **Keep BOTH verdict caches in sync.** The daily full-sync CronJob persists
 `logs/verdict-cache.json` on PVC `new-api-sync-logs` (services ns); this repo
