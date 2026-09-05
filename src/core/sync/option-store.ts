@@ -27,7 +27,7 @@ export function parseJsonObject(
   }
 }
 
-export function parseJsonStringArray(raw: string | undefined): string[] {
+function parseJsonStringArray(raw: string | undefined): string[] {
   try {
     const v: unknown = JSON.parse(raw ?? "");
     return Array.isArray(v)

@@ -16,9 +16,7 @@
     "VERSION": "版本",
     "UPTIME": "运行时长",
     "STARTED_AT": "启动时间",
-    "BUN": "Bun 版本",
     "PLATFORM": "平台",
-    "PID": "进程号",
     "MEMORY": "内存",
     "CONFIG_TITLE": "当前配置",
     "CONFIG_DESCRIPTION": "活跃配置上下文与同步输入。",
@@ -34,15 +32,12 @@
     "LAST_RUN": "上次运行",
     "LAST_RUN_SUMMARY": "通过 {passed}/{total}，失败 {failed}",
     "NO_RUNS": "无记录",
-    "ACTIVE_RUNS": "{count} 个进行中",
-    "ERROR": "错误：{error}"
+    "ACTIVE_RUNS": "{count} 个进行中"
   },
   "SYNC": {
     "DEAD_GROUPS_PRUNED": "已从 UserUsableGroups/AutoGroups 清理 {count} 个失效分组：{names}",
     "TITLE": "同步流水线",
     "DESCRIPTION": "执行完整同步或重置已管理的资源。",
-    "RUN": "运行",
-    "RESET": "重置",
     "START": "开始",
     "STOP": "停止",
     "MODE": {
@@ -88,7 +83,6 @@
       "CANCEL": "取消"
     },
     "TITLE": "配置",
-    "DESCRIPTION": "编辑提供商、定价和全局设置。保存时会重新校验 YAML；无效的文档会被自动回滚。",
     "LOAD_ERROR": "加载失败：{error}",
     "SAVE": "保存",
     "SAVING": "保存中…",
@@ -147,28 +141,16 @@
     },
     "PROVIDER": {
       "NAME": "名称",
-      "TYPE": "类型",
       "BASE_URL": "基础地址",
       "BASE_URL_PLACEHOLDER": "https://…",
       "API_KEY": "API 密钥",
       "API_KEY_PLACEHOLDER_NVIDIA": "nvapi-…",
       "API_KEY_PLACEHOLDER_OPENROUTER": "sk-or-v1-…",
-      "API_KEY_PLACEHOLDER_GROQ": "gsk_…",
-      "API_KEY_PLACEHOLDER_GEMINI": "AIza… / AQ.…",
       "PER_UPSTREAM_CONCURRENCY": "单上游并发数",
       "PER_UPSTREAM_CONCURRENCY_PLACEHOLDER": "覆盖默认值（默认 5）",
       "SYSTEM_ACCESS_TOKEN": "系统访问令牌",
       "USER_ID": "用户 ID",
-      "VENDOR": "厂商",
-      "VENDOR_PLACEHOLDER": "moonshot、zhipu 等",
-      "MODELS": "模型",
-      "CHANNEL_TYPE": "渠道类型",
       "RATIO": "倍率",
-      "DISCOVER_ENDPOINT": "发现接口",
-      "DISCOVER_ENDPOINT_PLACEHOLDER": "/v1/models",
-      "ADMIN_API_KEY": "管理员 API 密钥",
-      "ADMIN_API_KEY_PLACEHOLDER": "admin-…",
-      "GROUPS": "分组",
       "IMAGE_BASE_URL": "图片基础地址",
       "ENABLED_MODELS": "启用的模型",
       "PRICE_ADJUSTMENT": "价格调整",
@@ -188,10 +170,8 @@
       "MODEL_NAME_PLACEHOLDER": "模型名",
       "WITH_PRICING": "添加带价格",
       "ADD_COLUMN": "添加列",
-      "PRICING_COLUMN": "价格",
       "SWITCH_TO_PRICING": "切换为详细价格",
       "SWITCH_TO_GLOB": "切换为纯通配符",
-      "DEFAULT_COLUMN": "列",
       "REMOVE_COLUMN": "移除列",
       "REMOVE_ROW": "移除行"
     },
@@ -200,8 +180,6 @@
       "REMOVE": "移除",
       "EXPAND": "展开",
       "DELETE": "删除",
-      "KEY": "键",
-      "VALUE": "值",
       "OPTIONAL": "可选"
     },
     "VALIDATION": {
@@ -315,7 +293,6 @@
   "HISTORY": {
     "TITLE": "运行历史",
     "DESCRIPTION": "过往的同步运行与摘要，保存在 logs/ 目录。",
-    "COMING_SOON": "即将推出：列出历史运行的差异和报告",
     "TABS": {
       "RUNS": "运行",
       "AUTHENTICITY": "真伪黑名单"
@@ -337,15 +314,6 @@
       "FILTER_PASSED": "通过",
       "FILTER_FAILED": "失败",
       "FILTER_PLACEHOLDER": "提供商或模型",
-      "COL_PROVIDER": "提供商",
-      "COL_MODEL": "模型",
-      "COL_STATUS": "状态",
-      "COL_COST": "费用",
-      "COL_ERROR": "错误",
-      "COL_AUTHENTIC": "真实性",
-      "COL_LATENCY": "延迟",
-      "COL_STREAM": "流式",
-      "COL_TOOL": "工具",
       "STATUS_PASS": "通过",
       "STATUS_FAIL": "失败",
       "BADGE_YES": "是",
@@ -456,8 +424,6 @@
       "TOKEN_NEW_KEY_UNAVAILABLE": "[{name}] 无法获取新令牌 \"{token}\" 的完整密钥",
       "ORPHAN_CLEANUP_FAILED": "[{name}] 孤立资源清理失败或不受支持",
       "ORPHAN_CLEANUP_DONE": "[{name}] 已清理 {deleted} 个孤立模型",
-      "ORPHAN_ABILITY_CLEANUP_FAILED": "[{name}] 孤立能力清理失败或不受支持",
-      "ORPHAN_ABILITY_CLEANUP_DONE": "[{name}] 已清理 {deleted} 个孤立能力（失效路由）",
       "FIX_ABILITIES_FAILED": "[{name}] 能力表重建（channel/fix）失败或不受支持",
       "FIX_ABILITIES_PARTIAL": "[{name}] 能力表重建有 {fails} 个渠道失败，跳过孤立模型清理",
       "GUEST_TOKEN_UPDATED": "已更新访客令牌 \"{name}\"：{count} 个完全免费模型",
@@ -472,23 +438,12 @@
       "ICON_NONE": "无",
       "DEAD_GROUPS_PRUNED": "已从 UserUsableGroups/AutoGroups 清理 {count} 个失效分组：{names}"
     },
-    "PIPELINE": {
-      "BASELLM_NO_ENTRIES": "没有可用于倍率回填的 basellm 条目",
-      "BASELLM_APPLIED": "已为 {applied}/{total} 个模型应用 basellm 倍率（覆盖了 {overridden} 个过期的上游数值）",
-      "BASELLM_OVERRIDE_DETAIL": "  {detail}",
-      "NO_RATIOS": "以下模型缺少倍率（basellm 和上游均无）：{models}",
-      "BASELINE_SEEDED": "[baseline] 已从目标播种 {channels} 个渠道、{groups} 个分组",
-      "BASELINE_GROUP": "[baseline]   \"{name}\" 倍率={ratio} 提供方={provider}"
-    },
     "METADATA": {
       "OPENROUTER_FETCH_FAILED": "获取 OpenRouter 模型描述失败",
       "OPENROUTER_FETCHED": "已从 OpenRouter 获取 {count} 条模型描述",
       "BASELLM_FETCH_FAILED": "获取 basellm 模型库失败",
       "BASELLM_FETCHED": "已从 basellm 获取 {count} 条模型记录",
       "SUMMARY": "元数据：OpenRouter 命中 {orHits}（模糊匹配 {orFuzzy}），basellm 命中 {blmHits}（模糊匹配 {blmFuzzy}），共丰富 {total} 条",
-      "FUZZY_OR": "模糊匹配（OR）：\"{model}\" -> \"{key}\"（{score}）",
-      "FUZZY_BLM_DESC": "模糊匹配（BLM 描述）：\"{model}\" -> \"{key}\"（{score}）",
-      "FUZZY_BLM_TAGS": "模糊匹配（BLM 标签）：\"{model}\" -> \"{key}\"（{score}）",
       "RESEED_START": "[metadata] 正在为 {count} 个模型重新写入元数据",
       "RESEED_DONE": "[metadata] 重新写入完成：{patched} 个已更新、{skipped} 个已跳过、{failed} 个失败",
       "RESEED_FAILED_LIST": "[metadata] 更新失败：{items}",
@@ -507,11 +462,8 @@
       "GRID_COLLAPSED": "[metadata] 已将 {count} 个网格定价模型折叠为统一最高价（更新 {changed} 个）"
     },
     "TESTER": {
-      "AUTHENTICITY_LOADED": "[真伪黑名单] 已加载 {count} 条记录",
       "AUTHENTICITY_ADDED": "[真伪黑名单] 已添加 {key}：{reason}",
       "REPORT_WRITTEN": "[测试报告] 已写入 {path}",
-      "REPORT_RESUMED": "[测试报告] 已从 {path} 恢复（{count} 个已通过）",
-      "REPORT_WRITTEN_COUNT": "[测试报告] 已写入 {path}（共 {count} 条结果）",
       "ERR_NO_RESPONSE": "无响应或超时",
       "ERR_HTTP_STATUS": "HTTP {status}",
       "ERR_BAD_RESPONSE": "响应体无效",
@@ -527,24 +479,14 @@
       "AUTHENTICITY_TIER_MISMATCH": "[真伪检测] {model}：档位不符，模型自称为 {claimed}，已拒绝",
       "AUTHENTICITY_TRANSIENT": "[真伪检测] {model}：{passed}/4 通过，{count} 个临时错误（限流/超时），本轮未验证，未加入黑名单",
       "AUTHENTICITY_PROBES_RESULT": "[真伪检测] {model}：{passed}/4 个探针通过（失败：{failed}）{suffix}",
-      "ALREADY_PASSED": "[{prefix}] {model}：已通过，跳过",
-      "AUTHENTICITY_BLACKLISTED": "[{prefix}] {model}：已在真伪黑名单中，跳过",
       "PROVIDER_FAILED": "[{provider}] 失败：{models}",
       "ERR_AUTHENTICITY_BLACKLISTED": "在真伪黑名单中",
       "MODELS_TESTING_SKIPPED": "[{provider}] {count} 个模型（已跳过测试）",
-      "TESTABLE_COUNT": "[{provider}] 可测试：{testable}，不可测试：{nonTestable}",
-      "TESTABLE_LIST": "[{provider}] 可测试模型：{models}",
-      "NON_TESTABLE_LIST": "[{provider}] 不可测试模型：{models}",
-      "INCLUDED_NO_TEST": "[{provider}] 未经测试纳入 {count} 个",
-      "INCLUDED_NO_TEST_LIST": "[{provider}] 未经测试纳入的模型：{models}",
       "AUTH_MUX_FAILURE": "[authenticity] {model}：{count}/4 个探针返回错配响应；上游代理在串扰——已加入黑名单（unsafe-proxy：{labels}）"
     },
     "PROVIDER": {
       "USING_EXPLICIT_MODELS": "[{name}] 使用 {count} 个显式模型",
       "DISCOVERED_MODELS": "[{name}] 发现 {count} 个模型",
-      "DISCOVERED_MODELS_LIST": "[{name}] 发现 {count} 个模型：{models}",
-      "WORKING_RATIO": "[{name}] {working}/{total} 个可用",
-      "TIERS_SUMMARY": "[{name}] {count} 个模型，{tiers} 档倍率：{ratios}",
       "DISCOVERY_FETCH": "[discovery] 正在从 {url} 获取 {label} 模型",
       "LABEL_GEMINI": "Gemini",
       "LABEL_NVIDIA": "NVIDIA NIM",
@@ -557,29 +499,21 @@
       "GROUP_LABEL_MAPPED": "[{provider}] 分组名「{from}」将以「{to}」发布"
     },
     "NVIDIA": {
-      "ENABLED_IMAGE_MODEL_ADDED": "[{name}] 从 enabledModels 添加图像模型：{glob}",
-      "SPLIT": "[{name}] 拆分：文本 {text} 个，图像 {image} 个",
       "TEXT_WORKING": "[{name}] {working}/{total} 个文本模型可用",
       "IMAGE_INCLUDED": "[{name}] 未经测试直接纳入 {count} 个图像模型",
-      "TEXT_TIERS_SUMMARY": "[{name}] {count} 个文本模型，{tiers} 档倍率：{ratios}",
-      "IMAGE_CHANNEL": "[{name}] {count} 个图像模型 → 渠道 \"{group}\"（类型={type}）",
       "TEXT_VENDOR_CHANNELS": "[{name}] {count} 个文本模型，跨 {vendors} 个供应商渠道",
       "IMAGE_VENDOR_CHANNELS": "[{name}] {count} 个图像模型，跨 {vendors} 个供应商渠道"
     },
     "OPENROUTER": {
       "PROBING_ENDPOINTS": "正在探测 {count} 个候选模型的端点定价",
       "DISCOVERED_FREE": "[{name}] 发现 {count} 个免费模型",
-      "ADDED_PAID_EXTRA": "[{name}] 已添加付费可选模型：{model}",
       "PROBING": "[{name}] 正在探测 {count} 个模型",
-      "FAILED": "[{name}] 失败：{models}",
       "WORKING": "[{name}] {working}/{total} 个模型可用（429 视为可用）",
       "PAID_NO_PRICING": "[{name}] 付费模型 {model} 无上游端点定价，已跳过",
       "PAID_NO_RELIABLE_HOST": "[{name}] 付费模型 {model}：所有上游主机均被过滤（量化精度／可用率／已排除），不予发布",
       "SUMMARY": "[{name}] {total} 个模型（免费 {free} 个，付费 {paid} 个），跨 {vendors} 个供应商渠道"
     },
     "PRICING": {
-      "BUILD_TIERS_HEADER": "[buildPriceTiers] {models} 个模型，{channels} 个基线渠道，{groups} 个分组，排除=\"{excluding}\"",
-      "BUILD_TIERS_LINE": "[buildPriceTiers]   {model}：最低={cheapest} ×（1+{adjustment}）= {ratio}",
       "PRE_TEST_DROP": "[pricing] 预测试丢弃 {model} {provider}/{group}/{vendor}，charge={charge} ceiling={ceiling}（基准来自 [{members}]，upstream={upstream}）",
       "PRE_TEST_DROP_NOT_CHEAPEST": "[pricing] 预测试丢弃 {model} {provider}/{group}/{vendor}，charge={charge}（高于 1x，且非最低；保留最低档 {cheapest}）",
       "UNPRICED_UPSTREAM_DROP": "[pricing] 丢弃 {model} {provider}/{group}：中转未公布该模型价格（model_ratio 为占位值），成本未知",
@@ -604,28 +538,7 @@
       "GENAI_PRICES_LOADED": "[pricing] genai-prices 已加载 {count} 条定价记录",
       "DROP": "[pricing] 丢弃 {model} {channel}，原因={reason}{detail}"
     },
-    "IMAGES": {
-      "PROVIDER_SCANNING": "[{name}] 正在扫描模型与通道",
-      "PRICING_FAILED": "[{name}] 获取定价失败：{err}",
-      "CHANNEL_LIST_FAILED": "[{name}] 获取通道列表失败：{err}",
-      "CHANNEL_LIST_FALLBACK": "[{name}] 回退为按模型单次自动路由探测（不指定通道）",
-      "NO_INFERENCE_TOKEN": "[{name}] 无法通过 /api/token/ 创建探测令牌，跳过该提供商",
-      "PROBE_TOKEN_DELETE_FAILED": "[{name}] 探测令牌删除失败：{err}",
-      "SKIPPING_NON_NEWAPI_PROVIDER": "跳过非 newapi 类型提供商「{name}」（type={type}）",
-      "CANDIDATES_FOUND": "图像编辑候选：{providers} 个提供商共 {total} 个（待探测 {toProbe}，已缓存 {cached}）",
-      "DRY_RUN_WRITTEN": "试运行候选已写入 {path}",
-      "ESTIMATED_COST": "预计最高费用：${cost}（{count} 次探测；失败不计费）",
-      "CONFIRM_CONTINUE": "继续？",
-      "ABORTED_BY_USER": "已被用户中止。",
-      "RESULT_PASS": "[{provider}] {model}：通过通道 {channel}",
-      "RESULT_FAIL": "[{provider}] {model}：在 {channels} 个通道上均失败",
-      "SUMMARY": "图像探测耗时 {durationSec}s 完成：通过 {passed}，失败 {failed}，无可用通道 {noChannel}（共探测 {total}）"
-    },
     "PROBE": {
-      "NO_TEXT_MODELS": "[{prefix}/probe] 供应商 {vendor} 无文本模型，跳过形态探测（按模型的任务覆盖将决定 channel-type）",
-      "TRANSIENT_FAILURE": "[{prefix}/probe] 供应商 {vendor} 形态={shape} 出现瞬时失败（status={status}），将退避后重试",
-      "NATIVE_OK": "[{prefix}/probe] 供应商 {vendor} 原生形态 {shape} 通过（model={model}）",
-      "NATIVE_FAILED": "[{prefix}/probe] 供应商 {vendor} 原生形态 {shape} 失败（status={status}，error={error}）",
       "OPENAI_FAILED": "[{prefix}/probe] 供应商 {vendor} OpenAI 形态失败，跳过该桶{block}",
       "FALLBACK_OPENAI": "[{prefix}/probe] 供应商 {vendor} 回退到 OpenAI 形态（原生 {shape} 被上游拒绝）",
       "SKIPPED_BLOCK": "[{prefix}/probe] 供应商 {vendor} 跳过该桶——{reason}",
@@ -644,15 +557,11 @@
       "AUTO_LABEL": "自动（带故障转移的智能路由）"
     },
     "ERROR": {
-      "NO_MODELS_DISCOVERED": "未发现任何模型。请在提供方配置中显式填写 'models' 数组。",
       "ALL_MODELS_FILTERED": "所有模型已被 blacklist/enabledModels 过滤",
       "ALL_MODELS_FILTERED_SHORT": "所有模型已被过滤",
       "NO_MODELS_FOUND": "未找到模型",
       "NO_WORKING_MODELS": "没有可用模型",
-      "NO_WORKING_MODELS_COUNT": "没有可用模型（0/{total} 通过）",
       "NO_WORKING_MODELS_SPLIT": "没有可用模型（文本 0/{textTotal} 通过，图像 {imageCount}）",
-      "NO_GROUPS_WITH_MODELS": "未找到拥有模型的分组",
-      "NO_GROUPS_PRODUCED_CHANNELS": "没有分组产出可用渠道",
       "API_UNREACHABLE": "无法访问 API"
     }
   }

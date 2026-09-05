@@ -16,9 +16,7 @@
     "VERSION": "version",
     "UPTIME": "uptime",
     "STARTED_AT": "started",
-    "BUN": "bun",
     "PLATFORM": "platform",
-    "PID": "pid",
     "MEMORY": "memory",
     "CONFIG_TITLE": "Current config",
     "CONFIG_DESCRIPTION": "Active config context and sync inputs.",
@@ -34,15 +32,12 @@
     "LAST_RUN": "last run",
     "LAST_RUN_SUMMARY": "{passed}/{total} passed, {failed} failed",
     "NO_RUNS": "never",
-    "ACTIVE_RUNS": "{count, plural, one {# active run} other {# active runs}}",
-    "ERROR": "Error: {error}"
+    "ACTIVE_RUNS": "{count, plural, one {# active run} other {# active runs}}"
   },
   "SYNC": {
     "DEAD_GROUPS_PRUNED": "Pruned {count} dead group(s) from UserUsableGroups/AutoGroups: {names}",
     "TITLE": "Sync pipeline",
     "DESCRIPTION": "Run a full sync or reset managed resources.",
-    "RUN": "Run",
-    "RESET": "Reset",
     "START": "Start",
     "STOP": "Stop",
     "MODE": {
@@ -88,7 +83,6 @@
       "CANCEL": "Cancel"
     },
     "TITLE": "Configuration",
-    "DESCRIPTION": "Edit providers, pricing, and global settings. Saving re-validates the YAML; an invalid document is rolled back automatically.",
     "LOAD_ERROR": "Failed to load: {error}",
     "SAVE": "Save",
     "SAVING": "Saving…",
@@ -147,28 +141,16 @@
     },
     "PROVIDER": {
       "NAME": "Name",
-      "TYPE": "Type",
       "BASE_URL": "Base URL",
       "BASE_URL_PLACEHOLDER": "https://…",
       "API_KEY": "API key",
       "API_KEY_PLACEHOLDER_NVIDIA": "nvapi-…",
       "API_KEY_PLACEHOLDER_OPENROUTER": "sk-or-v1-…",
-      "API_KEY_PLACEHOLDER_GROQ": "gsk_…",
-      "API_KEY_PLACEHOLDER_GEMINI": "AIza… / AQ.…",
       "PER_UPSTREAM_CONCURRENCY": "Per-upstream concurrency",
       "PER_UPSTREAM_CONCURRENCY_PLACEHOLDER": "override (default 5)",
       "SYSTEM_ACCESS_TOKEN": "System access token",
       "USER_ID": "User ID",
-      "VENDOR": "Vendor",
-      "VENDOR_PLACEHOLDER": "moonshot, zhipu, …",
-      "MODELS": "Models",
-      "CHANNEL_TYPE": "Channel type",
       "RATIO": "Ratio",
-      "DISCOVER_ENDPOINT": "Discover endpoint",
-      "DISCOVER_ENDPOINT_PLACEHOLDER": "/v1/models",
-      "ADMIN_API_KEY": "Admin API key",
-      "ADMIN_API_KEY_PLACEHOLDER": "admin-…",
-      "GROUPS": "Groups",
       "IMAGE_BASE_URL": "Image base URL",
       "ENABLED_MODELS": "Enabled models",
       "PRICE_ADJUSTMENT": "Price adjustment",
@@ -188,10 +170,8 @@
       "MODEL_NAME_PLACEHOLDER": "model name",
       "WITH_PRICING": "Add with pricing",
       "ADD_COLUMN": "Add column",
-      "PRICING_COLUMN": "Pricing",
       "SWITCH_TO_PRICING": "Switch to detailed pricing",
       "SWITCH_TO_GLOB": "Switch to plain glob",
-      "DEFAULT_COLUMN": "Column",
       "REMOVE_COLUMN": "Remove column",
       "REMOVE_ROW": "Remove row"
     },
@@ -200,8 +180,6 @@
       "REMOVE": "Remove",
       "EXPAND": "Expand",
       "DELETE": "Delete",
-      "KEY": "Key",
-      "VALUE": "Value",
       "OPTIONAL": "optional"
     },
     "VALIDATION": {
@@ -315,7 +293,6 @@
   "HISTORY": {
     "TITLE": "Run history",
     "DESCRIPTION": "Past sync runs and their summaries, stored in logs/.",
-    "COMING_SOON": "coming soon: list of past runs with diff and report",
     "TABS": {
       "RUNS": "Runs",
       "AUTHENTICITY": "Authenticity blacklist"
@@ -337,15 +314,6 @@
       "FILTER_PASSED": "Passed",
       "FILTER_FAILED": "Failed",
       "FILTER_PLACEHOLDER": "provider / model",
-      "COL_PROVIDER": "Provider",
-      "COL_MODEL": "Model",
-      "COL_STATUS": "Status",
-      "COL_COST": "Cost",
-      "COL_ERROR": "Error",
-      "COL_AUTHENTIC": "Authentic",
-      "COL_LATENCY": "Latency",
-      "COL_STREAM": "Stream",
-      "COL_TOOL": "Tool",
       "STATUS_PASS": "pass",
       "STATUS_FAIL": "fail",
       "BADGE_YES": "yes",
@@ -456,8 +424,6 @@
       "TOKEN_NEW_KEY_UNAVAILABLE": "[{name}] Could not retrieve full key for new token \"{token}\"",
       "ORPHAN_CLEANUP_FAILED": "[{name}] Orphan cleanup failed or not supported",
       "ORPHAN_CLEANUP_DONE": "[{name}] Cleaned up {deleted} orphaned models",
-      "ORPHAN_ABILITY_CLEANUP_FAILED": "[{name}] Orphaned-ability cleanup failed or not supported",
-      "ORPHAN_ABILITY_CLEANUP_DONE": "[{name}] Cleaned up {deleted} orphaned abilities (dead routes)",
       "FIX_ABILITIES_FAILED": "[{name}] Ability rebuild (channel/fix) failed or not supported",
       "FIX_ABILITIES_PARTIAL": "[{name}] Ability rebuild left {fails} channel(s) without rows - skipping orphaned-model cleanup",
       "GUEST_TOKEN_UPDATED": "Guest token \"{name}\" updated: {count} truly-free model(s)",
@@ -472,23 +438,12 @@
       "ICON_NONE": "none",
       "DEAD_GROUPS_PRUNED": "Pruned {count} dead group(s) from UserUsableGroups/AutoGroups: {names}"
     },
-    "PIPELINE": {
-      "BASELLM_NO_ENTRIES": "No basellm entries available for ratio backfill",
-      "BASELLM_APPLIED": "Applied basellm ratios to {applied}/{total} models (overrode {overridden} stale upstream values)",
-      "BASELLM_OVERRIDE_DETAIL": "  {detail}",
-      "NO_RATIOS": "No ratios (basellm or upstream) for: {models}",
-      "BASELINE_SEEDED": "[baseline] Seeded {channels} channels, {groups} groups from target",
-      "BASELINE_GROUP": "[baseline]   \"{name}\" ratio={ratio} provider={provider}"
-    },
     "METADATA": {
       "OPENROUTER_FETCH_FAILED": "Failed to fetch OpenRouter models for descriptions",
       "OPENROUTER_FETCHED": "Fetched {count} model descriptions from OpenRouter",
       "BASELLM_FETCH_FAILED": "Failed to fetch basellm model library",
       "BASELLM_FETCHED": "Fetched {count} model entries from basellm",
       "SUMMARY": "Metadata: {orHits} from OpenRouter ({orFuzzy} fuzzy), {blmHits} from basellm ({blmFuzzy} fuzzy), {total} enriched total",
-      "FUZZY_OR": "Fuzzy OR: \"{model}\" -> \"{key}\" ({score})",
-      "FUZZY_BLM_DESC": "Fuzzy BLM desc: \"{model}\" -> \"{key}\" ({score})",
-      "FUZZY_BLM_TAGS": "Fuzzy BLM tags: \"{model}\" -> \"{key}\" ({score})",
       "RESEED_START": "[metadata] re-seeding metadata for {count} models",
       "RESEED_DONE": "[metadata] re-seed done: {patched} patched, {skipped} skipped, {failed} failed",
       "RESEED_FAILED_LIST": "[metadata] failed to update: {items}",
@@ -507,11 +462,8 @@
       "GRID_COLLAPSED": "[metadata] collapsed {count} grid models to flat max-price ({changed} updated)"
     },
     "TESTER": {
-      "AUTHENTICITY_LOADED": "[authenticity-blacklist] Loaded {count} entries",
       "AUTHENTICITY_ADDED": "[authenticity-blacklist] Added {key}: {reason}",
       "REPORT_WRITTEN": "[test-report] Written to {path}",
-      "REPORT_RESUMED": "[test-report] Resumed from {path} ({count} already passed)",
-      "REPORT_WRITTEN_COUNT": "[test-report] Written to {path} ({count} results)",
       "ERR_NO_RESPONSE": "no response / timeout",
       "ERR_HTTP_STATUS": "HTTP {status}",
       "ERR_BAD_RESPONSE": "bad response body",
@@ -527,24 +479,14 @@
       "AUTHENTICITY_TIER_MISMATCH": "[authenticity-detect] {model}: tier mismatch, model reports as {claimed}, rejected",
       "AUTHENTICITY_TRANSIENT": "[authenticity-detect] {model}: {passed}/4 passed, {count} transient errors (rate-limit/timeout), not verified this run, NOT blacklisted",
       "AUTHENTICITY_PROBES_RESULT": "[authenticity-detect] {model}: {passed}/4 probes passed (failed: {failed}){suffix}",
-      "ALREADY_PASSED": "[{prefix}] {model}: already passed, skipping",
-      "AUTHENTICITY_BLACKLISTED": "[{prefix}] {model}: authenticity-blacklisted, skipping",
       "PROVIDER_FAILED": "[{provider}] Failed: {models}",
       "ERR_AUTHENTICITY_BLACKLISTED": "authenticity-blacklisted",
       "MODELS_TESTING_SKIPPED": "[{provider}] {count} models (testing skipped)",
-      "TESTABLE_COUNT": "[{provider}] Testable: {testable}, Non-testable: {nonTestable}",
-      "TESTABLE_LIST": "[{provider}] Testable models: {models}",
-      "NON_TESTABLE_LIST": "[{provider}] Non-testable models: {models}",
-      "INCLUDED_NO_TEST": "[{provider}] Included without test: {count}",
-      "INCLUDED_NO_TEST_LIST": "[{provider}] Included without test (models): {models}",
       "AUTH_MUX_FAILURE": "[authenticity] {model}: {count}/4 probes returned wrong-paired responses; upstream proxy is muxing — blacklisting as unsafe-proxy ({labels})"
     },
     "PROVIDER": {
       "USING_EXPLICIT_MODELS": "[{name}] Using {count} explicit model(s)",
       "DISCOVERED_MODELS": "[{name}] Discovered {count} model(s)",
-      "DISCOVERED_MODELS_LIST": "[{name}] Discovered {count} model(s): {models}",
-      "WORKING_RATIO": "[{name}] {working}/{total} working",
-      "TIERS_SUMMARY": "[{name}] {count} models, {tiers} tier(s): {ratios}",
       "DISCOVERY_FETCH": "[discovery] Fetching {label} models from {url}",
       "LABEL_GEMINI": "Gemini",
       "LABEL_NVIDIA": "NVIDIA NIM",
@@ -557,29 +499,21 @@
       "GROUP_LABEL_MAPPED": "[{provider}] group label \"{from}\" published as \"{to}\""
     },
     "NVIDIA": {
-      "ENABLED_IMAGE_MODEL_ADDED": "[{name}] Added image model from enabledModels: {glob}",
-      "SPLIT": "[{name}] Split: {text} text, {image} image",
       "TEXT_WORKING": "[{name}] {working}/{total} text models working",
       "IMAGE_INCLUDED": "[{name}] {count} image model(s) included without test",
-      "TEXT_TIERS_SUMMARY": "[{name}] {count} text models, {tiers} tier(s): {ratios}",
-      "IMAGE_CHANNEL": "[{name}] {count} image model(s) → channel \"{group}\" (type={type})",
       "TEXT_VENDOR_CHANNELS": "[{name}] {count} text model(s) across {vendors} vendor channel(s)",
       "IMAGE_VENDOR_CHANNELS": "[{name}] {count} image model(s) across {vendors} vendor channel(s)"
     },
     "OPENROUTER": {
       "PROBING_ENDPOINTS": "Probing per-endpoint pricing for {count} candidate model(s)",
       "DISCOVERED_FREE": "[{name}] Discovered {count} free model(s)",
-      "ADDED_PAID_EXTRA": "[{name}] Added paid opt-in model: {model}",
       "PROBING": "[{name}] Probing {count} model(s)",
-      "FAILED": "[{name}] Failed: {models}",
       "WORKING": "[{name}] {working}/{total} model(s) working (429 counts as working)",
       "PAID_NO_PRICING": "[{name}] paid model {model} has no upstream endpoint pricing; skipping",
       "PAID_NO_RELIABLE_HOST": "[{name}] paid model {model}: every host was filtered out (quantization/uptime/excluded); not published",
       "SUMMARY": "[{name}] {total} model(s) ({free} free, {paid} paid) across {vendors} vendor channel(s)"
     },
     "PRICING": {
-      "BUILD_TIERS_HEADER": "[buildPriceTiers] {models} models, {channels} baseline channels, {groups} groups, excluding=\"{excluding}\"",
-      "BUILD_TIERS_LINE": "[buildPriceTiers]   {model}: cheapest={cheapest} × (1+{adjustment}) = {ratio}",
       "PRE_TEST_DROP": "[pricing] pre-test drop {model} {provider}/{group}/{vendor} charge={charge} ceiling={ceiling} (canonical via [{members}], upstream={upstream})",
       "PRE_TEST_DROP_NOT_CHEAPEST": "[pricing] pre-test drop {model} {provider}/{group}/{vendor} charge={charge} (above 1x, not cheapest; cheapest kept at {cheapest})",
       "UNPRICED_UPSTREAM_DROP": "[pricing] drop {model} {provider}/{group}: relay publishes no price for it (model_ratio placeholder), cost unknown",
@@ -604,28 +538,7 @@
       "GENAI_PRICES_LOADED": "[pricing] genai-prices loaded {count} pricing entries",
       "DROP": "[pricing] drop {model} {channel} reason={reason}{detail}"
     },
-    "IMAGES": {
-      "PROVIDER_SCANNING": "[{name}] Scanning models and channels",
-      "PRICING_FAILED": "[{name}] Pricing fetch failed: {err}",
-      "CHANNEL_LIST_FAILED": "[{name}] Channel list fetch failed: {err}",
-      "CHANNEL_LIST_FALLBACK": "[{name}] Falling back to single auto-routed probe per model (no channel pin)",
-      "NO_INFERENCE_TOKEN": "[{name}] Could not create probe token via /api/token/, skipping provider",
-      "PROBE_TOKEN_DELETE_FAILED": "[{name}] Failed to delete probe token: {err}",
-      "SKIPPING_NON_NEWAPI_PROVIDER": "Skipping non-newapi provider \"{name}\" (type={type})",
-      "CANDIDATES_FOUND": "Image-edit candidates: {total} across {providers} providers ({toProbe} to probe, {cached} cached)",
-      "DRY_RUN_WRITTEN": "Dry-run candidates written to {path}",
-      "ESTIMATED_COST": "Estimated max cost: ${cost} for {count} probes (failures don't bill)",
-      "CONFIRM_CONTINUE": "Continue?",
-      "ABORTED_BY_USER": "Aborted by user.",
-      "RESULT_PASS": "[{provider}] {model}: PASS via channel {channel}",
-      "RESULT_FAIL": "[{provider}] {model}: FAIL across {channels} channels",
-      "SUMMARY": "Image probe complete in {durationSec}s: {passed} passed, {failed} failed, {noChannel} with no channel (of {total} probed)"
-    },
     "PROBE": {
-      "NO_TEXT_MODELS": "[{prefix}/probe] vendor={vendor} has no text models; skipping shape probe (per-model task overrides will decide channel-type)",
-      "TRANSIENT_FAILURE": "[{prefix}/probe] vendor={vendor} shape={shape} transient failure (status={status}); will retry after backoff",
-      "NATIVE_OK": "[{prefix}/probe] vendor={vendor} native shape {shape} OK (model={model})",
-      "NATIVE_FAILED": "[{prefix}/probe] vendor={vendor} native shape {shape} FAILED (status={status}, error={error})",
       "OPENAI_FAILED": "[{prefix}/probe] vendor={vendor} OpenAI shape failed; bucket will be skipped{block}",
       "FALLBACK_OPENAI": "[{prefix}/probe] vendor={vendor} falling back to OpenAI shape (native {shape} rejected by upstream)",
       "SKIPPED_BLOCK": "[{prefix}/probe] vendor={vendor} bucket will be skipped — {reason}",
@@ -644,15 +557,11 @@
       "AUTO_LABEL": "Auto (Smart Routing with Failover)"
     },
     "ERROR": {
-      "NO_MODELS_DISCOVERED": "No models discovered. Add an explicit 'models' array to the provider config.",
       "ALL_MODELS_FILTERED": "All models filtered out by blacklist/enabledModels",
       "ALL_MODELS_FILTERED_SHORT": "All models filtered out",
       "NO_MODELS_FOUND": "No models found",
       "NO_WORKING_MODELS": "No working models",
-      "NO_WORKING_MODELS_COUNT": "No working models (0/{total} passed)",
       "NO_WORKING_MODELS_SPLIT": "No working models (0/{textTotal} text passed, {imageCount} image)",
-      "NO_GROUPS_WITH_MODELS": "No groups with models found",
-      "NO_GROUPS_PRODUCED_CHANNELS": "No groups produced working channels",
       "API_UNREACHABLE": "Failed to reach API"
     }
   }
