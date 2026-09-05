@@ -255,6 +255,11 @@ recreate with precision; never a full `sync run` to fix one model.
   The floor keeps the merchant and raises the lane's group ratio so it sells at list x
   minSellFraction when cost x profitMultiple would land below it (`buildLaneOffer` in
   `vendors/a7api/provider.ts`, logged as `[a7] floor ...`). Ceiling wins if they overlap.
+  Every run also SWEEPS every a7 lane the target holds, any status, through the same math
+  (`sweepLiveLanes`): the gateway re-enables a disabled lane on its own retest, and a7 DELISTS
+  merchants while their pins keep serving, so a lane can come back live at the ratio it was
+  created with. A lane whose merchant is no longer listed is held at the floor until the full
+  run culls it (live incident: opus-5 via delisted merchant 3973 re-enabled at 0.17% of list).
 - **`fetchPricing` passes auth headers** (`vendors/newapi/pricing.ts`): some relays (e.g. zetatechs)
   gate `/api/pricing` behind the system token. Always send `ctx.headers`; an authless fetch silently
   drops those providers from discovery.
@@ -329,7 +334,7 @@ Two CronJobs in the k3s `services` namespace deploy from this repo's `k8s/` dir
 - `new-api-sync` (every 15min): `sync metadata`. Reprices option maps from live
   marketplace listings AND accepts a7 pin price-change notices (ceiling-gated).
   Zero probes, zero channel writes. Needs no verdict cache.
-- `new-api-sync-full` (daily 07:03): `sync run --only a7`. Membership churn:
+- `new-api-sync-full` (daily 22:00 Europe/Berlin): `sync run --only a7`. Membership churn:
   probes + admits new merchants, deletes dead lanes, re-pins. The ONLY job that
   runs live probes.
 
