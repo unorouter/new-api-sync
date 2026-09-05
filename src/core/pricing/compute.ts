@@ -253,12 +253,24 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
         ? rawSourceHit
         : undefined;
 
+    // Cheapest occurrence; ties broken deterministically (exact-name upstream,
+    // then one carrying a cache ratio, then name) so a value like cacheRatio
+    // does not flip with arrival order between two runs on identical data.
     let co: OfferModel | undefined;
     let coOffer: UpstreamOffer | undefined;
+    const rank = (m: OfferModel) =>
+      (m.upstream === m.exposed ? 0 : 1) * 2 +
+      (m.cacheRatio !== undefined ? 0 : 1);
     for (const occ of occurrences) {
       const om = occ.model;
       if (om.isFree || om.upstreamRatio === undefined) continue;
-      if (co === undefined || om.upstreamRatio < co.upstreamRatio!) {
+      const better =
+        co === undefined ||
+        om.upstreamRatio < co.upstreamRatio! ||
+        (om.upstreamRatio === co.upstreamRatio &&
+          (rank(om) < rank(co) ||
+            (rank(om) === rank(co) && om.upstream < co.upstream)));
+      if (better) {
         co = om;
         coOffer = occ.offer;
       }

@@ -7,7 +7,10 @@ metadata:
   name: new-api-sync
   namespace: services
 spec:
-  schedule: "*/15 * * * *"
+  # Skips the nightly full a7 run's hour (22:00 Europe/Berlin, ~25 min): both
+  # jobs accept a7 price notices and share its rate budget.
+  schedule: "*/15 0-21,23 * * *"
+  timeZone: "Europe/Berlin"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 600
   successfulJobsHistoryLimit: 3

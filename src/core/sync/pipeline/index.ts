@@ -266,7 +266,7 @@ async function buildDesiredState(
 
   for (const provider of config.providers) {
     if (provider.type !== "comfyui") continue;
-    const result = buildComfyUiChannels(provider as ComfyUiProviderConfig);
+    const result = buildComfyUiChannels(provider);
     providerReports.push(result.report);
     if (!result.report.success) {
       consola.warn(
@@ -286,7 +286,7 @@ async function buildDesiredState(
 
   for (const provider of config.providers) {
     if (provider.type !== "aihorde") continue;
-    const result = buildAIHordeChannels(provider as AIHordeProviderConfig);
+    const result = buildAIHordeChannels(provider);
     providerReports.push(result.report);
     if (!result.report.success) {
       consola.warn(
@@ -306,7 +306,7 @@ async function buildDesiredState(
 
   for (const provider of config.providers) {
     if (provider.type !== "runware") continue;
-    const result = buildRunwareChannels(provider as RunwareProviderConfig);
+    const result = buildRunwareChannels(provider);
     providerReports.push(result.report);
     if (!result.report.success) {
       consola.warn(
@@ -363,7 +363,7 @@ async function buildDesiredState(
 
   for (const provider of config.providers) {
     if (provider.type !== "comfyui") continue;
-    const cfg = provider as ComfyUiProviderConfig;
+    const cfg = provider;
     for (const [modelName, tpl] of Object.entries(cfg.templates)) {
       const mapped = config.modelMapping?.[modelName] ?? modelName;
       optionMaps.modelPrice[mapped] = Math.round(tpl.price * 10000) / 10000;
@@ -373,7 +373,7 @@ async function buildDesiredState(
 
   for (const provider of config.providers) {
     if (provider.type !== "aihorde") continue;
-    const cfg = provider as AIHordeProviderConfig;
+    const cfg = provider;
     for (const [modelName, m] of Object.entries(cfg.models)) {
       const mapped = config.modelMapping?.[modelName] ?? modelName;
       optionMaps.modelPrice[mapped] = Math.round(m.price * 10000) / 10000;
@@ -383,7 +383,7 @@ async function buildDesiredState(
 
   for (const provider of config.providers) {
     if (provider.type !== "runware") continue;
-    const cfg = provider as RunwareProviderConfig;
+    const cfg = provider;
     for (const [modelName, m] of Object.entries(cfg.models)) {
       const mapped = config.modelMapping?.[modelName] ?? modelName;
       optionMaps.modelPrice[mapped] = Math.round(m.price * 10000) / 10000;
@@ -487,15 +487,9 @@ async function buildDesiredState(
 
   const snapshotMetadata = new Map<string, Record<string, unknown>>();
   for (const m of targetSnapshot?.models ?? []) {
-    if (!m.metadata) continue;
-    try {
-      snapshotMetadata.set(
-        m.model_name,
-        JSON.parse(m.metadata) as Record<string, unknown>,
-      );
-    } catch {
-      // unparseable target metadata: no prior verdict to preserve
-    }
+    const prior = parseJsonObject(m.metadata);
+    if (Object.keys(prior).length > 0)
+      snapshotMetadata.set(m.model_name, prior);
   }
 
   const models = buildDesiredModels({
