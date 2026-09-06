@@ -96,12 +96,16 @@ providers:
   #   acceptUpstreamDown: true
 
 # Per-channel-name param_override additions, merged onto whatever the channel
-# already carries. These two a7 merchants front a Kimi K3 endpoint that 400s on
-# any temperature other than 1 ("上游服务暂时不可用"), so the field is dropped
-# and the upstream default applies. Other kimi-k3 lanes accept it and stay as is.
+# already carries. These two a7 pin groups are one merchant (a7 channel 4134,
+# "tokentrans") fronting a Kimi K3 endpoint that 400s ("上游服务暂时不可用") on
+# any temperature other than 1 and on any non-zero frequency or presence
+# penalty, so those fields are dropped and the upstream defaults apply. Other
+# kimi-k3 lanes accept them and stay as is.
 channelParamOverride:
   - channels:
       - "a7-chepermodels-*-kimi-k3"
       - "a7-tokenmodels-*-kimi-k3"
     operations:
       - { path: temperature, mode: delete }
+      - { path: frequency_penalty, mode: delete }
+      - { path: presence_penalty, mode: delete }
