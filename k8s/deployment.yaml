@@ -18,7 +18,8 @@ spec:
   jobTemplate:
     spec:
       activeDeadlineSeconds: 1200
-      backoffLimit: 1
+      # No retry: the next tick is 15 minutes away and a retry would hit a7 again.
+      backoffLimit: 0
       template:
         metadata:
           labels: { app: new-api-sync }
@@ -83,8 +84,13 @@ spec:
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
-      activeDeadlineSeconds: 1800
-      backoffLimit: 1
+      # A normal night is 20 to 26 minutes; 2700 leaves room for a slow
+      # marketplace without covering a hung run.
+      activeDeadlineSeconds: 2700
+      # NEVER retry: a second full a7 run minutes after a failed one exhausts
+      # a7's rate budget (429 on key reveal and pin), the throttle guard then
+      # withholds deletes and the retry fails too (2026-09-06, twice).
+      backoffLimit: 0
       template:
         metadata:
           labels: { app: new-api-sync-full }

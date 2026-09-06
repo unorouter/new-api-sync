@@ -454,7 +454,10 @@ and can race its re-pins. Rules:
   `new-api-sync-*` first; for anything long (`--only a7` full, ~25 min) suspend
   the metadata cron (`kubectl -n services patch cronjob new-api-sync -p
 '{"spec":{"suspend":true}}'`, un-suspend after; ArgoCD does not revert it).
-- Space a7 runs >= 30 min apart. Five in one hour tripped 429s on pin/token
+- Space a7 runs >= 30 min apart. That includes retries: the Jobs have `backoffLimit: 0`, and
+  a failed full run (throttle, "marketplace returned no listings") is rerun only after 30 min,
+  never by creating a second Job right away (2026-09-06: two manual attempts two minutes apart,
+  both throttled). Five in one hour tripped 429s on pin/token
   calls and "no key for lane ..., skipping" for healthy merchants.
 - A THROTTLED FULL `--only a7` RUN IS DESTRUCTIVE: a lane skipped for "no key"
   or a failed pin is absent from desired, so apply deletes its channel and
