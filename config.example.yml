@@ -103,8 +103,8 @@ providers:
 # kimi-k3 lanes accept them and stay as is.
 channelParamOverride:
   - channels:
-      - "a7-chepermodels-*-kimi-k3"
-      - "a7-tokenmodels-*-kimi-k3"
+      - "a7-chepermodels-3767-kimi-k3"
+      - "a7-tokenmodels-3829-kimi-k3"
     operations:
       - { path: temperature, mode: delete }
       - { path: frequency_penalty, mode: delete }
