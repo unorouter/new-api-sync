@@ -359,7 +359,7 @@ await store.flush(target, await target.listChannels());` (`deleteEntries`, `merg
 Two CronJobs in the k3s `services` namespace deploy from this repo's `k8s/` dir
 (build via `infra/scripts/build-local.sh new-api-sync --deploy`):
 
-- `new-api-sync` (every 15 min, Europe/Berlin, skips hour 22 while the nightly runs): `sync metadata`. Reprices option maps from live
+- `new-api-sync` (every 15 min, Europe/Berlin, skips hours 22 and 23 while the nightly runs): `sync metadata`. Reprices option maps from live
   marketplace listings AND accepts a7 pin price-change notices (ceiling-gated).
   Zero probes, zero channel writes. Needs no verdict cache.
 - `new-api-sync-full` (daily 22:00 Europe/Berlin): `sync run --only a7`. Membership churn:
