@@ -356,6 +356,9 @@ await store.flush(target, await target.listChannels());` (`deleteEntries`, `merg
 
 ## a7 cluster crons (cluster runs the cadence, this machine is for development)
 
+The a7api provider is NAMED `a7` in config and in the gateway since 2026-09-06 (channel
+names, groups, tag, verdict keys `a7:<merchant>|<model>`); "a7" below means the upstream.
+
 Two CronJobs in the k3s `services` namespace deploy from this repo's `k8s/` dir
 (build via `infra/scripts/build-local.sh new-api-sync --deploy`):
 
