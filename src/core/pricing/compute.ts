@@ -17,6 +17,10 @@ import {
   type ResolvedAdjustment,
 } from "./index";
 import type { OfferModel, UpstreamOffer } from "./offers";
+import {
+  applyChannelParamOverride,
+  type ChannelParamOverrideRule,
+} from "./param-override";
 import { resolveBasePricing } from "./resolver";
 import type { PricingSource } from "./sources/types";
 import type {
@@ -36,6 +40,7 @@ interface ComputeArgs {
   modelMapping: Record<string, string>;
   modelAlias?: Record<string, string[]>;
   systemPrompt?: { models: string[]; prompt: string; override?: boolean }[];
+  channelParamOverride?: ChannelParamOverrideRule[];
   /** Per-provider scheduled-test cadence, keyed by provider name. */
   autoTestIntervalByProvider?: Map<string, number>;
   forceUpstreamStreamByProvider?: Map<
@@ -675,14 +680,20 @@ function pushBucketsAsTiers(
         matchesAnyPattern(publishedName, r.models),
       );
 
+      const channelName = `${offer.sanitizedBase}-${sanitizeGroupName(publishedName)}`;
       let paramOverride = m.paramOverride;
       if (!paramOverride && hasContext1mAlias)
         paramOverride = CLAUDE_CONTEXT_1M_PARAM_OVERRIDE;
       else if (!paramOverride && m.metadata?.disableThinking)
         paramOverride = DISABLE_THINKING_PARAM_OVERRIDE;
+      paramOverride = applyChannelParamOverride(
+        channelName,
+        paramOverride,
+        args?.channelParamOverride,
+      );
 
       tiers.push({
-        channelName: `${offer.sanitizedBase}-${sanitizeGroupName(publishedName)}`,
+        channelName,
         vendor: offer.vendor,
         channelType: override?.channelType ?? offer.channelType,
         baseUrl: baseUrlTrim + (override?.baseUrlSuffix ?? ""),

@@ -202,7 +202,7 @@ export type RunResultFilterValue = Static<typeof RunResultFilterEnum>;
 export type PipelineModeValue = Static<typeof PipelineModeEnum>;
 
 // prettier-ignore
-export const GlobalConfigSchema = T.Object({ locale: Opt(LocaleEnum), theme: Opt(ThemeEnum), mainTab: Opt(MainTabEnum), historyTab: Opt(HistoryTabEnum), selectedRunId: Opt(T.Union([T.String(), T.Null()])), runResultFilter: Opt(RunResultFilterEnum), runQuery: Opt(T.String()), authenticityQuery: Opt(T.String()), selectedConfigName: Opt(T.String()), pipelineMode: Opt(PipelineModeEnum), verbose: Opt(T.Boolean()), onlyProviders: Opt(T.Record(T.String(), T.Array(T.String()))), modelFilter: Opt(T.Record(T.String(), T.String())), blacklist: Opt(T.Array(str)), modelMapping: Opt(T.Record(T.String(), T.String())), groupMapping: Opt(T.Record(T.String(), T.String())) });
+export const GlobalConfigSchema = T.Object({ locale: Opt(LocaleEnum), theme: Opt(ThemeEnum), mainTab: Opt(MainTabEnum), historyTab: Opt(HistoryTabEnum), selectedRunId: Opt(T.Union([T.String(), T.Null()])), runResultFilter: Opt(RunResultFilterEnum), runQuery: Opt(T.String()), authenticityQuery: Opt(T.String()), selectedConfigName: Opt(T.String()), pipelineMode: Opt(PipelineModeEnum), verbose: Opt(T.Boolean()), onlyProviders: Opt(T.Record(T.String(), T.Array(T.String()))), modelFilter: Opt(T.Record(T.String(), T.String())), blacklist: Opt(T.Array(str)), modelMapping: Opt(T.Record(T.String(), T.String())), groupMapping: Opt(T.Record(T.String(), T.String())), channelParamOverride: Opt(T.Array(T.Object({ channels: T.Array(str, { minItems: 1 }), operations: T.Array(T.Record(T.String(), T.Unknown()), { minItems: 1 }) }))) });
 export type GlobalConfigType = Static<typeof GlobalConfigSchema>;
 
 export const ConfigSchema = T.Object({
@@ -230,6 +230,11 @@ export const ConfigSchema = T.Object({
   // Empty prompt = clear a previously synced prompt from matching channels.
   // prettier-ignore
   systemPrompt: Opt(T.Array(T.Object({ models: T.Array(str, { minItems: 1 }), prompt: T.String(), override: Opt(T.Boolean()) }))),
+  // Extra channel param_override operations for channels whose NAME matches a
+  // glob (micromatch): merged onto whatever override the channel already carries.
+  // For upstreams that 400 on a sampler field only some lanes reject.
+  // prettier-ignore
+  channelParamOverride: Opt(T.Array(T.Object({ channels: T.Array(str, { minItems: 1 }), operations: T.Array(T.Record(T.String(), T.Unknown()), { minItems: 1 }) }))),
   // prettier-ignore
   rateLimit: Opt(T.Object({
     // success = successful requests per window; total = attempts incl. failures
