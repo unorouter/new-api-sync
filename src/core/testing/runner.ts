@@ -419,6 +419,10 @@ async function testModels(opts: {
                 model,
                 timeoutMs,
                 logKey: blacklistKey,
+                transport:
+                  opts.channelType === CHANNEL_TYPES.ANTHROPIC
+                    ? "anthropic"
+                    : "openai",
               });
         }
 
