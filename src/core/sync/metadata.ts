@@ -347,6 +347,25 @@ function buildDisableThinkingByProvider(
   return out;
 }
 
+function isSyncAuthoredParamOverride(raw: string): boolean {
+  if (raw === DISABLE_THINKING_PARAM_OVERRIDE) return true;
+  try {
+    const v: unknown = JSON.parse(raw);
+    if (!v || typeof v !== "object" || Array.isArray(v)) return false;
+    const o = v as Record<string, unknown>;
+    if (Object.keys(o).length !== 1 || !Array.isArray(o.operations)) return false;
+    return o.operations.every(
+      (op) =>
+        !!op &&
+        typeof op === "object" &&
+        (op as Record<string, unknown>).mode === "delete" &&
+        typeof (op as Record<string, unknown>).path === "string",
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function reconcileParamOverride(
   target: NewApiClient,
   channels: Channel[],
@@ -377,14 +396,10 @@ async function reconcileParamOverride(
       rules,
     );
     if (current === desired) continue;
-    // Preserve an override the sync did not author (e.g. Claude 1m): only an
-    // empty, thinking-only or rule-shaped value is ours to rewrite.
-    if (
-      current &&
-      current !== DISABLE_THINKING_PARAM_OVERRIDE &&
-      current !== applyChannelParamOverride(ch.name, undefined, rules)
-    )
-      continue;
+    // Preserve an override the sync did not author (e.g. Claude 1m sets a
+    // header). Everything the sync writes is the thinking override or plain
+    // delete operations, so anything else is someone else's to keep.
+    if (current && !isSyncAuthoredParamOverride(current)) continue;
 
     const ok = await target.updateChannel({
       ...ch,
