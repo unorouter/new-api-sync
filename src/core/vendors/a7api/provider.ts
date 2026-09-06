@@ -320,6 +320,7 @@ export async function processA7ApiProvider(
         pinsRepinned += pins.repinned;
         throttled += pins.throttled;
 
+        const probes: { lane: MerchantLane; key: string }[] = [];
         for (const lane of batch) {
           const token = tokens.get(laneTokenName(lane));
           // A missing key is a7 refusing the reveal (rate limit), never a
@@ -331,25 +332,34 @@ export async function processA7ApiProvider(
           // No pin = the probe would hit smart routing (an arbitrary merchant
           // at an arbitrary price), not this lane's merchant. Never keep it.
           if (!pins.pinned.has(laneTokenName(lane))) continue;
-          probed++;
-          // Per-merchant label: the verdict cache is keyed provider|model, so a
-          // shared label would reuse one merchant's probe result (and
-          // authenticity blacklist) for every merchant of the model.
-          const label = `${name}:${lane.listing.channel_id}`;
-          const filterResult = await testAndFilterModels({
-            allModels: [lane.model],
-            baseUrl,
-            apiKey: token.key,
-            channelType: CHANNEL_TYPES.OPENAI,
-            providerLabel: label,
-            testableModelTypes: new Set(["text"]),
-            acceptRateLimited: provider.acceptRateLimited,
-          });
-          if (filterResult.workingModels.length === 0) continue;
+          probes.push({ lane, key: token.key });
+        }
+        probed += probes.length;
+        // Probes run through the per-upstream gate; one lane per call, so
+        // awaiting them in sequence made a 170-lane night take an hour.
+        const verdicts = await Promise.all(
+          probes.map(async (probe) => ({
+            probe,
+            verdict: await testAndFilterModels({
+              allModels: [probe.lane.model],
+              baseUrl,
+              apiKey: probe.key,
+              channelType: CHANNEL_TYPES.OPENAI,
+              // Per-merchant label: the verdict cache is keyed provider|model,
+              // so a shared label would reuse one merchant's probe result (and
+              // authenticity blacklist) for every merchant of the model.
+              providerLabel: `${name}:${probe.lane.listing.channel_id}`,
+              testableModelTypes: new Set(["text"]),
+              acceptRateLimited: provider.acceptRateLimited,
+            }),
+          })),
+        );
+        for (const { probe, verdict } of verdicts) {
+          if (verdict.workingModels.length === 0) continue;
           kept.push({
-            lane,
-            key: token.key,
-            rateLimited: filterResult.rateLimitedModels.includes(lane.model),
+            lane: probe.lane,
+            key: probe.key,
+            rateLimited: verdict.rateLimitedModels.includes(probe.lane.model),
           });
         }
       }
