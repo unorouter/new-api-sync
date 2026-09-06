@@ -4,6 +4,7 @@
 // Metadata sources move independently of availability, so this runs every 15
 // minutes while the probing full sync runs nightly.
 
+import { applyChannelParamOverride } from "@core/pricing/param-override";
 import { toBareName } from "@core/catalog/bare-name";
 import {
   applyGroupRenames,
@@ -352,14 +353,12 @@ async function reconcileParamOverride(
   config: RuntimeConfig,
 ): Promise<number> {
   const byProvider = buildDisableThinkingByProvider(config);
-  if (byProvider.length === 0) return 0;
+  const rules = config.channelParamOverride;
+  if (byProvider.length === 0 && rules.length === 0) return 0;
 
   let changed = 0;
   for (const ch of channels) {
-    // Preserve any non-thinking param_override already set (e.g. Claude 1m):
-    // only channels with no override or the thinking one are ours to reconcile.
     const current = ch.param_override?.trim() || undefined;
-    if (current && current !== DISABLE_THINKING_PARAM_OVERRIDE) continue;
 
     // Only a provider that owns this channel (name prefix) may flag it, so
     // lf1's glm globs never touch io1/nvy/... channels that serve GLM fine.
@@ -372,8 +371,20 @@ async function reconcileParamOverride(
         (name) =>
           !isRoutingOnlyAlias(name) && matchesAnyPattern(name, owner.globs),
       );
-    const desired = wantsDisable ? DISABLE_THINKING_PARAM_OVERRIDE : undefined;
+    const desired = applyChannelParamOverride(
+      ch.name,
+      wantsDisable ? DISABLE_THINKING_PARAM_OVERRIDE : undefined,
+      rules,
+    );
     if (current === desired) continue;
+    // Preserve an override the sync did not author (e.g. Claude 1m): only an
+    // empty, thinking-only or rule-shaped value is ours to rewrite.
+    if (
+      current &&
+      current !== DISABLE_THINKING_PARAM_OVERRIDE &&
+      current !== applyChannelParamOverride(ch.name, undefined, rules)
+    )
+      continue;
 
     const ok = await target.updateChannel({
       ...ch,

@@ -238,6 +238,7 @@ async function buildDesiredState(
     modelMapping: config.modelMapping,
     modelAlias: config.modelAlias,
     systemPrompt: config.systemPrompt,
+    channelParamOverride: config.channelParamOverride,
     autoTestIntervalByProvider,
     forceUpstreamStreamByProvider,
     autoTestIntervalMaxByProvider,

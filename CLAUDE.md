@@ -370,7 +370,7 @@ Two CronJobs in the k3s `services` namespace deploy from this repo's `k8s/` dir
 from OpenBao `secret/sync-env` (v30+): target + ONLY the a7, fish and open1
 provider blocks, plus the FULL shared blocks copied verbatim from the local
 file: `rateLimit`, `modelMapping`, `groupMapping`, `blacklist` (union with the
-brand entries only the cluster carries), `modelAlias`. Any edit to those
+brand entries only the cluster carries), `modelAlias`, `channelParamOverride`. Any edit to those
 provider blocks or to any shared block MUST be pushed there too or the crons
 keep running the old rules. The shared blocks were minimal until 2026-09-06 and
 the cluster's 15-min metadata tick re-seeded metadata with 2 mappings while
