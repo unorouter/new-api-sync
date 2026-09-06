@@ -7,9 +7,10 @@ metadata:
   name: new-api-sync
   namespace: services
 spec:
-  # Skips the nightly full a7 run's hour (22:00 Europe/Berlin, ~25 min): both
-  # jobs accept a7 price notices and share its rate budget.
-  schedule: "*/15 0-21,23 * * *"
+  # Skips hours 22 and 23: the nightly full a7 run starts 22:00 Europe/Berlin
+  # and may take up to 60 min under a7 throttling; both jobs accept a7 price
+  # notices and share its rate budget.
+  schedule: "*/15 0-21 * * *"
   timeZone: "Europe/Berlin"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 600
@@ -84,9 +85,10 @@ spec:
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
-      # A normal night is 20 to 26 minutes; 2700 leaves room for a slow
-      # marketplace without covering a hung run.
-      activeDeadlineSeconds: 2700
+      # A normal night is 20 to 35 minutes; a throttled marketplace (paced
+      # key reveal and pin calls) stretches it past 45. One hour still does
+      # not cover a hung run.
+      activeDeadlineSeconds: 3600
       # NEVER retry: a second full a7 run minutes after a failed one exhausts
       # a7's rate budget (429 on key reveal and pin), the throttle guard then
       # withholds deletes and the retry fails too (2026-09-06, twice).
