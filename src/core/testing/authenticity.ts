@@ -151,25 +151,6 @@ type ProbeResult = {
   text?: string;
 };
 
-// Transient upstream conditions during probing (rate limit, overload, gateway,
-// timeout, network). These say nothing about authenticity: a real Claude channel
-// that gets 429'd mid-probe must NOT be permanently blacklisted. Detected from
-// the HTTP_ERROR message ("HTTP 429 Too Many Requests") or a raw network error.
-const TRANSIENT_HTTP = [408, 425, 429, 500, 502, 503, 504, 520, 522, 524];
-function isTransientError(msg: string): boolean {
-  const m = msg.match(/HTTP (\d{3})/);
-  if (m && TRANSIENT_HTTP.includes(Number(m[1]))) return true;
-  const lower = msg.toLowerCase();
-  return (
-    lower.includes("timeout") ||
-    lower.includes("timed out") ||
-    lower.includes("econnreset") ||
-    lower.includes("socket") ||
-    lower.includes("network") ||
-    lower.includes("fetch failed")
-  );
-}
-
 // fable belongs here even though it is not a size tier: without it, tierOf()
 // returns null for claude-fable-5 and detectTierMismatch exits before it can
 // compare, so a relay serving opus under a fable label was never checked at all.
@@ -271,11 +252,14 @@ async function runAnthropicProbe(opts: {
     } catch (err) {
       const emsg = err instanceof Error ? err.message : String(err);
       logFail(reqBody, null, emsg);
+      // No answer, no verdict: only an answered probe can prove a faker. a7
+      // reports a busy merchant as 400/403/404 as often as 503, and a 403 here
+      // used to blacklist an honest lane for good.
       return {
         pass: false,
         authenticityRefusal: false,
         signal: null,
-        transient: isTransientError(emsg),
+        transient: true,
       };
     }
 
