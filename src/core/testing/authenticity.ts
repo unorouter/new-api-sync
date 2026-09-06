@@ -134,6 +134,32 @@ function extractAnthropicText(data: unknown): string | null {
     .toLowerCase();
 }
 
+type OpenAiChatResponse = {
+  error?: unknown;
+  choices?: Array<{
+    message?: {
+      content?: string | Array<{ type?: string; text?: string }> | null;
+    };
+  }>;
+};
+
+function extractOpenAiText(data: unknown): string | null {
+  const d = data as OpenAiChatResponse;
+  if (d.error) return null;
+  const content = d.choices?.[0]?.message?.content;
+  if (typeof content === "string") return content.toLowerCase();
+  if (Array.isArray(content))
+    return content
+      .filter((b) => b.type === "text")
+      .map((b) => b.text ?? "")
+      .join(" ")
+      .toLowerCase();
+  return null;
+}
+
+/** Wire format of the probe: the one the channel is sold on. */
+export type AuthenticityTransport = "anthropic" | "openai";
+
 type ProbeSignal =
   | "coding-tool"
   | "scam"
@@ -215,8 +241,22 @@ async function runAnthropicProbe(opts: {
   evaluate: (text: string) => boolean;
   timeoutMs: number;
   logKey: string;
+  transport: AuthenticityTransport;
 }): Promise<ProbeResult> {
-  const reqUrl = `${opts.baseUrl}/v1/messages`;
+  const openai = opts.transport === "openai";
+  const reqUrl = openai
+    ? `${opts.baseUrl}/v1/chat/completions`
+    : `${opts.baseUrl}/v1/messages`;
+  const headers: Record<string, string> = openai
+    ? {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${opts.apiKey}`,
+      }
+    : {
+        "Content-Type": "application/json",
+        "x-api-key": opts.apiKey,
+        "anthropic-version": "2023-06-01",
+      };
   const logFail = (reqBody: unknown, response: string | null, error: string) =>
     addAuthenticityProbe(opts.logKey, {
       probe: opts.label,
@@ -241,11 +281,7 @@ async function runAnthropicProbe(opts: {
     try {
       data = await fetchJson<unknown>(reqUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": opts.apiKey,
-          "anthropic-version": "2023-06-01",
-        },
+        headers,
         body: reqBody,
         timeoutMs: opts.timeoutMs,
       });
@@ -263,7 +299,7 @@ async function runAnthropicProbe(opts: {
       };
     }
 
-    const text = extractAnthropicText(data);
+    const text = openai ? extractOpenAiText(data) : extractAnthropicText(data);
     if (text === null) {
       logFail(
         reqBody,
@@ -325,13 +361,18 @@ export async function testAnthropicAuthenticity(opts: {
   model: string;
   timeoutMs: number;
   logKey: string;
+  // Probe over the format the channel is sold on: a7 merchants that only speak
+  // OpenAI chat answer /v1/messages with 400/403/404 and could never verify.
+  transport?: AuthenticityTransport;
 }): Promise<boolean> {
+  const transport = opts.transport ?? "anthropic";
   const nonceTag = (n: string) =>
     `Begin your reply with the tag [${n}] then a space, then your answer.`;
 
   const [r1, r2, r3, r4] = await Promise.all([
     runAnthropicProbe({
       ...opts,
+      transport,
       label: "emotional",
       maxTokens: 200,
       buildPrompt: (n) =>
@@ -341,6 +382,7 @@ export async function testAnthropicAuthenticity(opts: {
     }),
     runAnthropicProbe({
       ...opts,
+      transport,
       label: "creative",
       maxTokens: 120,
       buildPrompt: (n) =>
@@ -350,6 +392,7 @@ export async function testAnthropicAuthenticity(opts: {
     }),
     runAnthropicProbe({
       ...opts,
+      transport,
       label: "identity",
       maxTokens: 60,
       buildPrompt: (n) =>
@@ -366,6 +409,7 @@ export async function testAnthropicAuthenticity(opts: {
     }),
     runAnthropicProbe({
       ...opts,
+      transport,
       label: "model-name",
       maxTokens: 80,
       buildPrompt: (n) =>
