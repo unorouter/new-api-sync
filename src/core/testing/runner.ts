@@ -514,11 +514,18 @@ async function testModels(opts: {
   const TRANSIENT_STATUS = new Set([
     405, 408, 425, 429, 500, 502, 503, 504, 520, 522, 524,
   ]);
+  // A throttled lane is never identity-checked, and the gateway's auto-test
+  // enables it as soon as the upstream clears: for Claude that let a ChatGPT
+  // merchant go live under a fable label (a7 3999). Only a lane that already
+  // proved itself may ride a transient status in.
   const acceptedTransient = (r: (typeof results)[number]) =>
     r.httpStatus != null &&
     TRANSIENT_STATUS.has(r.httpStatus) &&
     !reallyPassed(r) &&
-    acceptsTransient(r.model);
+    acceptsTransient(r.model) &&
+    (!r.model.startsWith("claude-") ||
+      opts.skipAuthenticity === true ||
+      isAuthenticityPassCached(passKey(prefix, r.model)));
 
   return {
     workingModels: results
