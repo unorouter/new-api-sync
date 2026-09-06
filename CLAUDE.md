@@ -444,7 +444,7 @@ mount it, so it keeps working while the daily run is stuck.
 
 ## a7 concurrency (the local lock does not cover the cluster)
 
-`logs/sync.lock` serializes LOCAL runs only. The cluster `metadata` cron hits a7
+The run lock (`new-api-sync.lock` in the OS temp dir, stale after 2h) serializes LOCAL runs only. The cluster `metadata` cron hits a7
 every 15 min (:00/:15/:30/:45, ~35s: listings, pin list, notice accepts, unpin+pin
 on price drops) on its own schedule. Local a7 runs share a7's rate budget with it
 and can race its re-pins. Rules:
