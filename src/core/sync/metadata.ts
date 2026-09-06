@@ -353,7 +353,8 @@ function isSyncAuthoredParamOverride(raw: string): boolean {
     const v: unknown = JSON.parse(raw);
     if (!v || typeof v !== "object" || Array.isArray(v)) return false;
     const o = v as Record<string, unknown>;
-    if (Object.keys(o).length !== 1 || !Array.isArray(o.operations)) return false;
+    if (Object.keys(o).length !== 1 || !Array.isArray(o.operations))
+      return false;
     return o.operations.every(
       (op) =>
         !!op &&
