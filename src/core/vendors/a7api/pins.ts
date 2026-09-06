@@ -163,9 +163,7 @@ export async function cleanupStaleLaneTokens(
   }
 }
 
-async function listPins(
-  provider: A7ApiProviderConfig,
-): Promise<PinRecord[]> {
+async function listPins(provider: A7ApiProviderConfig): Promise<PinRecord[]> {
   const url = `${provider.baseUrl.replace(/\/$/, "")}/api/marketplace/pins`;
   const body = await tryFetchJson<PinsResponse>(url, {
     headers: marketplaceHeaders(provider),
