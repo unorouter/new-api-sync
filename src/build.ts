@@ -18,7 +18,8 @@ import { extname, relative } from "node:path";
 const DIST = "dist";
 const ENTRY = "src/cli/index.ts";
 const ASSETS_MANIFEST = "src/embedded-assets.ts";
-const TARGETS = [
+// SYNC_TARGETS=bun-linux-x64 limits the release to one target (the image build).
+const TARGETS = process.env.SYNC_TARGETS?.split(",").filter(Boolean) ?? [
   "bun-linux-x64",
   "bun-linux-arm64",
   "bun-darwin-x64",
