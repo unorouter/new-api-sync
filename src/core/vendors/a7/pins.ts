@@ -200,6 +200,8 @@ async function postPin(
         fallback_to_smart_routing: false,
       },
       timeoutMs: 30_000,
+      retry: 3,
+      retryDelayMs: 5000,
     },
   );
 }

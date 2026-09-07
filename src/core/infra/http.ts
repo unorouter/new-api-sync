@@ -25,7 +25,12 @@ interface FetchOptions {
 
 export type FetchResult<T> =
   | { ok: true; data: T }
-  | { ok: false; status: number | undefined; message: string };
+  | {
+      ok: false;
+      status: number | undefined;
+      message: string;
+      retryAfterMs?: number;
+    };
 
 // Same statuses ofetch retries on; a missing status is a network error or timeout.
 const RETRY_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
@@ -40,7 +45,14 @@ export async function fetchJsonResult<T>(
   const delay = options?.retryDelayMs ?? 0;
   return withRetry(() => fetchOnce<T>(url, options), (r) => r.ok, {
     attempts,
-    backoffMs: Array.from({ length: attempts - 1 }, () => delay),
+    // 429 doubles per attempt and honours Retry-After: a7 throttles key reveal
+    // and pin for tens of seconds, three quick retries just burn the budget.
+    backoffMs: (attempt, last) =>
+      last.ok
+        ? 0
+        : last.status === 429
+          ? Math.max(delay * 2 ** (attempt - 1), last.retryAfterMs ?? 0)
+          : delay,
     shouldRetry: (r) =>
       !r.ok && (r.status === undefined || RETRY_STATUS.has(r.status)),
   });
@@ -69,6 +81,7 @@ async function fetchOnce<T>(
       return {
         ok: false,
         status: err.response.status,
+        retryAfterMs: retryAfterMs(err.response.headers.get("retry-after")),
         message: t("ERROR.HTTP_ERROR", {
           status: err.response.status,
           statusText: err.response.statusText,
@@ -81,6 +94,14 @@ async function fetchOnce<T>(
       message: err instanceof Error ? err.message : String(err),
     };
   }
+}
+
+function retryAfterMs(header: string | null): number | undefined {
+  if (!header) return undefined;
+  const seconds = Number(header);
+  if (Number.isFinite(seconds)) return seconds * 1000;
+  const at = Date.parse(header);
+  return Number.isFinite(at) ? Math.max(0, at - Date.now()) : undefined;
 }
 
 export async function fetchJson<T>(

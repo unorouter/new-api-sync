@@ -1,8 +1,9 @@
 export interface RetryPolicy<T> {
   /** Total attempts including the first call. */
   attempts: number;
-  /** Wait before each retry. `backoffMs[i]` is the wait before attempt `i+2`. */
-  backoffMs?: number[];
+  /** Wait before each retry. `backoffMs[i]` is the wait before attempt `i+2`;
+   *  a function receives the failed attempt (1-based) and its result. */
+  backoffMs?: number[] | ((attempt: number, last: T) => number);
   /** Return true to keep retrying. Default: always retry on failure. */
   shouldRetry?: (result: T) => boolean;
 }
@@ -16,7 +17,10 @@ export async function withRetry<T>(
   let last = await fn();
   for (let i = 1; i < policy.attempts; i++) {
     if (isPass(last) || !shouldRetry(last)) return last;
-    const delay = policy.backoffMs?.[i - 1];
+    const delay =
+      typeof policy.backoffMs === "function"
+        ? policy.backoffMs(i, last)
+        : policy.backoffMs?.[i - 1];
     if (delay) await sleep(delay);
     last = await fn();
   }
