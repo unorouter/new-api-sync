@@ -348,6 +348,12 @@ function buildDisableThinkingByProvider(
   return out;
 }
 
+function buildConfiguredProviderPrefixes(config: RuntimeConfig): string[] {
+  return config.providers.map(
+    (provider) => `${sanitizeGroupName(provider.name)}-`,
+  );
+}
+
 // The vendor's kind-wide override (Gemini rejecting top_k and friends) is
 // applied when a channel is CREATED, so channels that predate the entry never
 // got it: the 75 Google lanes kept an empty override for three weeks and 400d
@@ -395,6 +401,7 @@ async function reconcileParamOverride(
 ): Promise<number> {
   const byProvider = buildDisableThinkingByProvider(config);
   const vendorOverrides = buildVendorParamOverrideByProvider(config);
+  const configuredPrefixes = buildConfiguredProviderPrefixes(config);
   const rules = config.channelParamOverride;
   if (
     byProvider.length === 0 &&
@@ -406,6 +413,20 @@ async function reconcileParamOverride(
   let changed = 0;
   for (const ch of channels) {
     const current = ch.param_override?.trim() || undefined;
+
+    // A run only reconciles channels of the providers ITS OWN config declares.
+    // The cluster config carries 3 providers while the database holds every
+    // vendor, so without this the scheduled job cleared the override off all 75
+    // Google lanes it knows nothing about and Gemma 400d on frequency_penalty.
+    // An explicit channelParamOverride glob still applies: those name channels
+    // directly rather than deriving them from a provider.
+    const configured = configuredPrefixes.some((prefix) =>
+      ch.name.startsWith(prefix),
+    );
+    const namedByRule = rules.some((r) =>
+      matchesAnyPattern(ch.name, r.channels),
+    );
+    if (!configured && !namedByRule) continue;
 
     // Only a provider that owns this channel (name prefix) may flag it, so
     // lf1's glm globs never touch io1/nvy/... channels that serve GLM fine.
