@@ -488,6 +488,22 @@ and can race its re-pins. Rules:
   pinned cost, can exceed retail) and the success hides the outage from the
   failure-rate guard.
 
+## The cluster config carries a7 on purpose, everything else is synced locally
+
+`secret/sync-env` config.yml declares three providers (a7, fish, open1) while the
+local `config.yml` declares 184. That is deliberate: the scheduled CronJobs exist
+to keep a7 current, and every other vendor is reconciled by a local
+`bun sync metadata`. Do NOT "fix" the cluster config by adding the missing
+providers.
+
+A run only reconciles channels whose provider its own config declares
+(`reconcileParamOverride`, guarded since d032e81). Before that guard the
+scheduled job cleared `param_override` off all 75 Google lanes it knows nothing
+about, three times in 45 minutes, and Gemma answered
+`400 Unknown name "frequency_penalty"` until a local run put them back. Any new
+per-channel state the sync writes must carry the same ownership check, or a
+3-provider run will erase the other 181 vendors' settings.
+
 ## Local runs reach the gateway through a port-forward (since 2026-09-07)
 
 `TRUSTED_NETWORKS` on the gateway is the pod CIDR plus loopback only; the sync service token is accepted from nowhere else. The in-cluster CronJobs use `http://new-api.services.svc.cluster.local:3000`. For a local run the local `config.yml` target is `http://127.0.0.1:13000`, so start the forward first, in its own terminal:
