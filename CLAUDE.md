@@ -123,7 +123,7 @@ and the partial-sync invariants protect everything out of scope.
 2. **Delete the bad channels in the DB by id** (they are recreated only if a provider still passes
    testing for that model). The target gateway DB is the CloudNativePG `newapi` cluster on the k3s
    cluster (namespace `databases`, db `newapi`); reach it via kubectl, not don SSH
-   (`KUBECONFIG=infra/kubeconfig`; the primary drifts on failover and replicas are
+   (`KUBECONFIG=~/.kube/teleport-unorouter.yaml`, the Teleport proxy kubeconfig; the primary drifts on failover and replicas are
    read-only, so resolve it from the cluster status instead of assuming `-pg-1`):
    ```bash
    PG=$(kubectl -n databases get cluster newapi-pg -o jsonpath='{.status.currentPrimary}')
@@ -408,7 +408,7 @@ carry no timestamp, so the merge is a union keyed by `key`, local winning on a
 conflict (the local run is the newer one); check the printed conflicts first.
 
 ```bash
-export KUBECONFIG=~/MEGA/Projects/ai-api/infra/kubeconfig
+export KUBECONFIG=~/.kube/teleport-unorouter.yaml   # Teleport local proxy (systemd --user tsh-kube); the cert file infra/kubeconfig.breakglass is break-glass only and pages on every use
 kubectl -n services apply -f - <<'YAML'
 apiVersion: v1
 kind: Pod
@@ -509,7 +509,7 @@ per-channel state the sync writes must carry the same ownership check, or a
 `TRUSTED_NETWORKS` on the gateway is the pod CIDR plus loopback only; the sync service token is accepted from nowhere else. The in-cluster CronJobs use `http://new-api.services.svc.cluster.local:3000`. For a local run the local `config.yml` target is `http://127.0.0.1:13000`, so start the forward first, in its own terminal:
 
 ```bash
-KUBECONFIG=~/MEGA/Projects/ai-api/infra/kubeconfig kubectl -n services port-forward svc/new-api 13000:3000
+KUBECONFIG=~/.kube/teleport-unorouter.yaml kubectl -n services port-forward svc/new-api 13000:3000
 bun sync run --only fish
 ```
 
