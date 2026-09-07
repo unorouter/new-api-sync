@@ -487,3 +487,14 @@ and can race its re-pins. Rules:
   the request through ANY merchant at THAT merchant's price (seen 4.8x the
   pinned cost, can exceed retail) and the success hides the outage from the
   failure-rate guard.
+
+## Local runs reach the gateway through a port-forward (since 2026-09-07)
+
+`TRUSTED_NETWORKS` on the gateway is the pod CIDR plus loopback only; the sync service token is accepted from nowhere else. The in-cluster CronJobs use `http://new-api.services.svc.cluster.local:3000`. For a local run the local `config.yml` target is `http://127.0.0.1:13000`, so start the forward first, in its own terminal:
+
+```bash
+KUBECONFIG=~/MEGA/Projects/ai-api/infra/kubeconfig kubectl -n services port-forward svc/new-api 13000:3000
+bun sync run --only fish
+```
+
+The gateway sees the forwarded connection from the node's Cilium address inside `10.42.0.0/16`, so SyncAuth passes. Pointing the local target at `https://api.unorouter.com` again gives 401 and an `InvalidCredentialReplayed` alert with the sync fingerprint from your home prefix.
