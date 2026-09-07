@@ -71,6 +71,7 @@ import {
   printPricingAudit,
 } from "@core/sync/option-store";
 import { expandRateLimitModels } from "@core/sync/pipeline/option-maps";
+import { SIMPLE_PROVIDER_META_MAP } from "@core/vendors/registry-meta";
 import { acceptPriceNotices } from "@core/vendors/a7/pins";
 import type { Channel, ModelMeta, TargetSnapshot, Vendor } from "@core/types";
 import { MODEL_OPTION_FIELD, MODEL_OPTION_KEYS } from "@core/types";
@@ -347,6 +348,26 @@ function buildDisableThinkingByProvider(
   return out;
 }
 
+// The vendor's kind-wide override (Gemini rejecting top_k and friends) is
+// applied when a channel is CREATED, so channels that predate the entry never
+// got it: the 75 Google lanes kept an empty override for three weeks and 400d
+// on every client that sends a frequency penalty.
+function buildVendorParamOverrideByProvider(
+  config: RuntimeConfig,
+): { prefix: string; override: string }[] {
+  const out: { prefix: string; override: string }[] = [];
+  for (const provider of config.providers) {
+    const override = SIMPLE_PROVIDER_META_MAP[provider.type]?.paramOverride;
+    if (override) {
+      out.push({
+        prefix: `${sanitizeGroupName(provider.name)}-`,
+        override,
+      });
+    }
+  }
+  return out;
+}
+
 function isSyncAuthoredParamOverride(raw: string): boolean {
   if (raw === DISABLE_THINKING_PARAM_OVERRIDE) return true;
   try {
@@ -373,8 +394,14 @@ async function reconcileParamOverride(
   config: RuntimeConfig,
 ): Promise<number> {
   const byProvider = buildDisableThinkingByProvider(config);
+  const vendorOverrides = buildVendorParamOverrideByProvider(config);
   const rules = config.channelParamOverride;
-  if (byProvider.length === 0 && rules.length === 0) return 0;
+  if (
+    byProvider.length === 0 &&
+    vendorOverrides.length === 0 &&
+    rules.length === 0
+  )
+    return 0;
 
   let changed = 0;
   for (const ch of channels) {
@@ -391,9 +418,12 @@ async function reconcileParamOverride(
         (name) =>
           !isRoutingOnlyAlias(name) && matchesAnyPattern(name, owner.globs),
       );
+    const vendorOverride = vendorOverrides.find((v) =>
+      ch.name.startsWith(v.prefix),
+    )?.override;
     const desired = applyChannelParamOverride(
       ch.name,
-      wantsDisable ? DISABLE_THINKING_PARAM_OVERRIDE : undefined,
+      wantsDisable ? DISABLE_THINKING_PARAM_OVERRIDE : vendorOverride,
       rules,
     );
     if (current === desired) continue;
