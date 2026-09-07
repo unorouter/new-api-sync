@@ -224,7 +224,8 @@
     "CONFIG_PRICE_ADJUSTMENT_NEEDS_DEFAULT": "{path}: priceAdjustment object must contain a default key",
     "CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT": "{path}.{key}: priceAdjustment values for text types (vendors/default) must be < 1; only non-text types (image, video, audio, embedding) can be >= 1",
     "PRICING_EMPTY_SOURCES": "[pricing] empty pricing sources: {sources}. Aborting sync — canonical resolution requires LiteLLM + OpenRouter + basellm.",
-    "PRICING_CHANNEL_COLLISION": "Channel name collision: \"{name}\" produced twice ({first} and plan {second}). Each (provider, group, vendor, ratio-tier, base-url-suffix) bucket must produce a unique channel name."
+    "PRICING_CHANNEL_COLLISION": "Channel name collision: \"{name}\" produced twice ({first} and plan {second}). Each (provider, group, vendor, ratio-tier, base-url-suffix) bucket must produce a unique channel name.",
+    "NEWAPI_OPTIONS_FETCH_FAILED": "Options API failed or returned no group options; run aborted so nothing is rewritten from an empty base"
   },
   "CLI": {
     "APP_DESCRIPTION": "new-api-sync",

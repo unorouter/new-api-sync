@@ -1,5 +1,11 @@
-import { tryFetchJson } from "@core/infra/http";
-import type { Channel, GroupInfo, ModelMeta, Vendor } from "@core/types";
+import { fetchJson, tryFetchJson } from "@core/infra/http";
+import {
+  type Channel,
+  type GroupInfo,
+  type ModelMeta,
+  type Vendor,
+  GROUP_OPTION_KEYS,
+} from "@core/types";
 import { t } from "@server/i18n";
 import { type ClientContext, makeClientContext } from "./context";
 import { fetchPricing } from "./pricing";
@@ -78,15 +84,30 @@ export class NewApiClient {
     return data.data.quota / 500000;
   }
 
+  // A failed fetch must abort the run, never read as "no options": the group
+  // options are rebuilt from what this returns, and an empty base once turned
+  // 1813 auto groups into the 211 of one run while the gateway was rolling
+  // (2026-09-07).
   async getOptions(keys: string[]): Promise<Record<string, string>> {
-    const data = await tryFetchJson<{
+    const data = await fetchJson<{
+      success?: boolean;
       data?: Array<{ key: string; value: string }>;
-    }>(`${this.baseUrl}/api/option/`, { headers: this.headers });
-    if (!data) return {};
+    }>(`${this.baseUrl}/api/option/`, {
+      headers: this.headers,
+      timeoutMs: 30_000,
+      retry: 4,
+      retryDelayMs: 3000,
+    });
+    if (data.success === false || !Array.isArray(data.data))
+      throw new Error(t("ERROR.NEWAPI_OPTIONS_FETCH_FAILED"));
     const keySet = new Set(keys);
     const result: Record<string, string> = {};
-    for (const opt of data.data ?? [])
+    for (const opt of data.data)
       if (keySet.has(opt.key)) result[opt.key] = opt.value;
+    const groupKeys: ReadonlySet<string> = new Set(GROUP_OPTION_KEYS);
+    for (const key of keys)
+      if (!(key in result) && groupKeys.has(key))
+        throw new Error(t("ERROR.NEWAPI_OPTIONS_FETCH_FAILED"));
     return result;
   }
 
