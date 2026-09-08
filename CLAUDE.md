@@ -506,11 +506,13 @@ per-channel state the sync writes must carry the same ownership check, or a
 
 ## Local runs reach the gateway through a port-forward (since 2026-09-07)
 
-`TRUSTED_NETWORKS` on the gateway is the pod CIDR plus loopback only; the sync service token is accepted from nowhere else. The in-cluster CronJobs use `http://new-api.services.svc.cluster.local:3000`. For a local run the local `config.yml` target is `http://127.0.0.1:13000`, so start the forward first, in its own terminal:
+`TRUSTED_NETWORKS` on the gateway is the pod CIDR plus loopback only; the sync service token is accepted from nowhere else, and since 2026-09-08 an origin the gateway cannot parse is refused too (`IsTrustedNetworkStrict`, new-api 2e8e6c468), so spoofing an unreadable address no longer opens the gate. The in-cluster CronJobs use `http://new-api.services.svc.cluster.local:3000`. The local `config.yml` target is `http://127.0.0.1:13000`, served by the systemd user unit `tsh-newapi` (`kubectl -n services port-forward svc/new-api 13000:3000` under the Teleport kubeconfig, `Restart=always`), so a local run needs no manual step:
 
 ```bash
-KUBECONFIG=~/.kube/teleport-unorouter.yaml kubectl -n services port-forward svc/new-api 13000:3000
 bun sync run --only fish
+systemctl --user status tsh-newapi    # if the port is dead; restart it after a tsh re-login
 ```
+
+Do NOT add a home prefix to `TRUSTED_NETWORKS` to avoid the forward: the Telekom delegation is a whole region and the /64 rotates every few days, and the same flag stamps `trusted_network` on audit rows, which is what hid the attacker's address during the 2026-09-07 relay incident.
 
 The gateway sees the forwarded connection from the node's Cilium address inside `10.42.0.0/16`, so SyncAuth passes. Pointing the local target at `https://api.unorouter.com` again gives 401 and an `InvalidCredentialReplayed` alert with the sync fingerprint from your home prefix.
