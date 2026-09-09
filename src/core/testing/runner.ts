@@ -57,7 +57,10 @@ import type { ApplyReport, ProviderReport, SyncDiff } from "@core/types";
 import { redactExchange, redactUrl } from "./redact";
 import { modelsMatch } from "ai-model-verifier/substitution";
 import { observeClaudeEvidence } from "./observe";
-import { checkThinkingFloor } from "ai-model-verifier/detectors/thinking-floor";
+import {
+  checkThinkingFloor,
+  mustAlwaysThink,
+} from "ai-model-verifier/detectors/thinking-floor";
 
 let testReport: TestReport = {
   timestamp: new Date().toISOString(),
@@ -287,11 +290,10 @@ async function testModels(opts: {
         // over OpenAI-compat, and a blacklisted faker re-probed on every run
         // eventually passes once (fake identities are nondeterministic) and
         // wins a channel. Blacklisted stays blacklisted until hand-pruned.
-        if (
-          isClaude &&
-          !opts.skipAuthenticity &&
-          isAuthenticityBlacklisted(blacklistKey)
-        ) {
+        // A recorded fail is final for every model: the floor and substitution
+        // checks write one for gemini/kimi/glm too, and a lane that beat them
+        // once on a lucky probe must not come back (a7 2418 did).
+        if (!opts.skipAuthenticity && isAuthenticityBlacklisted(blacklistKey)) {
           const http: TestExchange = {
             pass: false,
             request: { url: "", headers: {}, body: null },
@@ -548,7 +550,7 @@ async function testModels(opts: {
     TRANSIENT_STATUS.has(r.httpStatus) &&
     !reallyPassed(r) &&
     acceptsTransient(r.model) &&
-    (!r.model.startsWith("claude-") ||
+    ((!r.model.startsWith("claude-") && !mustAlwaysThink(r.model)) ||
       opts.skipAuthenticity === true ||
       isAuthenticityPassCached(passKey(prefix, r.model)));
 
