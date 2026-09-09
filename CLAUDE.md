@@ -112,7 +112,7 @@ Release: bump `version`, merge to `main`, `release.yml` builds. Never ship binar
 
 ## Cluster
 
-Two CronJobs in `services` (`k8s/`, deploy with `infra/scripts/build-local.sh new-api-sync --deploy`):
+Two CronJobs in `services` (`k8s/`; a push to `main` builds the image in GitHub Actions and pins it, no local builds):
 `new-api-sync` = `metadata` every 15 min Berlin except 22 to 23h; `new-api-sync-full` = `run --only a7`
 at 22:00, 1h deadline, `backoffLimit: 0`, the only job that probes.
 
