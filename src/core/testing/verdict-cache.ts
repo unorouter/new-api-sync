@@ -18,7 +18,20 @@ export interface VerdictEntry {
   toolParallel?: boolean | null;
   authenticity?: AuthenticityVerdict;
   authenticityReason?: string;
+  // Date of the last pass. A pass expires (AUTHENTICITY_PASS_TTL_DAYS) because a
+  // merchant swaps its backend after the probe; a fail never expires.
+  verifiedAt?: string;
   since: string;
+}
+
+export const AUTHENTICITY_PASS_TTL_DAYS = 3;
+
+export function isAuthenticityPassFresh(
+  entry: VerdictEntry | undefined,
+): boolean {
+  if (entry?.authenticity !== "pass" || !entry.verifiedAt) return false;
+  const age = Date.now() - Date.parse(entry.verifiedAt);
+  return age < AUTHENTICITY_PASS_TTL_DAYS * 24 * 60 * 60 * 1000;
 }
 
 const VERDICT_CACHE_FILE = "verdict-cache.json";
@@ -134,5 +147,6 @@ export function setAuthenticityVerdict(
   entry.authenticity = verdict;
   entry.authenticityReason = reason;
   if (verdict === "fail") entry.since = today();
+  else entry.verifiedAt = today();
   cache.set(key, entry);
 }

@@ -1,7 +1,11 @@
 import { fetchJson } from "@core/infra/http";
 import { t } from "@server/i18n";
 import { consola } from "consola";
-import { getVerdict, setAuthenticityVerdict } from "./verdict-cache";
+import {
+  getVerdict,
+  isAuthenticityPassFresh,
+  setAuthenticityVerdict,
+} from "./verdict-cache";
 import type { AuthenticityProbeLog } from "./types";
 
 export const authenticityProbeAccumulator = new Map<
@@ -34,7 +38,7 @@ export const isAuthenticityBlacklisted = (key: string): boolean =>
   getVerdict(key)?.authenticity === "fail";
 
 export const isAuthenticityPassCached = (key: string): boolean =>
-  getVerdict(key)?.authenticity === "pass";
+  isAuthenticityPassFresh(getVerdict(key));
 
 const CODING_TOOL_REFUSAL_PATTERNS = [
   "assist with development",
@@ -175,7 +179,31 @@ type ProbeResult = {
   muxFailure?: boolean;
   transient?: boolean;
   text?: string;
+  // `model` field of the upstream reply: a relay that maps the requested name to
+  // another backend reports the backend here (a7 answered claude-opus-5 to a
+  // claude-fable-5.1 request for three days while every Q&A probe passed).
+  responseModel?: string;
 };
+
+function responseModelOf(data: unknown): string | undefined {
+  const m = (data as { model?: unknown }).model;
+  return typeof m === "string" && m.length > 0 ? m.toLowerCase() : undefined;
+}
+
+// The served model contradicts the requested tier by its own `model` field.
+function detectServedModelMismatch(
+  requestedModel: string,
+  results: Array<ProbeResult & { label: string }>,
+): string | null {
+  const reqTier = tierOf(requestedModel.toLowerCase());
+  if (!reqTier) return null;
+  for (const r of results) {
+    if (!r.responseModel) continue;
+    const served = tierOf(r.responseModel);
+    if (served && served !== reqTier) return r.responseModel;
+  }
+  return null;
+}
 
 // fable belongs here even though it is not a size tier: without it, tierOf()
 // returns null for claude-fable-5 and detectTierMismatch exits before it can
@@ -299,6 +327,7 @@ async function runAnthropicProbe(opts: {
       };
     }
 
+    const responseModel = responseModelOf(data);
     const text = openai ? extractOpenAiText(data) : extractAnthropicText(data);
     if (text === null) {
       logFail(
@@ -308,7 +337,12 @@ async function runAnthropicProbe(opts: {
           preview: JSON.stringify(data).slice(0, 300),
         }),
       );
-      return { pass: false, authenticityRefusal: false, signal: null };
+      return {
+        pass: false,
+        authenticityRefusal: false,
+        signal: null,
+        responseModel,
+      };
     }
 
     if (!text.includes(nonce.toLowerCase())) {
@@ -330,6 +364,7 @@ async function runAnthropicProbe(opts: {
           authenticityRefusal: false,
           signal: null,
           transient: true,
+          responseModel,
         };
       continue;
     }
@@ -344,7 +379,13 @@ async function runAnthropicProbe(opts: {
       request: { url: reqUrl, body: reqBody },
       response: text,
     });
-    return { pass: passed, authenticityRefusal: refusal, signal, text };
+    return {
+      pass: passed,
+      authenticityRefusal: refusal,
+      signal,
+      text,
+      responseModel,
+    };
   }
 
   return {
@@ -501,6 +542,21 @@ export async function testAnthropicAuthenticity(opts: {
   // Tier substitution: requesting opus but the model confidently names a lower
   // tier (sonnet/haiku) means a cheaper model is served under an opus label.
   // Claude is vague about its VERSION (tolerated), but never confuses its TIER.
+  const servedModel = detectServedModelMismatch(opts.model, results);
+  if (servedModel) {
+    consola.warn(
+      t("CORE.TESTER.AUTHENTICITY_SERVED_MODEL", {
+        model: opts.model,
+        served: servedModel,
+      }),
+    );
+    addToAuthenticityBlacklist(
+      opts.logKey,
+      `served-model-mismatch: requested ${opts.model}, response model ${servedModel}`,
+    );
+    return false;
+  }
+
   const tierMismatch = detectTierMismatch(opts.model, results);
   if (tierMismatch) {
     consola.warn(
