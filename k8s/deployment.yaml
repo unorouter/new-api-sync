@@ -42,6 +42,16 @@ spec:
                     secretKeyRef:
                       name: sync-env
                       key: GUEST_API_KEY
+                - name: SYNC_S3_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: sync-env
+                      key: SYNC_S3_ACCESS_KEY
+                - name: SYNC_S3_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: sync-env
+                      key: SYNC_S3_SECRET_KEY
                       optional: true
               resources:
                 requests: { memory: 256Mi, cpu: 100m }
@@ -110,6 +120,16 @@ spec:
                     secretKeyRef:
                       name: sync-env
                       key: GUEST_API_KEY
+                - name: SYNC_S3_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: sync-env
+                      key: SYNC_S3_ACCESS_KEY
+                - name: SYNC_S3_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: sync-env
+                      key: SYNC_S3_SECRET_KEY
                       optional: true
               resources:
                 requests: { memory: 256Mi, cpu: 100m }
