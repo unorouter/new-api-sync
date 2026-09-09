@@ -22,6 +22,10 @@ const PREMIUM_FAKE = [
   /^gemini-[\d.]+-pro/,
 ];
 
+// Advertised as free and 500s on every call: 4,438 failures across the three
+// keys in 24 h, not one success since the channels were created.
+const BROKEN = [/^gpt-image-2$/];
+
 export async function discoverVoidAiModels(
   baseUrl: string,
   apiKey: string,
@@ -42,6 +46,10 @@ export async function discoverVoidAiModels(
   const models = list
     .filter((m) => (m.plan_requirements ?? []).includes("free"))
     .map((m) => m.id)
-    .filter((id) => !PREMIUM_FAKE.some((re) => re.test(id)));
+    .filter(
+      (id) =>
+        !PREMIUM_FAKE.some((re) => re.test(id)) &&
+        !BROKEN.some((re) => re.test(id)),
+    );
   return { models, maxOutputByModel: new Map() };
 }
