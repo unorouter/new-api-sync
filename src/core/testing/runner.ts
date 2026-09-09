@@ -21,6 +21,7 @@ import {
 } from "./authenticity";
 import {
   getVerdict,
+  isAuthenticityPassFresh,
   recordTestVerdict,
   saveVerdictCache,
   setAuthenticityVerdict,
@@ -325,9 +326,11 @@ async function testModels(opts: {
         const modelType = inferModelType(model, undefined, opts.modelEndpoints);
         const isText = modelType === "text";
 
-        // Permanent verdict reuse (logs/verdict-cache.json): a pair with a recorded
-        // pass is never re-probed; force a retest by deleting its entry. Claude pairs
-        // additionally require a cached authenticity pass. Text pairs without a
+        // Verdict reuse (logs/verdict-cache.json): a pair with a recorded pass is
+        // not re-probed; force a retest by deleting its entry. Claude pairs
+        // additionally require a FRESH authenticity pass (verifiedAt inside
+        // AUTHENTICITY_PASS_TTL_DAYS), so a merchant that swaps its backend after
+        // the probe is re-checked within days instead of never. Text pairs without a
         // definitive tool verdict fall through so the tool probe can complete them.
         const cached = getVerdict(blacklistKey);
         const cachedTool =
@@ -340,7 +343,7 @@ async function testModels(opts: {
         if (
           cached?.success &&
           (!isText || cachedTool) &&
-          (!isClaude || cached.authenticity === "pass")
+          (!isClaude || isAuthenticityPassFresh(cached))
         )
           return mkDetail(
             model,
