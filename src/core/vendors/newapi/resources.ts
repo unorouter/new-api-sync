@@ -23,9 +23,7 @@ export interface UpstreamErrorEntry {
 const fallbackErrors: UpstreamErrorEntry[] = [];
 const errorBuffer = (): UpstreamErrorEntry[] =>
   (getRunContext()?.upstreamErrors as UpstreamErrorEntry[]) ?? fallbackErrors;
-const recordUpstreamError = (
-  e: Omit<UpstreamErrorEntry, "at">,
-): void => {
+const recordUpstreamError = (e: Omit<UpstreamErrorEntry, "at">): void => {
   errorBuffer().push({ ...e, at: new Date().toISOString() });
 };
 export function drainUpstreamErrors(): UpstreamErrorEntry[] {

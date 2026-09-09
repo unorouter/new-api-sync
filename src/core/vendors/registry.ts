@@ -219,9 +219,10 @@ export interface SimpleProviderDef extends SimpleProviderMeta {
   discover: Discover;
 }
 
-const SIMPLE_PROVIDERS: SimpleProviderDef[] = SIMPLE_PROVIDER_META.map(
-  (m) => ({ ...m, discover: DISCOVERERS[m.kind] }),
-);
+const SIMPLE_PROVIDERS: SimpleProviderDef[] = SIMPLE_PROVIDER_META.map((m) => ({
+  ...m,
+  discover: DISCOVERERS[m.kind],
+}));
 
 export const SIMPLE_PROVIDER_MAP: Record<string, SimpleProviderDef> =
   Object.fromEntries(SIMPLE_PROVIDERS.map((d) => [d.kind, d]));

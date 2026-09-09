@@ -66,15 +66,15 @@ fork accepts a scoped sync service token instead; see "Works with upstream new-a
 
 ### Global Options
 
-| Field                    | Description                                                                                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `testModelTypes`         | Model types to test during sync: `["text", "image", "video", "audio", "embedding"]` (default: `["text"]`). Per-provider setting overrides. |
-| `skipUnprofitableText`   | Drop text models whose effective ratio >= 1 (default: `true`). See Behaviors to Know.                                                      |
-| `globalConcurrency`      | Total simultaneous test/probe HTTP requests across the whole run (default: `50`).                                                          |
-| `perUpstreamConcurrency` | Default per-baseUrl request cap (default: `5`). Per-provider override allowed for upstreams that tolerate more or less.                    |
-| `blacklist`              | Exclude matching groups/models (text only, case-insensitive). Supports glob wildcards and provider-scoped patterns. See Blacklist below.   |
-| `modelMapping`           | Rename models: `{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                                   |
-| `groupMapping`           | Splice upstream group labels before they become channel names: `{ "antigravity": "AG" }`. See Group label splicing below.                  |
+| Field                    | Description                                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `testModelTypes`         | Model types to test during sync: `["text", "image", "video", "audio", "embedding"]` (default: `["text"]`). Per-provider setting overrides.                                                                               |
+| `skipUnprofitableText`   | Drop text models whose effective ratio >= 1 (default: `true`). See Behaviors to Know.                                                                                                                                    |
+| `globalConcurrency`      | Total simultaneous test/probe HTTP requests across the whole run (default: `50`).                                                                                                                                        |
+| `perUpstreamConcurrency` | Default per-baseUrl request cap (default: `5`). Per-provider override allowed for upstreams that tolerate more or less.                                                                                                  |
+| `blacklist`              | Exclude matching groups/models (text only, case-insensitive). Supports glob wildcards and provider-scoped patterns. See Blacklist below.                                                                                 |
+| `modelMapping`           | Rename models: `{ "claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4-5-20250929" }`                                                                                                                                 |
+| `groupMapping`           | Splice upstream group labels before they become channel names: `{ "antigravity": "AG" }`. See Group label splicing below.                                                                                                |
 | `channelParamOverride`   | Extra `param_override` operations for channels whose name matches a glob, merged onto the override the channel already carries: `[{ channels: ["a7-x-*-kimi-k3"], operations: [{ path: temperature, mode: delete }] }]`. |
 
 ### new-api Provider (`type: "newapi"`)

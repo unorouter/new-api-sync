@@ -43,19 +43,23 @@ export async function fetchJsonResult<T>(
 ): Promise<FetchResult<T>> {
   const attempts = (options?.retry ?? 0) + 1;
   const delay = options?.retryDelayMs ?? 0;
-  return withRetry(() => fetchOnce<T>(url, options), (r) => r.ok, {
-    attempts,
-    // 429 doubles per attempt and honours Retry-After: a7 throttles key reveal
-    // and pin for tens of seconds, three quick retries just burn the budget.
-    backoffMs: (attempt, last) =>
-      last.ok
-        ? 0
-        : last.status === 429
-          ? Math.max(delay * 2 ** (attempt - 1), last.retryAfterMs ?? 0)
-          : delay,
-    shouldRetry: (r) =>
-      !r.ok && (r.status === undefined || RETRY_STATUS.has(r.status)),
-  });
+  return withRetry(
+    () => fetchOnce<T>(url, options),
+    (r) => r.ok,
+    {
+      attempts,
+      // 429 doubles per attempt and honours Retry-After: a7 throttles key reveal
+      // and pin for tens of seconds, three quick retries just burn the budget.
+      backoffMs: (attempt, last) =>
+        last.ok
+          ? 0
+          : last.status === 429
+            ? Math.max(delay * 2 ** (attempt - 1), last.retryAfterMs ?? 0)
+            : delay,
+      shouldRetry: (r) =>
+        !r.ok && (r.status === undefined || RETRY_STATUS.has(r.status)),
+    },
+  );
 }
 
 async function fetchOnce<T>(
