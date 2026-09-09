@@ -128,18 +128,14 @@ cd ../infra && BT=$(sops -d secrets/openbao-init.sops.yaml | grep -oP 'root_toke
 kubectl -n services annotate externalsecret sync-env force-sync=$(date +%s) --overwrite
 ```
 
-Verdict cache lives twice: PVC `new-api-sync-logs` (full job) and local `logs/`. Merge after every
-local probing run (union by `key`, local wins):
-
-```bash
-export KUBECONFIG=~/.kube/teleport-unorouter.yaml
-kubectl -n services run verdict-peek --image=busybox:1.36 --restart=Never --overrides='{"spec":{"containers":[{"name":"s","image":"busybox:1.36","command":["sleep","600"],"volumeMounts":[{"name":"logs","mountPath":"/logs"}]}],"volumes":[{"name":"logs","persistentVolumeClaim":{"claimName":"new-api-sync-logs"}}]}}'
-kubectl -n services wait --for=condition=Ready pod/verdict-peek --timeout=100s
-kubectl -n services cp verdict-peek:/logs/verdict-cache.json /tmp/pvc.json
-python3 -c "import json;L=json.load(open('logs/verdict-cache.json'));P=json.load(open('/tmp/pvc.json'));m={e['key']:e for e in P};m.update({e['key']:e for e in L});json.dump(sorted(m.values(),key=lambda e:e['key']),open('logs/verdict-cache.json','w'),indent=1,ensure_ascii=False);print(len(m))"
-kubectl -n services cp logs/verdict-cache.json verdict-peek:/logs/verdict-cache.json
-kubectl -n services delete pod verdict-peek --wait=false
-```
+Verdict cache: `logs/verdict-cache.json` is the working copy on every machine; the shared truth
+is the object `new-api-sync/verdict-cache.json` in bucket `unorouter-sync` behind the S3 gateway
+(`verdictStore` in config.yml; cluster config points at `https://s3.unorouter.com`, local at
+`https://s3.unorouter.com:19443` through the `tsh-s3` user unit plus a `/etc/hosts` line). Every
+`sync run` merges the object in at start and pushes at end (union by key, newest stamp wins, a fail
+always survives); artifacts mirror to `artifacts/`. Functional passes expire after 7 days (jittered
+2), authenticity passes after 3, so the fleet retests itself. Without `verdictStore` the sync is
+local-only.
 
 The PVC is `local-path` on `unorouter-node9`: if that node is cordoned or gone the full job stays
 Pending (uncordon, or delete PVC + PV and re-seed from the local file).

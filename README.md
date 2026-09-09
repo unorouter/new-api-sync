@@ -208,6 +208,29 @@ enabledModels:
 
 Channels are named `{group}-{provider}`. When a provider's models split into multiple price tiers, channels get numeric suffixes: `{group}-{provider}-t0`, `-t1`, etc. Sub-splits (caused by per-model price overrides or task model pins) add a letter: `-t0a`, `-t0b`. Priority is dynamic: cheapest groups first, faster response times get higher priority.
 
+## Shared verdict store (optional)
+
+Every probe outcome lands in `logs/verdict-cache.json`. With several machines running the sync
+(a laptop, a CI job, a cluster CronJob) that file drifts, so `verdictStore` in `config.yml` names
+an S3 bucket (any S3 API: MinIO, R2, Hetzner, AWS) that holds one shared copy:
+
+```yaml
+verdictStore:
+  endpoint: https://s3.example.com
+  bucket: my-sync
+  accessKeyId: ${SYNC_S3_ACCESS_KEY}
+  secretAccessKey: ${SYNC_S3_SECRET_KEY}
+  prefix: new-api-sync
+```
+
+A run merges the object into the local file at start (union by key, newest verdict wins, a
+recorded authenticity failure always survives) and pushes the merged result at the end; the
+model-test reports and apply-error logs are mirrored under `artifacts/`. An unreachable bucket
+only logs a warning and the run continues on the local file. Passing verdicts expire on their
+own (functional probes after 7 days with a per-lane jitter, Claude authenticity after 3), so
+lanes are retested without anyone pruning the file. Leave `verdictStore` out for a local-only
+setup, which is the default.
+
 ## Works with upstream new-api
 
 The sync targets upstream [new-api](https://github.com/QuantumNous/new-api) as well as the
