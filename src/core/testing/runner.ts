@@ -57,6 +57,7 @@ import type { ApplyReport, ProviderReport, SyncDiff } from "@core/types";
 import { redactExchange, redactUrl } from "./redact";
 import { modelsMatch } from "ai-model-verifier/substitution";
 import { observeClaudeEvidence } from "./observe";
+import { completionTokensWithoutThinking } from "./thinking-floor";
 
 let testReport: TestReport = {
   timestamp: new Date().toISOString(),
@@ -395,9 +396,24 @@ async function testModels(opts: {
           setAuthenticityVerdict(blacklistKey, "fail", `substituted:${served}`);
         }
 
-        const success = httpResult.pass && !substituted;
+        const noThinking = httpResult.pass
+          ? completionTokensWithoutThinking(model, httpResult)
+          : null;
+        if (noThinking !== null) {
+          consola.warn(
+            `[${prefix}] ${model}: ${t("CORE.TESTER.ERR_PRO_NO_THINKING", { model, out: noThinking })}`,
+          );
+          setAuthenticityVerdict(
+            blacklistKey,
+            "fail",
+            `no-thinking: completion_tokens ${noThinking}`,
+          );
+        }
+        const rejected = substituted || noThinking !== null;
+
+        const success = httpResult.pass && !rejected;
         const streamSuccess =
-          streamResult === null ? null : streamResult.pass && !substituted;
+          streamResult === null ? null : streamResult.pass && !rejected;
         const toolCallSuccess: boolean | null = cachedTool
           ? cachedTool.pass
           : toolResult === null

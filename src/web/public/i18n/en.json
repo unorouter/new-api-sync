@@ -478,6 +478,7 @@
       "AUTHENTICITY_FOREIGN": "[authenticity-detect] {model}: foreign identity on: {labels}, rejected",
       "AUTHENTICITY_CJK_LEAK": "[authenticity-detect] {model}: CJK language leak on: {labels}, rejected",
       "AUTHENTICITY_TIER_MISMATCH": "[authenticity-detect] {model}: tier mismatch, model reports as {claimed}, rejected",
+      "ERR_PRO_NO_THINKING": "served without thinking tokens (completion_tokens={out}), a real {model} cannot disable thinking",
       "AUTHENTICITY_SERVED_MODEL": "[authenticity-detect] {model}: response model field says {served}, rejected",
       "AUTHENTICITY_TRANSIENT": "[authenticity-detect] {model}: {passed}/4 passed, {count} transient errors (rate-limit/timeout), not verified this run, NOT blacklisted",
       "AUTHENTICITY_PROBES_RESULT": "[authenticity-detect] {model}: {passed}/4 probes passed (failed: {failed}){suffix}",
