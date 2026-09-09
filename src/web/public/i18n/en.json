@@ -540,7 +540,7 @@
       "DROP": "[pricing] drop {model} {channel} reason={reason}{detail}"
     },
     "PROBE": {
-      "OPENAI_FAILED": "[{prefix}/probe] vendor={vendor} OpenAI shape failed; bucket will be skipped{block}",
+      "OPENAI_FAILED": "[{prefix}/probe] vendor={vendor} OpenAI shape failed (status={status} {error}); bucket will be skipped{block}",
       "FALLBACK_OPENAI": "[{prefix}/probe] vendor={vendor} falling back to OpenAI shape (native {shape} rejected by upstream)",
       "SKIPPED_BLOCK": "[{prefix}/probe] vendor={vendor} bucket will be skipped — {reason}",
       "BOTH_FAILED": "[{prefix}/probe] vendor={vendor} both native ({native}) and OpenAI shapes failed; bucket will be skipped (native: status={ns} {ne}; openai: status={os} {oe})",

@@ -152,6 +152,8 @@ async function runShapeProbe(
       t("CORE.PROBE.OPENAI_FAILED", {
         prefix,
         vendor,
+        status: nativeResult.status ?? "-",
+        error: nativeResult.error ?? "",
         block: blockReason ? ` - ${blockReason}` : "",
       }),
     );

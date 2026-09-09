@@ -540,7 +540,7 @@
       "DROP": "[pricing] 丢弃 {model} {channel}，原因={reason}{detail}"
     },
     "PROBE": {
-      "OPENAI_FAILED": "[{prefix}/probe] 供应商 {vendor} OpenAI 形态失败，跳过该桶{block}",
+      "OPENAI_FAILED": "[{prefix}/probe] 供应商 {vendor} OpenAI 形态失败（status={status} {error}），跳过该桶{block}",
       "FALLBACK_OPENAI": "[{prefix}/probe] 供应商 {vendor} 回退到 OpenAI 形态（原生 {shape} 被上游拒绝）",
       "SKIPPED_BLOCK": "[{prefix}/probe] 供应商 {vendor} 跳过该桶——{reason}",
       "BOTH_FAILED": "[{prefix}/probe] 供应商 {vendor} 原生形态（{native}）和 OpenAI 形态均失败，跳过该桶（native：status={ns} {ne}；openai：status={os} {oe}）",

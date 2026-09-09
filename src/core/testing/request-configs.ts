@@ -17,7 +17,7 @@ import type {
 
 const TEST_PROMPT = "Reply with only the word ok.";
 
-// OpenAI gpt-5* and o1/o3/o4 reasoning models reject `max_tokens` (require
+// OpenAI gpt-5*, gpt-6* and o1/o3/o4 reasoning models reject `max_tokens` (require
 // `max_completion_tokens`). new-api's OpenAI adaptor translates this for user traffic, but
 // the sync probe hits the upstream directly, so build the correct field here by bare name.
 const bareModel = (model: string) => {
@@ -28,6 +28,7 @@ const needsMaxCompletionTokens = (model: string) => {
   const n = bareModel(model);
   return (
     n.startsWith("gpt-5") ||
+    n.startsWith("gpt-6") ||
     n.startsWith("o1") ||
     n.startsWith("o3") ||
     n.startsWith("o4")
