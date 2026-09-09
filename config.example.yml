@@ -4,6 +4,16 @@ target:
   # unorouter fork: the scoped sync service token works too.
   systemAccessToken: target-system-access-token
   userId: 1
+# Optional: keep logs/verdict-cache.json and the run artifacts in an S3 bucket so
+# every machine that runs the sync (laptop, CI, cluster job) shares one set of
+# verdicts. Any S3 API works (MinIO, R2, Hetzner, AWS). Merged at run start,
+# pushed at run end; an unreachable bucket only logs a warning. Omit for local only.
+# verdictStore:
+#   endpoint: https://s3.example.com
+#   bucket: my-sync
+#   accessKeyId: ${SYNC_S3_ACCESS_KEY}
+#   secretAccessKey: ${SYNC_S3_SECRET_KEY}
+#   prefix: new-api-sync
 blacklist:
   - kiro
   - nsfw

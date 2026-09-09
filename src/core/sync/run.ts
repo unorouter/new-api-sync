@@ -24,7 +24,11 @@ import {
 } from "@core/sync/option-store";
 import { runProviderPipeline } from "@core/sync/pipeline";
 import type { ResetResult } from "@core/sync/reset";
-import { loadVerdictCache } from "@core/testing/verdict-cache";
+import { VerdictStore } from "@core/infra/verdict-store";
+import {
+  loadVerdictCache,
+  pushVerdictCache,
+} from "@core/testing/verdict-cache";
 import {
   recordRunSummary,
   resetTestState,
@@ -125,7 +129,10 @@ export async function runSync(
   const dryRun = opts?.dryRun ?? false;
   const target = new NewApiClient(config.target, "target");
   resetTestState();
-  loadVerdictCache();
+  const store = config.verdictStore
+    ? new VerdictStore(config.verdictStore)
+    : null;
+  await loadVerdictCache(store ?? undefined);
 
   // Logs written in finally so a crash/abort still flushes buffered errors.
   let applyErrors: SyncRunResult["apply"]["errors"] = [];
@@ -266,8 +273,24 @@ export async function runSync(
   } finally {
     releaseSyncLock();
     timingReport();
-    writeTestReport();
-    writeApplyErrorsLog(applyErrors);
+    const artifacts = [writeTestReport(), writeApplyErrorsLog(applyErrors)];
+    if (store) {
+      await pushVerdictCache(store);
+      for (const path of artifacts) {
+        if (!path) continue;
+        try {
+          await store.mirrorArtifact(path);
+        } catch (err) {
+          consola.warn(
+            t("CORE.VERDICT_STORE.MIRROR_FAILED", {
+              store: store.label,
+              path,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+        }
+      }
+    }
   }
 }
 
@@ -339,9 +362,9 @@ function printDryRunPricing(
 
 function writeApplyErrorsLog(
   applyErrors: SyncRunResult["apply"]["errors"],
-): void {
+): string | null {
   const upstream = drainUpstreamErrors();
-  if (applyErrors.length === 0 && upstream.length === 0) return;
+  if (applyErrors.length === 0 && upstream.length === 0) return null;
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const path = join(logsDir(), `${ts}-apply-errors.json`);
   writeJsonAtomic(path, {
@@ -351,6 +374,7 @@ function writeApplyErrorsLog(
     upstream,
   });
   consola.info(`Apply errors written to ${path}`);
+  return path;
 }
 
 function buildChannelProviderMap(result: SyncRunResult): Map<string, string> {

@@ -565,6 +565,13 @@
       "NO_WORKING_MODELS": "No working models",
       "NO_WORKING_MODELS_SPLIT": "No working models (0/{textTotal} text passed, {imageCount} image)",
       "API_UNREACHABLE": "Failed to reach API"
+    },
+    "VERDICT_STORE": {
+      "PULLED": "[verdict-store] {store}: {remote} remote verdict(s) merged, {total} total",
+      "PULL_FAILED": "[verdict-store] {store}: pull failed, running on the local cache ({error})",
+      "PUSHED": "[verdict-store] {store}: {total} verdict(s) pushed",
+      "PUSH_FAILED": "[verdict-store] {store}: push failed, local cache kept ({error})",
+      "MIRROR_FAILED": "[verdict-store] {store}: could not mirror {path} ({error})"
     }
   }
 }

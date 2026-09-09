@@ -209,6 +209,18 @@ export const ConfigSchema = T.Object({
   // prettier-ignore
   target: T.Object({ baseUrl: uri, systemAccessToken: str, userId: T.Integer({ minimum: 1 }), targetPrefix: Opt(str) }),
   testModelTypes: Opt(T.Array(ModelTypeEnum)),
+  // Optional S3-compatible home for logs/verdict-cache.json and the run
+  // artifacts, shared between every machine that runs the sync. Absent = local only.
+  verdictStore: Opt(
+    T.Object({
+      endpoint: uri,
+      bucket: str,
+      accessKeyId: str,
+      secretAccessKey: str,
+      region: Opt(str),
+      prefix: Opt(T.String()),
+    }),
+  ),
   skipUnprofitableText: Opt(T.Boolean()),
   globalConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),
   perUpstreamConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),

@@ -22,6 +22,7 @@ import {
 import {
   getVerdict,
   isAuthenticityPassFresh,
+  isTestPassFresh,
   recordTestVerdict,
   saveVerdictCache,
   setAuthenticityVerdict,
@@ -190,15 +191,16 @@ export function recordOpenRouterEndpointsForModel(
   testReport.openrouterEndpoints.push(entry);
 }
 
-export function writeTestReport(): void {
+export function writeTestReport(): string | null {
   saveVerdictCache();
-  if (testReport.modelTests.length === 0) return;
+  if (testReport.modelTests.length === 0) return null;
   const logsDir = join(process.cwd(), "logs");
   mkdirSync(logsDir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const path = join(logsDir, `${ts}-model-tests.json`);
   writeFileSync(path, JSON.stringify(redactedReport(), null, 2));
   consola.info(t("CORE.TESTER.REPORT_WRITTEN", { path }));
+  return path;
 }
 
 // Rate limits / upstream outages / network errors are NOT evidence the model can't
@@ -341,7 +343,8 @@ async function testModels(opts: {
               }
             : null;
         if (
-          cached?.success &&
+          cached &&
+          isTestPassFresh(cached) &&
           (!isText || cachedTool) &&
           (!isClaude || isAuthenticityPassFresh(cached))
         )

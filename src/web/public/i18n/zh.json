@@ -565,6 +565,13 @@
       "NO_WORKING_MODELS": "没有可用模型",
       "NO_WORKING_MODELS_SPLIT": "没有可用模型（文本 0/{textTotal} 通过，图像 {imageCount}）",
       "API_UNREACHABLE": "无法访问 API"
+    },
+    "VERDICT_STORE": {
+      "PULLED": "[verdict-store] {store}：合并了 {remote} 条远端判定，共 {total} 条",
+      "PULL_FAILED": "[verdict-store] {store}：拉取失败，使用本地缓存运行（{error}）",
+      "PUSHED": "[verdict-store] {store}：已推送 {total} 条判定",
+      "PUSH_FAILED": "[verdict-store] {store}：推送失败，保留本地缓存（{error}）",
+      "MIRROR_FAILED": "[verdict-store] {store}：无法镜像 {path}（{error}）"
     }
   }
 }
