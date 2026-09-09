@@ -57,7 +57,7 @@ import type { ApplyReport, ProviderReport, SyncDiff } from "@core/types";
 import { redactExchange, redactUrl } from "./redact";
 import { modelsMatch } from "ai-model-verifier/substitution";
 import { observeClaudeEvidence } from "./observe";
-import { completionTokensWithoutThinking } from "./thinking-floor";
+import { checkThinkingFloor } from "ai-model-verifier/detectors/thinking-floor";
 
 let testReport: TestReport = {
   timestamp: new Date().toISOString(),
@@ -396,20 +396,23 @@ async function testModels(opts: {
           setAuthenticityVerdict(blacklistKey, "fail", `substituted:${served}`);
         }
 
-        const noThinking = httpResult.pass
-          ? completionTokensWithoutThinking(model, httpResult)
+        // A relay can echo the right name and still serve a tier that never
+        // thinks; the package's floor check reads the usage of the reply above.
+        const floor = httpResult.pass
+          ? checkThinkingFloor(model, httpResult.response)
           : null;
-        if (noThinking !== null) {
+        const noThinking = floor?.state === "no-thinking";
+        if (noThinking) {
           consola.warn(
-            `[${prefix}] ${model}: ${t("CORE.TESTER.ERR_PRO_NO_THINKING", { model, out: noThinking })}`,
+            `[${prefix}] ${model}: ${t("CORE.TESTER.ERR_PRO_NO_THINKING", { model, out: floor.completionTokens ?? 0 })}`,
           );
           setAuthenticityVerdict(
             blacklistKey,
             "fail",
-            `no-thinking: completion_tokens ${noThinking}`,
+            `no-thinking: ${floor.reason}`,
           );
         }
-        const rejected = substituted || noThinking !== null;
+        const rejected = substituted || noThinking;
 
         const success = httpResult.pass && !rejected;
         const streamSuccess =
