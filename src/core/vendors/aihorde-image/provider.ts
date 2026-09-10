@@ -62,6 +62,15 @@ export function buildAIHordeChannels(providerConfig: AIHordeProviderConfig): {
     tag,
     remark: `AI Horde image via ${providerConfig.name}`,
     workflow_templates: JSON.stringify({ models }),
+    setting: JSON.stringify({
+      pass_through_body_enabled: true,
+      ...(providerConfig.channelLimits?.maxConcurrency
+        ? { max_concurrency: providerConfig.channelLimits.maxConcurrency }
+        : {}),
+      ...(providerConfig.channelLimits?.maxRps
+        ? { max_rps: providerConfig.channelLimits.maxRps }
+        : {}),
+    }),
     // auto_ban=0: queue timeouts + NSFW trips must not self-disable the channel.
     auto_ban: 0,
   };
