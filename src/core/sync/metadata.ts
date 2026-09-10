@@ -850,6 +850,10 @@ export async function runMetadataSync(
     .sort();
   syncFreePricing(store, freeNames, channels, inScope);
   const flushed = await store.flush(target, channels);
+  // The metadata tick re-bases models silently otherwise; a moved ModelRatio
+  // is exactly what re-prices every other provider's lanes.
+  if (flushed.written.length > 0)
+    consola.info(`[metadata] options written: ${flushed.written.join(", ")}`);
   const unpriced = store.unpricedLiveModels(channels);
   printPricingAudit(flushed, unpriced);
   result.optionErrors.push(
