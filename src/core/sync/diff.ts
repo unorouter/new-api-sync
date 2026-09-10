@@ -105,13 +105,20 @@ function mergeSettingCapabilities(
     desiredSetting,
     "force_upstream_stream",
   );
+  const desiredMaxConcurrency = extractPositiveNumber(
+    desiredSetting,
+    "max_concurrency",
+  );
+  const desiredMaxRps = extractPositiveNumber(desiredSetting, "max_rps");
   if (
     !desiredCaps &&
     desiredPassThrough === undefined &&
     !desiredSysPrompt &&
     desiredAutoTestInterval === undefined &&
     desiredAutoTestIntervalMax === undefined &&
-    desiredForceStream === undefined
+    desiredForceStream === undefined &&
+    desiredMaxConcurrency === undefined &&
+    desiredMaxRps === undefined
   )
     return undefined;
   let existing: Record<string, unknown> = {};
@@ -146,6 +153,9 @@ function mergeSettingCapabilities(
     existing.auto_test_interval_max_minutes = desiredAutoTestIntervalMax;
   if (desiredForceStream !== undefined)
     existing.force_upstream_stream = desiredForceStream;
+  if (desiredMaxConcurrency !== undefined)
+    existing.max_concurrency = desiredMaxConcurrency;
+  if (desiredMaxRps !== undefined) existing.max_rps = desiredMaxRps;
   return JSON.stringify(existing);
 }
 
