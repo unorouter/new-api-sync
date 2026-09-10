@@ -163,13 +163,17 @@ function normalizeCapabilities(setting?: string): string | undefined {
     "auto_test_interval_max_minutes",
   );
   const forceStream = extractBoolSetting(setting, "force_upstream_stream");
+  const maxConcurrency = extractPositiveNumber(setting, "max_concurrency");
+  const maxRps = extractPositiveNumber(setting, "max_rps");
   if (
     !caps &&
     passThrough === undefined &&
     !sysPrompt &&
     autoTestInterval === undefined &&
     autoTestIntervalMax === undefined &&
-    forceStream === undefined
+    forceStream === undefined &&
+    maxConcurrency === undefined &&
+    maxRps === undefined
   )
     return undefined;
   return JSON.stringify({
@@ -192,6 +196,10 @@ function normalizeCapabilities(setting?: string): string | undefined {
     ...(forceStream !== undefined
       ? { force_upstream_stream: forceStream }
       : {}),
+    ...(maxConcurrency !== undefined
+      ? { max_concurrency: maxConcurrency }
+      : {}),
+    ...(maxRps !== undefined ? { max_rps: maxRps } : {}),
   });
 }
 
