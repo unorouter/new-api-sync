@@ -1,6 +1,7 @@
 import {
   groupsOnChannels,
   modelsOnChannels,
+  parseModelList,
 } from "@core/catalog/constants/patterns";
 import type { Channel, PricingAudit } from "@core/types";
 import {
@@ -65,6 +66,8 @@ const OBJECT_KEYS = new Set<string>([
 
 export interface OptionSettlement extends PricingAudit {
   changed: string[];
+  // Groups whose ratio followed a moved ModelRatio so their sell price held.
+  rescaled: string[];
 }
 
 export interface OptionFlush extends PricingAudit {
@@ -316,7 +319,52 @@ export class OptionStore {
       );
       if (names.length > 0) dropped.push({ key, names: names.sort() });
     }
-    return { changed: this.dirtyKeys(), dropped, healed };
+    const rescaled = this.rescaleFollowers(channels);
+    return { changed: this.dirtyKeys(), dropped, healed, rescaled };
+  }
+
+  // A lane sells at ModelRatio * GroupRatio. A run that re-bases a model writes
+  // new group ratios only for the lanes it manages; every other lane serving the
+  // model kept a ratio computed against the old base and its price moved with
+  // it (open1-novita sold deepseek-v4.1-flash at a quarter of cost after an a7
+  // run re-based it). Groups this flush does not rewrite follow the base.
+  private rescaleFollowers(channels: Channel[]): string[] {
+    const ratioBefore = parseJsonObject(this.before["ModelRatio"]);
+    const ratioAfter = this.object("ModelRatio");
+    const groupBefore = parseJsonObject(this.before["GroupRatio"]);
+    const groupAfter = this.object("GroupRatio");
+    const factors = new Map<string, number>();
+    for (const [model, was] of Object.entries(ratioBefore)) {
+      const now = ratioAfter[model];
+      if (
+        typeof was !== "number" ||
+        typeof now !== "number" ||
+        was <= 0 ||
+        now <= 0 ||
+        was === now
+      )
+        continue;
+      factors.set(model, was / now);
+    }
+    if (factors.size === 0) return [];
+    const rescaled: Record<string, number> = {};
+    for (const ch of channels) {
+      for (const raw of (ch.group ?? "").split(",")) {
+        const g = raw.trim();
+        if (!g || g in rescaled) continue;
+        const old = groupBefore[g];
+        if (typeof old !== "number" || groupAfter[g] !== old) continue;
+        for (const model of parseModelList(ch.models ?? "")) {
+          const factor = factors.get(model);
+          if (factor === undefined) continue;
+          rescaled[g] = Math.round(old * factor * 10000) / 10000;
+          break;
+        }
+      }
+    }
+    const names = Object.keys(rescaled).sort();
+    if (names.length > 0) this.setEntries("GroupRatio", rescaled);
+    return names;
   }
 
   async flush(client: NewApiClient, channels: Channel[]): Promise<OptionFlush> {
@@ -332,6 +380,10 @@ export class OptionStore {
       consola.error(`[option-store] ${key}: ${message}`);
       errors.push({ key, message });
     }
+    if (plan.rescaled.length > 0)
+      consola.info(
+        `[option-store] GroupRatio: ${plan.rescaled.length} group(s) followed a moved ModelRatio: ${plan.rescaled.join(", ")}`,
+      );
     for (const key of plan.changed) {
       const value = this.next[key];
       if (value === undefined) continue;
