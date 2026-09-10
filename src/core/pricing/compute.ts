@@ -47,6 +47,10 @@ interface ComputeArgs {
     string,
     boolean | Record<string, boolean>
   >;
+  channelLimitsByProvider?: Map<
+    string,
+    { maxConcurrency?: number; maxRps?: number }
+  >;
   headerOverrideByProvider?: Map<string, string>;
   autoTestIntervalMaxByProvider?: Map<string, number>;
 }
@@ -749,6 +753,9 @@ function pushBucketsAsTiers(
           false,
         )
           ? { forceUpstreamStream: true }
+          : {}),
+        ...(args?.channelLimitsByProvider?.get(offer.provider)
+          ? { channelLimits: args.channelLimitsByProvider.get(offer.provider) }
           : {}),
         ...(m.rateLimited || offer.upstreamDown ? { disabled: true } : {}),
         ...(sysPromptRule

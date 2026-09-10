@@ -48,6 +48,10 @@ export interface PricedTier {
   /** Upgrade client stream=false to upstream SSE for this channel; the gateway
    *  aggregates it back to one JSON body. Dodges reseller edge header timeouts. */
   forceUpstreamStream?: boolean;
+  /** Gateway-side caps for the lane (channel.setting.max_concurrency / max_rps):
+   *  a saturated lane is skipped instead of asked, so an upstream with a small
+   *  documented budget stops answering 429 to everyone. */
+  channelLimits?: { maxConcurrency?: number; maxRps?: number };
   /** Scheduled-test cadence in minutes (channel.setting.auto_test_interval_minutes).
    *  Set for exit-IP-metered lanes, where each probe spends part of a small per-IP
    *  request budget that real traffic needs. */
