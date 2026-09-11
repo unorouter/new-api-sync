@@ -33,6 +33,7 @@ import { buildCapabilityMap, lowercaseExposed } from "../shared/capability-map";
 import { withCostTracking } from "../shared/cost-tracker";
 import { partitionByVendor } from "../shared/partition";
 import { discoverOpenRouterFreeModels } from "./discovery";
+import { ensureProvisionedKeys, liveKeysByModel } from "./keys";
 
 // new-api's per-token base: model_ratio 1 == $2/M tokens.
 const USD_PER_M_PER_RATIO = 2;
@@ -531,6 +532,35 @@ export async function processOpenRouterProvider(
             vendors: totalVendors,
           }),
         );
+
+        // One capped, model-pinned key per model instead of the single shared key
+        // every channel used to carry. Done after the offers are built so the model
+        // set is final, and skipped on a dry run because minting is a real write.
+        if (providerConfig.managementKey && !ctx.dryRun) {
+          const exposed = [
+            ...new Set(offers.flatMap((o) => o.models.map((m) => m.exposed))),
+          ];
+          const provisioned = await ensureProvisionedKeys({
+            baseUrl: providerConfig.baseUrl,
+            managementKey: providerConfig.managementKey,
+            provider: name,
+            models: exposed,
+            existingKeyByModel: liveKeysByModel(
+              ctx.liveChannels,
+              name,
+              providerConfig.apiKey,
+            ),
+            permaslugByModel: new Map(
+              offers.flatMap((o) =>
+                o.models.map((m) => [m.exposed, m.upstream] as const),
+              ),
+            ),
+            dailyLimitUsd: providerConfig.keyDailyLimitUsd ?? 15,
+            expiryDays: providerConfig.keyExpiryDays ?? 90,
+          });
+          for (const offer of offers)
+            offer.apiKeyByModel = provisioned.keyByModel;
+        }
 
         report.groups = totalVendors;
         report.models = resolutions.length;

@@ -701,7 +701,10 @@ function pushBucketsAsTiers(
         vendor: offer.vendor,
         channelType: override?.channelType ?? offer.channelType,
         baseUrl: baseUrlTrim + (override?.baseUrlSuffix ?? ""),
-        apiKey: offer.apiKey,
+        apiKey:
+          offer.apiKeyByModel?.get(publishedName) ??
+          offer.apiKeyByModel?.get(m.exposed) ??
+          offer.apiKey,
         providerTag: offer.provider,
         channelRemark: offer.channelRemark,
         groupRatio,
