@@ -216,7 +216,11 @@ export async function processOpenRouterProvider(
     () =>
       ctx.dryRun
         ? Promise.resolve(null)
-        : fetchOpenRouterBalance(providerConfig.baseUrl, providerConfig.apiKey),
+        : fetchOpenRouterBalance(
+            providerConfig.baseUrl,
+            // /v1/credits refuses inference keys; see balance.ts.
+            providerConfig.managementKey ?? providerConfig.apiKey,
+          ),
     async () => {
       try {
         const enabledGlobs =
