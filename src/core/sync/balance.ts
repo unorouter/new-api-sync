@@ -73,9 +73,12 @@ async function providerBalance(
         break;
       }
       case "openrouter": {
+        // /v1/credits answers 403 "Only management keys can fetch credits for an
+        // account" to an inference key, so a provider that has a management key
+        // must read its balance with that one or report none at all.
         entry.balance = await fetchOpenRouterBalance(
           provider.baseUrl ?? "https://openrouter.ai/api",
-          provider.apiKey,
+          provider.managementKey ?? provider.apiKey,
         );
         break;
       }
