@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { fetchJson, fetchJsonResult } from "@core/infra/http";
 import { throwIfRunAborted } from "@core/infra/abort";
 import { consola } from "consola";
@@ -30,35 +31,14 @@ interface Guardrail {
 export interface ProvisionedKeys {
   /** published model name -> the secret to put on that model's channels */
   keyByModel: Map<string, string>;
+  /** OpenRouter key name -> the same secret, as the key store holds it */
+  keyByName: Map<string, string>;
   minted: number;
   reused: number;
 }
 
-/**
- * Reads the per-model secrets back out of the live channel rows, which is where
- * they live between runs. `shared` is the provider's bootstrap key: a channel
- * still carrying it has not been migrated, so it is reported as having no key
- * and gets one minted. Both the published name and its bare form are indexed
- * because callers look up by exposed name while channels store `x:free`.
- */
-export function liveKeysByModel(
-  channels: { tag?: string; models: string; key?: string }[] | undefined,
-  providerTag: string,
-  shared: string,
-): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const ch of channels ?? []) {
-    if (ch.tag !== providerTag || !ch.key || ch.key === shared) continue;
-    for (const model of ch.models.split(",")) {
-      const name = model.trim();
-      if (!name) continue;
-      out.set(name, ch.key);
-      const bare = name.replace(/:free$/, "");
-      if (!out.has(bare)) out.set(bare, ch.key);
-    }
-  }
-  return out;
-}
+const sha256 = (value: string) =>
+  createHash("sha256").update(value).digest("hex");
 
 const api = (baseUrl: string, path: string) =>
   `${baseUrl.replace(/\/$/, "")}${path}`;
@@ -90,17 +70,21 @@ async function listRemote<T>(
  *
  * Reuse is what keeps this idempotent: `normalizeChannel` compares `key`, so a
  * freshly minted secret every run would rewrite every channel row every run.
- * OpenRouter returns a key's secret only once at creation, so the live channel
- * rows are the store: a model whose key already exists upstream AND whose
- * channels already carry a non-bootstrap secret keeps that secret untouched.
+ * OpenRouter returns a key's secret only once at creation and our gateway strips
+ * `key` from every channel read, so the key store is the only place a secret can
+ * be read back: a model keeps its secret when the store holds one whose sha256
+ * matches the hash OpenRouter reports for the key of that name.
  */
 export async function ensureProvisionedKeys(args: {
   baseUrl: string;
   managementKey: string;
   provider: string;
   models: string[];
-  /** published model -> secret currently on that model's live channels */
-  existingKeyByModel: Map<string, string>;
+  /** OpenRouter key name -> secret, from the key store */
+  existingKeyByName: Map<string, string>;
+  /** Abort instead of re-minting when a key exists upstream but its secret is
+   *  not in the store. Set on lanes whose channels carry real traffic. */
+  requireStore?: boolean;
   /** published model -> OpenRouter permaslug, for the guardrail allowlist */
   permaslugByModel: Map<string, string>;
   dailyLimitUsd: number;
@@ -124,6 +108,7 @@ export async function ensureProvisionedKeys(args: {
   );
 
   const keyByModel = new Map<string, string>();
+  const keyByName = new Map<string, string>();
   const limit = pLimit(PROVISION_CONCURRENCY);
   let minted = 0;
   let reused = 0;
@@ -134,10 +119,13 @@ export async function ensureProvisionedKeys(args: {
         throwIfRunAborted();
         const name = keyName(args.provider, model);
         const remote = remoteByName.get(name);
-        const held = args.existingKeyByModel.get(model);
+        const held = args.existingKeyByName.get(name);
 
-        if (remote && held) {
+        // The hash OpenRouter reports is the sha256 of the secret, so this both
+        // finds the key and proves the stored secret is still the live one.
+        if (remote?.hash && held && sha256(held) === remote.hash) {
           keyByModel.set(model, held);
+          keyByName.set(name, held);
           reused++;
           if (remote.limit !== args.dailyLimitUsd && remote.hash) {
             await fetchJsonResult(
@@ -156,8 +144,14 @@ export async function ensureProvisionedKeys(args: {
 
         // A key exists upstream but its secret is lost to us, so it can never be
         // put on a channel again. Remove it rather than leaking an orphan that
-        // still carries spend authority.
+        // still carries spend authority. On a lane that carries traffic, stop
+        // instead: re-minting rewrites every channel and leaves them holding a
+        // deleted key until the apply lands.
         if (remote?.hash) {
+          if (args.requireStore)
+            throw new Error(
+              `openrouter: ${name} exists upstream but its secret is not in the key store; seed the store or clear requireKeyStore on ${args.provider}`,
+            );
           await fetchJsonResult(api(args.baseUrl, `/v1/keys/${remote.hash}`), {
             method: "DELETE",
             headers: auth(args.managementKey),
@@ -190,6 +184,7 @@ export async function ensureProvisionedKeys(args: {
           );
         }
         keyByModel.set(model, created.key);
+        keyByName.set(name, created.key);
         minted++;
 
         await ensureGuardrail({
@@ -208,7 +203,7 @@ export async function ensureProvisionedKeys(args: {
   consola.info(
     `[${args.provider}] keys: ${minted} minted, ${reused} reused, $${args.dailyLimitUsd}/day each`,
   );
-  return { keyByModel, minted, reused };
+  return { keyByModel, keyByName, minted, reused };
 }
 
 // A guardrail holds the model allowlist; OpenRouter allows at most one per key,

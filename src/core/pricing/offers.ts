@@ -67,9 +67,6 @@ export interface ProviderRunContext {
     group?: string;
     models: string;
     status?: number;
-    /** OpenRouter mints a key's secret once, so the live rows are where the
-     *  per-model keys are kept between runs. */
-    key?: string;
   }[];
 }
 

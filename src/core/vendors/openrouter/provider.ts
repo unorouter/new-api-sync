@@ -23,6 +23,7 @@ import type {
 } from "@core/pricing/offers";
 import { resolvePerModel, resolvePriceAdjustment } from "@core/pricing";
 import { tryFetchJson } from "@core/infra/http";
+import { VerdictStore } from "@core/infra/verdict-store";
 import { testAndFilterModels } from "@core/testing/runner";
 import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
@@ -33,7 +34,7 @@ import { buildCapabilityMap, lowercaseExposed } from "../shared/capability-map";
 import { withCostTracking } from "../shared/cost-tracker";
 import { partitionByVendor } from "../shared/partition";
 import { discoverOpenRouterFreeModels } from "./discovery";
-import { ensureProvisionedKeys, liveKeysByModel } from "./keys";
+import { ensureProvisionedKeys } from "./keys";
 
 // new-api's per-token base: model_ratio 1 == $2/M tokens.
 const USD_PER_M_PER_RATIO = 2;
@@ -544,16 +545,23 @@ export async function processOpenRouterProvider(
           const exposed = [
             ...new Set(offers.flatMap((o) => o.models.map((m) => m.exposed))),
           ];
+          const keyStore = config.verdictStore
+            ? new VerdictStore(config.verdictStore)
+            : null;
+          if (providerConfig.requireKeyStore && !keyStore?.canHoldKeys)
+            throw new Error(
+              `openrouter: ${name} sets requireKeyStore but verdictStore.encryptionKey is missing`,
+            );
+          const existingKeyByName =
+            (await keyStore?.fetchProvisionedKeys(name)) ??
+            new Map<string, string>();
           const provisioned = await ensureProvisionedKeys({
             baseUrl: providerConfig.baseUrl,
             managementKey: providerConfig.managementKey,
             provider: name,
             models: exposed,
-            existingKeyByModel: liveKeysByModel(
-              ctx.liveChannels,
-              name,
-              providerConfig.apiKey,
-            ),
+            existingKeyByName,
+            requireStore: providerConfig.requireKeyStore,
             permaslugByModel: new Map(
               offers.flatMap((o) =>
                 o.models.map((m) => [m.exposed, m.upstream] as const),
@@ -562,6 +570,14 @@ export async function processOpenRouterProvider(
             dailyLimitUsd: providerConfig.keyDailyLimitUsd ?? 15,
             expiryDays: providerConfig.keyExpiryDays ?? 90,
           });
+          if (provisioned.minted > 0) {
+            if (keyStore?.canHoldKeys)
+              await keyStore.putProvisionedKeys(name, provisioned.keyByName);
+            else
+              consola.warn(
+                `[${name}] ${provisioned.minted} key(s) minted with nowhere to store the secret; the next run will mint again`,
+              );
+          }
           for (const offer of offers)
             offer.apiKeyByModel = provisioned.keyByModel;
         }
