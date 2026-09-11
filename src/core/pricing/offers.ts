@@ -67,6 +67,9 @@ export interface ProviderRunContext {
     group?: string;
     models: string;
     status?: number;
+    /** OpenRouter mints a key's secret once, so the live rows are where the
+     *  per-model keys are kept between runs. */
+    key?: string;
   }[];
 }
 
@@ -81,6 +84,9 @@ export interface UpstreamOffer {
   channelType: number;
   baseUrl: string;
   apiKey: string;
+  /** Per-published-model credential, when the provider mints one key per model
+   *  instead of sharing one across every channel it emits. Falls back to apiKey. */
+  apiKeyByModel?: Map<string, string>;
   /** 1.0 = no group concept. 0 = free (NVIDIA, OpenRouter free). */
   groupRatio: number;
   channelRemark: string;
