@@ -7,6 +7,7 @@ import { throwIfRunAborted } from "@core/infra/abort";
 import { OptionStore } from "@core/sync/option-store";
 import { MANAGED_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
+import { consola } from "consola";
 import { t } from "@server/i18n";
 
 function buildOptionResetValues(): Record<string, string> {
@@ -108,9 +109,18 @@ export async function runReset(
   const liveChannelKeys = new Set(
     liveChannels.map((c) => c.key).filter(Boolean),
   );
+  // The gateway omits `key` from every channel read, so on a target that has
+  // channels this guard comes back empty and deleting would be deleting
+  // unguarded. Skip the token sweep rather than orphan a live channel.
+  const keysUnreadable = liveChannels.length > 0 && liveChannelKeys.size === 0;
+  if (keysUnreadable)
+    consola.warn(
+      "reset: channel keys are not readable from the target, skipping the token sweep",
+    );
 
   for (const provider of config.providers) {
     throwIfRunAborted();
+    if (keysUnreadable) break;
     if (provider.type !== "newapi") continue;
     const client = new NewApiClient(provider, provider.name);
     const tokens = await client.listTokens();
