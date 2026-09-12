@@ -15,6 +15,7 @@ export interface VerdictStoreConfig {
 }
 
 const VERDICT_OBJECT = "verdict-cache.json";
+const HISTORY_OBJECT = "verdict-history.jsonl";
 const keysObject = (provider: string) => `openrouter-keys/${provider}.json.enc`;
 
 function cipherKey(hex: string): Buffer {
@@ -85,6 +86,20 @@ export class VerdictStore {
       this.key(VERDICT_OBJECT),
       JSON.stringify(entries, null, 1),
       { type: "application/json" },
+    );
+  }
+
+  // Append-only: S3 has no append, so the object is re-read and rewritten with
+  // the new lines on the end. Runs are serialised by the sync lock, and a lost
+  // line here only thins the audit trail, never a verdict.
+  async appendHistory(lines: string[]): Promise<void> {
+    if (lines.length === 0) return;
+    const file = this.client.file(this.key(HISTORY_OBJECT));
+    const prior = (await file.exists()) ? await file.text() : "";
+    await this.client.write(
+      this.key(HISTORY_OBJECT),
+      prior + lines.join("\n") + "\n",
+      { type: "application/x-ndjson" },
     );
   }
 
