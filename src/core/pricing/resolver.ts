@@ -63,7 +63,9 @@ export async function fetchAllPricingSources(
   if (!litellm || litellm.pricing.candidates.size === 0) empty.push("LiteLLM");
   if (!openrouter || openrouter.pricing.candidates.size === 0)
     empty.push("OpenRouter");
-  if (!basellm || basellm.pricing.candidates.size === 0) empty.push("basellm");
+  // basellm publishes no ratio fields, only metadata (tags, context window), so
+  // requiring pricing from it aborted every sync once its last ratios went away.
+  if (!basellm) empty.push("basellm");
   if (empty.length > 0) {
     throw new Error(
       t("ERROR.PRICING_EMPTY_SOURCES", { sources: empty.join(", ") }),

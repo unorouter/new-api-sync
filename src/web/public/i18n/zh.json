@@ -223,7 +223,7 @@
     "CONFIG_DUPLICATE_PROVIDER": "providers.{index}.name：提供方名称重复：{name}",
     "CONFIG_PRICE_ADJUSTMENT_NEEDS_DEFAULT": "{path}：priceAdjustment 对象必须包含 default 键",
     "CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT": "{path}.{key}：文本类型（vendors/default）的 priceAdjustment 取值必须 < 1；仅非文本类型（image、video、audio、embedding）可以 >= 1",
-    "PRICING_EMPTY_SOURCES": "[pricing] 定价数据源为空：{sources}。终止同步——基准定价解析需要 LiteLLM、OpenRouter、basellm 同时可用。",
+    "PRICING_EMPTY_SOURCES": "[pricing] 定价数据源不可用：{sources}。终止同步：基准定价解析需要 LiteLLM 与 OpenRouter 的定价数据，以及 basellm 的元数据。",
     "PRICING_CHANNEL_COLLISION": "渠道名称冲突：\"{name}\" 重复出现（{first} 与计划 {second}）。每个（提供方、分组、供应商、倍率档位、base-url 后缀）组合都必须产生唯一的渠道名。",
     "NEWAPI_OPTIONS_FETCH_FAILED": "选项接口失败或未返回分组选项；已中止运行，避免从空基础重写"
   },
@@ -526,7 +526,7 @@
       "LLM_PRICES_FETCH_FAILED": "[pricing] 获取 simonw/llm-prices 目录失败",
       "LLM_PRICES_LOADED": "[pricing] llm-prices 已加载 {count} 条定价记录（更新于 {updated}）",
       "BASELLM_NO_ENTRIES_SOURCE": "[pricing] basellm 未返回任何条目",
-      "BASELLM_LOADED": "[pricing] basellm 基准已加载 {loaded} 条定价记录（从 {total} 条总记录中筛选）",
+      "BASELLM_LOADED": "[pricing] basellm 基准已加载 {loaded} 条定价记录，以及 {total} 个模型的元数据",
       "LITELLM_FETCH_FAILED": "[pricing] 获取 LiteLLM 目录失败",
       "LITELLM_LOADED": "[pricing] LiteLLM 已加载 {pricing} 条定价记录、{metadata} 条元数据记录",
       "OPENROUTER_FETCH_FAILED": "[pricing] 获取 OpenRouter 目录失败",
