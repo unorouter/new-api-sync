@@ -1,5 +1,6 @@
 import { readJson, writeJsonAtomic } from "@core/infra/fs";
-import { appendFileSync } from "fs";
+import { appendFileSync, mkdirSync } from "fs";
+import { dirname } from "path";
 import { logsDir } from "@core/infra/paths";
 import { consola } from "consola";
 import { join } from "path";
@@ -116,6 +117,7 @@ export async function flushVerdictHistory(store?: VerdictStore): Promise<void> {
   if (pendingHistory.length === 0) return;
   const lines = pendingHistory.map((e) => JSON.stringify(e));
   pendingHistory.length = 0;
+  mkdirSync(dirname(historyPath()), { recursive: true });
   appendFileSync(historyPath(), lines.join("\n") + "\n");
   if (!store) return;
   try {
