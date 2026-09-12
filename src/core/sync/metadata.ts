@@ -849,6 +849,7 @@ export async function runMetadataSync(
     options: store.raw(),
   };
   await syncUpstreamPricing(store, config, snap, inScope);
+  await reverifyClaudeLanes(target, config);
 
   syncGridCollapse(store, config, inScope);
 
@@ -883,6 +884,27 @@ export async function runMetadataSync(
 // Re-price the models current channels serve from a dry-run provider pipeline
 // (read-only pricing fetch, canonical vote, cap, priceAdjustment; no probes, no
 // tokens), touching only the names those channels publish.
+// Twice-daily Claude re-verification on the cron's cadence: the full sync only
+// probes candidates, and a lane that is already live is never one.
+async function reverifyClaudeLanes(
+  target: NewApiClient,
+  config: RuntimeConfig,
+): Promise<void> {
+  const a7Providers = config.providers.filter((p) => p.type === "a7api");
+  if (a7Providers.length === 0) return;
+  const verdicts = config.verdictStore
+    ? new VerdictStore(config.verdictStore)
+    : null;
+  await loadVerdictCache(verdicts ?? undefined);
+  const liveChannels = await target.listChannels();
+  for (const p of a7Providers) {
+    const r = await reverifyLiveClaudeLanes(p, config, target, liveChannels);
+    consola.info(t("CORE.REVERIFY.SUMMARY", { provider: p.name, ...r }));
+  }
+  if (verdicts) await pushVerdictCache(verdicts);
+  else saveVerdictCache();
+}
+
 async function syncUpstreamPricing(
   store: OptionStore,
   config: RuntimeConfig,
@@ -997,23 +1019,6 @@ async function syncUpstreamPricing(
     consola.info(
       `[${p.name}] price changes accepted: ${pins.accepted}, left paused: ${pins.leftPaused}`,
     );
-  }
-
-  // Twice-daily Claude re-verification on the cron's cadence: the full sync
-  // only probes candidates, and a lane that is already live is never one.
-  const a7Providers = config.providers.filter((p) => p.type === "a7api");
-  if (a7Providers.length > 0) {
-    const store = config.verdictStore
-      ? new VerdictStore(config.verdictStore)
-      : null;
-    await loadVerdictCache(store ?? undefined);
-    const liveChannels = await target.listChannels();
-    for (const p of a7Providers) {
-      const r = await reverifyLiveClaudeLanes(p, config, target, liveChannels);
-      consola.info(t("CORE.REVERIFY.SUMMARY", { provider: p.name, ...r }));
-    }
-    if (store) await pushVerdictCache(store);
-    else saveVerdictCache();
   }
 }
 

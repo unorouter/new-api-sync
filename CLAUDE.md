@@ -134,7 +134,9 @@ is the object `new-api-sync/verdict-cache.json` in bucket `unorouter-sync` behin
 `https://s3.unorouter.com:19443` through the `tsh-s3` user unit plus a `/etc/hosts` line). Every
 `sync run` merges the object in at start and pushes at end (union by key, newest stamp wins, a fail
 always survives); artifacts mirror to `artifacts/`. Functional passes expire after 7 days (jittered
-2), authenticity passes after 3, so the fleet retests itself. Without `verdictStore` the sync is
+2), authenticity passes after 12 hours, and the `metadata` cron re-probes live a7 Claude lanes whose
+pass is stale (`vendors/a7api/reverify.ts`, disables the channel on a fail). Every authenticity
+outcome is appended to `verdict-history.jsonl` beside the cache. Without `verdictStore` the sync is
 local-only.
 
 The PVC is `local-path` on `unorouter-node9`: if that node is cordoned or gone the full job stays
