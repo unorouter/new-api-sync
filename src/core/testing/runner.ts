@@ -24,6 +24,7 @@ import {
   isAuthenticityPassFresh,
   isTestPassFresh,
   recordTestVerdict,
+  recordTokenizerDelta,
   saveVerdictCache,
   setAuthenticityVerdict,
 } from "./verdict-cache";
@@ -56,11 +57,19 @@ import type {
 import type { ApplyReport, ProviderReport, SyncDiff } from "@core/types";
 import { redactExchange, redactUrl } from "./redact";
 import { modelsMatch } from "ai-model-verifier/substitution";
+import {
+  fingerprintDrifted,
+  judgeTokenizerFingerprint,
+  measureTokenizerFingerprint,
+} from "ai-model-verifier/detectors/tokenizer-fingerprint";
+import { verifierTransport } from "./observe";
 import { observeClaudeEvidence } from "./observe";
 import {
   checkThinkingFloor,
   mustAlwaysThink,
 } from "ai-model-verifier/detectors/thinking-floor";
+
+const CLAUDE_TIERS = ["opus", "sonnet", "haiku", "fable"] as const;
 
 let testReport: TestReport = {
   timestamp: new Date().toISOString(),
@@ -414,7 +423,45 @@ async function testModels(opts: {
             `no-thinking: ${floor.reason}`,
           );
         }
-        const rejected = substituted || noThinking;
+        // The billed input-token count for a fixed text cannot be coached and
+        // the model field can be rewritten: the haiku signature under an opus
+        // or fable label is a fail, and a delta that moved since the last probe
+        // means the backend changed, so the cached pass is void this run.
+        let fingerprintFail = false;
+        let fingerprintDrift = false;
+        if (isClaude && !opts.skipAuthenticity && httpResult.pass) {
+          const fp = await measureTokenizerFingerprint({
+            transport: verifierTransport,
+            baseUrl: opts.baseUrl,
+            apiKey: opts.apiKey,
+            model,
+            wire:
+              opts.channelType === CHANNEL_TYPES.ANTHROPIC
+                ? "anthropic"
+                : "openai",
+            timeoutMs,
+          });
+          if (fp.state === "measured" && fp.delta !== null) {
+            const tier = judgeTokenizerFingerprint(model, fp, CLAUDE_TIERS);
+            fingerprintDrift = fingerprintDrifted(cached?.tokenizerDelta, fp);
+            if (tier) {
+              fingerprintFail = true;
+              consola.warn(
+                `[${prefix}] ${model}: ${t("CORE.TESTER.ERR_TOKENIZER_TIER", { delta: fp.delta, tier })}`,
+              );
+              setAuthenticityVerdict(
+                blacklistKey,
+                "fail",
+                `tokenizer-fingerprint: delta ${fp.delta} is the ${tier} signature`,
+              );
+            } else if (fingerprintDrift)
+              consola.warn(
+                `[${prefix}] ${model}: ${t("CORE.TESTER.TOKENIZER_DRIFT", { from: cached?.tokenizerDelta ?? 0, to: fp.delta })}`,
+              );
+            recordTokenizerDelta(blacklistKey, fp.delta);
+          }
+        }
+        const rejected = substituted || noThinking || fingerprintFail;
 
         const success = httpResult.pass && !rejected;
         const streamSuccess =
@@ -438,19 +485,20 @@ async function testModels(opts: {
         if (isClaude && !opts.skipAuthenticity && (success || streamSuccess)) {
           // A cached pass verdict means the 4 generative probes were already paid
           // for; trust it until the entry is manually pruned.
-          authentic = isAuthenticityPassCached(blacklistKey)
-            ? true
-            : await testAnthropicAuthenticity({
-                baseUrl: opts.baseUrl,
-                apiKey: opts.apiKey,
-                model,
-                timeoutMs,
-                logKey: blacklistKey,
-                transport:
-                  opts.channelType === CHANNEL_TYPES.ANTHROPIC
-                    ? "anthropic"
-                    : "openai",
-              });
+          authentic =
+            isAuthenticityPassCached(blacklistKey) && !fingerprintDrift
+              ? true
+              : await testAnthropicAuthenticity({
+                  baseUrl: opts.baseUrl,
+                  apiKey: opts.apiKey,
+                  model,
+                  timeoutMs,
+                  logKey: blacklistKey,
+                  transport:
+                    opts.channelType === CHANNEL_TYPES.ANTHROPIC
+                      ? "anthropic"
+                      : "openai",
+                });
         }
 
         // OBSERVE ONLY. The signature and token checks are new, so they log

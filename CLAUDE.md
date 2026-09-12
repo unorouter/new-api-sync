@@ -136,8 +136,10 @@ is the object `new-api-sync/verdict-cache.json` in bucket `unorouter-sync` behin
 always survives); artifacts mirror to `artifacts/`. Functional passes expire after 7 days (jittered
 2), authenticity passes after 12 hours, and the `metadata` cron re-probes live a7 Claude lanes whose
 pass is stale (`vendors/a7api/reverify.ts`, disables the channel on a fail). Every authenticity
-outcome is appended to `verdict-history.jsonl` beside the cache. Without `verdictStore` the sync is
-local-only.
+outcome is appended to `verdict-history.jsonl` beside the cache. Every Claude probe also measures
+the verifier's tokenizer fingerprint (input-token delta for a fixed text, `tokenizerDelta` on the
+entry): the haiku signature under another label is a fail, and a delta that moved since the last probe
+voids the cached pass for that run. Without `verdictStore` the sync is local-only.
 
 The PVC is `local-path` on `unorouter-node9`: if that node is cordoned or gone the full job stays
 Pending (uncordon, or delete PVC + PV and re-seed from the local file).

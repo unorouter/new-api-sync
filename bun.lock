@@ -11,7 +11,7 @@
         "@hookform/resolvers": "5.4.0",
         "@sinclair/typebox": "0.34.49",
         "@tanstack/react-query": "5.101.0",
-        "ai-model-verifier": "1.3.0",
+        "ai-model-verifier": "1.4.0",
         "ansi_up": "6.0.6",
         "class-variance-authority": "0.7.1",
         "clsx": "2.1.1",
@@ -255,7 +255,7 @@
 
     "agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
 
-    "ai-model-verifier": ["ai-model-verifier@1.3.0", "", {}, "sha512-iI7MPCR0Ry5CV2HvrC9HMOsKnsO7Yi2nDP7YRT/mwdtQk95Vw9i0qwvXaMA0ANJ3JCwOL4zrGqBCrqJ/pd8ebA=="],
+    "ai-model-verifier": ["ai-model-verifier@1.4.0", "", {}, "sha512-RCOnQqk0R5RIdX1qNVtXIE/SZxlE7uZbI0DvmAMVZJZIFDPeK/6GAo5RYHH8YRpc0nsxm4Lk0yRUHbPJ5HTb9g=="],
 
     "ajv": ["ajv@8.18.0", "", { "dependencies": { "fast-deep-equal": "^3.1.3", "fast-uri": "^3.0.1", "json-schema-traverse": "^1.0.0", "require-from-string": "^2.0.2" } }, "sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A=="],
 

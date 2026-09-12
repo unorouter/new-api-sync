@@ -485,7 +485,9 @@
       "PROVIDER_FAILED": "[{provider}] Failed: {models}",
       "ERR_AUTHENTICITY_BLACKLISTED": "authenticity-blacklisted",
       "MODELS_TESTING_SKIPPED": "[{provider}] {count} models (testing skipped)",
-      "AUTH_MUX_FAILURE": "[authenticity] {model}: {count}/4 probes returned wrong-paired responses; upstream proxy is muxing — blacklisting as unsafe-proxy ({labels})"
+      "AUTH_MUX_FAILURE": "[authenticity] {model}: {count}/4 probes returned wrong-paired responses; upstream proxy is muxing — blacklisting as unsafe-proxy ({labels})",
+      "ERR_TOKENIZER_TIER": "input-token delta {delta} is the {tier} tokenizer signature",
+      "TOKENIZER_DRIFT": "tokenizer delta moved {from} -> {to}: backend changed, cached pass void this run"
     },
     "PROVIDER": {
       "USING_EXPLICIT_MODELS": "[{name}] Using {count} explicit model(s)",
