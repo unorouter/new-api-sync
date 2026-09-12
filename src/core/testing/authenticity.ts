@@ -557,20 +557,19 @@ export async function testAnthropicAuthenticity(opts: {
     return false;
   }
 
+  // What the model calls itself is coachable and unstable: a kiro pool's
+  // system prompt makes real opus-4-6 answer "Claude 3.7 Sonnet" on one probe
+  // and refuse on the next (han 3947/4109, 2026-09-12), while a genuine 4056
+  // lane says "Claude Code". Logged only; the reply's model field and the
+  // tokenizer fingerprint are the evidence that fails a lane.
   const tierMismatch = detectTierMismatch(opts.model, results);
-  if (tierMismatch) {
+  if (tierMismatch)
     consola.warn(
-      t("CORE.TESTER.AUTHENTICITY_TIER_MISMATCH", {
+      t("CORE.TESTER.AUTHENTICITY_TIER_SELF_REPORT", {
         model: opts.model,
         claimed: tierMismatch,
       }),
     );
-    addToAuthenticityBlacklist(
-      opts.logKey,
-      `tier-mismatch: requested ${opts.model}, served ${tierMismatch}`,
-    );
-    return false;
-  }
 
   const passed = results.filter((r) => r.pass).length;
   const failed = results.filter((r) => !r.pass);

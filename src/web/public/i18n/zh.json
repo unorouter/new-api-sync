@@ -487,7 +487,8 @@
       "MODELS_TESTING_SKIPPED": "[{provider}] {count} 个模型（已跳过测试）",
       "AUTH_MUX_FAILURE": "[authenticity] {model}：{count}/4 个探针返回错配响应；上游代理在串扰——已加入黑名单（unsafe-proxy：{labels}）",
       "ERR_TOKENIZER_TIER": "输入 token 差值 {delta} 是 {tier} 分词器的特征",
-      "TOKENIZER_DRIFT": "分词器差值由 {from} 变为 {to}：后端已更换，本次不再沿用缓存的通过结论"
+      "TOKENIZER_DRIFT": "分词器差值由 {from} 变为 {to}：后端已更换，本次不再沿用缓存的通过结论",
+      "AUTHENTICITY_TIER_SELF_REPORT": "[真伪检测] {model}：模型自称 {claimed}；仅为自述，不判定失败"
     },
     "PROVIDER": {
       "USING_EXPLICIT_MODELS": "[{name}] 使用 {count} 个显式模型",
