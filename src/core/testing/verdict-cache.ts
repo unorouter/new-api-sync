@@ -1,4 +1,5 @@
 import { readJson, writeJsonAtomic } from "@core/infra/fs";
+import { appendFileSync } from "fs";
 import { logsDir } from "@core/infra/paths";
 import { consola } from "consola";
 import { join } from "path";
@@ -21,8 +22,9 @@ export interface VerdictEntry {
   toolParallel?: boolean | null;
   authenticity?: AuthenticityVerdict;
   authenticityReason?: string;
-  // Date of the last pass. A pass expires (AUTHENTICITY_PASS_TTL_DAYS) because a
-  // merchant swaps its backend after the probe; a fail never expires.
+  // Timestamp of the last pass. A pass expires (AUTHENTICITY_PASS_TTL_HOURS)
+  // because a merchant swaps its backend after the probe (a7 383 went from opus
+  // to haiku 20 hours after a clean probe); a fail never expires.
   verifiedAt?: string;
   // Date of the last functional pass (http/stream/tool). Expires after
   // TEST_PASS_TTL_DAYS plus a per-key jitter so the fleet retests spread out.
@@ -80,14 +82,52 @@ export function mergeVerdicts(
   return [...out.values()].sort((x, y) => (x.key < y.key ? -1 : 1));
 }
 
-export const AUTHENTICITY_PASS_TTL_DAYS = 3;
+export const AUTHENTICITY_PASS_TTL_HOURS = 12;
 
 export function isAuthenticityPassFresh(
   entry: VerdictEntry | undefined,
 ): boolean {
   if (entry?.authenticity !== "pass" || !entry.verifiedAt) return false;
   const age = Date.now() - Date.parse(entry.verifiedAt);
-  return age < AUTHENTICITY_PASS_TTL_DAYS * 24 * 60 * 60 * 1000;
+  return age < AUTHENTICITY_PASS_TTL_HOURS * 60 * 60 * 1000;
+}
+
+// Every authenticity outcome, applied or not, appended to logs/verdict-history.jsonl
+// (and the store's copy). The cache keeps one row per key, so without this a
+// merchant's earlier verdicts vanish the moment a new probe rewrites the row.
+export interface VerdictHistoryEvent {
+  key: string;
+  at: string;
+  verdict: AuthenticityVerdict;
+  reason: string;
+  prior: AuthenticityVerdict | null;
+  priorReason: string;
+  applied: boolean;
+}
+
+const VERDICT_HISTORY_FILE = "verdict-history.jsonl";
+const pendingHistory: VerdictHistoryEvent[] = [];
+
+function historyPath(): string {
+  return join(logsDir(), VERDICT_HISTORY_FILE);
+}
+
+export async function flushVerdictHistory(store?: VerdictStore): Promise<void> {
+  if (pendingHistory.length === 0) return;
+  const lines = pendingHistory.map((e) => JSON.stringify(e));
+  pendingHistory.length = 0;
+  appendFileSync(historyPath(), lines.join("\n") + "\n");
+  if (!store) return;
+  try {
+    await store.appendHistory(lines);
+  } catch (err) {
+    consola.warn(
+      t("CORE.VERDICT_STORE.HISTORY_FAILED", {
+        store: store.label,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
 }
 
 const VERDICT_CACHE_FILE = "verdict-cache.json";
@@ -198,6 +238,7 @@ export async function loadVerdictCache(store?: VerdictStore): Promise<void> {
 
 // Re-read the object first so a run that finished elsewhere meanwhile is kept.
 export async function pushVerdictCache(store: VerdictStore): Promise<void> {
+  await flushVerdictHistory(store);
   try {
     const remote = ((await store.fetchVerdicts()) ?? []).filter(
       (e): e is VerdictEntry =>
@@ -229,6 +270,7 @@ export async function pushVerdictCache(store: VerdictStore): Promise<void> {
 export function saveVerdictCache(): void {
   if (cache.size === 0) return;
   writeJsonAtomic(cachePath(), [...cache.values()]);
+  void flushVerdictHistory();
 }
 
 export const getVerdict = (key: string): VerdictEntry | undefined =>
@@ -273,11 +315,21 @@ export function setAuthenticityVerdict(
 ): void {
   const prior = cache.get(key);
   // Never overwrite a recorded failure with a pass (matches old blacklist semantics).
-  if (verdict === "pass" && prior?.authenticity === "fail") return;
+  const applied = !(verdict === "pass" && prior?.authenticity === "fail");
+  pendingHistory.push({
+    key,
+    at: new Date().toISOString(),
+    verdict,
+    reason,
+    prior: prior?.authenticity ?? null,
+    priorReason: prior?.authenticityReason ?? "",
+    applied,
+  });
+  if (!applied) return;
   const entry: VerdictEntry = prior ?? { key, since: today() };
   entry.authenticity = verdict;
   entry.authenticityReason = reason;
   if (verdict === "fail") entry.since = today();
-  else entry.verifiedAt = today();
+  else entry.verifiedAt = new Date().toISOString();
   cache.set(key, entry);
 }

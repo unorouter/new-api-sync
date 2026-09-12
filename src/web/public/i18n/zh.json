@@ -572,7 +572,13 @@
       "PULL_FAILED": "[verdict-store] {store}：拉取失败，使用本地缓存运行（{error}）",
       "PUSHED": "[verdict-store] {store}：已推送 {total} 条判定",
       "PUSH_FAILED": "[verdict-store] {store}：推送失败，保留本地缓存（{error}）",
-      "MIRROR_FAILED": "[verdict-store] {store}：无法镜像 {path}（{error}）"
+      "MIRROR_FAILED": "[verdict-store] {store}：无法镜像 {path}（{error}）",
+      "HISTORY_FAILED": "[verdict-store] {store}：历史追加失败，已保留本地文件（{error}）"
+    },
+    "REVERIFY": {
+      "SUMMARY": "[{provider}] claude 复核：在线通道 {live} 个，待复核 {due} 个，通过 {passed} 个，已停用 {disabled} 个，无法判定 {inconclusive} 个",
+      "DISABLED": "[{provider}] 已停用 {channel}：{reason}",
+      "DISABLE_FAILED": "[{provider}] 无法停用 {channel}（{reason}），网关更新失败"
     }
   }
 }

@@ -45,6 +45,13 @@ import {
   fetchOpenRouterDescriptions,
 } from "@core/catalog/metadata";
 import type { RuntimeConfig } from "@core/config";
+import { VerdictStore } from "@core/infra/verdict-store";
+import {
+  loadVerdictCache,
+  pushVerdictCache,
+  saveVerdictCache,
+} from "@core/testing/verdict-cache";
+import { reverifyLiveClaudeLanes } from "@core/vendors/a7api/reverify";
 import {
   getMetadataFromEnabledModels,
   getPricingGridFromEnabledModels,
@@ -990,6 +997,23 @@ async function syncUpstreamPricing(
     consola.info(
       `[${p.name}] price changes accepted: ${pins.accepted}, left paused: ${pins.leftPaused}`,
     );
+  }
+
+  // Twice-daily Claude re-verification on the cron's cadence: the full sync
+  // only probes candidates, and a lane that is already live is never one.
+  const a7Providers = config.providers.filter((p) => p.type === "a7api");
+  if (a7Providers.length > 0) {
+    const store = config.verdictStore
+      ? new VerdictStore(config.verdictStore)
+      : null;
+    await loadVerdictCache(store ?? undefined);
+    const liveChannels = await target.listChannels();
+    for (const p of a7Providers) {
+      const r = await reverifyLiveClaudeLanes(p, config, target, liveChannels);
+      consola.info(t("CORE.REVERIFY.SUMMARY", { provider: p.name, ...r }));
+    }
+    if (store) await pushVerdictCache(store);
+    else saveVerdictCache();
   }
 }
 

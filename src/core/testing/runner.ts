@@ -334,8 +334,8 @@ async function testModels(opts: {
         // Verdict reuse (logs/verdict-cache.json): a pair with a recorded pass is
         // not re-probed; force a retest by deleting its entry. Claude pairs
         // additionally require a FRESH authenticity pass (verifiedAt inside
-        // AUTHENTICITY_PASS_TTL_DAYS), so a merchant that swaps its backend after
-        // the probe is re-checked within days instead of never. Text pairs without a
+        // AUTHENTICITY_PASS_TTL_HOURS), so a merchant that swaps its backend after
+        // the probe is re-checked within hours instead of never. Text pairs without a
         // definitive tool verdict fall through so the tool probe can complete them.
         const cached = getVerdict(blacklistKey);
         const cachedTool =

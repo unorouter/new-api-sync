@@ -572,7 +572,13 @@
       "PULL_FAILED": "[verdict-store] {store}: pull failed, running on the local cache ({error})",
       "PUSHED": "[verdict-store] {store}: {total} verdict(s) pushed",
       "PUSH_FAILED": "[verdict-store] {store}: push failed, local cache kept ({error})",
-      "MIRROR_FAILED": "[verdict-store] {store}: could not mirror {path} ({error})"
+      "MIRROR_FAILED": "[verdict-store] {store}: could not mirror {path} ({error})",
+      "HISTORY_FAILED": "[verdict-store] {store}: history append failed, local file kept ({error})"
+    },
+    "REVERIFY": {
+      "SUMMARY": "[{provider}] claude re-verify: {live} live lane(s), {due} due, {passed} passed, {disabled} disabled, {inconclusive} inconclusive",
+      "DISABLED": "[{provider}] disabled {channel}: {reason}",
+      "DISABLE_FAILED": "[{provider}] could not disable {channel} ({reason}); the gateway update failed"
     }
   }
 }
