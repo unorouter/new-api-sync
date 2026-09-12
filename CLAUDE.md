@@ -141,7 +141,7 @@ the verifier's tokenizer fingerprint (input-token delta for a fixed text, `token
 entry): the haiku signature under another label is a fail, and a delta that moved since the last probe
 voids the cached pass for that run. Without `verdictStore` the sync is local-only.
 
-The PVC is `local-path` on `unorouter-node9`: if that node is cordoned or gone the full job stays
+The PVC is `local-path`, pinned to whichever Talos node the first job ran on (`kubectl -n services get pvc new-api-sync-logs -o jsonpath='{.metadata.annotations.volume\.kubernetes\.io/selected-node}'`): if that node is cordoned or gone the full job stays
 Pending (uncordon, or delete PVC + PV and re-seed from the local file).
 
 One a7 run at a time, anywhere, >= 30 min apart. Start local a7 runs at :01 to :13 with no active
