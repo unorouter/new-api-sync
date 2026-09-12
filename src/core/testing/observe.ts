@@ -19,7 +19,7 @@ import { appendFileSync } from "fs";
 import { join } from "path";
 
 /** Bridges verify-core's injected transport onto plain fetch. */
-const transport = async (args: {
+export const verifierTransport = async (args: {
   url: string;
   headers: Record<string, string>;
   reqBody: unknown;
@@ -57,11 +57,11 @@ export async function observeClaudeEvidence(opts: {
 }): Promise<void> {
   try {
     const [signature, tokens, probe] = await Promise.all([
-      checkThinkingSignature({ transport, ...opts }),
-      checkTokenTruth({ transport, ...opts }),
+      checkThinkingSignature({ transport: verifierTransport, ...opts }),
+      checkTokenTruth({ transport: verifierTransport, ...opts }),
       // One cheap call purely to read the envelope: which vendor's shape came
       // back, what minted the id, whose field names the usage object carries.
-      transport({
+      verifierTransport({
         url: `${opts.baseUrl.replace(/\/+$/, "")}/v1/messages`,
         headers: {
           "Content-Type": "application/json",

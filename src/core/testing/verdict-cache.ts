@@ -23,6 +23,9 @@ export interface VerdictEntry {
   toolParallel?: boolean | null;
   authenticity?: AuthenticityVerdict;
   authenticityReason?: string;
+  // Input-token delta for the verifier's fixed text, deterministic per lane;
+  // a change between probes means the backend changed whatever the reply says.
+  tokenizerDelta?: number;
   // Timestamp of the last pass. A pass expires (AUTHENTICITY_PASS_TTL_HOURS)
   // because a merchant swaps its backend after the probe (a7 383 went from opus
   // to haiku 20 hours after a clean probe); a fail never expires.
@@ -308,6 +311,12 @@ export function recordTestVerdict(opts: {
     entry.authenticity !== undefined;
   if (hasEvidence) cache.set(opts.key, entry);
   else cache.delete(opts.key);
+}
+
+export function recordTokenizerDelta(key: string, delta: number): void {
+  const entry: VerdictEntry = cache.get(key) ?? { key, since: today() };
+  entry.tokenizerDelta = delta;
+  cache.set(key, entry);
 }
 
 export function setAuthenticityVerdict(
