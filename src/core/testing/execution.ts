@@ -1,3 +1,4 @@
+import { paceUpstreamRequest } from "@core/infra/concurrency";
 import { recordProbeRequestId } from "./probe-ids";
 import { t } from "@server/i18n";
 import type {
@@ -69,6 +70,7 @@ async function rawPost(
           ),
         )
       : headers;
+    await paceUpstreamRequest(url);
     const response = await fetch(url, {
       method: "POST",
       headers: sendHeaders,
@@ -267,6 +269,7 @@ export async function testToolCallRequest(
   }
   const started = Date.now();
   try {
+    await paceUpstreamRequest(config.url);
     const response = await fetch(config.url, {
       method: "POST",
       headers: config.headers,
@@ -328,6 +331,7 @@ export async function testStreamRequest(
     ...extra,
   });
   try {
+    await paceUpstreamRequest(config.url);
     const response = await fetch(config.url, {
       method: "POST",
       headers: config.headers,

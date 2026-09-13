@@ -1,3 +1,4 @@
+import { paceUpstreamRequest } from "@core/infra/concurrency";
 import { FetchError, ofetch } from "ofetch";
 import { t } from "@server/i18n";
 import { withRetry } from "./retry";
@@ -72,6 +73,7 @@ async function fetchOnce<T>(
     // ofetch derives one signal from `timeout` and reuses it across its own
     // retries, so after a timeout every retry aborts instantly: fresh signal
     // per attempt, retries done here.
+    await paceUpstreamRequest(url);
     const data = await ofetch<T>(url, {
       method: options?.method,
       headers: options?.headers,

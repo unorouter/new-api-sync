@@ -162,6 +162,7 @@ async function buildDesiredState(
   opts?: { dryRun?: boolean },
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
   const overrides = new Map<string, number>();
+  const rpmOverrides = new Map<string, number>();
   const autoTestIntervalByProvider = new Map<string, number>();
   const autoTestIntervalMaxByProvider = new Map<string, number>();
   const headerOverrideByProvider = new Map<string, string>();
@@ -176,6 +177,8 @@ async function buildDesiredState(
   for (const p of config.providers) {
     if ("baseUrl" in p && p.baseUrl && p.perUpstreamConcurrency)
       overrides.set(p.baseUrl, p.perUpstreamConcurrency);
+    if ("baseUrl" in p && p.baseUrl && p.perUpstreamRpm)
+      rpmOverrides.set(p.baseUrl, p.perUpstreamRpm);
     if ("autoTestIntervalMinutes" in p && p.autoTestIntervalMinutes)
       autoTestIntervalByProvider.set(p.name, p.autoTestIntervalMinutes);
     if ("autoTestIntervalMaxMinutes" in p && p.autoTestIntervalMaxMinutes)
@@ -196,6 +199,7 @@ async function buildDesiredState(
       globalLimit: config.globalConcurrency,
       perUpstreamLimit: config.perUpstreamConcurrency,
       overrides,
+      rpmOverrides,
     }),
   );
 
