@@ -103,6 +103,9 @@ export async function ensureLaneTokens(
     else result.set(name, { key: normalizeKey(token.key), tokenId: token.id });
   }
   if (maskedIds.length > 0) {
+    consola.info(
+      `[${provider.name}] revealing ${maskedIds.length} masked lane key(s)`,
+    );
     const revealed = await getTokenFullKeysBatch(ctx, maskedIds);
     for (const [name] of desired) {
       const token = byName.get(name);
@@ -115,6 +118,9 @@ export async function ensureLaneTokens(
   // a7's POST /api/token returns no key inline, so a newly created token is
   // revealed the same way as an existing one: batch/keys after re-listing.
   const createdIds: number[] = [];
+  const missing = [...desired.keys()].filter((n) => !result.has(n)).length;
+  if (missing > 0)
+    consola.info(`[${provider.name}] creating ${missing} lane token(s)`);
   for (const [name] of desired) {
     throwIfRunAborted();
     if (result.has(name)) continue;

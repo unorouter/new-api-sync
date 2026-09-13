@@ -39,17 +39,19 @@ interface SearchResponse {
 
 const MICROS_PER_USD = 1e6;
 // Success rate is 0-10000, not a percentage: 10000 is 100%.
-const DEFAULT_MIN_SUCCESS_RATE = 9500;
+// a7's success rate comes from its own small-prompt probe and disagrees with
+// ours (4134 read 97% at 66% errors on our lane): the live probe is the gate,
+// the floor is an opt-in knob.
+const DEFAULT_MIN_SUCCESS_RATE = 0;
 // Floor only applies to merchants that HAVE samples: an unproven listing gets
 // its chance (a failure costs nothing and the failure-rate guard disables it),
 // but a merchant with a real track record below the floor is proven bad, and
 // re-selecting it every run would loop: recreate, fail, disable, delete.
 const PROVEN_SAMPLE_COUNT = 20;
 export const DEFAULT_PROFIT_MULTIPLE = 2;
-// Retail may not exceed this fraction of canonical list, so a merchant whose
-// cost * profitMultiple would sell above it is rejected. kimi-k3: list $15,
-// 0.5 => sell <= $7.50 => merchant output cost <= $3.75.
-export const DEFAULT_MAX_SELL_FRACTION = 0.5;
+// Retail never exceeds canonical list, so a merchant whose cost * profitMultiple
+// would sell above list is rejected; the per-model knob only tightens that.
+export const DEFAULT_MAX_SELL_FRACTION = 1;
 
 export function marketplaceHeaders(
   provider: A7ProviderConfig,
