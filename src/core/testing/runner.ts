@@ -59,7 +59,6 @@ import { redactExchange, redactUrl } from "./redact";
 import { modelsMatch } from "ai-model-verifier/substitution";
 import {
   fingerprintDrifted,
-  judgeTokenizerFingerprint,
   measureTokenizerFingerprint,
 } from "ai-model-verifier/detectors/tokenizer-fingerprint";
 import { verifierTransport } from "./observe";
@@ -68,8 +67,6 @@ import {
   checkThinkingFloor,
   mustAlwaysThink,
 } from "ai-model-verifier/detectors/thinking-floor";
-
-const CLAUDE_TIERS = ["opus", "sonnet", "haiku", "fable"] as const;
 
 let testReport: TestReport = {
   timestamp: new Date().toISOString(),
@@ -423,11 +420,11 @@ async function testModels(opts: {
             `no-thinking: ${floor.reason}`,
           );
         }
-        // The billed input-token count for a fixed text cannot be coached and
-        // the model field can be rewritten: the haiku signature under an opus
-        // or fable label is a fail, and a delta that moved since the last probe
-        // means the backend changed, so the cached pass is void this run.
-        let fingerprintFail = false;
+        // The billed input-token delta for a fixed text is deterministic per
+        // lane, so a delta that moved since the last probe means the backend
+        // changed and the cached authenticity pass is void this run. It names
+        // no tier on its own: 4.6-era models share a tokenizer and relays count
+        // the same text differently, so the verifier ships no signature table.
         let fingerprintDrift = false;
         if (isClaude && !opts.skipAuthenticity && httpResult.pass) {
           const fp = await measureTokenizerFingerprint({
@@ -442,26 +439,15 @@ async function testModels(opts: {
             timeoutMs,
           });
           if (fp.state === "measured" && fp.delta !== null) {
-            const tier = judgeTokenizerFingerprint(model, fp, CLAUDE_TIERS);
             fingerprintDrift = fingerprintDrifted(cached?.tokenizerDelta, fp);
-            if (tier) {
-              fingerprintFail = true;
-              consola.warn(
-                `[${prefix}] ${model}: ${t("CORE.TESTER.ERR_TOKENIZER_TIER", { delta: fp.delta, tier })}`,
-              );
-              setAuthenticityVerdict(
-                blacklistKey,
-                "fail",
-                `tokenizer-fingerprint: delta ${fp.delta} is the ${tier} signature`,
-              );
-            } else if (fingerprintDrift)
+            if (fingerprintDrift)
               consola.warn(
                 `[${prefix}] ${model}: ${t("CORE.TESTER.TOKENIZER_DRIFT", { from: cached?.tokenizerDelta ?? 0, to: fp.delta })}`,
               );
             recordTokenizerDelta(blacklistKey, fp.delta);
           }
         }
-        const rejected = substituted || noThinking || fingerprintFail;
+        const rejected = substituted || noThinking;
 
         const success = httpResult.pass && !rejected;
         const streamSuccess =

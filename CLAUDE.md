@@ -138,8 +138,8 @@ always survives); artifacts mirror to `artifacts/`. Functional passes expire aft
 pass is stale (`vendors/a7api/reverify.ts`, disables the channel on a fail). Every authenticity
 outcome is appended to `verdict-history.jsonl` beside the cache. Every Claude probe also measures
 the verifier's tokenizer fingerprint (input-token delta for a fixed text, `tokenizerDelta` on the
-entry): the haiku signature under another label is a fail, and a delta that moved since the last probe
-voids the cached pass for that run. Without `verdictStore` the sync is local-only.
+entry): a delta that moved since the last probe voids the cached pass for that run. It names no tier
+(4.6-era models share a tokenizer, relays count differently), so it never fails a lane by itself. Without `verdictStore` the sync is local-only.
 
 The PVC is `local-path`, pinned to whichever Talos node the first job ran on (`kubectl -n services get pvc new-api-sync-logs -o jsonpath='{.metadata.annotations.volume\.kubernetes\.io/selected-node}'`): if that node is cordoned or gone the full job stays
 Pending (uncordon, or delete PVC + PV and re-seed from the local file).

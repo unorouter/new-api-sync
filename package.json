@@ -19,7 +19,7 @@
     "@hookform/resolvers": "5.4.0",
     "@sinclair/typebox": "0.34.49",
     "@tanstack/react-query": "5.101.0",
-    "ai-model-verifier": "1.4.0",
+    "ai-model-verifier": "1.4.1",
     "ansi_up": "6.0.6",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
