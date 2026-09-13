@@ -317,6 +317,7 @@
       "LEAK_VERDICT": "泄漏：存在未经网关的上游用量，见上方各行与结果文件",
       "FETCHING": "[{name}] 拉取上游日志 {start} 至 {end}（已缓存 {cached} 条）",
       "CACHED": "[{name}] 时间窗口已被缓存完全覆盖（{cached} 条），无需拉取上游",
+      "UPSTREAM_EMPTY": "[{name}] 该时间窗口内我方记录了 {ours} 条，但上游未返回任何记录：覆盖范围或日志访问已失效，此窗口不视为通过",
       "CACHE_PULL_FAILED": "[{name}] 上游日志缓存拉取失败，使用本地副本（{error}）",
       "CACHE_PUSH_FAILED": "[{name}] 上游日志缓存推送失败，保留本地副本（{error}）",
       "SOURCE_IP": "[{name}] 来源 IP {ip}：{rows} 条 {quota}",
