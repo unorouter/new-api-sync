@@ -93,7 +93,7 @@ Never a full `sync run` for one model. `DELETE FROM channels WHERE id IN (...)` 
 - a7 `minSuccessRate` defaults to 0: a7's own success rate is not trusted, the live probe is the
   gate, and the candidate walk runs until `hostsPerModel` lanes pass or the price-filtered list ends.
 - a7 `minSellFraction` = retail floor (raises the group ratio), `maxSellFraction` = merchant cut,
-  default 1 (cost * profitMultiple <= canonical list; the engine never sells above list anyway);
+  default 1 (cost \* profitMultiple <= canonical list; the engine never sells above list anyway);
   `sweepLiveLanes` re-runs the math on every held lane because the gateway re-enables lanes itself.
 
 ## Conventions
