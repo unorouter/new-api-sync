@@ -6,6 +6,7 @@ import {
 import type { RuntimeConfig } from "@core/config";
 import { throwIfRunAborted } from "@core/infra/abort";
 import { writeJsonAtomic } from "@core/infra/fs";
+import { flushProbeIds } from "@core/testing/probe-ids";
 import { logsDir } from "@core/infra/paths";
 import { applySyncDiff, projectChannels } from "@core/sync/apply";
 import { buildSyncDiff } from "@core/sync/diff";
@@ -276,6 +277,7 @@ export async function runSync(
     const artifacts = [writeTestReport(), writeApplyErrorsLog(applyErrors)];
     if (store) {
       await pushVerdictCache(store);
+      await flushProbeIds(store);
       for (const path of artifacts) {
         if (!path) continue;
         try {

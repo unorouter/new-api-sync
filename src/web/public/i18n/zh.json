@@ -225,7 +225,9 @@
     "CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT": "{path}.{key}：文本类型（vendors/default）的 priceAdjustment 取值必须 < 1；仅非文本类型（image、video、audio、embedding）可以 >= 1",
     "PRICING_EMPTY_SOURCES": "[pricing] 定价数据源不可用：{sources}。终止同步：基准定价解析需要 LiteLLM 与 OpenRouter 的定价数据，以及 basellm 的元数据。",
     "PRICING_CHANNEL_COLLISION": "渠道名称冲突：\"{name}\" 重复出现（{first} 与计划 {second}）。每个（提供方、分组、供应商、倍率档位、base-url 后缀）组合都必须产生唯一的渠道名。",
-    "NEWAPI_OPTIONS_FETCH_FAILED": "选项接口失败或未返回分组选项；已中止运行，避免从空基础重写"
+    "NEWAPI_OPTIONS_FETCH_FAILED": "选项接口失败或未返回分组选项；已中止运行，避免从空基础重写",
+    "INVALID_DURATION": "时长 {value} 无效：请使用 <n>m、<n>h 或 <n>d",
+    "RECONCILE_DB_FAILED": "网关数据库查询失败：{error}"
   },
   "CLI": {
     "APP_DESCRIPTION": "new-api-sync",
@@ -234,7 +236,8 @@
       "RESET_DESC": "删除同步管理的资源",
       "UI_DESC": "启动 Web 界面（Elysia 和 React 仪表盘）",
       "METADATA_DESC": "为现有模型重新写入元数据（发布日期、参数、上下文、描述）；不探测/测试，不改动渠道或定价",
-      "BALANCE_DESC": "查询目标站点与所有已配置供应商的剩余余额；只读，不探测也不写入"
+      "BALANCE_DESC": "查询目标站点与所有已配置供应商的剩余余额；只读，不探测也不写入",
+      "RECONCILE_DESC": "按时间窗口把每个上游供应商自己的用量日志与我方网关日志逐条对账；列出未经我方网关的用量与外来令牌；只读"
     },
     "OPTION": {
       "CONFIG_PATH": "配置文件路径",
@@ -245,7 +248,9 @@
       "PORT": "监听端口",
       "DRY_RUN": "预览定价与差异，不探测、不测试、不创建令牌、不写入目标（无费用；仍保存日志）",
       "METADATA_DRY_RUN": "预览当前 groupMapping 会对现有渠道执行的分组名重命名；不写入任何内容",
-      "BALANCE_JSON": "以 JSON 格式输出结果，而非表格"
+      "BALANCE_JSON": "以 JSON 格式输出结果，而非表格",
+      "SINCE": "对账时间窗口，如 30m、6h、24h、3d",
+      "RECONCILE_JSON": "以 JSON 输出结果而非摘要"
     },
     "STATUS": {
       "UI_RUNNING": "new-api-sync 界面运行于 http://localhost:{port}"
@@ -282,6 +287,39 @@
     },
     "DRY": {
       "HEADER": "[dry-run] 已为 {count} 个范围内模型计算定价（不写入）："
+    },
+    "RECONCILE": {
+      "HEADER": "对账：最近 {since}（{start} 至 {end} UTC）",
+      "NO_DB": "未配置 targetDb：仅执行供应商侧检查（外来令牌、按令牌汇总），不做逐行匹配",
+      "PROVIDER_ERROR": "[{name}] {error}",
+      "TOTALS": "[{name}] 上游 {upRows} 条 {upQuota}｜我方 {ourRows} 条",
+      "MATCHED": "[{name}] 按请求 ID 匹配 {byId} 条（另有 {viaError} 条落在我方错误记录），按 token 数+时间 {fallback} 条，按模型+时间 {loose} 条，已对账 {quota}",
+      "LEAK": "[{name}] 未对账：我方令牌 {token} {model}：{rows} 条 {quota}（{first} 至 {last}）",
+      "LEAK_FOREIGN": "[{name}] 未对账：外来令牌 {token} {model}：{rows} 条 {quota}（{first} 至 {last}）",
+      "FOREIGN_TOKEN": "[{name}] 外来令牌 {token}：窗口内 {rows} 条 {quota}",
+      "FOREIGN_TOKEN_IDLE": "[{name}] 外来令牌 {token}：窗口内无用量",
+      "FOREIGN_TOKEN_DELETED": "[{name}] 外来令牌 {token} 有用量（{rows} 条 {quota}）且已从账户中删除",
+      "OUR_UNMATCHED": "[{name}] 我方 {rows} 条记录（{quota}）没有对应的上游记录（上游延迟或上游不回传请求 ID）",
+      "NO_CHANNELS": "[{name}] 目标站点上没有属于该供应商的渠道；上游的每一条记录都视为未对账",
+      "LOGS_UNAVAILABLE": "[{name}] 无法读取上游日志（HTTP {status}）：{error}",
+      "LOGS_403_HINT": "[{name}] 同步令牌无权读取该账户日志；请从供应商后台导出，或改用会话 Cookie",
+      "TOKENS_UNAVAILABLE": "[{name}] 无法读取令牌列表（HTTP {status}）：{error}",
+      "UPSTREAM_INCOMPLETE": "[{name}] 上游日志未读取完整，未对账用量可能被低估",
+      "UPSTREAM_PAGE_FAILED": "[{name}] 上游日志第 {page} 页读取失败，停止翻页：{error}",
+      "OPENROUTER_NO_MGMT": "[{name}] 无管理密钥，跳过外来密钥检查",
+      "OPENROUTER_CLEAN": "[{name}] 账户上的每个密钥都由同步程序创建",
+      "OPENROUTER_FOREIGN_KEY": "[{name}] 外来密钥 {key}：累计用量 ${usage}，今日 ${daily}，{disabled}",
+      "ARTIFACT_WRITTEN": "对账结果已写入 {path}",
+      "CLEAN": "干净：上游每一条记录都已对账（日志不可用：{unavailable}）",
+      "LEAK_VERDICT": "泄漏：存在未经网关的上游用量，见上方各行与结果文件",
+      "FETCHING": "[{name}] 拉取上游日志 {start} 至 {end}（已缓存 {cached} 条）",
+      "CACHED": "[{name}] 时间窗口已被缓存完全覆盖（{cached} 条），无需拉取上游",
+      "CACHE_PULL_FAILED": "[{name}] 上游日志缓存拉取失败，使用本地副本（{error}）",
+      "CACHE_PUSH_FAILED": "[{name}] 上游日志缓存推送失败，保留本地副本（{error}）",
+      "SOURCE_IP": "[{name}] 来源 IP {ip}：{rows} 条 {quota}",
+      "FOREIGN_IP": "[{name}] 外来来源 IP {ip}：{rows} 条 {quota}（不在我方出口地址内）",
+      "NO_IPS": "[{name}] 该中转站未在此账户记录来源 IP",
+      "LEAK_SUMMARY": "[{name}] 未对账：被放弃的尝试 {abandoned} 条 {abandonedQuota}（我方网关超时重试后上游仍计费），探测形态 {probe} 条 {probeQuota}（我方同步程序自身探测），无法解释 {unexplained} 条 {unexplainedQuota}"
     }
   },
   "MODEL_TYPE": {
@@ -582,6 +620,10 @@
       "SUMMARY": "[{provider}] claude 复核：在线通道 {live} 个，待复核 {due} 个，通过 {passed} 个，已停用 {disabled} 个，无法判定 {inconclusive} 个",
       "DISABLED": "[{provider}] 已停用 {channel}：{reason}",
       "DISABLE_FAILED": "[{provider}] 无法停用 {channel}（{reason}），网关更新失败"
+    },
+    "PROBE_IDS": {
+      "PUSH_FAILED": "[probe-ids] {store}：推送失败，已保留本地文件（{error}）",
+      "PULL_FAILED": "[probe-ids] {store}：拉取失败，使用本地文件（{error}）"
     }
   }
 }

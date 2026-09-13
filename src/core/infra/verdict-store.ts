@@ -140,6 +140,24 @@ export class VerdictStore {
     );
   }
 
+  // Plain text objects under the prefix, for stores other than the verdict
+  // cache (the reconcile's upstream log cache).
+  async readText(name: string): Promise<string | null> {
+    const file = this.client.file(this.key(name));
+    if (!(await file.exists())) return null;
+    return file.text();
+  }
+
+  async writeText(name: string, body: string, type: string): Promise<void> {
+    await this.client.write(this.key(name), body, { type });
+  }
+
+  async appendText(name: string, lines: string[], type: string): Promise<void> {
+    if (lines.length === 0) return;
+    const prior = (await this.readText(name)) ?? "";
+    await this.writeText(name, prior + lines.join("\n") + "\n", type);
+  }
+
   async mirrorArtifact(localPath: string): Promise<string> {
     const key = this.key(`artifacts/${basename(localPath)}`);
     await this.client.write(key, Bun.file(localPath));

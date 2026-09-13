@@ -14,6 +14,26 @@ bun sync run [--only p1,p2] [--models "claude-*"] [--type text] [--dry-run] [--v
 bun sync metadata [--dry-run]     # re-seed metadata + re-price, no probes
 bun sync reset                    # delete all synced data
 bun sync balance [--json]
+bun sync reconcile [--only p] [--since 24h] [--json]   # upstream usage logs vs our logs, exit 1 on unaccounted usage
+```
+
+`reconcile` (`src/core/sync/reconcile/`) pulls every relay account's own `/api/log/self` (100 rows
+a page, one page at a time per account, 750 ms apart, 429 backs off up to 80 s; every page is
+checkpointed into `logs/reconcile-cache/<provider>.jsonl` and the store object
+`reconcile/<provider>.jsonl`, 7 days retained, so a rerun fetches only the tail) and joins each row
+to our `logs` table (read-only DSN `targetDb`, bigint columns cast in the query) by
+`upstream_request_id` = the relay's `request_id`, on any channel including deleted lanes, then by
+tokens and time, then by model and time. Every probe the sync sends records the relay's request id
+(`testing/probe-ids.ts`, `logs/probe-ids.jsonl` and store `reconcile/probe-ids.jsonl`), so probe
+rows reconcile exactly. Leftover upstream rows are classed abandoned (an error row of ours for the
+model within 3 min: the gateway timed out and retried, the relay billed the attempt), probe-shaped,
+or unexplained; only unexplained rows, foreign tokens with usage, or a source ip outside
+`targetEgressIps` that appears solely on unaccounted rows flip the exit code to 1 (duck logs its
+edge proxy ip, so an ip seen on id-matched rows counts as ours). `record_ip_log` is on for the
+pol, duck, gg, a7 and trp1 accounts (per-user setting, `PUT /api/user/setting`); fish logs ip and
+user agent by itself; cent is banned.
+
+```bash
 bun sync baseline [--out f.json]  # dump voted canonical list prices
 bun sync ui --port 3000           # dashboard (alias: bun ui)
 bun run dev | typecheck | build | prettier
@@ -25,9 +45,9 @@ bun run dev | typecheck | build | prettier
 ## Layout
 
 ```
-src/cli/index.ts          run | reset | metadata | balance | ui | baseline
+src/cli/index.ts          run | reset | metadata | balance | reconcile | ui | baseline
 src/build.ts              compiles 6 binaries; embedded-assets.ts is GENERATED (empty = dev)
-src/core/sync/            run, diff, apply, reset, metadata, option-store, pipeline/
+src/core/sync/            run, diff, apply, reset, metadata, option-store, pipeline/, reconcile/
 src/core/pricing/         compute, vote, resolver, emit, sources/, tiered-expr
 src/core/vendors/         one dir per provider; newapi is the reference. New free provider =
                           discovery.ts + registry-meta.ts + registry.ts + a config.yml block

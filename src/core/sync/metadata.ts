@@ -46,6 +46,7 @@ import {
 } from "@core/catalog/metadata";
 import type { RuntimeConfig } from "@core/config";
 import { VerdictStore } from "@core/infra/verdict-store";
+import { flushProbeIds } from "@core/testing/probe-ids";
 import {
   loadVerdictCache,
   pushVerdictCache,
@@ -903,6 +904,7 @@ async function reverifyClaudeLanes(
   }
   if (verdicts) await pushVerdictCache(verdicts);
   else saveVerdictCache();
+  await flushProbeIds(verdicts);
 }
 
 async function syncUpstreamPricing(

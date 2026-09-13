@@ -21,6 +21,7 @@ interface FetchOptions {
   timeoutMs?: number;
   retry?: number;
   retryDelayMs?: number;
+  onHeaders?: (headers: Headers) => void;
 }
 
 export type FetchResult<T> =
@@ -78,6 +79,7 @@ async function fetchOnce<T>(
       signal: AbortSignal.timeout(options?.timeoutMs ?? 10_000),
       retry: false,
       responseType: "json",
+      onResponse: ({ response }) => options?.onHeaders?.(response.headers),
     });
     return { ok: true, data };
   } catch (err) {

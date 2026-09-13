@@ -225,7 +225,9 @@
     "CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT": "{path}.{key}: priceAdjustment values for text types (vendors/default) must be < 1; only non-text types (image, video, audio, embedding) can be >= 1",
     "PRICING_EMPTY_SOURCES": "[pricing] unusable pricing sources: {sources}. Aborting sync: canonical resolution requires LiteLLM and OpenRouter pricing, plus basellm metadata.",
     "PRICING_CHANNEL_COLLISION": "Channel name collision: \"{name}\" produced twice ({first} and plan {second}). Each (provider, group, vendor, ratio-tier, base-url-suffix) bucket must produce a unique channel name.",
-    "NEWAPI_OPTIONS_FETCH_FAILED": "Options API failed or returned no group options; run aborted so nothing is rewritten from an empty base"
+    "NEWAPI_OPTIONS_FETCH_FAILED": "Options API failed or returned no group options; run aborted so nothing is rewritten from an empty base",
+    "INVALID_DURATION": "Invalid duration {value}: use <n>m, <n>h or <n>d",
+    "RECONCILE_DB_FAILED": "Gateway database query failed: {error}"
   },
   "CLI": {
     "APP_DESCRIPTION": "new-api-sync",
@@ -234,7 +236,8 @@
       "RESET_DESC": "delete sync managed resources",
       "UI_DESC": "launch the web UI (Elysia and React dashboard)",
       "METADATA_DESC": "re-seed model metadata (release date, params, context, description) on existing models; no probing/testing, no channel or pricing changes",
-      "BALANCE_DESC": "check the target and every configured provider's remaining balance; read-only, no probing or writes"
+      "BALANCE_DESC": "check the target and every configured provider's remaining balance; read-only, no probing or writes",
+      "RECONCILE_DESC": "match every upstream provider's own usage log against our gateway logs for a window; lists usage that never came through us and foreign tokens; read-only"
     },
     "OPTION": {
       "CONFIG_PATH": "config file path",
@@ -245,7 +248,9 @@
       "PORT": "port to listen on",
       "DRY_RUN": "preview pricing + diff without probing, testing, creating tokens, or writing to the target (no cost; logs still saved)",
       "METADATA_DRY_RUN": "preview the group label renames the current groupMapping would apply to existing channels; writes nothing",
-      "BALANCE_JSON": "print the result as JSON instead of a table"
+      "BALANCE_JSON": "print the result as JSON instead of a table",
+      "SINCE": "window to reconcile, e.g. 30m, 6h, 24h, 3d",
+      "RECONCILE_JSON": "print the result as JSON instead of a summary"
     },
     "STATUS": {
       "UI_RUNNING": "new-api-sync UI running at http://localhost:{port}"
@@ -282,6 +287,39 @@
     },
     "DRY": {
       "HEADER": "[dry-run] computed pricing for {count} in-scope models (no writes):"
+    },
+    "RECONCILE": {
+      "HEADER": "Reconcile: last {since} ({start} to {end} UTC)",
+      "NO_DB": "no targetDb configured: provider-side checks only (foreign tokens, per-token totals), no row matching",
+      "PROVIDER_ERROR": "[{name}] {error}",
+      "TOTALS": "[{name}] upstream {upRows} rows {upQuota} | ours {ourRows} rows",
+      "MATCHED": "[{name}] matched by id {byId} (+{viaError} on our error rows), by tokens+time {fallback}, by model+time {loose}, {quota} accounted",
+      "LEAK": "[{name}] UNACCOUNTED on our token {token} {model}: {rows} rows {quota} ({first} to {last})",
+      "LEAK_FOREIGN": "[{name}] UNACCOUNTED on FOREIGN token {token} {model}: {rows} rows {quota} ({first} to {last})",
+      "FOREIGN_TOKEN": "[{name}] foreign token {token}: {rows} rows {quota} in window",
+      "FOREIGN_TOKEN_IDLE": "[{name}] foreign token {token}: no usage in window",
+      "FOREIGN_TOKEN_DELETED": "[{name}] foreign token {token} used ({rows} rows {quota}) and since DELETED on the account",
+      "OUR_UNMATCHED": "[{name}] {rows} of our rows ({quota}) have no upstream row (upstream lag or a non-echoing upstream)",
+      "NO_CHANNELS": "[{name}] no channel on the target belongs to this provider; every upstream row counts as unaccounted",
+      "LOGS_UNAVAILABLE": "[{name}] upstream logs unavailable (HTTP {status}): {error}",
+      "LOGS_403_HINT": "[{name}] the sync token cannot read this account's logs; export them from the provider dashboard or use a session cookie",
+      "TOKENS_UNAVAILABLE": "[{name}] token list unavailable (HTTP {status}): {error}",
+      "UPSTREAM_INCOMPLETE": "[{name}] upstream log walk incomplete, unaccounted usage may be under-reported",
+      "UPSTREAM_PAGE_FAILED": "[{name}] upstream log page {page} failed, stopping the walk: {error}",
+      "OPENROUTER_NO_MGMT": "[{name}] no management key, foreign key check skipped",
+      "OPENROUTER_CLEAN": "[{name}] every key on the account was minted by the sync",
+      "OPENROUTER_FOREIGN_KEY": "[{name}] foreign key {key}: lifetime usage ${usage}, today ${daily}, {disabled}",
+      "ARTIFACT_WRITTEN": "Reconcile artifact written to {path}",
+      "CLEAN": "Clean: every upstream row is accounted for (logs unavailable: {unavailable})",
+      "LEAK_VERDICT": "LEAK: upstream usage exists that never came through the gateway, see the lines above and the artifact",
+      "FETCHING": "[{name}] fetching upstream log {start} to {end} ({cached} rows already cached)",
+      "CACHED": "[{name}] window fully covered by the cache ({cached} rows), no upstream fetch",
+      "CACHE_PULL_FAILED": "[{name}] upstream log cache pull failed, using the local copy ({error})",
+      "CACHE_PUSH_FAILED": "[{name}] upstream log cache push failed, local copy kept ({error})",
+      "SOURCE_IP": "[{name}] source ip {ip}: {rows} rows {quota}",
+      "FOREIGN_IP": "[{name}] FOREIGN source ip {ip}: {rows} rows {quota} (not one of our egress addresses)",
+      "NO_IPS": "[{name}] the relay records no source ip on this account",
+      "LEAK_SUMMARY": "[{name}] unaccounted: abandoned attempts {abandoned} rows {abandonedQuota} (billed after our gateway timed out and retried), probe-shaped {probe} rows {probeQuota} (our own sync probes), unexplained {unexplained} rows {unexplainedQuota}"
     }
   },
   "MODEL_TYPE": {
@@ -582,6 +620,10 @@
       "SUMMARY": "[{provider}] claude re-verify: {live} live lane(s), {due} due, {passed} passed, {disabled} disabled, {inconclusive} inconclusive",
       "DISABLED": "[{provider}] disabled {channel}: {reason}",
       "DISABLE_FAILED": "[{provider}] could not disable {channel} ({reason}); the gateway update failed"
+    },
+    "PROBE_IDS": {
+      "PUSH_FAILED": "[probe-ids] {store}: push failed, local file kept ({error})",
+      "PULL_FAILED": "[probe-ids] {store}: pull failed, using the local file ({error})"
     }
   }
 }
