@@ -18,7 +18,7 @@ import {
   loadUpstreamCache,
   rowsInWindow,
   saveUpstreamCache,
-  uncoveredRange,
+  uncoveredRanges,
 } from "./cache";
 import {
   fetchGatewayErrorRows,
@@ -134,8 +134,14 @@ async function reconcileProvider(
     entry.channelIds = mine.flatMap((c) => (c.id == null ? [] : [c.id]));
     const ctx = new NewApiClient(p, p.name).ctx;
     const cache = await loadUpstreamCache(p.name, store);
-    const range = uncoveredRange(cache, window);
-    if (range) {
+    const gaps = uncoveredRanges(cache, window);
+    entry.upstreamLogs = { status: "ok" };
+    entry.upstreamIncomplete = false;
+    if (gaps.length === 0)
+      consola.info(
+        t("CLI.RECONCILE.CACHED", { name: p.name, cached: cache.rows.size }),
+      );
+    for (const range of gaps) {
       consola.info(
         t("CLI.RECONCILE.FETCHING", {
           name: p.name,
@@ -170,13 +176,9 @@ async function reconcileProvider(
       };
       const logs = await fetchUpstreamConsumeLogs(ctx, range, checkpoint);
       entry.upstreamLogs = logs.status;
-      entry.upstreamIncomplete = logs.incomplete;
+      entry.upstreamIncomplete = entry.upstreamIncomplete || logs.incomplete;
       if (logs.status.status === "ok") await saveUpstreamCache(cache, store);
-    } else {
-      entry.upstreamLogs = { status: "ok" };
-      consola.info(
-        t("CLI.RECONCILE.CACHED", { name: p.name, cached: cache.rows.size }),
-      );
+      else break;
     }
     const upstreamRows = rowsInWindow(cache, window);
     entry.upstream = {
@@ -207,6 +209,15 @@ async function reconcileProvider(
       rows: ownConsume.length,
       quota: ownConsume.reduce((n, r) => n + r.quota, 0),
     };
+    if (upstreamRows.length === 0 && ownConsume.length > 0) {
+      entry.upstreamIncomplete = true;
+      consola.warn(
+        t("CLI.RECONCILE.UPSTREAM_EMPTY", {
+          name: p.name,
+          ours: ownConsume.length,
+        }),
+      );
+    }
 
     const isOurToken = (name: string) => isOurTokenName(p.type, name, prefix);
     const result = matchProvider({

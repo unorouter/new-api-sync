@@ -317,6 +317,7 @@
       "LEAK_VERDICT": "LEAK: upstream usage exists that never came through the gateway, see the lines above and the artifact",
       "FETCHING": "[{name}] fetching upstream log {start} to {end} ({cached} rows already cached)",
       "CACHED": "[{name}] window fully covered by the cache ({cached} rows), no upstream fetch",
+      "UPSTREAM_EMPTY": "[{name}] upstream returned no rows for a window in which we logged {ours}: coverage or log access is broken, this window is not cleared",
       "CACHE_PULL_FAILED": "[{name}] upstream log cache pull failed, using the local copy ({error})",
       "CACHE_PUSH_FAILED": "[{name}] upstream log cache push failed, local copy kept ({error})",
       "SOURCE_IP": "[{name}] source ip {ip}: {rows} rows {quota}",

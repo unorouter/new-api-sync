@@ -45,12 +45,35 @@ function userAgentOf(r: UpstreamLogRow): string | undefined {
 export const CACHE_RETENTION_SECONDS = 45 * 24 * 3600;
 const DIR = "reconcile-cache";
 
+export interface CoverageSegment {
+  from: number;
+  until: number;
+}
+
 export interface UpstreamCache {
   provider: string;
-  // Every second up to `coveredUntil` since `coveredFrom` has been fetched.
-  coveredFrom: number | null;
-  coveredUntil: number | null;
+  // Sorted, non-overlapping ranges whose every second has been fetched.
+  segments: CoverageSegment[];
   rows: Map<number, UpstreamLogRow>;
+}
+
+const isSegment = (v: unknown): v is CoverageSegment =>
+  !!v &&
+  typeof v === "object" &&
+  typeof (v as CoverageSegment).from === "number" &&
+  typeof (v as CoverageSegment).until === "number" &&
+  (v as CoverageSegment).until > (v as CoverageSegment).from;
+
+function mergeSegments(segments: CoverageSegment[]): CoverageSegment[] {
+  const sorted = [...segments].sort((a, b) => a.from - b.from);
+  const out: CoverageSegment[] = [];
+  for (const s of sorted) {
+    const last = out[out.length - 1];
+    if (last && s.from <= last.until)
+      last.until = Math.max(last.until, s.until);
+    else out.push({ from: s.from, until: s.until });
+  }
+  return out;
 }
 
 const localPath = (provider: string) =>
@@ -59,20 +82,17 @@ const objectName = (provider: string) => `${DIR}/${provider}.jsonl`;
 
 // First line is the cursor, the rest one row per line.
 function parse(provider: string, text: string): UpstreamCache {
-  const cache: UpstreamCache = {
-    provider,
-    coveredFrom: null,
-    coveredUntil: null,
-    rows: new Map(),
-  };
+  const cache: UpstreamCache = { provider, segments: [], rows: new Map() };
   const lines = text.split("\n").filter((l) => l.length > 0);
   const head = lines.shift();
   if (head) {
     const cursor: unknown = JSON.parse(head);
+    // The old single-range cursor merged disjoint fetches into one span, so
+    // it is not trusted: rows are kept, coverage is rebuilt.
     if (cursor && typeof cursor === "object") {
-      const c = cursor as { from?: unknown; until?: unknown };
-      if (typeof c.from === "number") cache.coveredFrom = c.from;
-      if (typeof c.until === "number") cache.coveredUntil = c.until;
+      const c = cursor as { segments?: unknown };
+      if (Array.isArray(c.segments))
+        cache.segments = mergeSegments(c.segments.filter(isSegment));
     }
   }
   for (const line of lines) {
@@ -95,24 +115,22 @@ function serialize(cache: UpstreamCache): string {
   const kept = [...cache.rows.values()]
     .filter((r) => r.created_at >= cutoff)
     .sort((a, b) => a.created_at - b.created_at);
-  const from =
-    cache.coveredFrom === null ? null : Math.max(cache.coveredFrom, cutoff);
-  const head = JSON.stringify({ from, until: cache.coveredUntil });
+  const segments = cache.segments.flatMap((s) =>
+    s.until <= cutoff
+      ? []
+      : [{ from: Math.max(s.from, cutoff), until: s.until }],
+  );
+  const head = JSON.stringify({ segments });
   return [head, ...kept.map((r) => JSON.stringify(r))].join("\n") + "\n";
 }
 
-// Local file first, then the store copy if it covers more; both are the same
-// shape so a fresh machine starts from whatever the last run pushed.
+// Local file unioned with the store copy: both hold honest coverage, so a
+// fresh machine starts from whatever the last run pushed.
 export async function loadUpstreamCache(
   provider: string,
   store: VerdictStore | null,
 ): Promise<UpstreamCache> {
-  let cache: UpstreamCache = {
-    provider,
-    coveredFrom: null,
-    coveredUntil: null,
-    rows: new Map(),
-  };
+  let cache: UpstreamCache = { provider, segments: [], rows: new Map() };
   const path = localPath(provider);
   if (existsSync(path)) cache = parse(provider, readFileSync(path, "utf8"));
   if (!store) return cache;
@@ -120,10 +138,9 @@ export async function loadUpstreamCache(
     const remote = await store.readText(objectName(provider));
     if (remote) {
       const r = parse(provider, remote);
-      if ((r.coveredUntil ?? 0) > (cache.coveredUntil ?? 0)) {
-        for (const [id, row] of cache.rows) r.rows.set(id, row);
-        cache = r;
-      } else for (const [id, row] of r.rows) cache.rows.set(id, row);
+      for (const [id, row] of r.rows)
+        if (!cache.rows.has(id)) cache.rows.set(id, row);
+      cache.segments = mergeSegments([...cache.segments, ...r.segments]);
     }
   } catch (err) {
     consola.warn(
@@ -161,16 +178,23 @@ export async function saveUpstreamCache(
   }
 }
 
-// The part of the window the cache does not cover yet. A gap before
-// coveredFrom is fetched whole; the common case is only the tail.
-export function uncoveredRange(
+// The parts of the window no segment covers, in time order.
+export function uncoveredRanges(
   cache: UpstreamCache,
   window: { start: number; end: number },
-): { start: number; end: number } | null {
-  if (cache.coveredFrom === null || cache.coveredUntil === null) return window;
-  if (window.start < cache.coveredFrom) return window;
-  if (window.end <= cache.coveredUntil) return null;
-  return { start: cache.coveredUntil, end: window.end };
+): { start: number; end: number }[] {
+  const gaps: { start: number; end: number }[] = [];
+  let cursor = window.start;
+  for (const s of cache.segments) {
+    if (s.until <= cursor) continue;
+    if (s.from >= window.end) break;
+    if (s.from > cursor)
+      gaps.push({ start: cursor, end: Math.min(s.from, window.end) });
+    cursor = Math.max(cursor, s.until);
+    if (cursor >= window.end) break;
+  }
+  if (cursor < window.end) gaps.push({ start: cursor, end: window.end });
+  return gaps;
 }
 
 // Upstreams write their log after the response lands, so the last minutes of
@@ -185,13 +209,10 @@ export function extendCoverage(
   for (const r of rows) cache.rows.set(r.id, r);
   const until = fetched.end - LOG_LAG_SECONDS;
   if (until <= fetched.start) return;
-  if (
-    cache.coveredFrom === null ||
-    cache.coveredUntil === null ||
-    fetched.start < cache.coveredFrom
-  )
-    cache.coveredFrom = fetched.start;
-  cache.coveredUntil = Math.max(cache.coveredUntil ?? 0, until);
+  cache.segments = mergeSegments([
+    ...cache.segments,
+    { from: fetched.start, until },
+  ]);
 }
 
 export function rowsInWindow(
