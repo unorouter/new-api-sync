@@ -172,6 +172,8 @@ program
     [] as string[],
   )
   .option("--since <duration>", t("CLI.OPTION.SINCE"), "24h")
+  .option("--from <instant>", t("CLI.OPTION.FROM"))
+  .option("--to <instant>", t("CLI.OPTION.TO"))
   .option("--json", t("CLI.OPTION.RECONCILE_JSON"))
   .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
   .action(
@@ -179,6 +181,8 @@ program
       config?: string;
       only: string[];
       since: string;
+      from?: string;
+      to?: string;
       json?: boolean;
       verbose?: boolean;
     }) => {
@@ -188,7 +192,11 @@ program
         await loadConfig(options.config),
         options.only,
       );
-      const result = await runReconcile(config, { since: options.since });
+      const result = await runReconcile(config, {
+        since: options.since,
+        from: options.from,
+        to: options.to,
+      });
       if (options.json) console.log(JSON.stringify(result, null, 2));
       else printReconcileSummary(result);
       if (result.verdict === "leak") process.exitCode = 1;

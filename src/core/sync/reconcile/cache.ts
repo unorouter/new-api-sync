@@ -42,7 +42,7 @@ function userAgentOf(r: UpstreamLogRow): string | undefined {
   return undefined;
 }
 
-export const CACHE_RETENTION_SECONDS = 7 * 24 * 3600;
+export const CACHE_RETENTION_SECONDS = 45 * 24 * 3600;
 const DIR = "reconcile-cache";
 
 export interface UpstreamCache {
