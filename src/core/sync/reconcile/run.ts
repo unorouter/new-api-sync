@@ -40,11 +40,11 @@ import type {
   UpstreamLogRow,
 } from "./types";
 import { fetchUpstreamConsumeLogs, fetchUpstreamTokens } from "./upstream-logs";
-import { makeWindow, parseSince } from "./window";
+import { explicitWindow, makeWindow, parseSince } from "./window";
 
 type RelayProvider = ProviderConfig | A7ProviderConfig;
 const LOCAL_SAVE_MS = 10_000;
-const REMOTE_SAVE_MS = 120_000;
+const REMOTE_SAVE_MS = 600_000;
 const QUOTA_PER_USD = 500000;
 const usd = (quota: number) => `$${(quota / QUOTA_PER_USD).toFixed(4)}`;
 const when = (unix: number) => new Date(unix * 1000).toISOString().slice(0, 16);
@@ -246,9 +246,12 @@ async function reconcileProvider(
 
 export async function runReconcile(
   config: RuntimeConfig,
-  opts: { since: string },
+  opts: { since: string; from?: string; to?: string },
 ): Promise<ReconcileResult> {
-  const window = makeWindow(parseSince(opts.since));
+  const window =
+    opts.from !== undefined
+      ? explicitWindow(opts.from, opts.to ?? "now")
+      : makeWindow(parseSince(opts.since));
   const gate = getConcurrencyGate();
   const target = new NewApiClient(config.target, "target");
   const channels = await target.listChannels();
@@ -315,7 +318,13 @@ export async function runReconcile(
     ) || openrouter.some((o) => o.foreignKeys.some((k) => (k.usage ?? 0) > 0));
 
   const result: ReconcileResult = {
-    window: { ...window, since: opts.since },
+    window: {
+      ...window,
+      since:
+        opts.from !== undefined
+          ? `${opts.from}..${opts.to ?? "now"}`
+          : opts.since,
+    },
     dbMode: config.targetDb ? "postgres" : "provider-only",
     providers,
     openrouter,

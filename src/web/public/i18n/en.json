@@ -227,7 +227,8 @@
     "PRICING_CHANNEL_COLLISION": "Channel name collision: \"{name}\" produced twice ({first} and plan {second}). Each (provider, group, vendor, ratio-tier, base-url-suffix) bucket must produce a unique channel name.",
     "NEWAPI_OPTIONS_FETCH_FAILED": "Options API failed or returned no group options; run aborted so nothing is rewritten from an empty base",
     "INVALID_DURATION": "Invalid duration {value}: use <n>m, <n>h or <n>d",
-    "RECONCILE_DB_FAILED": "Gateway database query failed: {error}"
+    "RECONCILE_DB_FAILED": "Gateway database query failed: {error}",
+    "INVALID_INSTANT": "Invalid instant {value}: use YYYY-MM-DD, an ISO datetime, unix seconds or now"
   },
   "CLI": {
     "APP_DESCRIPTION": "new-api-sync",
@@ -250,7 +251,9 @@
       "METADATA_DRY_RUN": "preview the group label renames the current groupMapping would apply to existing channels; writes nothing",
       "BALANCE_JSON": "print the result as JSON instead of a table",
       "SINCE": "window to reconcile, e.g. 30m, 6h, 24h, 3d",
-      "RECONCILE_JSON": "print the result as JSON instead of a summary"
+      "RECONCILE_JSON": "print the result as JSON instead of a summary",
+      "FROM": "window start: ISO date, ISO datetime or unix seconds (overrides --since)",
+      "TO": "window end, same forms or \"now\" (default now)"
     },
     "STATUS": {
       "UI_RUNNING": "new-api-sync UI running at http://localhost:{port}"

@@ -14,13 +14,13 @@ bun sync run [--only p1,p2] [--models "claude-*"] [--type text] [--dry-run] [--v
 bun sync metadata [--dry-run]     # re-seed metadata + re-price, no probes
 bun sync reset                    # delete all synced data
 bun sync balance [--json]
-bun sync reconcile [--only p] [--since 24h] [--json]   # upstream usage logs vs our logs, exit 1 on unaccounted usage
+bun sync reconcile [--only p] [--since 24h | --from 2026-08-26 --to now] [--json]   # upstream usage logs vs our logs, exit 1 on unaccounted usage
 ```
 
 `reconcile` (`src/core/sync/reconcile/`) pulls every relay account's own `/api/log/self` (100 rows
 a page, one page at a time per account, 750 ms apart, 429 backs off up to 80 s; every page is
 checkpointed into `logs/reconcile-cache/<provider>.jsonl` and the store object
-`reconcile/<provider>.jsonl`, 7 days retained, so a rerun fetches only the tail) and joins each row
+`reconcile/<provider>.jsonl`, 45 days retained, so a rerun fetches only the tail) and joins each row
 to our `logs` table (read-only DSN `targetDb`, bigint columns cast in the query) by
 `upstream_request_id` = the relay's `request_id`, on any channel including deleted lanes, then by
 tokens and time, then by model and time. Every probe the sync sends records the relay's request id

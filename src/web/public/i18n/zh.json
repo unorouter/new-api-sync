@@ -227,7 +227,8 @@
     "PRICING_CHANNEL_COLLISION": "渠道名称冲突：\"{name}\" 重复出现（{first} 与计划 {second}）。每个（提供方、分组、供应商、倍率档位、base-url 后缀）组合都必须产生唯一的渠道名。",
     "NEWAPI_OPTIONS_FETCH_FAILED": "选项接口失败或未返回分组选项；已中止运行，避免从空基础重写",
     "INVALID_DURATION": "时长 {value} 无效：请使用 <n>m、<n>h 或 <n>d",
-    "RECONCILE_DB_FAILED": "网关数据库查询失败：{error}"
+    "RECONCILE_DB_FAILED": "网关数据库查询失败：{error}",
+    "INVALID_INSTANT": "时间点 {value} 无效：请使用 YYYY-MM-DD、ISO 日期时间、unix 秒或 now"
   },
   "CLI": {
     "APP_DESCRIPTION": "new-api-sync",
@@ -250,7 +251,9 @@
       "METADATA_DRY_RUN": "预览当前 groupMapping 会对现有渠道执行的分组名重命名；不写入任何内容",
       "BALANCE_JSON": "以 JSON 格式输出结果，而非表格",
       "SINCE": "对账时间窗口，如 30m、6h、24h、3d",
-      "RECONCILE_JSON": "以 JSON 输出结果而非摘要"
+      "RECONCILE_JSON": "以 JSON 输出结果而非摘要",
+      "FROM": "时间窗口起点：ISO 日期、ISO 日期时间或 unix 秒（覆盖 --since）",
+      "TO": "时间窗口终点，格式同上或 \"now\"（默认 now）"
     },
     "STATUS": {
       "UI_RUNNING": "new-api-sync 界面运行于 http://localhost:{port}"
