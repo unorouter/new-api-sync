@@ -98,7 +98,7 @@ spec:
       # A normal night is 20 to 35 minutes; a throttled marketplace (paced
       # key reveal and pin calls) stretches it past 45. One hour still does
       # not cover a hung run.
-      activeDeadlineSeconds: 3600
+      activeDeadlineSeconds: 5400
       # NEVER retry: a second full a7 run minutes after a failed one exhausts
       # a7's rate budget (429 on key reveal and pin), the throttle guard then
       # withholds deletes and the retry fails too (2026-09-06, twice).
