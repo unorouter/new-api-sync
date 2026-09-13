@@ -90,7 +90,10 @@ Never a full `sync run` for one model. `DELETE FROM channels WHERE id IN (...)` 
 - `CURATED_OVERRIDE` beats every source; wrong fuzzy bases (`glm-5-turbo` -> `glm-5`) go there.
   `fuzzyLookup` keeps its exact-match fast path (token-set scoring drops repeated digits).
 - Embeddings force `acceptRateLimited: false`. `fetchPricing` must send `ctx.headers`.
-- a7 `minSellFraction` = retail floor (raises the group ratio), `maxSellFraction` = merchant cut;
+- a7 `minSuccessRate` defaults to 0: a7's own success rate is not trusted, the live probe is the
+  gate, and the candidate walk runs until `hostsPerModel` lanes pass or the price-filtered list ends.
+- a7 `minSellFraction` = retail floor (raises the group ratio), `maxSellFraction` = merchant cut,
+  default 1 (cost * profitMultiple <= canonical list; the engine never sells above list anyway);
   `sweepLiveLanes` re-runs the math on every held lane because the gateway re-enables lanes itself.
 
 ## Conventions
@@ -134,12 +137,16 @@ is the object `new-api-sync/verdict-cache.json` in bucket `unorouter-sync` behin
 `https://s3.unorouter.com:19443` through the `tsh-s3` user unit plus a `/etc/hosts` line). Every
 `sync run` merges the object in at start and pushes at end (union by key, newest stamp wins, a fail
 always survives); artifacts mirror to `artifacts/`. Functional passes expire after 7 days (jittered
-2), authenticity passes after 12 hours, and the `metadata` cron re-probes live a7 Claude lanes whose
+2), functional fails after 24 hours, or 2 hours when the fail was a 429, 5xx or timeout (a dead merchant is re-probed once a day, not once a run),
+authenticity passes after 12 hours, and the `metadata` cron re-probes live a7 Claude lanes whose
 pass is stale (`vendors/a7api/reverify.ts`, disables the channel on a fail). Every authenticity
 outcome is appended to `verdict-history.jsonl` beside the cache. Every Claude probe also measures
 the verifier's tokenizer fingerprint (input-token delta for a fixed text, `tokenizerDelta` on the
 entry): a delta that moved since the last probe voids the cached pass for that run. It names no tier
 (4.6-era models share a tokenizer, relays count differently), so it never fails a lane by itself. Without `verdictStore` the sync is local-only.
+Every verdict write saves the local file at once and pushes the store at most every 2 minutes, so a
+run killed at any point (Job deadline, OOM, Ctrl-C) keeps everything it probed: the next run loads the
+local file (the PVC on the cluster) before merging the store.
 
 The PVC is `local-path`, pinned to whichever Talos node the first job ran on (`kubectl -n services get pvc new-api-sync-logs -o jsonpath='{.metadata.annotations.volume\.kubernetes\.io/selected-node}'`): if that node is cordoned or gone the full job stays
 Pending (uncordon, or delete PVC + PV and re-seed from the local file).

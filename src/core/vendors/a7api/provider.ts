@@ -288,33 +288,44 @@ export async function processA7ApiProvider(
     let pinsRepinned = 0;
     let throttled = 0;
 
+    const loopStart = Date.now();
+    const elapsed = () => `${Math.round((Date.now() - loopStart) / 1000)}s`;
+    let modelIdx = 0;
     for (const mc of models) {
+      modelIdx++;
+      const modelStart = Date.now();
       // Walk the cheap-sorted candidates until `wanted` merchants pass their
       // probe: a faker/dead pick is REPLACED by the next candidate instead of
       // shrinking the lane set (opus-5 hit zero lanes that way: the cheapest 6
       // were all blacklisted fakers, and nothing behind them was ever tried).
-      // Cached verdicts skip without an upstream request, so the probe budget
-      // only burns on genuinely new merchants.
-      const budget = mc.wanted * 3;
+      // Cached verdicts (a fresh pass, a fail inside TEST_FAIL_TTL_HOURS, an
+      // authenticity fail) skip without an upstream request, so the walk only
+      // pays for merchants nobody has probed lately.
+      consola.info(
+        `[${name}] ${modelIdx}/${models.length} ${mc.model}: ${mc.candidates.length} candidate(s), want ${mc.wanted} (${elapsed()} in)`,
+      );
       const kept: { lane: MerchantLane; key: string; rateLimited: boolean }[] =
         [];
       let idx = 0;
       let probed = 0;
-      while (
-        kept.length < mc.wanted &&
-        idx < mc.candidates.length &&
-        probed < budget
-      ) {
+      while (kept.length < mc.wanted && idx < mc.candidates.length) {
         const take = Math.min(
           mc.wanted - kept.length,
           mc.candidates.length - idx,
-          budget - probed,
         );
         const batch: MerchantLane[] = mc.candidates
           .slice(idx, idx + take)
           .map((listing) => ({ model: mc.model, listing }));
         idx += take;
+        consola.info(
+          `[${name}] ${mc.model}: keying ${batch.length} lane(s) (${batch.map((l) => l.listing.channel_id).join(", ")})`,
+        );
+        const keyStart = Date.now();
         const tokens = await ensureLaneTokens(provider, batch, { dryRun });
+        consola.info(
+          `[${name}] ${mc.model}: keyed ${tokens.size}/${batch.length} in ${Math.round((Date.now() - keyStart) / 1000)}s, pinning`,
+        );
+        const pinStart = Date.now();
         const pins = await ensurePins(provider, batch, tokens, dryRun);
         pinsCreated += pins.created;
         pinsRepinned += pins.repinned;
@@ -335,6 +346,9 @@ export async function processA7ApiProvider(
           probes.push({ lane, key: token.key });
         }
         probed += probes.length;
+        consola.info(
+          `[${name}] ${mc.model}: pinned ${pins.pinned.size} in ${Math.round((Date.now() - pinStart) / 1000)}s (${pins.throttled} throttled), probing ${probes.length} lane(s)`,
+        );
         // Probes run through the per-upstream gate; one lane per call, so
         // awaiting them in sequence made a 170-lane night take an hour.
         const verdicts = await Promise.all(
@@ -362,7 +376,13 @@ export async function processA7ApiProvider(
             rateLimited: verdict.rateLimitedModels.includes(probe.lane.model),
           });
         }
+        consola.info(
+          `[${name}] ${mc.model}: kept ${kept.length}/${mc.wanted}, probed ${probed}, ${mc.candidates.length - idx} candidate(s) left`,
+        );
       }
+      consola.info(
+        `[${name}] ${mc.model} done: ${kept.length} lane(s) in ${Math.round((Date.now() - modelStart) / 1000)}s, ${models.length - modelIdx} model(s) left`,
+      );
       if (kept.length === 0) continue;
       keptLanes.push(...kept.map((k) => k.lane));
 

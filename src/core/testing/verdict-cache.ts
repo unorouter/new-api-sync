@@ -33,6 +33,11 @@ export interface VerdictEntry {
   // Date of the last functional pass (http/stream/tool). Expires after
   // TEST_PASS_TTL_DAYS plus a per-key jitter so the fleet retests spread out.
   testedAt?: string;
+  // Last functional fail; skips the probe for TEST_FAIL_TTL_HOURS so a dead
+  // merchant costs one key, pin and probe a day instead of one per run.
+  failedAt?: string;
+  // Fail came from a 429, 5xx or timeout: retried after TEST_FAIL_TRANSIENT_TTL_HOURS.
+  failTransient?: boolean;
   since: string;
 }
 
@@ -52,6 +57,17 @@ function testTtlDays(key: string): number {
   return TEST_PASS_TTL_DAYS - TEST_PASS_JITTER_DAYS + (keyHash(key) % span);
 }
 
+export const TEST_FAIL_TTL_HOURS = 24;
+export const TEST_FAIL_TRANSIENT_TTL_HOURS = 2;
+
+export function isTestFailFresh(entry: VerdictEntry | undefined): boolean {
+  if (!entry?.failedAt || entry.success) return false;
+  const hours = entry.failTransient
+    ? TEST_FAIL_TRANSIENT_TTL_HOURS
+    : TEST_FAIL_TTL_HOURS;
+  return Date.now() - Date.parse(entry.failedAt) < hours * 60 * 60 * 1000;
+}
+
 export function isTestPassFresh(entry: VerdictEntry | undefined): boolean {
   if (!entry?.success || !entry.testedAt) return false;
   return (
@@ -60,7 +76,9 @@ export function isTestPassFresh(entry: VerdictEntry | undefined): boolean {
 }
 
 const stampOf = (e: VerdictEntry): string =>
-  [e.testedAt ?? "", e.verifiedAt ?? "", e.since].sort().at(-1) ?? "";
+  [e.testedAt ?? "", e.verifiedAt ?? "", e.failedAt ?? "", e.since]
+    .sort()
+    .at(-1) ?? "";
 
 // Union by key, newest stamp wins; an authenticity fail on either side survives
 // (a fail never expires and is never overwritten by a pass).
@@ -111,21 +129,28 @@ export interface VerdictHistoryEvent {
 
 const VERDICT_HISTORY_FILE = "verdict-history.jsonl";
 const pendingHistory: VerdictHistoryEvent[] = [];
+// Lines already in the local file but not yet in the store: a local-only flush
+// (saveVerdictCache) must not empty the queue the next store push drains.
+const unpushedHistory: string[] = [];
 
 function historyPath(): string {
   return join(logsDir(), VERDICT_HISTORY_FILE);
 }
 
 export async function flushVerdictHistory(store?: VerdictStore): Promise<void> {
-  if (pendingHistory.length === 0) return;
-  const lines = pendingHistory.map((e) => JSON.stringify(e));
-  pendingHistory.length = 0;
-  mkdirSync(dirname(historyPath()), { recursive: true });
-  appendFileSync(historyPath(), lines.join("\n") + "\n");
-  if (!store) return;
+  if (pendingHistory.length > 0) {
+    const lines = pendingHistory.map((e) => JSON.stringify(e));
+    pendingHistory.length = 0;
+    mkdirSync(dirname(historyPath()), { recursive: true });
+    appendFileSync(historyPath(), lines.join("\n") + "\n");
+    unpushedHistory.push(...lines);
+  }
+  if (!store || unpushedHistory.length === 0) return;
+  const lines = unpushedHistory.splice(0);
   try {
     await store.appendHistory(lines);
   } catch (err) {
+    unpushedHistory.unshift(...lines);
     consola.warn(
       t("CORE.VERDICT_STORE.HISTORY_FAILED", {
         store: store.label,
@@ -140,6 +165,9 @@ const LEGACY_AUTH_CACHE_FILE = "authenticity-cache.json";
 const LEGACY_BLACKLIST_FILE = "authenticity-blacklist.json";
 
 const cache = new Map<string, VerdictEntry>();
+let activeStore: VerdictStore | null = null;
+let inflightPush: Promise<void> | null = null;
+let lastPushAt = 0;
 
 const today = () => new Date().toISOString().slice(0, 10);
 const cachePath = () => join(logsDir(), VERDICT_CACHE_FILE);
@@ -212,6 +240,8 @@ function backfillTestedAt(): void {
 export async function loadVerdictCache(store?: VerdictStore): Promise<void> {
   loadLocal();
   backfillTestedAt();
+  activeStore = store ?? null;
+  lastPushAt = Date.now();
   if (!store) return;
   try {
     const remote = await store.fetchVerdicts();
@@ -242,7 +272,17 @@ export async function loadVerdictCache(store?: VerdictStore): Promise<void> {
 }
 
 // Re-read the object first so a run that finished elsewhere meanwhile is kept.
+// Pushes are serialised: two interleaved read-merge-write cycles on the same
+// object would drop each other's entries.
 export async function pushVerdictCache(store: VerdictStore): Promise<void> {
+  if (inflightPush) return inflightPush;
+  inflightPush = pushOnce(store).finally(() => {
+    inflightPush = null;
+  });
+  return inflightPush;
+}
+
+async function pushOnce(store: VerdictStore): Promise<void> {
   await flushVerdictHistory(store);
   try {
     const remote = ((await store.fetchVerdicts()) ?? []).filter(
@@ -253,9 +293,13 @@ export async function pushVerdictCache(store: VerdictStore): Promise<void> {
     );
     const merged = mergeVerdicts(remote, [...cache.values()]);
     await store.putVerdicts(merged);
+    // Probes kept recording during the round trips; fold them in before the
+    // refill, synchronously, so nothing recorded meanwhile is dropped.
+    const final = mergeVerdicts(merged, [...cache.values()]);
     cache.clear();
-    for (const e of merged) cache.set(e.key, e);
-    writeJsonAtomic(cachePath(), merged);
+    for (const e of final) cache.set(e.key, e);
+    writeJsonAtomic(cachePath(), final);
+    lastPushAt = Date.now();
     consola.info(
       t("CORE.VERDICT_STORE.PUSHED", {
         store: store.label,
@@ -270,6 +314,18 @@ export async function pushVerdictCache(store: VerdictStore): Promise<void> {
       }),
     );
   }
+}
+
+// Every verdict write lands on disk at once and in the store at most every
+// interval, so a run killed at any point (Job deadline, OOM, Ctrl-C) keeps
+// what it probed: the next run loads the local file before merging the store.
+const PUSH_MIN_INTERVAL_MS = 2 * 60 * 1000;
+
+function persist(): void {
+  saveVerdictCache();
+  if (!activeStore || inflightPush) return;
+  if (Date.now() - lastPushAt < PUSH_MIN_INTERVAL_MS) return;
+  void pushVerdictCache(activeStore);
 }
 
 export function saveVerdictCache(): void {
@@ -289,6 +345,7 @@ export function recordTestVerdict(opts: {
   toolParallel: boolean | null;
   /** False when the tool verdict was replayed from the cache (evidence not refreshed). */
   toolFresh: boolean;
+  transientFail?: boolean;
 }): void {
   const prior = cache.get(opts.key);
   const entry: VerdictEntry = prior ?? { key: opts.key, since: today() };
@@ -297,9 +354,14 @@ export function recordTestVerdict(opts: {
     entry.streamSuccess = opts.streamSuccess;
     entry.since = today();
     entry.testedAt = today();
+    delete entry.failedAt;
+    delete entry.failTransient;
   } else {
     delete entry.success;
     delete entry.streamSuccess;
+    entry.failedAt = new Date().toISOString();
+    if (opts.transientFail) entry.failTransient = true;
+    else delete entry.failTransient;
   }
   if (opts.toolFresh && opts.toolCallSuccess !== null) {
     entry.toolCallSuccess = opts.toolCallSuccess;
@@ -307,16 +369,19 @@ export function recordTestVerdict(opts: {
   }
   const hasEvidence =
     entry.success !== undefined ||
+    entry.failedAt !== undefined ||
     entry.toolCallSuccess !== undefined ||
     entry.authenticity !== undefined;
   if (hasEvidence) cache.set(opts.key, entry);
   else cache.delete(opts.key);
+  persist();
 }
 
 export function recordTokenizerDelta(key: string, delta: number): void {
   const entry: VerdictEntry = cache.get(key) ?? { key, since: today() };
   entry.tokenizerDelta = delta;
   cache.set(key, entry);
+  persist();
 }
 
 export function setAuthenticityVerdict(
@@ -343,4 +408,5 @@ export function setAuthenticityVerdict(
   if (verdict === "fail") entry.since = today();
   else entry.verifiedAt = new Date().toISOString();
   cache.set(key, entry);
+  persist();
 }

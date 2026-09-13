@@ -22,6 +22,7 @@ import {
 import {
   getVerdict,
   isAuthenticityPassFresh,
+  isTestFailFresh,
   isTestPassFresh,
   recordTestVerdict,
   recordTokenizerDelta,
@@ -247,6 +248,12 @@ const HTTP_CONFIG_BY_TYPE = {
 // prettier-ignore
 const mkDetail = (model: string, channelType: number, success: boolean, streamSuccess: boolean | null, toolCallSuccess: boolean | null, toolParallel: boolean | null, authenticityProbed: boolean, httpStatus?: number): ModelTestDetail => ({ model, success, streamSuccess, toolCallSuccess, toolParallel, authenticityProbed, channelType, ...(httpStatus !== undefined && { httpStatus }) });
 
+// Rate limits, gateway errors and timeouts clear within hours; a 4xx, a wrong
+// model or a substitution does not.
+function isTransientStatus(status: number | undefined): boolean {
+  return status === undefined || status === 429 || status >= 500;
+}
+
 async function testModels(opts: {
   baseUrl: string;
   apiKey: string;
@@ -344,6 +351,34 @@ async function testModels(opts: {
         // the probe is re-checked within hours instead of never. Text pairs without a
         // definitive tool verdict fall through so the tool probe can complete them.
         const cached = getVerdict(blacklistKey);
+        if (isTestFailFresh(cached)) {
+          addTestResult({
+            provider: prefix,
+            model,
+            cost: null,
+            http: {
+              pass: false,
+              request: { url: "", headers: {}, body: null },
+              response: null,
+              responseHeaders: {},
+              error: t("CORE.TESTER.ERR_FAIL_CACHED", {
+                at: cached?.failedAt ?? "",
+              }),
+            },
+            stream: null,
+            toolCall: null,
+            authentic: null,
+          });
+          return mkDetail(
+            model,
+            opts.channelType,
+            false,
+            null,
+            null,
+            null,
+            false,
+          );
+        }
         const cachedTool =
           cached && cached.toolCallSuccess != null
             ? {
@@ -518,6 +553,7 @@ async function testModels(opts: {
           toolCallSuccess,
           toolParallel,
           toolFresh: cachedTool === null,
+          transientFail: !success && isTransientStatus(httpResult.status),
         });
 
         addTestResult({
