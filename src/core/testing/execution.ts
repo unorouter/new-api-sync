@@ -1,3 +1,4 @@
+import { recordProbeRequestId } from "./probe-ids";
 import { t } from "@server/i18n";
 import type {
   RawResult,
@@ -78,6 +79,7 @@ async function rawPost(
       signal: AbortSignal.timeout(timeoutMs),
     });
     const responseHeaders = headersToRecord(response.headers);
+    recordProbeRequestId(response.headers, new URL(url).host);
     const contentType = response.headers.get("content-type") ?? "";
     // Image-gen / TTS endpoints (Cloudflare flux/SDXL, melotts/aura) stream raw
     // PNG/JPEG/audio, not JSON. Surface a sentinel so isSuccess can accept a

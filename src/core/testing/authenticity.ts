@@ -1,4 +1,5 @@
 import { fetchJson } from "@core/infra/http";
+import { recordProbeRequestId } from "./probe-ids";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import {
@@ -312,6 +313,7 @@ async function runAnthropicProbe(opts: {
         headers,
         body: reqBody,
         timeoutMs: opts.timeoutMs,
+        onHeaders: (h) => recordProbeRequestId(h, opts.logKey),
       });
     } catch (err) {
       const emsg = err instanceof Error ? err.message : String(err);

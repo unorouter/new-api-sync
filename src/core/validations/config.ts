@@ -222,6 +222,13 @@ export const ConfigSchema = T.Object({
       encryptionKey: Opt(str),
     }),
   ),
+  // Read-only DSN of the gateway's own postgres, for `sync reconcile` (our
+  // logs are not reachable through the scoped service token). Absent = the
+  // reconcile runs provider-side checks only.
+  targetDb: Opt(T.Object({ url: str })),
+  // Public IPs our gateway egresses from. When set, `sync reconcile` flags
+  // upstream rows logged from any other address.
+  targetEgressIps: Opt(T.Array(str)),
   skipUnprofitableText: Opt(T.Boolean()),
   globalConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),
   perUpstreamConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),

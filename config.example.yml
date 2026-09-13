@@ -14,6 +14,13 @@ target:
 #   accessKeyId: ${SYNC_S3_ACCESS_KEY}
 #   secretAccessKey: ${SYNC_S3_SECRET_KEY}
 #   prefix: new-api-sync
+# Read-only DSN of the gateway's postgres for `bun sync reconcile` (our logs are
+# not readable through the scoped service token). Omit to run provider-side
+# checks only. Locally: tsh proxy db newapi-pg --db-user reader --port 15432 --tunnel
+# targetDb:
+#   url: postgres://reader@127.0.0.1:15432/newapi
+# Public egress addresses of the gateway; upstream rows from any other ip are flagged.
+# targetEgressIps: ["203.0.113.10", "203.0.113.11"]
 blacklist:
   - kiro
   - nsfw

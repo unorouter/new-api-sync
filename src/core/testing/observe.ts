@@ -10,6 +10,7 @@
  * Findings land in logs/observe-<date>.jsonl, one line per lane.
  */
 
+import { recordProbeRequestId } from "./probe-ids";
 import { checkThinkingSignature } from "ai-model-verifier/detectors/thinking-signature";
 import { checkTokenTruth } from "ai-model-verifier/detectors/token-truth";
 import { readResponseMetadata } from "ai-model-verifier/detectors/response-metadata";
@@ -32,6 +33,7 @@ export const verifierTransport = async (args: {
       body: JSON.stringify(args.reqBody),
       signal: AbortSignal.timeout(args.timeoutMs),
     });
+    recordProbeRequestId(res.headers, new URL(args.url).host);
     return {
       status: res.status,
       data: await res.json().catch(() => null),

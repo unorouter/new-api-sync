@@ -8,6 +8,7 @@ import { fetchBasellmEntries } from "@core/catalog/metadata";
 import { fetchAllPricingSources } from "@core/pricing/resolver";
 import { resolveCanonicalByVote } from "@core/pricing/vote";
 import { checkBalances, printBalanceSummary } from "@core/sync/balance";
+import { printReconcileSummary, runReconcile } from "@core/sync/reconcile/run";
 import { printMetadataSummary, runMetadataSync } from "@core/sync/metadata";
 import { runReset } from "@core/sync/reset";
 import { printResetSummary, printRunSummary, runSync } from "@core/sync/run";
@@ -157,6 +158,40 @@ program
       const result = await checkBalances(config);
       if (options.json) console.log(JSON.stringify(result, null, 2));
       else printBalanceSummary(result);
+    },
+  );
+
+program
+  .command("reconcile")
+  .description(t("CLI.COMMAND.RECONCILE_DESC"))
+  .option("-c, --config <path>", t("CLI.OPTION.CONFIG_PATH"))
+  .option(
+    "--only <providers>",
+    t("CLI.OPTION.ONLY_PROVIDERS"),
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[],
+  )
+  .option("--since <duration>", t("CLI.OPTION.SINCE"), "24h")
+  .option("--json", t("CLI.OPTION.RECONCILE_JSON"))
+  .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
+  .action(
+    async (options: {
+      config?: string;
+      only: string[];
+      since: string;
+      json?: boolean;
+      verbose?: boolean;
+    }) => {
+      if (options.verbose) consola.level = 4;
+      if (options.json) consola.level = 0;
+      const config = applyOnlyProviders(
+        await loadConfig(options.config),
+        options.only,
+      );
+      const result = await runReconcile(config, { since: options.since });
+      if (options.json) console.log(JSON.stringify(result, null, 2));
+      else printReconcileSummary(result);
+      if (result.verdict === "leak") process.exitCode = 1;
     },
   );
 
