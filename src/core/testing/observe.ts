@@ -1,3 +1,4 @@
+import { paceUpstreamRequest } from "@core/infra/concurrency";
 /**
  * Observe-mode evidence collection for Claude lanes.
  *
@@ -27,6 +28,7 @@ export const verifierTransport = async (args: {
   timeoutMs: number;
 }) => {
   try {
+    await paceUpstreamRequest(args.url);
     const res = await fetch(args.url, {
       method: "POST",
       headers: args.headers,

@@ -95,10 +95,10 @@ spec:
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
-      # A normal night is 20 to 35 minutes; a throttled marketplace (paced
-      # key reveal and pin calls) stretches it past 45. One hour still does
-      # not cover a hung run.
-      activeDeadlineSeconds: 5400
+      # With 6 lanes per model and no probe budget a full walk takes 90 to
+      # 95 minutes (2026-09-13: 5646 s, killed at 5400 after it had already
+      # applied). Two hours; the metadata cron skips 22:00 to 23:59 Berlin.
+      activeDeadlineSeconds: 7200
       # NEVER retry: a second full a7 run minutes after a failed one exhausts
       # a7's rate budget (429 on key reveal and pin), the throttle guard then
       # withholds deletes and the retry fails too (2026-09-06, twice).
