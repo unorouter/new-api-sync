@@ -13,6 +13,7 @@ import type {
   ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
+import { resolveBasePricing } from "@core/pricing/resolver";
 import { resolveCanonicalByVote } from "@core/pricing/vote";
 import { testAndFilterModels } from "@core/testing/runner";
 import type { MergedGroup, ProviderReport } from "@core/types";
@@ -55,10 +56,23 @@ function canonicalVote(
   ctx: ProviderRunContext,
 ): { modelRatio: number; completionRatio?: number } | undefined {
   const exposedName = (config.modelMapping?.[model] ?? model).toLowerCase();
-  return (
-    resolveCanonicalByVote(exposedName, ctx.pricingSources, ctx.reverseMapping)
-      .cluster ?? undefined
+  const cluster = resolveCanonicalByVote(
+    exposedName,
+    ctx.pricingSources,
+    ctx.reverseMapping,
+  ).cluster;
+  if (cluster) return cluster;
+  // Same fallback as compute's sticker: a failed vote left this undefined, so
+  // the sell ceiling never applied and a merchant repricing itself to 32x list
+  // sailed through at cost x profitMultiple.
+  const hit = resolveBasePricing(
+    exposedName,
+    ctx.pricingSources,
+    ctx.reverseMapping,
   );
+  return hit
+    ? { modelRatio: hit.modelRatio, completionRatio: hit.completionRatio }
+    : undefined;
 }
 
 function canonicalListUsdFor(
