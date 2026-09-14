@@ -239,10 +239,15 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
     maxOutputTokens: 512,
   },
   "qwen3-reranker-0.6b": { releaseDate: iso("2025-06-05") },
+  "jina-embedding-b-en-v1": {
+    releaseDate: iso("2023-06-17"),
+    mode: "embedding",
+  },
   "qwen3-reranker-8b": { releaseDate: iso("2025-06-05") },
-  "whisper-large-v3": { releaseDate: iso("2023-11-07") },
+  "whisper-large-v3": { releaseDate: iso("2023-11-06") },
   "flux.1-schnell": { releaseDate: iso("2024-08-01") },
-  "flux-1.1-pro": { releaseDate: iso("2024-10-01") },
+  "sdxl-lightning": { releaseDate: iso("2024-02-20"), mode: "image" },
+  "flux-1.1-pro": { releaseDate: iso("2024-10-02") },
   "bge-reranker-v2-m3": { releaseDate: iso("2024-03-18") },
   "rerank-v3.5": { releaseDate: iso("2024-12-02") },
   "gpt-oss-120b": { releaseDate: iso("2025-08-05") },
@@ -1188,6 +1193,63 @@ const CURATED: Record<string, SourceMetadata> = {
     contextWindow: 8_192,
     series: "Manta",
   },
+  // IBM Granite 4.1 (research.ibm.com/blog/granite-4-1-ai-foundation-models)
+  "granite-4.1-8b": {
+    releaseDate: iso("2026-04-29"),
+    series: "Granite",
+    supportsTools: true,
+    description:
+      "IBM Granite 4.1 instruct model with 8 billion parameters, text only, with tool calling.",
+  },
+  // Nous Research Hermes 4 (huggingface.co/NousResearch/Hermes-4-70B)
+  "hermes-4-70b": {
+    releaseDate: iso("2025-08-18"),
+    contextWindow: 131_072,
+    series: "Hermes",
+    isReasoning: true,
+    supportsTools: true,
+    description:
+      "Nous Research hybrid reasoning model of 70B parameters, fine tuned from Llama 3.1 70B, with tool calling.",
+  },
+  // InclusionAI Ling and Ring 2.6 (huggingface.co/inclusionAI)
+  "ling-2.6-flash": {
+    releaseDate: iso("2026-04-28"),
+    contextWindow: 262_144,
+    series: "Ling",
+    supportsTools: true,
+    description:
+      "InclusionAI mixture of experts model, 104B total and 7.4B active parameters, tuned for agentic tool use.",
+  },
+  "ring-2.6-1t": {
+    releaseDate: iso("2026-05-14"),
+    contextWindow: 262_144,
+    series: "Ring",
+    isReasoning: true,
+    supportsTools: true,
+    description:
+      "InclusionAI mixture of experts reasoning model, 1T total and 63B active parameters, with adjustable reasoning effort.",
+  },
+  // NVIDIA Nemotron 3.5 Lightning, the vendor prefixed id Weights and Biases publishes.
+  "nvidia-nemotron-3.5-lightning-30b-a3b": {
+    releaseDate: iso("2026-08-01"),
+    contextWindow: 1_000_000,
+    series: "Nemotron",
+    isReasoning: true,
+    supportsTools: true,
+    description:
+      "NVIDIA hybrid Mamba 2 and mixture of experts model, 30B total and 3B active parameters, with a 1M token context.",
+  },
+  // Shanghai AI Lab Intern S2 (huggingface.co/internlm/Intern-S2-397B)
+  "intern-s2": {
+    releaseDate: iso("2026-09-13"),
+    contextWindow: 262_144,
+    series: "InternLM",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+    description:
+      "Shanghai AI Lab multimodal mixture of experts model of about 397B parameters, successor to Intern S1.",
+  },
   // Nex AGI N2 (MoE 397B/17B on Qwen3.5)
   "nex-n2-pro": {
     releaseDate: iso("2026-06-08"),
@@ -1206,6 +1268,29 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsVision: true,
     supportsTools: true,
+  },
+  // Nex AGI N2.5, both sizes announced together (huggingface.co/nex-agi).
+  "nex-n2.5-pro": {
+    releaseDate: iso("2026-09-08"),
+    contextWindow: 262_144,
+    maxOutputTokens: 235_929,
+    series: "Nex N2",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+    description:
+      "Nex AGI open weight multimodal MoE (397B total, 17B active) for agentic coding, computer use and browsing.",
+  },
+  "nex-n2.5-mini": {
+    releaseDate: iso("2026-09-08"),
+    contextWindow: 262_144,
+    maxOutputTokens: 235_929,
+    series: "Nex N2",
+    isReasoning: true,
+    supportsVision: true,
+    supportsTools: true,
+    description:
+      "Nex AGI open weight multimodal MoE (35B total, 3B active) for agentic coding, computer use and browsing.",
   },
   // Cohere North-Mini-Code
   "north-mini-code": {
@@ -1840,6 +1925,52 @@ const CURATED: Record<string, SourceMetadata> = {
   "lucid-origin": { releaseDate: iso("2025-08-05"), mode: "image" },
   "phoenix-1.0": { releaseDate: iso("2024-08-15"), mode: "image" },
 
+  // Tencent Hunyuan3D Studio pipeline stages (arxiv.org/abs/2509.12815). Each id
+  // is one named module of that paper; hy-3d-texture ships from the earlier
+  // Hunyuan3D-2.1 repo instead, so it keeps its own date.
+  "hy-3d-component": {
+    releaseDate: iso("2025-09-16"),
+    series: "Hunyuan 3D",
+    mode: "image",
+    description:
+      "Decomposes a 3D mesh into functional parts, the P3-SAM and X-Part stage of Tencent Hunyuan3D Studio.",
+  },
+  "hy-3d-retopology": {
+    releaseDate: iso("2025-09-16"),
+    series: "Hunyuan 3D",
+    mode: "image",
+    description:
+      "Retopologizes a high fidelity mesh into game ready polygons, the PolyGen stage of Tencent Hunyuan3D Studio.",
+  },
+  "hy-3d-rigging": {
+    releaseDate: iso("2025-09-16"),
+    series: "Hunyuan 3D",
+    mode: "image",
+    description:
+      "Infers joints and bone hierarchy to auto rig a mesh for animation, part of Tencent Hunyuan3D Studio.",
+  },
+  "hy-3d-uv": {
+    releaseDate: iso("2025-09-16"),
+    series: "Hunyuan 3D",
+    mode: "image",
+    description:
+      "Unwraps a mesh UV layout with material grouped seam placement, the SeamGPT stage of Tencent Hunyuan3D Studio.",
+  },
+  "hy-3d-format": {
+    releaseDate: iso("2025-09-16"),
+    series: "Hunyuan 3D",
+    mode: "image",
+    description:
+      "Exports a generated 3D asset for a target game engine, the packaging stage of Tencent Hunyuan3D Studio.",
+  },
+  "hy-3d-texture": {
+    releaseDate: iso("2025-06-14"),
+    series: "Hunyuan 3D",
+    mode: "image",
+    description:
+      "Generates physically based texture maps for a 3D mesh, Tencent Hunyuan3D-Paint-v2-1 from the Hunyuan3D-2.1 release.",
+  },
+
   // ─── Video-gen models (dates = public launch; suffix is snapshot code) ───
   "doubao-seedance-1-5-pro-251215": {
     releaseDate: iso("2025-12-16"),
@@ -1944,6 +2075,15 @@ const CURATED: Record<string, SourceMetadata> = {
   "MiniMax-Hailuo-2.3": { releaseDate: iso("2025-10-28"), mode: "video" },
   // Shengshu Vidu Q3
   viduq3: { releaseDate: iso("2026-02-20"), mode: "video" },
+  // Google Gemini Omni 1.1 Flash: video generation, editing, keyframe
+  // interpolation and extension with native audio (ai.google.dev model list).
+  "gemini-omni-1.1-flash": {
+    releaseDate: iso("2026-08-27"),
+    series: "Gemini",
+    mode: "video",
+    description:
+      "Google video generation and editing model with keyframe interpolation, scene extension and native audio.",
+  },
 
   // ─── Audio models (TTS / STT; no context window) ───
   // OpenAI Whisper (whisper-1 = hosted API on large-v2, Mar 2023 launch)
@@ -1965,6 +2105,60 @@ const CURATED: Record<string, SourceMetadata> = {
   eleven_flash_v2_5: { releaseDate: iso("2024-10-28"), mode: "audio" },
   eleven_v3: { releaseDate: iso("2025-06-05"), mode: "audio" },
   scribe_v1: { releaseDate: iso("2025-02-27"), mode: "audio" },
+  // Google Gemini 3.5 Transcribe: speech to text with diarization and word
+  // timestamps; the -live id is the low latency streaming variant.
+  "gemini-3.5-transcribe": {
+    releaseDate: iso("2026-08-26"),
+    series: "Gemini",
+    mode: "audio",
+    description:
+      "Google speech to text model with utterance level language detection, speaker diarization and word timestamps.",
+  },
+  "gemini-3.5-transcribe-live": {
+    releaseDate: iso("2026-08-26"),
+    series: "Gemini",
+    mode: "audio",
+    description:
+      "Streaming variant of Gemini 3.5 Transcribe for low latency speech to text.",
+  },
+  // Google Lyria 3.5 music generation (Lyria 3 entries sit with the 2026 dates above).
+  "lyria-3.5": {
+    releaseDate: iso("2026-07-29"),
+    series: "Lyria",
+    mode: "audio",
+    description:
+      "Google DeepMind music generation model for full length songs with vocals and structural coherence.",
+  },
+  // Deepgram Nova 3 (developers.deepgram.com/changelog/2025/2/12) and Aura 1.
+  "nova-3": {
+    releaseDate: iso("2025-02-12"),
+    series: "Nova",
+    mode: "audio",
+    description:
+      "Deepgram speech to text model with real time multilingual transcription, keyterm prompting and entity redaction.",
+  },
+  "aura-1": {
+    releaseDate: iso("2024-03-12"),
+    series: "Aura",
+    mode: "audio",
+    description:
+      "Deepgram first generation text to speech model for low latency conversational voice agents.",
+  },
+  // OpenAI Whisper open weights (the hosted whisper-1 sits below).
+  whisper: {
+    releaseDate: iso("2022-09-21"),
+    series: "Whisper",
+    mode: "audio",
+    description:
+      "OpenAI open source speech recognition model, released with tiny, base, small, medium and large checkpoints.",
+  },
+  "whisper-tiny-en": {
+    releaseDate: iso("2022-09-21"),
+    series: "Whisper",
+    mode: "audio",
+    description:
+      "The 39 million parameter English only tiny checkpoint from OpenAI original Whisper release.",
+  },
   // OpenAI TTS (DevDay launch)
   "tts-1": { releaseDate: iso("2023-11-06"), mode: "audio" },
   "tts-1-hd": { releaseDate: iso("2023-11-06"), mode: "audio" },
@@ -1979,7 +2173,7 @@ const CURATED: Record<string, SourceMetadata> = {
   // ElevenLabs (Eleven Multilingual v2 GA)
   elevenlabs: { releaseDate: iso("2023-08-22"), mode: "audio" },
   // MyShell MeloTTS (earliest public tag; approximate)
-  melotts: { releaseDate: iso("2024-02-29"), mode: "audio" },
+  melotts: { releaseDate: iso("2024-03-01"), mode: "audio" },
   // Speechify SIMBA flagship (speechify-turbo date unpublished, left blank)
   speechify: { releaseDate: iso("2026-02-19"), mode: "audio" },
 
