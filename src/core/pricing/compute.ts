@@ -251,10 +251,11 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
     }
 
     const canonicalRatio = canonical.get(model);
-    const rawSourceHit =
-      canonicalRatio !== undefined && pricingSources.length > 0
+    const listHit =
+      pricingSources.length > 0
         ? resolveBasePricing(model, pricingSources, reverseMapping)
         : undefined;
+    const rawSourceHit = canonicalRatio !== undefined ? listHit : undefined;
     const sourceHit =
       rawSourceHit !== undefined &&
       canonicalRatio !== undefined &&
@@ -310,11 +311,30 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       completionRatio = sourceHit.completionRatio;
       cacheRatio = sourceHit.cacheRatio;
       createCacheRatio = sourceHit.createCacheRatio;
-    } else if (canonicalRatio !== undefined || co) {
-      writtenRatio = canonicalRatio ?? co!.upstreamRatio!;
+    } else if (canonicalRatio !== undefined) {
+      writtenRatio = canonicalRatio;
       completionRatio = co?.upstreamCompletionRatio ?? 1;
       cacheRatio = co?.cacheRatio;
       createCacheRatio = co?.createCacheRatio;
+    } else if (listHit) {
+      // No majority means the sources disagree past rounding, not that nobody
+      // knows the list. The top source still beats the next fallback, the
+      // cheapest lane's own cost: that wrote glm-5.3 at 0.003 off a $0.006/M
+      // merchant against a $1.26/M list, and every other lane then read as an
+      // 8x to 700x markup while retail never moved.
+      writtenRatio = listHit.modelRatio;
+      completionRatio = listHit.completionRatio;
+      cacheRatio = listHit.cacheRatio;
+      createCacheRatio = listHit.createCacheRatio;
+    } else if (existing && existing.ratio > 0) {
+      // Unpriced by every source: keep the stored sticker rather than re-basing
+      // to whichever merchant is cheapest today.
+      continue;
+    } else if (co) {
+      writtenRatio = co.upstreamRatio!;
+      completionRatio = co.upstreamCompletionRatio ?? 1;
+      cacheRatio = co.cacheRatio;
+      createCacheRatio = co.createCacheRatio;
     } else {
       if (existing) continue;
       const allFree = occurrences.every((o) => o.model.isFree);
