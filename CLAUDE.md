@@ -159,7 +159,7 @@ is the object `new-api-sync/verdict-cache.json` in bucket `unorouter-sync` behin
 `sync run` merges the object in at start and pushes at end (union by key, newest stamp wins, a fail
 always survives); artifacts mirror to `artifacts/`. Functional passes expire after 7 days (jittered
 2), functional fails after 24 hours, or 2 hours when the fail was a 429, 5xx or timeout (a dead merchant is re-probed once a day, not once a run),
-authenticity passes after 12 hours (`authenticityPassTtlHours` per provider overrides it, a7 uses 6), and the `metadata` cron re-probes live a7 Claude lanes whose
+authenticity passes after 12 hours (`authenticityPassTtlHours` per provider overrides it, a7 uses 4 so every 6-hourly walk re-probes), and the `metadata` cron re-probes live a7 Claude lanes whose
 pass is stale (`vendors/a7/reverify.ts`, disables the channel on a fail). Every authenticity
 outcome is appended to `verdict-history.jsonl` beside the cache. Every Claude probe also measures
 the verifier's tokenizer fingerprint (input-token delta for a fixed text, `tokenizerDelta` on the
