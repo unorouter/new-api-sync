@@ -148,3 +148,13 @@ channelParamOverride:
       - { path: temperature, mode: delete }
       - { path: frequency_penalty, mode: delete }
       - { path: presence_penalty, mode: delete }
+  # duck's grok rejects reasoning_effort none with invalid-argument; other values
+  # pass, so the field is dropped only when it is exactly none.
+  - channels:
+      - "Grok-Build-duck-grok-4.5"
+      - "Grok-Build-duck-grok-4.6"
+    operations:
+      - path: reasoning_effort
+        mode: delete
+        conditions:
+          - { path: reasoning_effort, mode: full, value: "none" }
