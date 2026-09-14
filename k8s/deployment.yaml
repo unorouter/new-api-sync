@@ -7,10 +7,10 @@ metadata:
   name: new-api-sync
   namespace: services
 spec:
-  # Skips hours 22 and 23: the nightly full a7 run starts 22:00 Europe/Berlin
-  # and may take up to 60 min under a7 throttling; both jobs accept a7 price
-  # notices and share its rate budget.
-  schedule: "*/15 0-21 * * *"
+  # Skips the two hours after each full a7 run (04, 10, 16, 22 Europe/Berlin):
+  # a full walk takes up to two hours under a7 throttling; both jobs accept a7
+  # price notices and share its rate budget.
+  schedule: "*/15 0-3,6-9,12-15,18-21 * * *"
   timeZone: "Europe/Berlin"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 600
@@ -87,7 +87,10 @@ metadata:
   name: new-api-sync-full
   namespace: services
 spec:
-  schedule: "0 22 * * *"
+  # Four walks a day: a7 merchants swap backends behind a listing within hours
+  # (383 went opus to haiku 20 h after a clean probe), and the authenticity pass
+  # for a7 expires after 6 h (authenticityPassTtlHours), so each walk re-probes.
+  schedule: "0 4,10,16,22 * * *"
   timeZone: "Europe/Berlin"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 3600
@@ -97,7 +100,7 @@ spec:
     spec:
       # With 6 lanes per model and no probe budget a full walk takes 90 to
       # 95 minutes (2026-09-13: 5646 s, killed at 5400 after it had already
-      # applied). Two hours; the metadata cron skips 22:00 to 23:59 Berlin.
+      # applied). Two hours; the metadata cron skips the two hours after each start.
       activeDeadlineSeconds: 7200
       # NEVER retry: a second full a7 run minutes after a failed one exhausts
       # a7's rate budget (429 on key reveal and pin), the throttle guard then

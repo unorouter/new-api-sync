@@ -38,8 +38,10 @@ function recordAuthenticityPass(key: string): void {
 export const isAuthenticityBlacklisted = (key: string): boolean =>
   getVerdict(key)?.authenticity === "fail";
 
-export const isAuthenticityPassCached = (key: string): boolean =>
-  isAuthenticityPassFresh(getVerdict(key));
+export const isAuthenticityPassCached = (
+  key: string,
+  baseUrl?: string,
+): boolean => isAuthenticityPassFresh(getVerdict(key), baseUrl);
 
 const CODING_TOOL_REFUSAL_PATTERNS = [
   "assist with development",

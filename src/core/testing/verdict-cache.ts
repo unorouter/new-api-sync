@@ -6,6 +6,7 @@ import { consola } from "consola";
 import { join } from "path";
 import { t } from "@server/i18n";
 import type { VerdictStore } from "@core/infra/verdict-store";
+import { hostOf } from "@core/infra/concurrency";
 
 // ONE universal PERMANENT verdict file for every model+group pair: general test
 // verdicts (http/stream/tool) AND claude authenticity. Key: `${provider}|${model}`
@@ -106,12 +107,32 @@ export function mergeVerdicts(
 
 export const AUTHENTICITY_PASS_TTL_HOURS = 12;
 
+// Per-upstream override (provider authenticityPassTtlHours), keyed by host.
+const authenticityPassTtlByHost = new Map<string, number>();
+
+export function setAuthenticityPassTtlByHost(
+  entries: Map<string, number>,
+): void {
+  authenticityPassTtlByHost.clear();
+  for (const [url, hours] of entries)
+    authenticityPassTtlByHost.set(hostOf(url), hours);
+}
+
+export function authenticityPassTtlHours(baseUrl?: string): number {
+  if (!baseUrl) return AUTHENTICITY_PASS_TTL_HOURS;
+  return (
+    authenticityPassTtlByHost.get(hostOf(baseUrl)) ??
+    AUTHENTICITY_PASS_TTL_HOURS
+  );
+}
+
 export function isAuthenticityPassFresh(
   entry: VerdictEntry | undefined,
+  baseUrl?: string,
 ): boolean {
   if (entry?.authenticity !== "pass" || !entry.verifiedAt) return false;
   const age = Date.now() - Date.parse(entry.verifiedAt);
-  return age < AUTHENTICITY_PASS_TTL_HOURS * 60 * 60 * 1000;
+  return age < authenticityPassTtlHours(baseUrl) * 60 * 60 * 1000;
 }
 
 // Every authenticity outcome, applied or not, appended to logs/verdict-history.jsonl

@@ -16,6 +16,7 @@ import { computePricedPlan } from "@core/pricing/compute";
 import { emitChannels } from "@core/pricing/emit";
 import { fetchAllPricingSources } from "@core/pricing/resolver";
 import { ConcurrencyGate, setConcurrencyGate } from "@core/infra/concurrency";
+import { setAuthenticityPassTtlByHost } from "@core/testing/verdict-cache";
 import type {
   DesiredState,
   ManagedOptionMaps,
@@ -163,6 +164,7 @@ async function buildDesiredState(
 ): Promise<{ desired: DesiredState; providerReports: ProviderReport[] }> {
   const overrides = new Map<string, number>();
   const rpmOverrides = new Map<string, number>();
+  const authenticityTtlOverrides = new Map<string, number>();
   const autoTestIntervalByProvider = new Map<string, number>();
   const autoTestIntervalMaxByProvider = new Map<string, number>();
   const headerOverrideByProvider = new Map<string, string>();
@@ -179,6 +181,8 @@ async function buildDesiredState(
       overrides.set(p.baseUrl, p.perUpstreamConcurrency);
     if ("baseUrl" in p && p.baseUrl && p.perUpstreamRpm)
       rpmOverrides.set(p.baseUrl, p.perUpstreamRpm);
+    if ("baseUrl" in p && p.baseUrl && p.authenticityPassTtlHours)
+      authenticityTtlOverrides.set(p.baseUrl, p.authenticityPassTtlHours);
     if ("autoTestIntervalMinutes" in p && p.autoTestIntervalMinutes)
       autoTestIntervalByProvider.set(p.name, p.autoTestIntervalMinutes);
     if ("autoTestIntervalMaxMinutes" in p && p.autoTestIntervalMaxMinutes)
@@ -202,6 +206,7 @@ async function buildDesiredState(
       rpmOverrides,
     }),
   );
+  setAuthenticityPassTtlByHost(authenticityTtlOverrides);
 
   const managedProviders = new Set(config.providers.map((p) => p.name));
   const baseline = await buildBaseline({
