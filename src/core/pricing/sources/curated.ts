@@ -246,6 +246,14 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   "qwen3-reranker-8b": { releaseDate: iso("2025-06-05") },
   "whisper-large-v3": { releaseDate: iso("2023-11-06") },
   "flux.1-schnell": { releaseDate: iso("2024-08-01") },
+  // Cloudflare Workers AI publishes FLUX.1 [schnell] under the bare id "flux".
+  flux: {
+    releaseDate: iso("2024-08-01"),
+    series: "FLUX",
+    mode: "image",
+    description:
+      "FLUX.1 [schnell], Black Forest Labs 12 billion parameter Apache 2.0 text to image model.",
+  },
   "sdxl-lightning": { releaseDate: iso("2024-02-20"), mode: "image" },
   "flux-1.1-pro": { releaseDate: iso("2024-10-02") },
   "bge-reranker-v2-m3": { releaseDate: iso("2024-03-18") },
