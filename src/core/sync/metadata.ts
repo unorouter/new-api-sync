@@ -47,6 +47,7 @@ import {
 import type { RuntimeConfig } from "@core/config";
 import { VerdictStore } from "@core/infra/verdict-store";
 import { flushProbeIds } from "@core/testing/probe-ids";
+import { flushAllLaneKeys, loadLaneKeys } from "@core/infra/lane-keys";
 import {
   loadVerdictCache,
   pushVerdictCache,
@@ -897,11 +898,16 @@ async function reverifyClaudeLanes(
     ? new VerdictStore(config.verdictStore)
     : null;
   await loadVerdictCache(verdicts ?? undefined);
+  await loadLaneKeys(
+    verdicts ?? undefined,
+    a7Providers.map((p) => p.name),
+  );
   const liveChannels = await target.listChannels();
   for (const p of a7Providers) {
     const r = await reverifyLiveClaudeLanes(p, config, target, liveChannels);
     consola.info(t("CORE.REVERIFY.SUMMARY", { provider: p.name, ...r }));
   }
+  await flushAllLaneKeys();
   if (verdicts) await pushVerdictCache(verdicts);
   else saveVerdictCache();
   await flushProbeIds(verdicts);

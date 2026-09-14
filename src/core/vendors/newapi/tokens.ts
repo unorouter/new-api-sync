@@ -1,6 +1,12 @@
 import { fetchJson, tryFetchJson } from "@core/infra/http";
 import { throwIfRunAborted } from "@core/infra/abort";
 import { getConcurrencyGate } from "@core/infra/concurrency";
+import {
+  getLaneKey,
+  flushLaneKeys,
+  pruneLaneKeys,
+  putLaneKey,
+} from "@core/infra/lane-keys";
 import type { GroupInfo } from "@core/types";
 import { PAGINATION } from "@core/types";
 import { t } from "@server/i18n";
@@ -211,7 +217,7 @@ export async function ensureTokens(
   ctx: ClientContext,
   groups: GroupInfo[],
   prefix: string,
-  options?: { skipCleanup?: boolean },
+  options?: { skipCleanup?: boolean; evict?: Set<string> },
 ): Promise<{
   tokens: Record<string, string>;
   created: number;
@@ -224,6 +230,7 @@ export async function ensureTokens(
     deleted = 0;
   const existingTokens = await listTokens(ctx);
   const tokensByName = new Map(existingTokens.map((t) => [t.name, t]));
+  pruneLaneKeys(ctx.name, new Set(existingTokens.map((t) => t.id)));
 
   const suffix = `-${prefix}`;
   const encoder = new TextEncoder();
@@ -279,9 +286,24 @@ export async function ensureTokens(
       continue;
     }
     if (existingToken.key.includes("**")) {
-      existingNeedingReveal.push({ group, token: existingToken });
+      const held = options?.evict?.has(tokenName)
+        ? undefined
+        : getLaneKey(ctx.name, existingToken.id, tokenName);
+      if (held) {
+        result[group.name] = normalizeKey(held);
+        existing++;
+      } else {
+        existingNeedingReveal.push({ group, token: existingToken });
+      }
     } else {
       result[group.name] = normalizeKey(existingToken.key);
+      putLaneKey(
+        ctx.name,
+        existingToken.id,
+        tokenName,
+        normalizeKey(existingToken.key),
+        "listed",
+      );
       existing++;
     }
   }
@@ -311,12 +333,20 @@ export async function ensureTokens(
         continue;
       }
       result[entry.group.name] = normalizeKey(fullKey);
+      putLaneKey(
+        ctx.name,
+        entry.token.id,
+        entry.token.name,
+        normalizeKey(fullKey),
+      );
       existing++;
     }
   }
 
-  if (groupsAwaitingCreate.length === 0)
+  if (groupsAwaitingCreate.length === 0) {
+    await flushLaneKeys(ctx.name);
     return { tokens: result, created, existing, deleted };
+  }
 
   // Throttle creates to 2; gate.run so they count toward the global cap, not bypass it.
   const createLimit = pLimit(2);
@@ -368,6 +398,13 @@ export async function ensureTokens(
         newTokensNeedingReveal.push({ entry, token: newToken });
       } else {
         result[entry.group.name] = normalizeKey(newToken.key);
+        putLaneKey(
+          ctx.name,
+          newToken.id,
+          newToken.name,
+          normalizeKey(newToken.key),
+          "listed",
+        );
       }
     }
     if (newTokensNeedingReveal.length > 0) {
@@ -381,9 +418,16 @@ export async function ensureTokens(
           continue;
         }
         result[item.entry.group.name] = normalizeKey(fullKey);
+        putLaneKey(
+          ctx.name,
+          item.token.id,
+          item.token.name,
+          normalizeKey(fullKey),
+        );
       }
     }
   }
 
+  await flushLaneKeys(ctx.name);
   return { tokens: result, created, existing, deleted };
 }

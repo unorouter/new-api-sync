@@ -39,6 +39,9 @@ export interface VerdictEntry {
   failedAt?: string;
   // Fail came from a 429, 5xx or timeout: retried after TEST_FAIL_TRANSIENT_TTL_HOURS.
   failTransient?: boolean;
+  // A fail withdrawn by clearTestFail. Stamped so the merge does not resurrect
+  // the store's copy of the fail, whose failedAt would otherwise be newest.
+  failClearedAt?: string;
   since: string;
 }
 
@@ -77,7 +80,13 @@ export function isTestPassFresh(entry: VerdictEntry | undefined): boolean {
 }
 
 const stampOf = (e: VerdictEntry): string =>
-  [e.testedAt ?? "", e.verifiedAt ?? "", e.failedAt ?? "", e.since]
+  [
+    e.testedAt ?? "",
+    e.verifiedAt ?? "",
+    e.failedAt ?? "",
+    e.failClearedAt ?? "",
+    e.since,
+  ]
     .sort()
     .at(-1) ?? "";
 
@@ -381,6 +390,7 @@ export function recordTestVerdict(opts: {
     delete entry.success;
     delete entry.streamSuccess;
     entry.failedAt = new Date().toISOString();
+    delete entry.failClearedAt;
     if (opts.transientFail) entry.failTransient = true;
     else delete entry.failTransient;
   }
@@ -395,6 +405,17 @@ export function recordTestVerdict(opts: {
     entry.authenticity !== undefined;
   if (hasEvidence) cache.set(opts.key, entry);
   else cache.delete(opts.key);
+  persist();
+}
+
+// A fail caused by a stale cached lane key is not a merchant verdict; the
+// caller re-keys and re-probes, and that probe records the real outcome.
+export function clearTestFail(key: string): void {
+  const entry = cache.get(key);
+  if (!entry?.failedAt) return;
+  delete entry.failedAt;
+  delete entry.failTransient;
+  entry.failClearedAt = new Date().toISOString();
   persist();
 }
 

@@ -16,6 +16,9 @@ import type {
 import { resolveBasePricing } from "@core/pricing/resolver";
 import { resolveCanonicalByVote } from "@core/pricing/vote";
 import { testAndFilterModels } from "@core/testing/runner";
+import { clearTestFail } from "@core/testing/verdict-cache";
+import { evictLaneKey, laneKeyStats } from "@core/infra/lane-keys";
+import { parseDisableReason } from "@core/vendors/newapi/disable-reason";
 import type { MergedGroup, ProviderReport } from "@core/types";
 import type { A7ProviderConfig } from "@core/validations/config";
 import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
@@ -34,6 +37,7 @@ import {
   cleanupStaleLaneTokens,
   ensureLaneTokens,
   ensurePins,
+  laneNameFromChannel,
   laneTokenName,
   type MerchantLane,
 } from "./pins";
@@ -295,6 +299,27 @@ export async function processA7Provider(
       (config.modelFilter?.length ?? 0) > 0 ||
       (config.modelTypeFilter?.length ?? 0) > 0;
 
+    // A lane the gateway auto disabled for a credential fault holds a key that
+    // stopped working; drop it from the cache so this walk reveals it afresh.
+    if (!dryRun) {
+      const marketByExposed = new Map<string, string>();
+      for (const model of byModel.keys())
+        marketByExposed.set(
+          (config.modelMapping?.[model] ?? model).toLowerCase(),
+          model,
+        );
+      for (const ch of ctx.liveChannels ?? []) {
+        if (ch.tag !== name || ch.status !== 3 || !ch.group) continue;
+        const reason = parseDisableReason(ch.other_info);
+        if (!reason.credential) continue;
+        const laneName = laneNameFromChannel(ch, marketByExposed);
+        if (laneName && evictLaneKey(name, { name: laneName }, "gateway"))
+          consola.info(
+            `[${name}] cached key for ${laneName} evicted: gateway disabled it (${reason.reason.slice(0, 80)})`,
+          );
+      }
+    }
+
     // Bare base: the test runner and new-api channel types append /v1/... themselves.
     const baseUrl = provider.baseUrl.replace(/\/$/, "");
     const keptLanes: MerchantLane[] = [];
@@ -365,22 +390,66 @@ export async function processA7Provider(
         );
         // Probes run through the per-upstream gate; one lane per call, so
         // awaiting them in sequence made a 170-lane night take an hour.
+        const probeLane = (lane: MerchantLane, key: string) =>
+          testAndFilterModels({
+            allModels: [lane.model],
+            baseUrl,
+            apiKey: key,
+            channelType: CHANNEL_TYPES.OPENAI,
+            // Per-merchant label: the verdict cache is keyed provider|model,
+            // so a shared label would reuse one merchant's probe result (and
+            // authenticity blacklist) for every merchant of the model.
+            providerLabel: `${name}:${lane.listing.channel_id}`,
+            testableModelTypes: new Set(["text"]),
+            acceptRateLimited: provider.acceptRateLimited,
+          });
+        const rejectedStatus = (
+          verdict: Awaited<ReturnType<typeof probeLane>>,
+          model: string,
+        ) => {
+          const status = verdict.details?.find(
+            (d) => d.model === model,
+          )?.httpStatus;
+          return status === 401 || status === 403;
+        };
         const verdicts = await Promise.all(
-          probes.map(async (probe) => ({
-            probe,
-            verdict: await testAndFilterModels({
-              allModels: [probe.lane.model],
-              baseUrl,
-              apiKey: probe.key,
-              channelType: CHANNEL_TYPES.OPENAI,
-              // Per-merchant label: the verdict cache is keyed provider|model,
-              // so a shared label would reuse one merchant's probe result (and
-              // authenticity blacklist) for every merchant of the model.
-              providerLabel: `${name}:${probe.lane.listing.channel_id}`,
-              testableModelTypes: new Set(["text"]),
-              acceptRateLimited: provider.acceptRateLimited,
-            }),
-          })),
+          probes.map(async (probe) => {
+            let verdict = await probeLane(probe.lane, probe.key);
+            let key = probe.key;
+            const laneName = laneTokenName(probe.lane);
+            const token = tokens.get(laneName);
+            // A 401 on a cached key is the cache being stale, not the merchant:
+            // drop the key and the fail it just recorded, reveal, probe again.
+            if (
+              token?.cached &&
+              verdict.workingModels.length === 0 &&
+              rejectedStatus(verdict, probe.lane.model)
+            ) {
+              evictLaneKey(name, { name: laneName }, "probe");
+              clearTestFail(
+                `${name}:${probe.lane.listing.channel_id}|${probe.lane.model}`,
+              );
+              consola.warn(
+                `[${name}] cached key for ${laneName} evicted: probe answered ${verdict.details?.[0]?.httpStatus}`,
+              );
+              const fresh = await ensureLaneTokens(provider, [probe.lane], {
+                dryRun,
+                forceReveal: new Set([laneName]),
+              });
+              const reKeyed = fresh.get(laneName);
+              if (reKeyed) {
+                key = reKeyed.key;
+                probed++;
+                verdict = await probeLane(probe.lane, key);
+              }
+            }
+            if (
+              verdict.workingModels.length === 0 &&
+              rejectedStatus(verdict, probe.lane.model)
+            )
+              laneKeyStats(name).rejected++;
+            return { probe: { lane: probe.lane, key }, verdict };
+          }),
         );
         for (const { probe, verdict } of verdicts) {
           if (verdict.workingModels.length === 0) continue;
@@ -421,6 +490,11 @@ export async function processA7Provider(
     }
 
     consola.info(`[${name}] pins: +${pinsCreated} ~${pinsRepinned}`);
+    const keys = laneKeyStats(name);
+    report.laneKeys = { ...keys };
+    consola.info(
+      `[${name}] keys: ${keys.cached} cached, ${keys.revealed} revealed, ${keys.evictedProbe} evicted (probe), ${keys.evictedGateway} evicted (gateway), ${keys.rejected} rejected`,
+    );
     extraGroups = sweepLiveLanes(provider, config, ctx, byModel);
     report.groups = offers.length;
     report.models = new Set(keptLanes.map((l) => l.model)).size;

@@ -63,10 +63,12 @@ export interface ProviderRunContext {
   dryRun?: boolean;
   /** Target channels as of this run, for providers that reprice lanes they did not re-select. */
   liveChannels?: {
+    name?: string;
     tag?: string;
     group?: string;
     models: string;
     status?: number;
+    other_info?: string;
   }[];
 }
 

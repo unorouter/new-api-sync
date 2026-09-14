@@ -132,7 +132,7 @@ export class NewApiClient {
   ensureTokens = (
     groups: GroupInfo[],
     prefix: string,
-    options?: { skipCleanup?: boolean },
+    options?: { skipCleanup?: boolean; evict?: Set<string> },
   ) => ensureTokens(this.ctx, groups, prefix, options);
   findTokenByKey = (fullKey: string) => findTokenByKey(this.ctx, fullKey);
   updateGuestTokenModelLimits = (guestKey: string, modelLimits: string) =>

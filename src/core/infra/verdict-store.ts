@@ -17,6 +17,7 @@ export interface VerdictStoreConfig {
 const VERDICT_OBJECT = "verdict-cache.json";
 const HISTORY_OBJECT = "verdict-history.jsonl";
 const keysObject = (provider: string) => `openrouter-keys/${provider}.json.enc`;
+const laneKeysObject = (provider: string) => `lane-keys/${provider}.json.enc`;
 
 function cipherKey(hex: string): Buffer {
   if (!/^[0-9a-f]{64}$/i.test(hex))
@@ -138,6 +139,39 @@ export class VerdictStore {
       seal(JSON.stringify(Object.fromEntries(keys)), this.cipher),
       { type: "text/plain" },
     );
+  }
+
+  // Revealed lane token secrets (infra/lane-keys.ts), same cipher and the same
+  // refusal without one. One object per provider, like the OpenRouter map.
+  async fetchLaneKeys(provider: string): Promise<unknown | null> {
+    if (!this.cipher) return null;
+    const file = this.client.file(this.key(laneKeysObject(provider)));
+    if (!(await file.exists())) return null;
+    const parsed: unknown = JSON.parse(unseal(await file.text(), this.cipher));
+    return parsed;
+  }
+
+  async putLaneKeys(provider: string, entries: unknown): Promise<void> {
+    if (!this.cipher)
+      throw new Error(
+        "verdictStore.encryptionKey is not set, refusing to write key material",
+      );
+    await this.client.write(
+      this.key(laneKeysObject(provider)),
+      seal(JSON.stringify(entries), this.cipher),
+      { type: "text/plain" },
+    );
+  }
+
+  // The local working copy of the lane key cache is sealed with the same key.
+  sealText(plain: string): string {
+    if (!this.cipher) throw new Error("verdictStore.encryptionKey is not set");
+    return seal(plain, this.cipher);
+  }
+
+  unsealText(blob: string): string {
+    if (!this.cipher) throw new Error("verdictStore.encryptionKey is not set");
+    return unseal(blob, this.cipher);
   }
 
   // Plain text objects under the prefix, for stores other than the verdict
