@@ -154,7 +154,7 @@ function parsePricingV1(
   const groupEndpoints = new Map<string, Set<string>>();
   for (const model of data.data) {
     const endpoints = model.supported_endpoint_types ?? model.endpoints ?? [];
-    for (const group of model.enable_groups) {
+    for (const group of model.enable_groups ?? []) {
       if (!groupModels.has(group)) {
         groupModels.set(group, new Set());
         groupEndpoints.set(group, new Set());
@@ -191,7 +191,7 @@ function parsePricingV1(
       m.create_cache_ratio !== undefined && m.create_cache_ratio >= 0
         ? m.create_cache_ratio
         : undefined,
-    groups: m.enable_groups,
+    groups: m.enable_groups ?? [],
     vendorId: m.vendor_id,
     supportedEndpoints: m.supported_endpoint_types ?? m.endpoints ?? [],
     modelPrice:

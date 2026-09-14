@@ -7,10 +7,10 @@ metadata:
   name: new-api-sync
   namespace: services
 spec:
-  # Skips the two hours after each full a7 run (04, 10, 16, 22 Europe/Berlin):
-  # a full walk takes up to two hours under a7 throttling; both jobs accept a7
-  # price notices and share its rate budget.
-  schedule: "*/15 0-3,6-9,12-15,18-21 * * *"
+  # Skips the three hours after each full a7 run (04, 10, 16, 22 Europe/Berlin):
+  # a walk can take that long under a7's key reveal throttling, and both jobs
+  # accept a7 price notices and share its rate budget.
+  schedule: "*/15 1-3,7-9,13-15,19-21 * * *"
   timeZone: "Europe/Berlin"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 600
@@ -98,10 +98,11 @@ spec:
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
-      # With 6 lanes per model and no probe budget a full walk takes 90 to
-      # 95 minutes (2026-09-13: 5646 s, killed at 5400 after it had already
-      # applied). Two hours; the metadata cron skips the two hours after each start.
-      activeDeadlineSeconds: 7200
+      # A walk is dominated by a7's key reveal, not by probing: on 2026-09-14 the
+      # 108 minute run spent 94 minutes keying (five rounds of ~18 min each stuck
+      # behind 429 backoff) against 8 minutes of probes. Three hours leaves room
+      # for that plus the deeper lane sets; the metadata cron skips those hours.
+      activeDeadlineSeconds: 10800
       # NEVER retry: a second full a7 run minutes after a failed one exhausts
       # a7's rate budget (429 on key reveal and pin), the throttle guard then
       # withholds deletes and the retry fails too (2026-09-06, twice).

@@ -82,7 +82,8 @@ export interface PricingResponse {
     create_cache_ratio?: number;
     audio_ratio?: number | null;
     audio_completion_ratio?: number | null;
-    enable_groups: string[];
+    // Absent on some relays for rows that belong to no group (No.1 API ships 51).
+    enable_groups?: string[];
     supported_endpoint_types?: string[];
     endpoints?: string[];
     billing_mode?: string;
