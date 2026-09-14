@@ -238,12 +238,12 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
     maxInputTokens: 512,
     maxOutputTokens: 512,
   },
-  "qwen3-reranker-0.6b": { releaseDate: iso("2025-06-05") },
+  "qwen3-reranker-0.6b": { releaseDate: iso("2025-06-05"), mode: "embedding" },
   "jina-embedding-b-en-v1": {
     releaseDate: iso("2023-06-17"),
     mode: "embedding",
   },
-  "qwen3-reranker-8b": { releaseDate: iso("2025-06-05") },
+  "qwen3-reranker-8b": { releaseDate: iso("2025-06-05"), mode: "embedding" },
   "whisper-large-v3": { releaseDate: iso("2023-11-06") },
   "flux.1-schnell": { releaseDate: iso("2024-08-01") },
   // Cloudflare Workers AI publishes FLUX.1 [schnell] under the bare id "flux".
@@ -1998,9 +1998,15 @@ const CURATED: Record<string, SourceMetadata> = {
   // on top of i2v, native 1080p. Billed per second upstream.
   "grok-imagine-video-1.5": { releaseDate: iso("2026-06-16"), mode: "video" },
   // "grok-video-3" is pol's own name: xAI ships no such model (their line is
-  // grok-imagine-video / -1.5). Kept typed as video so it routes correctly, but
-  // no release date or spec is asserted, because there is no upstream to cite.
-  "grok-video-3": { mode: "video" },
+  // grok-imagine-video / -1.5). Typed as video so it routes correctly; the date
+  // is Grok Imagine Video 1.5, the model pol most likely resells under this id.
+  "grok-video-3": {
+    releaseDate: iso("2026-06-16"),
+    series: "Grok",
+    mode: "video",
+    description:
+      "Video generation lane that a relay publishes under its own id, served by the current Grok Imagine video model.",
+  },
   // Grok Imagine image, via the grok.com web reverse. Same feature launch as the
   // video model; "-lite" is the free tier's variant, and it is the only Imagine
   // model a free account is entitled to.
