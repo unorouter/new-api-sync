@@ -242,7 +242,24 @@ function collectCandidates(
     }
     models.push({ model, candidates, wanted, canonicalListUsd });
   }
-  return { models, skippedModels };
+  // Two marketplace names mapped to one published model (a lapsed promo name
+  // beside the live one) list the same merchants; a merchant kept under both
+  // would emit one channel name twice. First model wins the merchant.
+  const seen = new Map<string, Set<number>>();
+  for (const mc of models) {
+    const exposed = (config.modelMapping?.[mc.model] ?? mc.model).toLowerCase();
+    let taken = seen.get(exposed);
+    if (!taken) seen.set(exposed, (taken = new Set()));
+    mc.candidates = mc.candidates.filter((l) => {
+      if (taken.has(l.channel_id)) return false;
+      taken.add(l.channel_id);
+      return true;
+    });
+  }
+  return {
+    models: models.filter((mc) => mc.candidates.length > 0),
+    skippedModels,
+  };
 }
 
 export async function processA7Provider(
