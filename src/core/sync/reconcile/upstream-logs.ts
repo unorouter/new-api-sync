@@ -11,7 +11,7 @@ import type { SourceStatus, UpstreamLogRow } from "./types";
 const REQUESTED_PAGE_SIZE = 500;
 // One page at a time per account with a pause: a7 throttles the whole account
 // (key reveal, pins) when one endpoint is hammered.
-const PAGE_PAUSE_MS = 750;
+const PAGE_PAUSE_MS = 1500;
 // 429 backs off 5, 10, 20, 40, 80 s (or Retry-After) before a page is given up.
 const FETCH_OPTS = { timeoutMs: 30_000, retry: 5, retryDelayMs: 5000 };
 

@@ -54,7 +54,7 @@ export class ConcurrencyGate {
   }
 }
 
-function hostOf(url: string): string {
+export function hostOf(url: string): string {
   try {
     return new URL(url).host.toLowerCase();
   } catch {

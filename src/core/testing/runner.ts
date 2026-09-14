@@ -507,7 +507,8 @@ async function testModels(opts: {
           // A cached pass verdict means the 4 generative probes were already paid
           // for; trust it until the entry is manually pruned.
           authentic =
-            isAuthenticityPassCached(blacklistKey) && !fingerprintDrift
+            isAuthenticityPassCached(blacklistKey, opts.baseUrl) &&
+            !fingerprintDrift
               ? true
               : await testAnthropicAuthenticity({
                   baseUrl: opts.baseUrl,
@@ -531,7 +532,7 @@ async function testModels(opts: {
           !opts.skipAuthenticity &&
           authentic &&
           (success || streamSuccess) &&
-          !isAuthenticityPassCached(blacklistKey)
+          !isAuthenticityPassCached(blacklistKey, opts.baseUrl)
         ) {
           void observeClaudeEvidence({
             baseUrl: opts.baseUrl,
@@ -622,7 +623,7 @@ async function testModels(opts: {
     acceptsTransient(r.model) &&
     ((!r.model.startsWith("claude-") && !mustAlwaysThink(r.model)) ||
       opts.skipAuthenticity === true ||
-      isAuthenticityPassCached(passKey(prefix, r.model)));
+      isAuthenticityPassCached(passKey(prefix, r.model), opts.baseUrl));
 
   return {
     workingModels: results
@@ -663,7 +664,7 @@ export async function screenDroppedClaudeAuthenticity(opts: {
         if (passingByKey.has(key)) return null;
         const blacklistKey = `${opts.prefix}|${model}`;
         if (isAuthenticityBlacklisted(blacklistKey)) return model;
-        if (isAuthenticityPassCached(blacklistKey)) return null;
+        if (isAuthenticityPassCached(blacklistKey, opts.baseUrl)) return null;
         const authentic = await testAnthropicAuthenticity({
           baseUrl: opts.baseUrl,
           apiKey: opts.apiKey,

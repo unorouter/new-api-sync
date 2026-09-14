@@ -100,7 +100,7 @@ export async function reverifyLiveClaudeLanes(
       await disableLane(ch, getVerdict(key)?.authenticityReason ?? "");
       continue;
     }
-    if (isAuthenticityPassFresh(getVerdict(key))) continue;
+    if (isAuthenticityPassFresh(getVerdict(key), provider.baseUrl)) continue;
     due.push({ channel: ch, lane: { model: market, listing }, key });
   }
   result.due = due.length;
