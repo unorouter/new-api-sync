@@ -86,6 +86,13 @@ export interface ProviderReport {
   groups: number;
   models: number;
   tokens: { created: number; existing: number; deleted: number };
+  laneKeys?: {
+    cached: number;
+    revealed: number;
+    evictedProbe: number;
+    evictedGateway: number;
+    rejected: number;
+  };
   error?: string;
 }
 
@@ -108,6 +115,8 @@ export interface Channel {
   auto_ban?: number;
   param_override?: string;
   header_override?: string;
+  /** JSON from the gateway; carries status_reason for auto disabled channels. */
+  other_info?: string;
 }
 
 export interface ModelMeta {

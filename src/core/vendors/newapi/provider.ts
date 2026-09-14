@@ -44,6 +44,8 @@ import { getOpenRouterEndpointsTrace } from "@core/pricing/sources/openrouter";
 import type { GroupInfo, ProviderReport } from "@core/types";
 import type { ProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
+import { evictLaneKey, laneKeyStats } from "@core/infra/lane-keys";
+import { parseDisableReason } from "./disable-reason";
 import { consola } from "consola";
 import { colorize } from "consola/utils";
 import { buildCapabilityMap, lowercaseExposed } from "../shared/capability-map";
@@ -481,12 +483,19 @@ export async function processNewApiProvider(
         }
       : await upstream.ensureTokens(groups, tokenPrefix, {
           skipCleanup: partialSync,
+          evict: credentialFaultTokens(pName, ctx.liveChannels ?? []),
         });
     report.tokens = {
       created: tokenResult.created,
       existing: tokenResult.existing,
       deleted: tokenResult.deleted,
     };
+    if (!ctx.dryRun) {
+      report.laneKeys = { ...laneKeyStats(pName) };
+      consola.info(
+        t("CORE.NEWAPI.LANE_KEYS_SUMMARY", { name: pName, ...report.laneKeys }),
+      );
+    }
     const startBalance = ctx.dryRun ? null : await upstream.fetchBalance();
     if (startBalance !== null)
       consola.info(
@@ -800,4 +809,35 @@ export async function processNewApiProvider(
     report.error = error instanceof Error ? error.message : String(error);
   }
   return { report, offers, endpointMetadata: { endpointPaths } };
+}
+
+// Group tokens are named <group>-<provider>, which is also the channel name.
+// A channel the gateway auto disabled for a credential fault names a token
+// whose cached key is stale; evict it so ensureTokens reveals it again.
+function credentialFaultTokens(
+  provider: string,
+  liveChannels: {
+    name?: string;
+    tag?: string;
+    status?: number;
+    other_info?: string;
+  }[],
+): Set<string> {
+  const out = new Set<string>();
+  for (const ch of liveChannels) {
+    if (ch.tag !== provider || ch.status !== 3 || !ch.name) continue;
+    const reason = parseDisableReason(ch.other_info);
+    if (!reason.credential) continue;
+    if (evictLaneKey(provider, { name: ch.name }, "gateway")) {
+      out.add(ch.name);
+      consola.info(
+        t("CORE.NEWAPI.LANE_KEY_EVICTED", {
+          name: provider,
+          token: ch.name,
+          reason: reason.reason.slice(0, 80),
+        }),
+      );
+    }
+  }
+  return out;
 }

@@ -14,6 +14,11 @@ target:
 #   accessKeyId: ${SYNC_S3_ACCESS_KEY}
 #   secretAccessKey: ${SYNC_S3_SECRET_KEY}
 #   prefix: new-api-sync
+#   # openssl rand -hex 32. Seals the OpenRouter key map and the lane key cache
+#   # (logs/lane-keys/<provider>.json.enc locally, lane-keys/<provider>.json.enc
+#   # in the bucket). Without it every run re-reveals every upstream token key,
+#   # which is what cost the a7 walk 94 of its 108 minutes on 2026-09-14.
+#   encryptionKey: ${SYNC_STORE_CIPHER}
 # Read-only DSN of the gateway's postgres for `bun sync reconcile` (our logs are
 # not readable through the scoped service token). Omit to run provider-side
 # checks only. Locally: tsh proxy db newapi-pg --db-user reader --port 15432 --tunnel

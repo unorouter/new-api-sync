@@ -472,7 +472,9 @@
       "GUEST_TOKEN_UPDATED": "Guest token \"{name}\" updated: {count} truly-free model(s)",
       "CONDITIONAL_PRICING": "[{name}] raised {count} model(s) to their dearest context tier (conditional pricing)",
       "VANILLA_GATEWAY": "[{name}] vanilla new-api (no sync routes): orphan cleanup is skipped, models list via /api/models/, guest limits go through the standard token update",
-      "GUEST_TOKEN_NOT_FOUND": "[{name}] Guest token not found by key; model limits not updated"
+      "GUEST_TOKEN_NOT_FOUND": "[{name}] Guest token not found by key; model limits not updated",
+      "LANE_KEYS_SUMMARY": "[{name}] keys: {cached} cached, {revealed} revealed, {evictedProbe} evicted (probe), {evictedGateway} evicted (gateway), {rejected} rejected",
+      "LANE_KEY_EVICTED": "[{name}] cached key for {token} evicted: {reason}"
     },
     "SYNC": {
       "VENDOR_UPDATED": "Updated vendor \"{name}\" (id={id}, icon={icon})",
@@ -628,6 +630,13 @@
     "PROBE_IDS": {
       "PUSH_FAILED": "[probe-ids] {store}: push failed, local file kept ({error})",
       "PULL_FAILED": "[probe-ids] {store}: pull failed, using the local file ({error})"
+    },
+    "LANE_KEYS": {
+      "DISABLED_NO_CIPHER": "[lane-keys] no verdictStore.encryptionKey, lane key cache off: every run reveals every key",
+      "LOADED": "[lane-keys] {provider}: {count} cached key(s)",
+      "PULL_FAILED": "[lane-keys] {provider}: store pull failed, local copy only ({error})",
+      "PUSHED": "[lane-keys] {provider}: {count} key(s) sealed and pushed",
+      "PUSH_FAILED": "[lane-keys] {provider}: store push failed, local copy kept ({error})"
     }
   }
 }

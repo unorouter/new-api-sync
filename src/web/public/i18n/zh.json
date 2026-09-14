@@ -472,7 +472,9 @@
       "GUEST_TOKEN_UPDATED": "已更新访客令牌 \"{name}\"：{count} 个完全免费模型",
       "CONDITIONAL_PRICING": "[{name}] 已将 {count} 个模型的价格提升至最高上下文阶梯（阶梯计价）",
       "VANILLA_GATEWAY": "[{name}] 原版 new-api（无同步专用路由）：跳过孤立模型清理，模型列表走 /api/models/，访客限制改经标准令牌更新写入",
-      "GUEST_TOKEN_NOT_FOUND": "[{name}] 按密钥未找到访客令牌，未更新模型限制"
+      "GUEST_TOKEN_NOT_FOUND": "[{name}] 按密钥未找到访客令牌，未更新模型限制",
+      "LANE_KEYS_SUMMARY": "[{name}] 密钥：{cached} 个来自缓存，{revealed} 个新揭示，{evictedProbe} 个因探测失效，{evictedGateway} 个因网关失效，{rejected} 个被拒绝",
+      "LANE_KEY_EVICTED": "[{name}] 已清除 {token} 的缓存密钥：{reason}"
     },
     "SYNC": {
       "VENDOR_UPDATED": "已更新供应商 \"{name}\"（id={id}，图标={icon}）",
@@ -628,6 +630,13 @@
     "PROBE_IDS": {
       "PUSH_FAILED": "[probe-ids] {store}：推送失败，已保留本地文件（{error}）",
       "PULL_FAILED": "[probe-ids] {store}：拉取失败，使用本地文件（{error}）"
+    },
+    "LANE_KEYS": {
+      "DISABLED_NO_CIPHER": "[lane-keys] 未设置 verdictStore.encryptionKey，令牌密钥缓存关闭：每次运行都会重新揭示全部密钥",
+      "LOADED": "[lane-keys] {provider}：已缓存 {count} 个密钥",
+      "PULL_FAILED": "[lane-keys] {provider}：存储拉取失败，仅使用本地副本（{error}）",
+      "PUSHED": "[lane-keys] {provider}：已加密推送 {count} 个密钥",
+      "PUSH_FAILED": "[lane-keys] {provider}：存储推送失败，保留本地副本（{error}）"
     }
   }
 }

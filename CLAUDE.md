@@ -169,6 +169,17 @@ Every verdict write saves the local file at once and pushes the store at most ev
 run killed at any point (Job deadline, OOM, Ctrl-C) keeps everything it probed: the next run loads the
 local file (the PVC on the cluster) before merging the store.
 
+Lane keys (`infra/lane-keys.ts`): every revealed upstream token secret is kept sealed with the
+store cipher (`verdictStore.encryptionKey`, same value locally and in the cluster) in
+`logs/lane-keys/<provider>.json.enc` and the store object `lane-keys/<provider>.json.enc`, keyed
+by token id, so `ensureLaneTokens` and `ensureTokens` reveal only ids they do not hold. Load is
+local then store; push is read-merge-write with eviction tombstones. A key is evicted on two
+signals: a live channel the gateway auto disabled with a credential reason (`other_info.status_reason`
+`status_code=401`/`403` or a7's `账号或令牌状态不允许`, `vendors/newapi/disable-reason.ts`), and an a7
+probe answering 401/403 on a cached key (the fail verdict is cleared, the lane re-revealed and
+re-probed once). Each provider logs `keys: N cached, N revealed, N evicted (probe), N evicted
+(gateway), N rejected` and carries the same on its report. No cipher means no cache and no plain file.
+
 The PVC is `local-path`, pinned to whichever Talos node the first job ran on (`kubectl -n services get pvc new-api-sync-logs -o jsonpath='{.metadata.annotations.volume\.kubernetes\.io/selected-node}'`): if that node is cordoned or gone the full job stays
 Pending (uncordon, or delete PVC + PV and re-seed from the local file).
 

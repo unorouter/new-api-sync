@@ -7,6 +7,7 @@ import type { RuntimeConfig } from "@core/config";
 import { throwIfRunAborted } from "@core/infra/abort";
 import { writeJsonAtomic } from "@core/infra/fs";
 import { flushProbeIds } from "@core/testing/probe-ids";
+import { flushAllLaneKeys, loadLaneKeys } from "@core/infra/lane-keys";
 import { logsDir } from "@core/infra/paths";
 import { applySyncDiff, projectChannels } from "@core/sync/apply";
 import { buildSyncDiff } from "@core/sync/diff";
@@ -134,6 +135,10 @@ export async function runSync(
     ? new VerdictStore(config.verdictStore)
     : null;
   await loadVerdictCache(store ?? undefined);
+  await loadLaneKeys(
+    store ?? undefined,
+    config.providers.map((p) => p.name),
+  );
 
   // Logs written in finally so a crash/abort still flushes buffered errors.
   let applyErrors: SyncRunResult["apply"]["errors"] = [];
@@ -275,6 +280,7 @@ export async function runSync(
     releaseSyncLock();
     timingReport();
     const artifacts = [writeTestReport(), writeApplyErrorsLog(applyErrors)];
+    await flushAllLaneKeys();
     if (store) {
       await pushVerdictCache(store);
       await flushProbeIds(store);

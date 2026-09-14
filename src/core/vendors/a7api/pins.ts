@@ -1,6 +1,13 @@
 import { fetchJson, tryFetchJson } from "@core/infra/http";
 import { resolvePerModel } from "@core/pricing";
+import { sanitizeGroupName } from "@core/catalog/constants/patterns";
 import { throwIfRunAborted } from "@core/infra/abort";
+import {
+  flushLaneKeys,
+  getLaneKey,
+  pruneLaneKeys,
+  putLaneKey,
+} from "@core/infra/lane-keys";
 import type { A7ApiProviderConfig } from "@core/validations/config";
 import {
   type ClientContext,
@@ -32,6 +39,8 @@ export interface MerchantLane {
 export interface LaneToken {
   key: string;
   tokenId: number;
+  /** The key came from the lane key cache, not from a reveal this call. */
+  cached?: boolean;
 }
 
 interface PinRecord {
@@ -51,7 +60,11 @@ interface PinsResponse {
 const TOKEN_NAME_MAX_BYTES = 30;
 
 export function laneTokenName(lane: MerchantLane): string {
-  const base = `${lane.listing.channel_id}-${lane.model}`;
+  return laneTokenNameFor(lane.listing.channel_id, lane.model);
+}
+
+export function laneTokenNameFor(channelId: number, model: string): string {
+  const base = `${channelId}-${model}`;
   const encoder = new TextEncoder();
   if (encoder.encode(base).length <= TOKEN_NAME_MAX_BYTES) return base;
   let out = "";
@@ -81,7 +94,7 @@ const laneNamePattern = /^\d+-/;
 export async function ensureLaneTokens(
   provider: A7ApiProviderConfig,
   lanes: MerchantLane[],
-  opts: { dryRun: boolean },
+  opts: { dryRun: boolean; forceReveal?: Set<string> },
 ): Promise<Map<string, LaneToken>> {
   const result = new Map<string, LaneToken>();
   if (opts.dryRun) {
@@ -94,13 +107,23 @@ export async function ensureLaneTokens(
   const existing = await listTokens(ctx);
   const byName = new Map(existing.map((t) => [t.name, t]));
   const desired = new Map(lanes.map((l) => [laneTokenName(l), l]));
+  pruneLaneKeys(provider.name, new Set(existing.map((t) => t.id)));
 
   const maskedIds: number[] = [];
   for (const [name] of desired) {
     const token = byName.get(name);
     if (!token) continue;
-    if (isMasked(token.key)) maskedIds.push(token.id);
-    else result.set(name, { key: normalizeKey(token.key), tokenId: token.id });
+    if (!isMasked(token.key)) {
+      const key = normalizeKey(token.key);
+      result.set(name, { key, tokenId: token.id });
+      putLaneKey(provider.name, token.id, name, key, "listed");
+      continue;
+    }
+    const held = opts.forceReveal?.has(name)
+      ? undefined
+      : getLaneKey(provider.name, token.id, name);
+    if (held) result.set(name, { key: held, tokenId: token.id, cached: true });
+    else maskedIds.push(token.id);
   }
   if (maskedIds.length > 0) {
     consola.info(
@@ -111,7 +134,9 @@ export async function ensureLaneTokens(
       const token = byName.get(name);
       if (!token || result.has(name)) continue;
       const key = revealed.get(token.id);
-      if (key) result.set(name, { key: normalizeKey(key), tokenId: token.id });
+      if (!key) continue;
+      result.set(name, { key: normalizeKey(key), tokenId: token.id });
+      putLaneKey(provider.name, token.id, name, normalizeKey(key));
     }
   }
 
@@ -141,12 +166,33 @@ export async function ensureLaneTokens(
       const token = afterCreate.get(name);
       if (!token) continue;
       const key = keys.get(token.id);
-      if (key) result.set(name, { key: normalizeKey(key), tokenId: token.id });
-      else consola.warn(`[${provider.name}] no key for lane ${name}, skipping`);
+      if (key) {
+        result.set(name, { key: normalizeKey(key), tokenId: token.id });
+        putLaneKey(provider.name, token.id, name, normalizeKey(key));
+      } else
+        consola.warn(`[${provider.name}] no key for lane ${name}, skipping`);
     }
   }
 
+  await flushLaneKeys(provider.name);
   return result;
+}
+
+// Live gateway channel back to its lane token name. The group is
+// a7-<merchant slug>-<merchant id>-<sanitized model>; the model suffix is known,
+// the merchant id is the trailing digits before it.
+export function laneNameFromChannel(
+  ch: { group?: string; models: string },
+  marketByExposed: Map<string, string>,
+): string | undefined {
+  const exposed = ch.models.split(",")[0]?.trim().toLowerCase();
+  const market = exposed ? marketByExposed.get(exposed) : undefined;
+  if (!exposed || !market || !ch.group) return undefined;
+  const suffix = `-${sanitizeGroupName(exposed)}`;
+  if (!ch.group.endsWith(suffix)) return undefined;
+  const id = /(\d+)$/.exec(ch.group.slice(0, -suffix.length))?.[1];
+  if (!id) return undefined;
+  return laneTokenNameFor(Number(id), market);
 }
 
 // Same rationale as cleanupEmptyGroupTokens: only a FULL provider run may
