@@ -109,12 +109,13 @@ providers:
   #   perUpstreamConcurrency: 2
   #   perUpstreamRpm: 60
   # authenticityPassTtlHours shortens the 12 hour default for one upstream: a Claude
-  # lane there is re-probed once its last pass is older than this (the metadata
+  # lane there is re-probed once its last pass is older than this. Keep it under the
+  # gap between full runs so every walk re-probes every lane (the metadata
   # cron picks up stale a7 lanes every 15 minutes). Marketplaces where merchants
   # swap backends behind a listing (a7) want a short one.
   # - type: a7api
   #   name: a7
-  #   authenticityPassTtlHours: 6
+  #   authenticityPassTtlHours: 4
   # acceptUpstreamDown is the same idea one level up, for the channel-shape probe
   # rather than a single model. A 5xx or a timeout there normally drops every model
   # behind that bucket for the run; with this set the bucket is kept, its models are

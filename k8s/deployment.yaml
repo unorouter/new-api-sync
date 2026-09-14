@@ -89,7 +89,7 @@ metadata:
 spec:
   # Four walks a day: a7 merchants swap backends behind a listing within hours
   # (383 went opus to haiku 20 h after a clean probe), and the authenticity pass
-  # for a7 expires after 6 h (authenticityPassTtlHours), so each walk re-probes.
+  # for a7 expires after 4 h (authenticityPassTtlHours), so each walk re-probes.
   schedule: "0 4,10,16,22 * * *"
   timeZone: "Europe/Berlin"
   concurrencyPolicy: Forbid
