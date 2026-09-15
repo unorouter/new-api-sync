@@ -44,6 +44,9 @@ import {
 
 // new-api stores price as a ratio, not USD: ratio 1 is $2 per 1M tokens.
 const USD_PER_M_PER_RATIO = 2;
+// Share of the walk's lanes that may lose their key to a 429 before the run
+// counts as failed rather than partial.
+const THROTTLE_FAIL_RATIO = 0.2;
 
 interface ModelCandidates {
   model: string;
@@ -518,12 +521,17 @@ export async function processA7Provider(
     report.groups = offers.length;
     report.models = new Set(keptLanes.map((l) => l.model)).size;
     // A throttled full run must not delete: every skipped lane is absent from
-    // desired, so apply would remove healthy channels and their tokens. A failed
-    // report keeps the offers (creates/updates still land) but takes the
-    // provider out of the delete set, and the stale-token cleanup is withheld.
+    // desired, so apply would remove healthy channels and their tokens. The
+    // provider drops out of the delete set and the stale-token cleanup is
+    // withheld; a handful of lanes losing their key is ordinary a7 pacing, so
+    // only a walk that lost most of them is reported as a failed run.
     if (throttled > 0 && !skipCleanup && !dryRun) {
+      report.deletesWithheld = true;
       report.error = `a7 throttled: ${throttled} lane(s) skipped on key reveal or pin (429); deletes and token cleanup withheld`;
       consola.warn(`[${name}] ${report.error}`);
+      report.success =
+        keptLanes.length > 0 &&
+        throttled <= (keptLanes.length + throttled) * THROTTLE_FAIL_RATIO;
       return {
         report,
         offers,
