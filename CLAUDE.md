@@ -183,6 +183,13 @@ re-probed once). Each provider logs `keys: N cached, N revealed, N evicted (prob
 The PVC is `local-path`, pinned to whichever Talos node the first job ran on (`kubectl -n services get pvc new-api-sync-logs -o jsonpath='{.metadata.annotations.volume\.kubernetes\.io/selected-node}'`): if that node is cordoned or gone the full job stays
 Pending (uncordon, or delete PVC + PV and re-seed from the local file).
 
+Token routes are rate limited per account, so a 429 on create or reveal arms one cooldown per base
+url (`vendors/newapi/token-throttle.ts`, 60 s or the `Retry-After`): every later call in that window
+returns empty at once instead of walking its own retry ladder, and the lanes it skipped are keyed on
+a later round or the next run. A walk that lost lanes that way sets `deletesWithheld` on its report,
+which keeps the provider out of the delete set and withholds the stale-token cleanup exactly as a
+failed report did; the run itself stays green unless more than a fifth of the lanes were lost.
+
 One a7 run at a time, anywhere, >= 30 min apart. Start local a7 runs at :01 to :13 with no active
 `new-api-sync-*` Job; suspend the metadata cron for a full `--only a7` (~25 min). A throttled full
 run deletes lanes it could not key or pin: kill it before `Providers:`/`Channels:` appear. Run it

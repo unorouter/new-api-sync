@@ -1,4 +1,4 @@
-import { fetchJson, tryFetchJson } from "@core/infra/http";
+import { fetchJson, fetchJsonResult, tryFetchJson } from "@core/infra/http";
 import { throwIfRunAborted } from "@core/infra/abort";
 import { getConcurrencyGate } from "@core/infra/concurrency";
 import {
@@ -12,6 +12,11 @@ import { PAGINATION } from "@core/types";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import type { ClientContext } from "./context";
+import {
+  clearTokenThrottle,
+  noteTokenThrottle,
+  tokenThrottleRemainingMs,
+} from "./token-throttle";
 import type { TokenListResponse, UpstreamToken } from "./types";
 import pLimit from "p-limit";
 
@@ -53,8 +58,11 @@ export async function createToken(
     unlimited_quota: true,
     model_limits_enabled: false,
   };
-  // New-api rate-limits token writes too. Retry on 429.
-  const data = await tryFetchJson<{
+  // New-api rate-limits token writes too. Retry on 429, and stand down for the
+  // shared cooldown once it starts refusing: the ladder is per call, the limit
+  // is per account.
+  if (tokenThrottleRemainingMs(ctx.baseUrl) > 0) return { ok: false };
+  const result = await fetchJsonResult<{
     success: boolean;
     message?: string;
     data?: { key?: string };
@@ -62,9 +70,14 @@ export async function createToken(
     method: "POST",
     headers: ctx.headers,
     body,
-    retry: 5,
+    retry: 4,
     retryDelayMs: 4000,
   });
+  if (!result.ok && result.status === 429) {
+    noteTokenThrottle(ctx.baseUrl, result.retryAfterMs);
+    return { ok: false };
+  }
+  const data = result.ok ? result.data : undefined;
   if (!data?.success) {
     consola.warn(
       t("CORE.NEWAPI.TOKEN_CREATE_FAILED", {
@@ -75,6 +88,7 @@ export async function createToken(
     );
     return { ok: false };
   }
+  clearTokenThrottle(ctx.baseUrl);
   // Some forks (ephone) return the full key only here and mask it on later reads.
   return { ok: true, key: data.data?.key };
 }
@@ -84,16 +98,24 @@ export async function getTokenFullKey(
   id: number,
 ): Promise<string | null> {
   // Per-token endpoint is rate-limited; prefer getTokenFullKeysBatch.
-  const data = await tryFetchJson<{ success: boolean; data?: { key: string } }>(
-    `${ctx.baseUrl}/api/token/${id}/key`,
-    {
-      method: "POST",
-      headers: ctx.headers,
-      retry: 4,
-      retryDelayMs: 2000,
-    },
-  );
-  return data?.success && data.data?.key ? data.data.key : null;
+  if (tokenThrottleRemainingMs(ctx.baseUrl) > 0) return null;
+  const result = await fetchJsonResult<{
+    success: boolean;
+    data?: { key: string };
+  }>(`${ctx.baseUrl}/api/token/${id}/key`, {
+    method: "POST",
+    headers: ctx.headers,
+    retry: 2,
+    retryDelayMs: 2000,
+  });
+  if (!result.ok) {
+    if (result.status === 429)
+      noteTokenThrottle(ctx.baseUrl, result.retryAfterMs);
+    return null;
+  }
+  const key = result.data.success ? result.data.data?.key : undefined;
+  if (key) clearTokenThrottle(ctx.baseUrl);
+  return key ?? null;
 }
 
 const TOKEN_BATCH_MAX = 100;
@@ -111,18 +133,25 @@ export async function getTokenFullKeysBatch(
   const result = new Map<number, string>();
   for (let i = 0; i < ids.length; i += TOKEN_BATCH_MAX) {
     const batch = ids.slice(i, i + TOKEN_BATCH_MAX);
-    const data = await tryFetchJson<{
+    if (tokenThrottleRemainingMs(ctx.baseUrl) > 0) break;
+    const response = await fetchJsonResult<{
       success: boolean;
       data?: { keys?: Record<string, string> };
     }>(`${ctx.baseUrl}/api/token/batch/keys`, {
       method: "POST",
       headers: ctx.headers,
       body: { ids: batch },
-      retry: 5,
+      retry: 3,
       retryDelayMs: 2000,
     });
-    const keys = data?.success ? data.data?.keys : undefined;
+    if (!response.ok) {
+      if (response.status === 429)
+        noteTokenThrottle(ctx.baseUrl, response.retryAfterMs);
+      continue;
+    }
+    const keys = response.data.success ? response.data.data?.keys : undefined;
     if (!keys) continue;
+    clearTokenThrottle(ctx.baseUrl);
     for (const [k, v] of Object.entries(keys)) {
       const id = Number(k);
       if (Number.isFinite(id) && v) result.set(id, v);

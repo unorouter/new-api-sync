@@ -132,7 +132,9 @@ function buildManagedProviders(
   reports: ProviderReport[],
   targetSnapshot?: TargetSnapshot,
 ): Set<string> {
-  const failed = new Set(reports.filter((r) => !r.success).map((r) => r.name));
+  const failed = new Set(
+    reports.filter((r) => !r.success || r.deletesWithheld).map((r) => r.name),
+  );
   const managed = new Set(
     config.providers.map((p) => p.name).filter((n) => !failed.has(n)),
   );

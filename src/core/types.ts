@@ -93,6 +93,8 @@ export interface ProviderReport {
     evictedGateway: number;
     rejected: number;
   };
+  /** Ran, but some lanes were missing: keep the provider out of the delete set. */
+  deletesWithheld?: boolean;
   error?: string;
 }
 
