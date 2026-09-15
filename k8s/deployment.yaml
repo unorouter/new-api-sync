@@ -26,6 +26,7 @@ spec:
           labels: { app: new-api-sync }
         spec:
           restartPolicy: Never
+          priorityClassName: batch
           imagePullSecrets:
             - name: ghcr-pull
           containers:
@@ -112,6 +113,7 @@ spec:
           labels: { app: new-api-sync-full }
         spec:
           restartPolicy: Never
+          priorityClassName: batch
           imagePullSecrets:
             - name: ghcr-pull
           containers:
