@@ -1244,6 +1244,18 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     apiKeyPlaceholder: "sk-…",
   },
+  {
+    kind: "yjs",
+    label: "yjs",
+    // api.yjs.im - mixed catalog, free only. Base is the host; runner and discovery append
+    // /v1, while discovery itself reads /api/pricing to find the groups priced 0
+    // ("Unlimited": kimi-k3, deepseek-v4-flash, glm-5.3-flash, nemotron-3-ultra/super,
+    // laguna, north-mini-code, gpt-oss-20b). The paid half of the catalog (claude, gpt,
+    // gemini) is deliberately not published.
+    defaultBaseUrl: "https://api.yjs.im",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-…",
+  },
 ] as const satisfies readonly SimpleProviderMeta[];
 
 export type SimpleProviderKind = (typeof SIMPLE_PROVIDER_META)[number]["kind"];
