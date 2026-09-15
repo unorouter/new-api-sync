@@ -62,7 +62,7 @@ export async function createToken(
     method: "POST",
     headers: ctx.headers,
     body,
-    retry: 8,
+    retry: 5,
     retryDelayMs: 4000,
   });
   if (!data?.success) {
@@ -89,8 +89,8 @@ export async function getTokenFullKey(
     {
       method: "POST",
       headers: ctx.headers,
-      retry: 8,
-      retryDelayMs: 4000,
+      retry: 4,
+      retryDelayMs: 2000,
     },
   );
   return data?.success && data.data?.key ? data.data.key : null;
