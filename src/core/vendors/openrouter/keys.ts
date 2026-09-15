@@ -87,7 +87,8 @@ export async function ensureProvisionedKeys(args: {
   requireStore?: boolean;
   /** published model -> OpenRouter permaslug, for the guardrail allowlist */
   permaslugByModel: Map<string, string>;
-  dailyLimitUsd: number;
+  /** published model -> its daily USD cap; the cap is per key and a key is per model. */
+  dailyLimitFor: (model: string) => number;
   expiryDays: number;
 }): Promise<ProvisionedKeys> {
   const remoteKeys = await listRemote<RemoteKey>(
@@ -118,6 +119,7 @@ export async function ensureProvisionedKeys(args: {
       limit(async () => {
         throwIfRunAborted();
         const name = keyName(args.provider, model);
+        const dailyLimitUsd = args.dailyLimitFor(model);
         const remote = remoteByName.get(name);
         const held = args.existingKeyByName.get(name);
 
@@ -127,13 +129,13 @@ export async function ensureProvisionedKeys(args: {
           keyByModel.set(model, held);
           keyByName.set(name, held);
           reused++;
-          if (remote.limit !== args.dailyLimitUsd && remote.hash) {
+          if (remote.limit !== dailyLimitUsd && remote.hash) {
             await fetchJsonResult(
               api(args.baseUrl, `/v1/keys/${remote.hash}`),
               {
                 method: "PATCH",
                 headers: auth(args.managementKey),
-                body: { limit: args.dailyLimitUsd, limit_reset: "daily" },
+                body: { limit: dailyLimitUsd, limit_reset: "daily" },
                 retry: 2,
                 retryDelayMs: 2000,
               },
@@ -167,7 +169,7 @@ export async function ensureProvisionedKeys(args: {
             headers: auth(args.managementKey),
             body: {
               name,
-              limit: args.dailyLimitUsd,
+              limit: dailyLimitUsd,
               limit_reset: "daily",
               include_byok_in_limit: true,
               expires_at: new Date(
@@ -192,7 +194,7 @@ export async function ensureProvisionedKeys(args: {
           managementKey: args.managementKey,
           name,
           permaslug: args.permaslugByModel.get(model),
-          dailyLimitUsd: args.dailyLimitUsd,
+          dailyLimitUsd,
           existing: guardrailByName.get(name),
           keyHash: created.data?.hash,
         });
@@ -201,7 +203,7 @@ export async function ensureProvisionedKeys(args: {
   );
 
   consola.info(
-    `[${args.provider}] keys: ${minted} minted, ${reused} reused, $${args.dailyLimitUsd}/day each`,
+    `[${args.provider}] keys: ${minted} minted, ${reused} reused, $${args.dailyLimitFor("default")}/day each unless the model overrides it`,
   );
   return { keyByModel, keyByName, minted, reused };
 }

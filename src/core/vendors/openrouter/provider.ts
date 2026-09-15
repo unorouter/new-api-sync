@@ -567,7 +567,8 @@ export async function processOpenRouterProvider(
                 o.models.map((m) => [m.exposed, m.upstream] as const),
               ),
             ),
-            dailyLimitUsd: providerConfig.keyDailyLimitUsd ?? 15,
+            dailyLimitFor: (model) =>
+              resolvePerModel(providerConfig.keyDailyLimitUsd, model, 15),
             expiryDays: providerConfig.keyExpiryDays ?? 90,
           });
           if (provisioned.minted > 0) {
