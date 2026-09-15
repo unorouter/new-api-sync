@@ -93,6 +93,7 @@ import { discoverZanityModels } from "./zanity/discovery";
 import { discoverKiloModels } from "./kilo/discovery";
 import { discoverXkiroModels } from "./xkiro/discovery";
 import { discoverSeekaiModels } from "./seekai/discovery";
+import { discoverYjsModels } from "./yjs/discovery";
 import { discoverUncloseAiModels } from "./uncloseai/discovery";
 import { discoverAiHubMixModels } from "./aihubmix/discovery";
 import { discoverTokenReplyModels } from "./tokenreply/discovery";
@@ -187,6 +188,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   kilo: discoverKiloModels,
   xkiro: discoverXkiroModels,
   seekai: discoverSeekaiModels,
+  yjs: discoverYjsModels,
   uncloseai: discoverUncloseAiModels,
   aihubmix: discoverAiHubMixModels,
   tokenreply: discoverTokenReplyModels,
