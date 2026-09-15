@@ -8,12 +8,12 @@ import { t } from "@server/i18n";
 import type { VerdictStore } from "@core/infra/verdict-store";
 import { hostOf } from "@core/infra/concurrency";
 
-// ONE universal PERMANENT verdict file for every model+group pair: general test
-// verdicts (http/stream/tool) AND claude authenticity. Key: `${provider}|${model}`
-// (same shape as runner's passingByKey/blacklistKey). No TTLs: an entry is trusted
-// until MANUALLY deleted from logs/verdict-cache.json. Never stored: http/stream
-// failures (a failing pair re-probes every run until it passes) and transient tool
-// outcomes. First load migrates the legacy authenticity-cache.json / -blacklist.json.
+// ONE verdict file for every model+group pair: general test verdicts
+// (http/stream/tool) AND claude authenticity. Key: `${provider}|${model}` (same
+// shape as runner's passingByKey/blacklistKey). Every verdict ages out on its
+// own clock (the TTL constants below): passes are retested several times a
+// day, fails once a day. First load migrates the legacy authenticity-cache.json
+// and authenticity-blacklist.json.
 export type AuthenticityVerdict = "pass" | "fail";
 
 export interface VerdictEntry {
@@ -29,8 +29,12 @@ export interface VerdictEntry {
   tokenizerDelta?: number;
   // Timestamp of the last pass. A pass expires (AUTHENTICITY_PASS_TTL_HOURS)
   // because a merchant swaps its backend after the probe (a7 383 went from opus
-  // to haiku 20 hours after a clean probe); a fail never expires.
+  // to haiku 20 hours after a clean probe).
   verifiedAt?: string;
+  // Timestamp of the last authenticity fail. Blacklists the lane for
+  // AUTHENTICITY_FAIL_TTL_HOURS, then one probe decides again: a merchant that
+  // fixed its backend comes back, one still faking is failed again for a day.
+  authFailedAt?: string;
   // Date of the last functional pass (http/stream/tool). Expires after
   // TEST_PASS_TTL_DAYS plus a per-key jitter so the fleet retests spread out.
   testedAt?: string;
@@ -85,13 +89,15 @@ const stampOf = (e: VerdictEntry): string =>
     e.verifiedAt ?? "",
     e.failedAt ?? "",
     e.failClearedAt ?? "",
+    e.authFailedAt ?? "",
     e.since,
   ]
     .sort()
     .at(-1) ?? "";
 
 // Union by key, newest stamp wins; an authenticity fail on either side survives
-// (a fail never expires and is never overwritten by a pass).
+// while it is fresh (isAuthenticityFailFresh), so a pass recorded elsewhere in
+// the same day cannot launder a faker.
 export function mergeVerdicts(
   a: VerdictEntry[],
   b: VerdictEntry[],
@@ -105,9 +111,15 @@ export function mergeVerdicts(
     }
     const winner = stampOf(e) > stampOf(prior) ? { ...e } : prior;
     const loser = winner === prior ? e : prior;
-    if (loser.authenticity === "fail" && winner.authenticity !== "fail") {
+    if (
+      loser.authenticity === "fail" &&
+      winner.authenticity !== "fail" &&
+      isAuthenticityFailFresh(loser)
+    ) {
       winner.authenticity = "fail";
       winner.authenticityReason = loser.authenticityReason;
+      winner.authFailedAt = loser.authFailedAt;
+      delete winner.verifiedAt;
     }
     out.set(e.key, winner);
   }
@@ -133,6 +145,19 @@ export function authenticityPassTtlHours(baseUrl?: string): number {
     authenticityPassTtlByHost.get(hostOf(baseUrl)) ??
     AUTHENTICITY_PASS_TTL_HOURS
   );
+}
+
+export const AUTHENTICITY_FAIL_TTL_HOURS = 24;
+
+// Entries from before authFailedAt existed carry only the fail date in
+// `since`; that date counts as the fail time so they expire the same way.
+export function isAuthenticityFailFresh(
+  entry: VerdictEntry | undefined,
+): boolean {
+  if (entry?.authenticity !== "fail") return false;
+  const at = Date.parse(entry.authFailedAt ?? entry.since);
+  if (!Number.isFinite(at)) return true;
+  return Date.now() - at < AUTHENTICITY_FAIL_TTL_HOURS * 60 * 60 * 1000;
 }
 
 export function isAuthenticityPassFresh(
@@ -432,8 +457,9 @@ export function setAuthenticityVerdict(
   reason: string,
 ): void {
   const prior = cache.get(key);
-  // Never overwrite a recorded failure with a pass (matches old blacklist semantics).
-  const applied = !(verdict === "pass" && prior?.authenticity === "fail");
+  // A pass cannot overturn a fail that is still inside its day; once the fail
+  // has aged out, the probe that produced this pass is the retest.
+  const applied = !(verdict === "pass" && isAuthenticityFailFresh(prior));
   pendingHistory.push({
     key,
     at: new Date().toISOString(),
@@ -447,8 +473,14 @@ export function setAuthenticityVerdict(
   const entry: VerdictEntry = prior ?? { key, since: today() };
   entry.authenticity = verdict;
   entry.authenticityReason = reason;
-  if (verdict === "fail") entry.since = today();
-  else entry.verifiedAt = new Date().toISOString();
+  if (verdict === "fail") {
+    entry.since = today();
+    entry.authFailedAt = new Date().toISOString();
+    delete entry.verifiedAt;
+  } else {
+    entry.verifiedAt = new Date().toISOString();
+    delete entry.authFailedAt;
+  }
   cache.set(key, entry);
   persist();
 }

@@ -36,6 +36,7 @@ export type FetchResult<T> =
 
 // Same statuses ofetch retries on; a missing status is a network error or timeout.
 const RETRY_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
+const MAX_429_BACKOFF_MS = 60_000;
 
 // Keeps the HTTP status so a caller can tell "route does not exist" (404)
 // from "refused" or "unreachable"; the other two helpers flatten it.
@@ -52,11 +53,16 @@ export async function fetchJsonResult<T>(
       attempts,
       // 429 doubles per attempt and honours Retry-After: a7 throttles key reveal
       // and pin for tens of seconds, three quick retries just burn the budget.
+      // Capped at a minute: uncapped, eight retries on one token create waited
+      // 1,020 s, and four such rounds were 80 of a 107 minute walk.
       backoffMs: (attempt, last) =>
         last.ok
           ? 0
           : last.status === 429
-            ? Math.max(delay * 2 ** (attempt - 1), last.retryAfterMs ?? 0)
+            ? Math.max(
+                Math.min(delay * 2 ** (attempt - 1), MAX_429_BACKOFF_MS),
+                last.retryAfterMs ?? 0,
+              )
             : delay,
       shouldRetry: (r) =>
         !r.ok && (r.status === undefined || RETRY_STATUS.has(r.status)),

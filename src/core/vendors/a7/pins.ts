@@ -198,14 +198,17 @@ export function laneNameFromChannel(
 // Same rationale as cleanupEmptyGroupTokens: only a FULL provider run may
 // delete, or a filtered run conflates "merchant gone" with "filtered out"
 // and the deleted key 401-kills every out-of-scope channel still using it.
-// Runs against the KEPT lanes (probe passers), so a candidate probed and
-// rejected this run loses its token (and thereby its pin) immediately.
+// A candidate probed and rejected keeps its token: the next walk probes the
+// same merchant again, and a kept token is a cache hit while a recreated one
+// is a create plus a reveal under a7's throttle. Only merchants that fell
+// out of the candidate list lose their token (and thereby their pin).
 export async function cleanupStaleLaneTokens(
   provider: A7ProviderConfig,
   keptLanes: MerchantLane[],
+  probedLanes: MerchantLane[],
 ): Promise<void> {
   const ctx = clientContext(provider);
-  const keep = new Set(keptLanes.map(laneTokenName));
+  const keep = new Set([...keptLanes, ...probedLanes].map(laneTokenName));
   for (const token of await listTokens(ctx)) {
     throwIfRunAborted();
     if (!laneNamePattern.test(token.name)) continue;

@@ -340,6 +340,7 @@ export async function processA7Provider(
     // Bare base: the test runner and new-api channel types append /v1/... themselves.
     const baseUrl = provider.baseUrl.replace(/\/$/, "");
     const keptLanes: MerchantLane[] = [];
+    const probedLanes: MerchantLane[] = [];
     let pinsCreated = 0;
     let pinsRepinned = 0;
     let throttled = 0;
@@ -402,6 +403,7 @@ export async function processA7Provider(
           probes.push({ lane, key: token.key });
         }
         probed += probes.length;
+        probedLanes.push(...probes.map((p) => p.lane));
         consola.info(
           `[${name}] ${mc.model}: pinned ${pins.pinned.size} in ${Math.round((Date.now() - pinStart) / 1000)}s (${pins.throttled} throttled), probing ${probes.length} lane(s)`,
         );
@@ -530,7 +532,7 @@ export async function processA7Provider(
       };
     }
     if (!dryRun && !skipCleanup)
-      await cleanupStaleLaneTokens(provider, keptLanes);
+      await cleanupStaleLaneTokens(provider, keptLanes, probedLanes);
     report.success = true;
   } catch (err) {
     report.error = err instanceof Error ? err.message : String(err);

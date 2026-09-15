@@ -76,7 +76,7 @@ model has no price.
 Never a full `sync run` for one model. `DELETE FROM channels WHERE id IN (...)` on the CNPG primary
 (`kubectl -n databases get cluster newapi-pg -o jsonpath='{.status.currentPrimary}'`), restart
 `deploy/new-api-master` (channel cache), delete the pair from `logs/verdict-cache.json` (keys
-`a7:<merchant>|<model>` or `<provider>|<model>`, no TTL, a cached pass is never re-probed), then
+`a7:<merchant>|<model>` or `<provider>|<model>`, or wait for its TTL), then
 `bun sync run --only <p> --models "<glob>"`. A channel that comes back passed authenticity: fix
 `testing/authenticity.ts`.
 
@@ -159,7 +159,7 @@ is the object `new-api-sync/verdict-cache.json` in bucket `unorouter-sync` behin
 `sync run` merges the object in at start and pushes at end (union by key, newest stamp wins, a fail
 always survives); artifacts mirror to `artifacts/`. Functional passes expire after 7 days (jittered
 2), functional fails after 24 hours, or 2 hours when the fail was a 429, 5xx or timeout (a dead merchant is re-probed once a day, not once a run),
-authenticity passes after 12 hours (`authenticityPassTtlHours` per provider overrides it, a7 uses 4 so every 6-hourly walk re-probes), and the `metadata` cron re-probes live a7 Claude lanes whose
+authenticity passes after 12 hours (`authenticityPassTtlHours` per provider overrides it, a7 uses 4 so every 6-hourly walk re-probes), authenticity fails after 24 hours (one probe then decides again), and the `metadata` cron re-probes live a7 Claude lanes whose
 pass is stale (`vendors/a7/reverify.ts`, disables the channel on a fail). Every authenticity
 outcome is appended to `verdict-history.jsonl` beside the cache. Every Claude probe also measures
 the verifier's tokenizer fingerprint (input-token delta for a fixed text, `tokenizerDelta` on the

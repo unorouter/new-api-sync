@@ -4,6 +4,7 @@ import { t } from "@server/i18n";
 import { consola } from "consola";
 import {
   getVerdict,
+  isAuthenticityFailFresh,
   isAuthenticityPassFresh,
   setAuthenticityVerdict,
 } from "./verdict-cache";
@@ -36,7 +37,7 @@ function recordAuthenticityPass(key: string): void {
 }
 
 export const isAuthenticityBlacklisted = (key: string): boolean =>
-  getVerdict(key)?.authenticity === "fail";
+  isAuthenticityFailFresh(getVerdict(key));
 
 export const isAuthenticityPassCached = (
   key: string,
