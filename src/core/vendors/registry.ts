@@ -91,6 +91,7 @@ import { discoverMiniMaxModels } from "./minimax/discovery";
 import { discoverVoidAiModels } from "./voidai/discovery";
 import { discoverZanityModels } from "./zanity/discovery";
 import { discoverKiloModels } from "./kilo/discovery";
+import { discoverXkiroModels } from "./xkiro/discovery";
 import { discoverUncloseAiModels } from "./uncloseai/discovery";
 import { discoverAiHubMixModels } from "./aihubmix/discovery";
 import { discoverTokenReplyModels } from "./tokenreply/discovery";
@@ -183,6 +184,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   voidai: discoverVoidAiModels,
   zanity: discoverZanityModels,
   kilo: discoverKiloModels,
+  xkiro: discoverXkiroModels,
   uncloseai: discoverUncloseAiModels,
   aihubmix: discoverAiHubMixModels,
   tokenreply: discoverTokenReplyModels,

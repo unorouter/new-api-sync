@@ -1220,6 +1220,19 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     apiKeyPlaceholder: "rc-...",
   },
+  {
+    kind: "xkiro",
+    label: "xKiro",
+    // xkiro.com - OpenAI-compat aggregator, GitHub signup, no card. Base is the host;
+    // runner and discovery append /v1. The catalog mixes free, premium and paid tiers and
+    // only "free" serves without a deposited balance: 37 models, flagship-grade
+    // (qwen3.8-max, deepseek-v4.1-flash, minimax-m3, mistral-large-2512, all 1M context).
+    // ONE shared budget of 500k tokens a day across them, so the config allowlist stays
+    // short and GET /v1/usage reports what is left.
+    defaultBaseUrl: "https://xkiro.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-xt-…",
+  },
 ] as const satisfies readonly SimpleProviderMeta[];
 
 export type SimpleProviderKind = (typeof SIMPLE_PROVIDER_META)[number]["kind"];
