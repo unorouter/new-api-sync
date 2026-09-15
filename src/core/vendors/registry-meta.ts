@@ -1233,6 +1233,17 @@ export const SIMPLE_PROVIDER_META = [
     defaultRatio: 0,
     apiKeyPlaceholder: "sk-xt-…",
   },
+  {
+    kind: "seekai",
+    label: "SeekAI",
+    // seekai.cc - new-api relay, $200 promotional balance, so the whole catalog goes out
+    // free. Base is the host; runner and discovery append /v1. 18 models on the default
+    // group including gpt-5.6-sol/luna, kimi-k3, glm-5.3 and gemini-3.8-flash. Upstream
+    // enforces a hard concurrency cap, so keep one request in flight.
+    defaultBaseUrl: "https://seekai.cc",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-…",
+  },
 ] as const satisfies readonly SimpleProviderMeta[];
 
 export type SimpleProviderKind = (typeof SIMPLE_PROVIDER_META)[number]["kind"];
