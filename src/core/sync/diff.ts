@@ -465,6 +465,14 @@ export function buildSyncDiff(
     for (const existing of snapshot.channels) {
       if (!existing.tag || !managedProviders.has(existing.tag)) continue;
       if (desiredByName.has(existing.name) || !inScope(existing)) continue;
+      // The provider ran, but could not see this model upstream this run: its
+      // absence from desired says nothing about the lane.
+      const firstModel = parseModelList(existing.models)[0]?.toLowerCase();
+      if (
+        firstModel &&
+        desired.unverifiedLanes.get(existing.tag)?.has(firstModel)
+      )
+        continue;
       channelOps.push({ type: "delete", key: existing.name, existing });
     }
   }

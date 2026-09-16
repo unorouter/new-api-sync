@@ -23,7 +23,7 @@ import { consola } from "consola";
 import {
   DEFAULT_MAX_SELL_FRACTION,
   DEFAULT_PROFIT_MULTIPLE,
-  fetchListings,
+  fetchListingsByModel,
   marketplaceHeaders,
   type Listing,
 } from "./marketplace";
@@ -206,13 +206,23 @@ export async function cleanupStaleLaneTokens(
   provider: A7ProviderConfig,
   keptLanes: MerchantLane[],
   probedLanes: MerchantLane[],
+  unverifiedModels: Set<string> = new Set(),
 ): Promise<void> {
   const ctx = clientContext(provider);
   const keep = new Set([...keptLanes, ...probedLanes].map(laneTokenName));
+  // A token for a model the marketplace could not list this run is not stale:
+  // nothing was walked for it, so nothing can say its lane is gone.
+  const unverified = (name: string): boolean => {
+    const id = Number(/^(\d+)-/.exec(name)?.[1]);
+    if (!id) return false;
+    for (const model of unverifiedModels)
+      if (laneTokenNameFor(id, model) === name) return true;
+    return false;
+  };
   for (const token of await listTokens(ctx)) {
     throwIfRunAborted();
     if (!laneNamePattern.test(token.name)) continue;
-    if (keep.has(token.name)) continue;
+    if (keep.has(token.name) || unverified(token.name)) continue;
     if (await deleteToken(ctx, token.id))
       consola.info(`[${provider.name}] deleted stale lane token ${token.name}`);
   }
@@ -303,12 +313,18 @@ export async function acceptPriceNotices(
     : (body.data?.items ?? []);
   if (notices.length === 0) return result;
 
-  const listings = await fetchListings(provider);
+  const { byModel, failed: unreachable } = await fetchListingsByModel(
+    provider,
+    [...new Set(notices.map((n) => n.model_name))],
+  );
+  const unreachableModels = new Set(unreachable);
   const officialOutByKey = new Map(
-    listings.map((l) => [
-      `${l.channel_id}|${l.model_name}`,
-      l.official_price?.output_price_micros,
-    ]),
+    [...byModel.values()]
+      .flat()
+      .map((l) => [
+        `${l.channel_id}|${l.model_name}`,
+        l.official_price?.output_price_micros,
+      ]),
   );
 
   // a7 keeps notices for pins we have since deleted, and still marks their
@@ -324,6 +340,12 @@ export async function acceptPriceNotices(
       if (rel.relation_type !== "pin" || rel.state !== "open") continue;
       if (!ownPinTokenIds.has(rel.token_id)) continue;
       throwIfRunAborted();
+      // Without the listing there is no official price to judge the new one
+      // against; the notice stays open for the next tick.
+      if (unreachableModels.has(notice.model_name)) {
+        result.leftPaused++;
+        continue;
+      }
       const profitMultiple = resolvePerModel(
         provider.profitMultiple,
         notice.model_name,

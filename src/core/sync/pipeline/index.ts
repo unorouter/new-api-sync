@@ -555,6 +555,11 @@ async function buildDesiredState(
         providerReports,
         targetSnapshot,
       ),
+      unverifiedLanes: new Map(
+        providerReports
+          .filter((r) => r.unverifiedModels?.length)
+          .map((r) => [r.name, new Set(r.unverifiedModels)] as const),
+      ),
       mappingSources: new Set(Object.keys(config.modelMapping)),
     },
   };

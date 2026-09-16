@@ -12,7 +12,10 @@ import type { A7ProviderConfig } from "@core/validations/config";
 import type { NewApiClient } from "@core/vendors/newapi/client";
 import { consola } from "consola";
 import { t } from "@server/i18n";
-import { fetchListings, groupByModel } from "./marketplace";
+import {
+  fetchListingsByModel,
+  fetchMarketplaceModelNames,
+} from "./marketplace";
 import { ensureLaneTokens, laneTokenName, type MerchantLane } from "./pins";
 
 // Probe budget per cron tick: the metadata cron runs every 15 minutes, so
@@ -63,13 +66,26 @@ export async function reverifyLiveClaudeLanes(
   result.live = live.length;
   if (live.length === 0) return result;
 
-  const byModel = groupByModel(await fetchListings(provider));
+  const marketNames = await fetchMarketplaceModelNames(provider);
+  if (!marketNames) {
+    consola.warn(`[${provider.name}] reverify: marketplace index unreachable`);
+    return result;
+  }
   const marketByExposed = new Map<string, string>();
-  for (const model of byModel.keys())
+  for (const model of marketNames)
     marketByExposed.set(
       (config.modelMapping?.[model] ?? model).toLowerCase(),
       model,
     );
+  // Only the models the live Claude lanes are sold under, never the snapshot.
+  const liveMarkets = new Set<string>();
+  for (const ch of live) {
+    const market = marketByExposed.get(
+      ch.models.split(",")[0]!.trim().toLowerCase(),
+    );
+    if (market) liveMarkets.add(market);
+  }
+  const { byModel } = await fetchListingsByModel(provider, [...liveMarkets]);
 
   const disableLane = async (ch: Channel, reason: string): Promise<void> => {
     const ok = await target.updateChannel({ ...ch, status: MANUALLY_DISABLED });

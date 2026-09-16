@@ -95,6 +95,8 @@ export interface ProviderReport {
   };
   /** Ran, but some lanes were missing: keep the provider out of the delete set. */
   deletesWithheld?: boolean;
+  /** Exposed models the upstream could not describe this run: their lanes are kept. */
+  unverifiedModels?: string[];
   error?: string;
 }
 
@@ -239,6 +241,8 @@ export interface DesiredState {
   models: Map<string, DesiredModelSpec>;
   options: ManagedOptionMaps;
   managedProviders: Set<string>;
+  /** provider tag -> exposed models whose lanes must not be deleted this run */
+  unverifiedLanes: Map<string, Set<string>>;
   mappingSources: Set<string>;
 }
 

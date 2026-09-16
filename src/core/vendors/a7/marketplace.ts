@@ -2,9 +2,12 @@ import {
   matchesAnyPattern,
   matchesBlacklist,
 } from "@core/catalog/constants/patterns";
+import { getEnabledModelGlobs, type RuntimeConfig } from "@core/config";
 import { tryFetchJson } from "@core/infra/http";
 import { resolvePerModel } from "@core/pricing";
 import type { A7ProviderConfig } from "@core/validations/config";
+import { consola } from "consola";
+import pLimit from "p-limit";
 
 // a7 resells other people's channels, so one model has many merchant
 // listings at wildly different prices (claude-opus-5 spans $0.04 to $5.00).
@@ -62,30 +65,97 @@ export function marketplaceHeaders(
   };
 }
 
-// One call returns the whole snapshot: the endpoint ignores page/size and
-// answers from an in-memory view, so paginating would only refetch the same rows.
-export async function fetchListings(
-  provider: A7ProviderConfig,
-): Promise<Listing[]> {
-  const url =
-    `${provider.baseUrl.replace(/\/$/, "")}/api/marketplace/channels/search` +
-    `?route_status=all&exclude_unavailable=true&sort=price_asc`;
-  const body = await tryFetchJson<SearchResponse>(url, {
-    headers: marketplaceHeaders(provider),
-    timeoutMs: 60_000,
-  });
-  if (!body?.success) return [];
-  return body.data?.items ?? [];
+// The unfiltered snapshot (thousands of rows, 17 MB) answers 200 and then
+// stalls mid-stream: on 2026-09-16 every attempt was cut between 1.3 and 4.6 MB
+// and four full walks died on "no listings". `model=` is a real server-side
+// filter (`p` and `size` are ignored), exact and case sensitive, and a single
+// model completes in seconds. Even the largest one (claude-opus-5, 410 rows)
+// still stalls now and then, so a stall is reported as unknown, never as empty.
+const LISTING_TIMEOUT_MS = 120_000;
+const LISTING_CONCURRENCY = 3;
+
+interface PricingResponse {
+  success?: boolean;
+  data?: { model_name?: string }[];
 }
 
-export function groupByModel(listings: Listing[]): Map<string, Listing[]> {
+// /api/pricing is the cheap index of exact marketplace spellings: the filter
+// wants `DeepSeek-V4-Flash-0731`, config says `deepseek-v4-flash-0731`.
+export async function fetchMarketplaceModelNames(
+  provider: A7ProviderConfig,
+): Promise<string[] | null> {
+  const url = `${provider.baseUrl.replace(/\/$/, "")}/api/pricing`;
+  const body = await tryFetchJson<PricingResponse>(url, {
+    headers: marketplaceHeaders(provider),
+    timeoutMs: 60_000,
+    retry: 2,
+    retryDelayMs: 5_000,
+  });
+  if (!body?.success || !Array.isArray(body.data)) return null;
+  const names = new Set<string>();
+  for (const row of body.data) if (row.model_name) names.add(row.model_name);
+  return [...names];
+}
+
+// The marketplace names this run should walk: the same three cuts the
+// candidate walk applies (blacklist, enabled globs, --models), on exact names.
+export function resolveMarketplaceModels(
+  provider: A7ProviderConfig,
+  config: RuntimeConfig,
+  names: string[],
+): string[] {
+  const globs = getEnabledModelGlobs(provider.enabledModels) ?? [];
+  return names.filter((model) => {
+    if (matchesBlacklist(model, config.blacklist)) return false;
+    if (globs.length > 0 && !matchesAnyPattern(model, globs)) return false;
+    if (
+      config.modelFilter?.length &&
+      !matchesAnyPattern(model, config.modelFilter)
+    )
+      return false;
+    return true;
+  });
+}
+
+// null is "the marketplace could not say", [] is "no merchant lists it".
+export async function fetchListingsForModel(
+  provider: A7ProviderConfig,
+  model: string,
+): Promise<Listing[] | null> {
+  const url =
+    `${provider.baseUrl.replace(/\/$/, "")}/api/marketplace/channels/search` +
+    `?model=${encodeURIComponent(model)}&route_status=all&exclude_unavailable=true&sort=price_asc`;
+  const body = await tryFetchJson<SearchResponse>(url, {
+    headers: marketplaceHeaders(provider),
+    timeoutMs: LISTING_TIMEOUT_MS,
+    retry: 2,
+    retryDelayMs: 5_000,
+  });
+  if (!body?.success) return null;
+  return (body.data?.items ?? []).filter((row) => row.model_name === model);
+}
+
+export async function fetchListingsByModel(
+  provider: A7ProviderConfig,
+  models: string[],
+): Promise<{ byModel: Map<string, Listing[]>; failed: string[] }> {
   const byModel = new Map<string, Listing[]>();
-  for (const row of listings) {
-    const list = byModel.get(row.model_name);
-    if (list) list.push(row);
-    else byModel.set(row.model_name, [row]);
-  }
-  return byModel;
+  const failed: string[] = [];
+  const limit = pLimit(LISTING_CONCURRENCY);
+  await Promise.all(
+    models.map((model) =>
+      limit(async () => {
+        const rows = await fetchListingsForModel(provider, model);
+        if (rows === null) failed.push(model);
+        else byModel.set(model, rows);
+      }),
+    ),
+  );
+  consola.info(
+    `[${provider.name}] listings: ${byModel.size} model(s) fetched, ${failed.length} unreachable` +
+      (failed.length > 0 ? ` (${failed.join(", ")})` : ""),
+  );
+  return { byModel, failed };
 }
 
 // Every merchant worth a channel, cheapest first. Retail = merchant cost *

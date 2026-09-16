@@ -1,12 +1,8 @@
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
 import { resolvePerModel } from "@core/pricing";
 import { inferModelType } from "@core/catalog/constants/inference";
-import {
-  matchesAnyPattern,
-  matchesBlacklist,
-  sanitizeGroupName,
-} from "@core/catalog/constants/patterns";
-import { getEnabledModelGlobs, type RuntimeConfig } from "@core/config";
+import { sanitizeGroupName } from "@core/catalog/constants/patterns";
+import type { RuntimeConfig } from "@core/config";
 import type {
   OfferModel,
   ProviderResult,
@@ -26,8 +22,9 @@ import { consola } from "consola";
 import {
   DEFAULT_MAX_SELL_FRACTION,
   DEFAULT_PROFIT_MULTIPLE,
-  fetchListings,
-  groupByModel,
+  fetchListingsByModel,
+  fetchMarketplaceModelNames,
+  resolveMarketplaceModels,
   selectMerchants,
   supplierSlug,
   usdPerMillion,
@@ -214,19 +211,12 @@ function collectCandidates(
   ctx: ProviderRunContext,
   byModel: Map<string, Listing[]>,
 ): { models: ModelCandidates[]; skippedModels: string[] } {
-  const globs = getEnabledModelGlobs(provider.enabledModels) ?? [];
   const models: ModelCandidates[] = [];
   const skippedModels: string[] = [];
 
+  // Every key of byModel already passed the blacklist, enabled and --models
+  // cuts in resolveMarketplaceModels.
   for (const [model, rows] of byModel) {
-    if (matchesBlacklist(model, config.blacklist)) continue;
-    if (globs.length > 0 && !matchesAnyPattern(model, globs)) continue;
-    if (
-      config.modelFilter?.length &&
-      !matchesAnyPattern(model, config.modelFilter)
-    )
-      continue;
-
     // Cap cut: reject a merchant whose cost * profitMultiple breaches 1x list.
     // The vote's modelRatio is the input price in ratio units; USD list output.
     const canonicalListUsd = canonicalListUsdFor(model, config, ctx);
@@ -283,8 +273,15 @@ export async function processA7Provider(
   const dryRun = ctx.dryRun ?? false;
 
   try {
-    const listings = await fetchListings(provider);
-    if (listings.length === 0) {
+    const marketNames = await fetchMarketplaceModelNames(provider);
+    const wantedModels = marketNames
+      ? resolveMarketplaceModels(provider, config, marketNames)
+      : [];
+    const { byModel, failed: unreachable } =
+      wantedModels.length > 0
+        ? await fetchListingsByModel(provider, wantedModels)
+        : { byModel: new Map<string, Listing[]>(), failed: [] };
+    if (byModel.size === 0) {
       report.error = "marketplace returned no listings";
       return {
         report,
@@ -293,8 +290,17 @@ export async function processA7Provider(
         extraGroups,
       };
     }
+    // A model the marketplace could not describe this run is unknown, not
+    // empty: its lanes and tokens are kept as they are until a run can see it.
+    const unverifiedMarket = new Set(unreachable);
+    report.unverifiedModels = unreachable.map((m) =>
+      (config.modelMapping?.[m] ?? m).toLowerCase(),
+    );
+    if (unreachable.length > 0)
+      consola.warn(
+        `[${name}] ${unreachable.length} model(s) unreachable at the marketplace this run, their lanes are kept: ${unreachable.join(", ")}`,
+      );
 
-    const byModel = groupByModel(listings);
     const { models, skippedModels } = collectCandidates(
       provider,
       config,
@@ -540,7 +546,12 @@ export async function processA7Provider(
       };
     }
     if (!dryRun && !skipCleanup)
-      await cleanupStaleLaneTokens(provider, keptLanes, probedLanes);
+      await cleanupStaleLaneTokens(
+        provider,
+        keptLanes,
+        probedLanes,
+        unverifiedMarket,
+      );
     report.success = true;
   } catch (err) {
     report.error = err instanceof Error ? err.message : String(err);

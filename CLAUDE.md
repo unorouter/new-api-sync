@@ -112,6 +112,11 @@ Never a full `sync run` for one model. `DELETE FROM channels WHERE id IN (...)` 
 - Embeddings force `acceptRateLimited: false`. `fetchPricing` must send `ctx.headers`.
 - a7 `minSuccessRate` defaults to 0: a7's own success rate is not trusted, the live probe is the
   gate, and the candidate walk runs until `hostsPerModel` lanes pass or the price-filtered list ends.
+- a7 listings are fetched one model at a time (`model=<exact name>`, spellings from `/api/pricing`),
+  three in flight, 120 s each: the unfiltered snapshot answers 200 and stalls mid-stream. A model
+  the marketplace cannot serve this run is `unverifiedModels` on the report: the walk skips it, the
+  diff keeps its lanes (`DesiredState.unverifiedLanes`) and the stale-token cleanup keeps its
+  tokens. Only a run that could read no model at all fails with "no listings".
 - a7 `minSellFraction` = retail floor (raises the group ratio), `maxSellFraction` = merchant cut,
   default 1 (cost \* profitMultiple <= canonical list; the engine never sells above list anyway);
   `sweepLiveLanes` re-runs the math on every held lane because the gateway re-enables lanes itself.
