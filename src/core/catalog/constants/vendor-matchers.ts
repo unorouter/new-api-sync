@@ -104,7 +104,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   // Unreleased models whose developer is deliberately undisclosed during preview.
   // The gateways that carry them (OpenCode Zen, OpenRouter's stealth/ namespace)
   // are distributors, not the vendor, so attributing one of them would be wrong.
-  stealth: { modelPatterns: ["ox-alpha"], strongPatterns: ["ox-alpha"], nameAliases: ["stealth"], displayName: "Stealth" },
+  stealth: { modelPatterns: ["ox-alpha", "union-alpha"], strongPatterns: ["ox-alpha", "union-alpha"], nameAliases: ["stealth"], displayName: "Stealth" },
   orcarouter: { modelPatterns: ["orca-router","orca-fusion"], strongPatterns: ["orca-fusion","orca-router"], nameAliases: ["orcarouter","orca router"], displayName: "OrcaRouter" },
   swissai: { modelPatterns: ["apertus"], strongPatterns: ["apertus"], nameAliases: ["swiss ai","swiss-ai","swissai","eth zurich","epfl"], displayName: "Swiss AI" },
   regolo: { modelPatterns: ["brick"], strongPatterns: ["brick-complexity","brick-v1"], nameAliases: ["regolo","regolo.ai"], displayName: "Regolo" },

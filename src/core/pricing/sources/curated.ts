@@ -3554,6 +3554,14 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // Stealth model on OpenRouter's stealth/ namespace and OpenCode Zen; OpenRouter
+  // lists text+image in, tools, no reasoning parameter.
+  "union-alpha": {
+    releaseDate: iso("2026-09-16"),
+    contextWindow: 262_144,
+    supportsVision: true,
+    supportsTools: true,
+  },
   // Z.ai GLM-4.6 Vision Flash
   "glm-4.6v-flash": {
     releaseDate: iso("2025-12-09"),
