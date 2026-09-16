@@ -13,6 +13,10 @@ type ProviderKind = string;
 export interface OfferModel {
   exposed: string;
   upstream: string;
+  /** Publish under this name instead of `exposed`, keeping the exposed name for
+   *  pricing and the cap. Splits a provider's lanes off the shared model name so
+   *  auto cannot route to them (see `publishAs` in the provider config). */
+  publishAs?: string;
   /** Undefined = no per-model pricing. Compute falls back to cheapest existing group ratio. */
   upstreamRatio?: number;
   upstreamCompletionRatio?: number;

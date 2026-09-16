@@ -524,6 +524,13 @@ async function buildDesiredState(
     pricingSources,
     toolEvidence,
     snapshotMetadata,
+    publishAliasBase: new Map(
+      config.providers.flatMap((p) =>
+        Object.entries("publishAs" in p ? (p.publishAs ?? {}) : {}).map(
+          ([base, published]) => [published, base] as const,
+        ),
+      ),
+    ),
   });
 
   const responsesApiModels = collectResponsesApiModels(

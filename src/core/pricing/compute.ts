@@ -669,10 +669,13 @@ function pushBucketsAsTiers(
       // the model as `{name}:free` so it has a distinct identity that can never
       // route to a paid channel; paid channels keep the base name. Routing is
       // unchanged (modelMapping -> m.upstream).
+      // A provider whose lanes are split off the shared name (publishAs) publishes
+      // under that name; pricing still comes from `exposed`, mirrored below.
+      const baseName = m.publishAs ?? m.exposed;
       const publishedName =
-        groupRatio === 0 && !m.exposed.endsWith(":free")
-          ? `${m.exposed}:free`
-          : m.exposed;
+        groupRatio === 0 && !baseName.endsWith(":free")
+          ? `${baseName}:free`
+          : baseName;
 
       const modelMapping: Record<string, string> = {};
       if (publishedName !== m.upstream)

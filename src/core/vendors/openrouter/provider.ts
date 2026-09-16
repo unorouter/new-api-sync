@@ -325,6 +325,12 @@ export async function processOpenRouterProvider(
 
         const resolutions = resolveBareNames(working, config.modelMapping);
         const reverseMapping = buildChannelModelMapping(resolutions);
+        // Lanes split off the shared model name: these publish as their own model so
+        // auto never promotes a token from a cheap provider's lane to one of these.
+        const publishAsFor = (exposed: string): string | undefined =>
+          Object.entries(providerConfig.publishAs ?? {}).find(([glob]) =>
+            matchesAnyPattern(exposed, [glob]),
+          )?.[1];
         const freeResolutions = resolutions.filter((r) =>
           freeSet.has(r.upstream),
         );
@@ -479,6 +485,7 @@ export async function processOpenRouterProvider(
               const m: OfferModel = {
                 exposed: r.exposed,
                 upstream: reverseMapping[r.exposed] ?? r.upstream,
+                publishAs: publishAsFor(r.exposed),
                 modelType: "text",
                 testDetail:
                   details.find((d) => d.model === r.upstream) ??

@@ -109,6 +109,9 @@ export function buildDesiredModels(opts: {
   toolEvidence: Map<string, ToolEvidence>;
   /** Existing target metadata, keyed by model name. */
   snapshotMetadata: Map<string, Record<string, unknown>>;
+  /** publishAs name -> the model it was split from, so the split name inherits
+   *  the base model's description, context and dates (no source knows `or-x`). */
+  publishAliasBase: Map<string, string>;
 }): Map<string, DesiredModelSpec> {
   const models = new Map<string, DesiredModelSpec>();
 
@@ -193,19 +196,23 @@ export function buildDesiredModels(opts: {
     modelNames: new Set([
       ...models.keys(),
       ...[...models.keys()].map((n) => toBareName(n)),
+      ...opts.publishAliasBase.values(),
     ]),
     basellmEntries: opts.basellmEntries,
     openRouterDescriptions: opts.openRouterDescriptions,
     modelMapping: opts.modelMapping,
   });
   for (const [modelName, spec] of models) {
+    const aliasBase = opts.publishAliasBase.get(toBareName(modelName));
     const meta =
-      metadataMap.get(modelName) ?? metadataMap.get(toBareName(modelName));
+      metadataMap.get(modelName) ??
+      metadataMap.get(toBareName(modelName)) ??
+      (aliasBase ? metadataMap.get(aliasBase) : undefined);
     if (meta?.tags) spec.tags = meta.tags;
     // ePhone (and other pricing sources) carry full descriptions; OpenRouter's is
     // often truncated. Take the fuller/non-truncated of the two.
     const sourceDescription = resolveSourceMetadata(
-      modelName,
+      aliasBase ?? modelName,
       opts.pricingSources,
       opts.reverseMapping,
     ).description;
@@ -243,7 +250,7 @@ export function buildDesiredModels(opts: {
     const prefix = isTaskModel ? `${typeTag},Task` : typeTag;
     const sourceTags = deriveTagsFromMetadata(
       resolveSourceMetadata(
-        modelName,
+        opts.publishAliasBase.get(toBareName(modelName)) ?? modelName,
         opts.pricingSources,
         opts.reverseMapping,
       ),
@@ -269,7 +276,8 @@ export function buildDesiredModels(opts: {
       opts.metadataByUpstream[upstream] ?? opts.metadataByUpstream[modelName];
     const merged =
       buildModelMetadata({
-        modelName,
+        modelName:
+          opts.publishAliasBase.get(toBareName(modelName)) ?? modelName,
         sources: opts.pricingSources,
         reverseMapping: opts.reverseMapping,
         override,
