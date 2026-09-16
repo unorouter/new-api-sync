@@ -220,10 +220,18 @@ export async function processOpenRouterProvider(
         : fetchOpenRouterBalance(
             providerConfig.baseUrl,
             // /v1/credits refuses inference keys; see balance.ts.
-            providerConfig.managementKey ?? providerConfig.apiKey,
+            providerConfig.managementKey ?? providerConfig.apiKey ?? "",
           ),
     async () => {
       try {
+        if (!providerConfig.managementKey && !providerConfig.apiKey) {
+          report.error = `openrouter: ${name} needs a managementKey or an apiKey`;
+          return;
+        }
+        // Catalog and endpoint routes are public; the management key is only
+        // sent so a rate limit counts against the account, not the anonymous pool.
+        const readKey =
+          providerConfig.managementKey ?? providerConfig.apiKey ?? "";
         const enabledGlobs =
           getEnabledModelGlobs(providerConfig.enabledModels) ?? [];
         // Exact (non-glob) enabled ids = explicitly-requested paid models. Fetch
@@ -234,7 +242,7 @@ export async function processOpenRouterProvider(
 
         const catalogue = await discoverOpenRouterFreeModels(
           providerConfig.baseUrl,
-          providerConfig.apiKey,
+          readKey,
           requestedPaidIds,
         );
         consola.info(
@@ -285,6 +293,59 @@ export async function processOpenRouterProvider(
         const toProbe = filtered.filter((id) => freeSet.has(id));
         const untested = filtered.filter((id) => !freeSet.has(id));
 
+        // One capped key per model, minted through the management key before
+        // anything is sent: the probe runs on the same credential the channel
+        // will carry, so a bootstrap inference key is never needed (open1's was
+        // revoked in the Aug 27 rotation and no new model could pass its probe
+        // for three weeks). A model that then fails keeps its key for the next
+        // run; it is guardrail-pinned, daily-capped and its secret is in the
+        // store, so nothing is orphaned. Skipped on a dry run: minting is a write.
+        const candidateExposed = new Map(
+          resolveBareNames(filtered, config.modelMapping).map(
+            (r) => [r.upstream, r.exposed] as const,
+          ),
+        );
+        let keyByModel = new Map<string, string>();
+        if (providerConfig.managementKey && !ctx.dryRun) {
+          const keyStore = config.verdictStore
+            ? new VerdictStore(config.verdictStore)
+            : null;
+          if (providerConfig.requireKeyStore && !keyStore?.canHoldKeys)
+            throw new Error(
+              `openrouter: ${name} sets requireKeyStore but verdictStore.encryptionKey is missing`,
+            );
+          const existingKeyByName =
+            (await keyStore?.fetchProvisionedKeys(name)) ??
+            new Map<string, string>();
+          const provisioned = await ensureProvisionedKeys({
+            baseUrl: providerConfig.baseUrl,
+            managementKey: providerConfig.managementKey,
+            provider: name,
+            models: [...new Set(candidateExposed.values())],
+            existingKeyByName,
+            requireStore: providerConfig.requireKeyStore,
+            permaslugByModel: new Map(
+              [...candidateExposed].map(
+                ([upstream, exposed]) => [exposed, upstream] as const,
+              ),
+            ),
+            dailyLimitFor: (model) =>
+              resolvePerModel(providerConfig.keyDailyLimitUsd, model, 15),
+            expiryDays: providerConfig.keyExpiryDays ?? 90,
+          });
+          if (provisioned.minted > 0) {
+            if (keyStore?.canHoldKeys)
+              await keyStore.putProvisionedKeys(name, provisioned.keyByName);
+            else
+              consola.warn(
+                `[${name}] ${provisioned.minted} key(s) minted with nowhere to store the secret; the next run will mint again`,
+              );
+          }
+          keyByModel = provisioned.keyByModel;
+        }
+        const probeKeyFor = (upstream: string): string | undefined =>
+          keyByModel.get(candidateExposed.get(upstream) ?? "");
+
         let working = untested;
         let details: Awaited<
           ReturnType<typeof testAndFilterModels>
@@ -296,7 +357,8 @@ export async function processOpenRouterProvider(
           const filterResult = await testAndFilterModels({
             allModels: toProbe,
             baseUrl: providerConfig.baseUrl,
-            apiKey: providerConfig.apiKey,
+            apiKey: providerConfig.apiKey ?? "",
+            apiKeyFor: probeKeyFor,
             channelType: CHANNEL_TYPES.OPENAI,
             providerLabel: name,
             testableModelTypes: new Set(["text"]),
@@ -362,7 +424,8 @@ export async function processOpenRouterProvider(
               vendor,
               channelType: CHANNEL_TYPES.OPENROUTER,
               baseUrl: providerConfig.baseUrl,
-              apiKey: providerConfig.apiKey,
+              apiKey: providerConfig.apiKey ?? "",
+              apiKeyByModel: keyByModel,
               groupRatio: providerConfig.ratio,
               channelRemark: `OpenRouter free via ${name}`,
               models: offerModels,
@@ -520,7 +583,8 @@ export async function processOpenRouterProvider(
                 vendor,
                 channelType: CHANNEL_TYPES.OPENROUTER,
                 baseUrl: providerConfig.baseUrl,
-                apiKey: providerConfig.apiKey,
+                apiKey: providerConfig.apiKey ?? "",
+                apiKeyByModel: keyByModel,
                 groupRatio: markup,
                 channelRemark: `OpenRouter ${host.provider} via ${name}`,
                 models: [m],
@@ -544,51 +608,6 @@ export async function processOpenRouterProvider(
             vendors: totalVendors,
           }),
         );
-
-        // One capped, model-pinned key per model instead of the single shared key
-        // every channel used to carry. Done after the offers are built so the model
-        // set is final, and skipped on a dry run because minting is a real write.
-        if (providerConfig.managementKey && !ctx.dryRun) {
-          const exposed = [
-            ...new Set(offers.flatMap((o) => o.models.map((m) => m.exposed))),
-          ];
-          const keyStore = config.verdictStore
-            ? new VerdictStore(config.verdictStore)
-            : null;
-          if (providerConfig.requireKeyStore && !keyStore?.canHoldKeys)
-            throw new Error(
-              `openrouter: ${name} sets requireKeyStore but verdictStore.encryptionKey is missing`,
-            );
-          const existingKeyByName =
-            (await keyStore?.fetchProvisionedKeys(name)) ??
-            new Map<string, string>();
-          const provisioned = await ensureProvisionedKeys({
-            baseUrl: providerConfig.baseUrl,
-            managementKey: providerConfig.managementKey,
-            provider: name,
-            models: exposed,
-            existingKeyByName,
-            requireStore: providerConfig.requireKeyStore,
-            permaslugByModel: new Map(
-              offers.flatMap((o) =>
-                o.models.map((m) => [m.exposed, m.upstream] as const),
-              ),
-            ),
-            dailyLimitFor: (model) =>
-              resolvePerModel(providerConfig.keyDailyLimitUsd, model, 15),
-            expiryDays: providerConfig.keyExpiryDays ?? 90,
-          });
-          if (provisioned.minted > 0) {
-            if (keyStore?.canHoldKeys)
-              await keyStore.putProvisionedKeys(name, provisioned.keyByName);
-            else
-              consola.warn(
-                `[${name}] ${provisioned.minted} key(s) minted with nowhere to store the secret; the next run will mint again`,
-              );
-          }
-          for (const offer of offers)
-            offer.apiKeyByModel = provisioned.keyByModel;
-        }
 
         report.groups = totalVendors;
         report.models = resolutions.length;

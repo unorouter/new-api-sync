@@ -78,7 +78,7 @@ async function providerBalance(
         // must read its balance with that one or report none at all.
         entry.balance = await fetchOpenRouterBalance(
           provider.baseUrl ?? "https://openrouter.ai/api",
-          provider.managementKey ?? provider.apiKey,
+          provider.managementKey ?? provider.apiKey ?? "",
         );
         break;
       }

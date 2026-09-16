@@ -257,6 +257,8 @@ function isTransientStatus(status: number | undefined): boolean {
 async function testModels(opts: {
   baseUrl: string;
   apiKey: string;
+  /** Per-model credential, for upstreams that mint one key per model. */
+  apiKeyFor?: (model: string) => string | undefined;
   models: string[];
   channelType: number;
   useResponsesAPI?: boolean;
@@ -298,6 +300,7 @@ async function testModels(opts: {
           );
 
         const blacklistKey = `${prefix}|${model}`;
+        const apiKey = opts.apiKeyFor?.(model) ?? opts.apiKey;
         const isClaude = model.startsWith("claude-");
         // Keyed on the MODEL, not the channel type: a7/openrouter test claude
         // over OpenAI-compat, and a blacklisted faker re-probed on every run
@@ -336,7 +339,7 @@ async function testModels(opts: {
 
         const reqOpts: ModelRequestOpts = {
           baseUrl: opts.baseUrl,
-          apiKey: opts.apiKey,
+          apiKey,
           model,
           channelType: opts.channelType,
           useResponsesAPI,
@@ -465,7 +468,7 @@ async function testModels(opts: {
           const fp = await measureTokenizerFingerprint({
             transport: verifierTransport,
             baseUrl: opts.baseUrl,
-            apiKey: opts.apiKey,
+            apiKey,
             model,
             wire:
               opts.channelType === CHANNEL_TYPES.ANTHROPIC
@@ -512,7 +515,7 @@ async function testModels(opts: {
               ? true
               : await testAnthropicAuthenticity({
                   baseUrl: opts.baseUrl,
-                  apiKey: opts.apiKey,
+                  apiKey,
                   model,
                   timeoutMs,
                   logKey: blacklistKey,
@@ -536,7 +539,7 @@ async function testModels(opts: {
         ) {
           void observeClaudeEvidence({
             baseUrl: opts.baseUrl,
-            apiKey: opts.apiKey,
+            apiKey,
             model,
             timeoutMs,
             label: blacklistKey,
@@ -700,6 +703,7 @@ export async function testAndFilterModels(opts: {
   allModels: string[];
   baseUrl: string;
   apiKey: string;
+  apiKeyFor?: (model: string) => string | undefined;
   channelType: number;
   providerLabel: string;
   testableModelTypes: Set<ModelType>;
@@ -748,10 +752,11 @@ export async function testAndFilterModels(opts: {
         count: testableModels.length,
       }),
     );
-  } else if (opts.apiKey && testableModels.length > 0) {
+  } else if ((opts.apiKey || opts.apiKeyFor) && testableModels.length > 0) {
     const testResult = await testModels({
       baseUrl: opts.baseUrl,
       apiKey: opts.apiKey,
+      apiKeyFor: opts.apiKeyFor,
       models: testableModels,
       channelType: opts.channelType,
       useResponsesAPI: opts.useResponsesAPI,

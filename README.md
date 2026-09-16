@@ -98,7 +98,8 @@ Pulls from [OpenRouter](https://openrouter.ai/). Free models (`prompt=0` and `co
 | Field                    | Required | Description                                                            |
 | ------------------------ | -------- | ---------------------------------------------------------------------- |
 | `name`                   | yes      | Unique identifier, used as channel tag                                 |
-| `apiKey`                 | yes      | OpenRouter API key                                                     |
+| `managementKey`          | one of   | Management key: mints one capped, guardrail-pinned key per model, used for the probe and the channel |
+| `apiKey`                 | one of   | Inference key, only for a provider without a management key (shared by every channel) |
 | `baseUrl`                |          | Defaults to `https://openrouter.ai/api`                                |
 | `models`                 |          | Explicit model IDs (e.g. `moonshotai/kimi-k2.6:free`); skips discovery |
 | `enabledVendors`         |          | Filter discovered models by vendor prefix (`anthropic`, `openai`, ...) |

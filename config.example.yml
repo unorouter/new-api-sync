@@ -92,7 +92,7 @@ providers:
   # disabled providers (uncomment to enable)
   # - type: openrouter
   #   name: openrouter
-  #   apiKey: sk-or-...
+  #   managementKey: sk-or-v1-...   # mints one capped key per model; apiKey only without it
   # - type: nvidia
   #   name: nvidia-nim
   #   apiKey: nvapi-...
