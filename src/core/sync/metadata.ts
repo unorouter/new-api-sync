@@ -301,7 +301,7 @@ async function reconcilePassThrough(
     // (input.messages, model rewrite); pass-through would forward the raw OpenAI
     // body and 400/404. Never enable pass-through on them.
     if (ch.type === CHANNEL_TYPES.ALI) continue;
-    // Runware (62) takes an ARRAY of task objects, not an OpenAI image request. Passing the
+    // Runware takes an ARRAY of task objects, not an OpenAI image request. Passing the
     // raw body through skips the adaptor's conversion and the upstream answers
     // invalidPayloadFormat for every generation.
     if (ch.type === CHANNEL_TYPES.RUNWARE) continue;
