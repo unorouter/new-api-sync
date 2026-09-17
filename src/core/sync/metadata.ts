@@ -383,6 +383,11 @@ function buildVendorParamOverrideByProvider(
   return out;
 }
 
+// set and round are the value clamps channelParamOverride writes (temperature
+// above a lane's ceiling). Left out, the first clamp written became "someone
+// else's" and no later rule edit could change or clear it.
+const SYNC_AUTHORED_MODES = new Set(["delete", "set", "round"]);
+
 function isSyncAuthoredParamOverride(raw: string): boolean {
   if (raw === DISABLE_THINKING_PARAM_OVERRIDE) return true;
   try {
@@ -395,7 +400,7 @@ function isSyncAuthoredParamOverride(raw: string): boolean {
       (op) =>
         !!op &&
         typeof op === "object" &&
-        (op as Record<string, unknown>).mode === "delete" &&
+        SYNC_AUTHORED_MODES.has(String((op as Record<string, unknown>).mode)) &&
         typeof (op as Record<string, unknown>).path === "string",
     );
   } catch {
