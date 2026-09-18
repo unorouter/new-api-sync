@@ -14,10 +14,15 @@ import { consola } from "consola";
 // refusing degrades to the old skip instead of eating the job deadline.
 const DEFAULT_COOLDOWN_MS = 60_000;
 
-const WAIT_BUDGET_MS = 20 * 60_000;
+const MAX_COOLDOWN_MS = 5 * 60_000;
+const WAIT_BUDGET_MS = 30 * 60_000;
 
 const cooldownUntil = new Map<string, number>();
 const waitedMs = new Map<string, number>();
+// Refusals in a row, cleared by the first call that gets through. a7's reveal
+// limit outlasts a flat minute: on 2026-09-18 seven waits of 60 s each met a
+// fresh 429 and seven lanes went unkeyed, so the wait doubles until one lands.
+const strikes = new Map<string, number>();
 
 export function tokenThrottleRemainingMs(baseUrl: string): number {
   const until = cooldownUntil.get(baseUrl);
@@ -34,14 +39,21 @@ export function noteTokenThrottle(
   baseUrl: string,
   retryAfterMs?: number,
 ): void {
+  const strike = (strikes.get(baseUrl) ?? 0) + 1;
+  strikes.set(baseUrl, strike);
+  const escalated = Math.min(
+    DEFAULT_COOLDOWN_MS * 2 ** (strike - 1),
+    MAX_COOLDOWN_MS,
+  );
   cooldownUntil.set(
     baseUrl,
-    Date.now() + Math.max(retryAfterMs ?? 0, DEFAULT_COOLDOWN_MS),
+    Date.now() + Math.max(retryAfterMs ?? 0, escalated),
   );
 }
 
 export function clearTokenThrottle(baseUrl: string): void {
   cooldownUntil.delete(baseUrl);
+  strikes.delete(baseUrl);
 }
 
 // Resolves true once the base URL is clear to call, false when the run has

@@ -117,28 +117,42 @@ export async function getTokenFullKey(
   ctx: ClientContext,
   id: number,
 ): Promise<string | null> {
-  // Per-token endpoint is rate-limited; prefer getTokenFullKeysBatch.
-  if (!(await awaitTokenThrottle(ctx.baseUrl))) return null;
-  const result = await fetchJsonResult<{
-    success: boolean;
-    data?: { key: string };
-  }>(`${ctx.baseUrl}/api/token/${id}/key`, {
-    method: "POST",
-    headers: ctx.headers,
-    retry: 2,
-    retryDelayMs: 2000,
-  });
-  if (!result.ok) {
-    if (result.status === 429)
-      noteTokenThrottle(ctx.baseUrl, result.retryAfterMs);
-    return null;
+  // Per-token endpoint is rate-limited; prefer getTokenFullKeysBatch. A refusal
+  // is asked again after the cooldown: one try per token left a lane unkeyed for
+  // the whole run whenever its single call met the limit.
+  for (let round = 0; round < REVEAL_ROUNDS; round++) {
+    if (!(await awaitTokenThrottle(ctx.baseUrl))) return null;
+    const result = await fetchJsonResult<{
+      success: boolean;
+      data?: { key: string };
+    }>(`${ctx.baseUrl}/api/token/${id}/key`, {
+      method: "POST",
+      headers: ctx.headers,
+    });
+    if (!result.ok) {
+      if (result.status === 429)
+        noteTokenThrottle(ctx.baseUrl, result.retryAfterMs);
+      else if (!isTransientStatus(result.status)) return null;
+      else await new Promise((r) => setTimeout(r, 2000));
+      continue;
+    }
+    const key = result.data.success ? result.data.data?.key : undefined;
+    if (key) clearTokenThrottle(ctx.baseUrl);
+    return key ?? null;
   }
-  const key = result.data.success ? result.data.data?.key : undefined;
-  if (key) clearTokenThrottle(ctx.baseUrl);
-  return key ?? null;
+  return null;
 }
 
 const TOKEN_BATCH_MAX = 100;
+// Tries per reveal once the relay refuses for rate. The in-call retry ladder is
+// off on these routes: three quick retries inside a throttled window are three
+// more strikes against the account, and the shared cooldown does the waiting.
+const REVEAL_ROUNDS = 4;
+
+// No status is a network fault; both are worth another round, a 4xx is not.
+function isTransientStatus(status: number | undefined): boolean {
+  return status === undefined || status >= 500;
+}
 
 /**
  * Bulk-reveal full keys for up to 100 tokens per call via /api/token/batch/keys.
@@ -153,28 +167,31 @@ export async function getTokenFullKeysBatch(
   const result = new Map<number, string>();
   for (let i = 0; i < ids.length; i += TOKEN_BATCH_MAX) {
     const batch = ids.slice(i, i + TOKEN_BATCH_MAX);
-    if (!(await awaitTokenThrottle(ctx.baseUrl))) break;
-    const response = await fetchJsonResult<{
-      success: boolean;
-      data?: { keys?: Record<string, string> };
-    }>(`${ctx.baseUrl}/api/token/batch/keys`, {
-      method: "POST",
-      headers: ctx.headers,
-      body: { ids: batch },
-      retry: 3,
-      retryDelayMs: 2000,
-    });
-    if (!response.ok) {
-      if (response.status === 429)
-        noteTokenThrottle(ctx.baseUrl, response.retryAfterMs);
-      continue;
-    }
-    const keys = response.data.success ? response.data.data?.keys : undefined;
-    if (!keys) continue;
-    clearTokenThrottle(ctx.baseUrl);
-    for (const [k, v] of Object.entries(keys)) {
-      const id = Number(k);
-      if (Number.isFinite(id) && v) result.set(id, v);
+    for (let round = 0; round < REVEAL_ROUNDS; round++) {
+      if (!(await awaitTokenThrottle(ctx.baseUrl))) break;
+      const response = await fetchJsonResult<{
+        success: boolean;
+        data?: { keys?: Record<string, string> };
+      }>(`${ctx.baseUrl}/api/token/batch/keys`, {
+        method: "POST",
+        headers: ctx.headers,
+        body: { ids: batch },
+      });
+      if (!response.ok) {
+        if (response.status === 429)
+          noteTokenThrottle(ctx.baseUrl, response.retryAfterMs);
+        else if (!isTransientStatus(response.status)) break;
+        else await new Promise((r) => setTimeout(r, 2000));
+        continue;
+      }
+      const keys = response.data.success ? response.data.data?.keys : undefined;
+      if (!keys) break;
+      clearTokenThrottle(ctx.baseUrl);
+      for (const [k, v] of Object.entries(keys)) {
+        const id = Number(k);
+        if (Number.isFinite(id) && v) result.set(id, v);
+      }
+      break;
     }
   }
   for (const id of ids) {
