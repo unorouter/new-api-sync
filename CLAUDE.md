@@ -204,11 +204,14 @@ a7 pins (`vendors/a7/pins.ts`): a reprice pauses the pin, accept via
 `price-notices/<id>/accept`; a drop creates no notice and keeps billing the old snapshot, only
 unpin + pin re-confirms; `fallback_to_smart_routing` stays false.
 
-Marketplace lanes (`vendors/poolrelay`, `vendors/orderbook`, `vendors/shared/fallback-lanes.ts`):
+Marketplace lanes (`vendors/ih`, `vendors/si`, `vendors/shared/fallback-lanes.ts`):
 one channel per enabled model, priced at `profitMultiple` times the most its spend guard lets a
-request cost and capped under list, so they sort behind cheaper lanes in the auto groups. Every URL
-is config only. `poolrelay` calls `<pool>/<model>` with bid headers (`set_header` in
-param_override) at the `bidQuantile` ask of that pool. `orderbook` pins every allowed seller
+request cost, raised to `minSellFraction` of list and cut to `maxSellFraction` of it (default 1),
+so they sort behind cheaper lanes in the auto groups. Every numeric knob (those three,
+`bidQuantile`, `minSellers`) takes a scalar or a7's glob map with `default` (`resolvePerModel`,
+first match wins). Every URL is config only. `ih` calls `<pool>/<model>` with bid headers (`set_header` in
+param_override) at the `bidQuantile` ask of that pool, never under its `minSellers`-th ask (a
+thinner pool gets no lane). `si` pins every allowed seller
 provider in the `provider` body field (probes carry it too, `testAndFilterModels({ extraBody })`),
 prices on the `minSellers`-th cheapest trusted offer, and sets a `/min{N}` discount floor capped at
 90: the market bills whole micro-dollars, so a small request's estimated discount tops out near 97%

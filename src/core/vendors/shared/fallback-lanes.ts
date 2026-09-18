@@ -15,24 +15,37 @@ import { consola } from "consola";
 // groups, so a dearer lane only serves once the cheaper ones fail.
 
 const USD_PER_M_PER_RATIO = 2;
-export const DEFAULT_FALLBACK_MULTIPLE = 2;
+const DEFAULT_FALLBACK_MULTIPLE = 2;
 export const DEFAULT_BID_QUANTILE = 0.5;
+// One seller behind a lane is one outage (or one dishonest key) from failing it.
+export const DEFAULT_MIN_SELLERS = 3;
 
-/** The ask at which at least `q` of the providers behind a price ladder are
- *  eligible. A bid at the cheapest ask leaves one provider to serve the lane. */
-export function ladderQuantile(
-  points: readonly (readonly [number, number])[],
-  q: number,
-): number | undefined {
-  const sorted = points
+type Ladder = readonly (readonly [number, number])[];
+
+const ladderAsks = (points: Ladder) =>
+  points
     .filter(([price, count]) => price > 0 && count > 0)
     .sort((a, b) => a[0] - b[0]);
+
+export const ladderSize = (points: Ladder) =>
+  ladderAsks(points).reduce((n, [, count]) => n + count, 0);
+
+/** The ask at which at least `q` of the providers behind a price ladder, and
+ *  at least `minCount` of them, are eligible. A bid at the cheapest ask leaves
+ *  one provider to serve the lane. */
+export function ladderQuantile(
+  points: Ladder,
+  q: number,
+  minCount = 1,
+): number | undefined {
+  const sorted = ladderAsks(points);
   const total = sorted.reduce((n, [, count]) => n + count, 0);
-  if (total === 0) return undefined;
+  if (total === 0 || total < minCount) return undefined;
+  const need = Math.max(total * q, minCount);
   let seen = 0;
   for (const [price, count] of sorted) {
     seen += count;
-    if (seen >= total * q) return price;
+    if (seen >= need) return price;
   }
   return sorted[sorted.length - 1]?.[0];
 }
@@ -60,6 +73,8 @@ export interface FallbackLane {
   outputUsd: number;
   listInputUsd?: number;
   listOutputUsd?: number;
+  /** Retail over inputUsd/outputUsd, from laneMultiple. */
+  multiple: number;
   channelType: number;
   baseUrl: string;
   operations: Record<string, unknown>[];
@@ -70,41 +85,76 @@ export interface FallbackLane {
   rateLimited?: boolean;
 }
 
-/** The lane's retail multiple, lowered so retail never passes list. Undefined
- *  when even 1x would sell above list: the lane costs too much to carry. */
+export type LanePrice = Pick<
+  FallbackLane,
+  | "exposed"
+  | "pool"
+  | "inputUsd"
+  | "outputUsd"
+  | "listInputUsd"
+  | "listOutputUsd"
+>;
+
+/** The lane's retail multiple with a7's per model knobs: profitMultiple, raised
+ *  to the minSellFraction floor (read on output list, as a7 does) and cut to the
+ *  maxSellFraction ceiling on both sides. Unlike an a7 merchant, a lane over the
+ *  ceiling is repriced, not dropped; undefined when even 1x breaches it. */
 export function laneMultiple(
   provider: {
     name: string;
     profitMultiple?: number | Record<string, number>;
+    minSellFraction?: number | Record<string, number>;
+    maxSellFraction?: number | Record<string, number>;
   },
-  lane: FallbackLane,
+  price: LanePrice,
 ): number | undefined {
+  const model = price.exposed;
   const wanted = resolvePerModel(
     provider.profitMultiple,
-    lane.exposed,
+    model,
     DEFAULT_FALLBACK_MULTIPLE,
   );
-  const headroom = Math.min(
-    lane.listInputUsd && lane.inputUsd > 0
-      ? lane.listInputUsd / lane.inputUsd
+  const minSell = resolvePerModel(provider.minSellFraction, model, 0);
+  const maxSell = resolvePerModel(provider.maxSellFraction, model, 1);
+  const ceiling = Math.min(
+    price.listInputUsd && price.inputUsd > 0
+      ? (price.listInputUsd * maxSell) / price.inputUsd
       : Infinity,
-    lane.listOutputUsd && lane.outputUsd > 0
-      ? lane.listOutputUsd / lane.outputUsd
+    price.listOutputUsd && price.outputUsd > 0
+      ? (price.listOutputUsd * maxSell) / price.outputUsd
       : Infinity,
   );
-  const multiple = Math.min(wanted, headroom);
+  const floor =
+    price.listOutputUsd && price.outputUsd > 0
+      ? (price.listOutputUsd * minSell) / price.outputUsd
+      : 0;
+  const multiple = Math.min(Math.max(wanted, floor), ceiling);
+  const pool = price.pool || provider.name;
   if (multiple < 1) {
     consola.warn(
       t("CORE.FALLBACK.OVER_LIST", {
         name: provider.name,
-        model: lane.exposed,
-        pool: lane.pool,
-        cost: lane.outputUsd.toFixed(4),
-        list: (lane.listOutputUsd ?? 0).toFixed(4),
+        model,
+        pool,
+        cost: price.outputUsd.toFixed(4),
+        ceiling: ((price.listOutputUsd ?? 0) * maxSell).toFixed(4),
+        fraction: maxSell,
       }),
     );
     return undefined;
   }
+  if (multiple !== wanted)
+    consola.info(
+      t("CORE.FALLBACK.REPRICED", {
+        name: provider.name,
+        model,
+        pool,
+        wanted,
+        multiple: multiple.toFixed(2),
+        floor: floor.toFixed(2),
+        ceiling: ceiling.toFixed(2),
+      }),
+    );
   return multiple;
 }
 
@@ -112,7 +162,6 @@ export function buildFallbackOffer(opts: {
   provider: string;
   providerKind: string;
   apiKey: string;
-  multiple: number;
   lane: FallbackLane;
 }): UpstreamOffer {
   const lane = opts.lane;
@@ -147,7 +196,7 @@ export function buildFallbackOffer(opts: {
     channelType: lane.channelType,
     baseUrl: lane.baseUrl,
     apiKey: opts.apiKey,
-    groupRatio: opts.multiple,
+    groupRatio: lane.multiple,
     channelRemark: lane.remark,
     models: [model],
     priceAdjustment: { default: 0 },

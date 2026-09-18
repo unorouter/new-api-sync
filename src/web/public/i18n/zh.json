@@ -638,12 +638,13 @@
       "PUSHED": "[lane-keys] {provider}：已加密推送 {count} 个密钥",
       "PUSH_FAILED": "[lane-keys] {provider}：存储推送失败，保留本地副本（{error}）"
     },
-    "POOLRELAY": {
+    "IH": {
       "CATALOG_FAILED": "[{name}] 无法获取供应池目录：{reason}",
       "POOL_UNAVAILABLE": "[{name}] {model}：供应池 {pool} 状态为 {status}，本次运行跳过该通道",
-      "NO_ASKS": "[{name}] {model}：供应池 {pool} 中没有任何供应商报价，跳过该通道"
+      "NO_ASKS": "[{name}] {model}：供应池 {pool} 中没有任何供应商报价，跳过该通道",
+      "THIN_POOL": "[{name}] {model}：供应池 {pool} 仅有 {sellers} 个供应商，至少需要 {min} 个；跳过该通道"
     },
-    "ORDERBOOK": {
+    "SI": {
       "MARKET_FAILED": "[{name}] 无法获取市场数据：{reason}",
       "BOOK_FAILED": "[{name}] {model}：无法获取订单簿（{reason}），其现有通道保持不变",
       "UNKNOWN_PIN": "[{name}] {pin} 不是该市场的卖方供应商 ID，已忽略",
@@ -651,7 +652,8 @@
       "NO_FLOOR": "[{name}] {model}：报价等于官方标价，无法用折扣下限约束单次请求费用；跳过该通道"
     },
     "FALLBACK": {
-      "OVER_LIST": "[{name}] {model} 经由 {pool}：通道成本 ${cost}/M 不低于官方标价 ${list}/M，不予发布",
+      "OVER_LIST": "[{name}] {model} 经由 {pool}：通道成本 ${cost}/M 不低于售价上限 ${ceiling}/M（官方标价的 {fraction}），不予发布",
+      "REPRICED": "[{name}] {model} 经由 {pool}：{wanted} 倍调整为 {multiple} 倍（按官方标价计算，下限 {floor} 倍，上限 {ceiling} 倍）",
       "SUMMARY": "[{name}] 从 {candidates} 个候选中发布了 {lanes} 条备用通道"
     }
   }

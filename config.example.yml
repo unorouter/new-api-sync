@@ -134,31 +134,38 @@ providers:
   #   userId: 1
   #   acceptUpstreamDown: true
   # Marketplace lanes, one channel per enabled model, priced at profitMultiple
-  # times the most a request can cost there and capped under list. Every URL
+  # times the most a request can cost there, raised to minSellFraction of list
+  # and cut to maxSellFraction of it (default 1). Every numeric knob takes a
+  # scalar or a glob map with default, first match wins, same as a7. Every URL
   # lives here, never in code.
-  # poolrelay: a relay with supply pools behind one key, called as
+  # ih: a relay with supply pools behind one key, called as
   # <pool>/<model>. upstreams allowlists pools (flat, or glob-keyed per model);
-  # each lane sends bid headers at the bidQuantile ask of its pool's ladder.
-  # - type: poolrelay
-  #   name: pr1
+  # each lane sends bid headers at the bidQuantile ask of its pool's ladder,
+  # never under the minSellers-th ask (default 3, a thinner pool is skipped).
+  # - type: ih
+  #   name: ih
   #   apiKey: ...
   #   baseUrl: https://relay.example.invalid
   #   catalogUrl: https://relay.example.invalid/api/catalog
   #   upstreams: { "claude-*": [pool-a], default: [pool-b] }
-  #   enabledModels: [some-model]
-  #   profitMultiple: 10
-  # orderbook: an order book over resold keys. providers allowlists seller
+  #   enabledModels: [some-model, other-model]
+  #   profitMultiple:
+  #     other-model: 5
+  #     default: 10
+  #   bidQuantile: { other-model: 0.25, default: 0.5 }
+  # si: an order book over resold keys. providers allowlists seller
   # providers; a lane pins all of them, prices on the minSellers-th cheapest
   # trusted offer and sets a discount floor (/min{N}) so the dearest seller
   # it admits still earns 2x.
-  # - type: orderbook
-  #   name: ob1
+  # - type: si
+  #   name: si
   #   apiKey: ...
   #   baseUrl: https://market.example.invalid
   #   providers: [seller-a, seller-b]
-  #   enabledModels: [some-model]
+  #   enabledModels: [some-model, other-model]
   #   profitMultiple: 10
-  #   minSellers: 3
+  #   minSellFraction: { other-model: 0.2 }
+  #   minSellers: { other-model: 5, default: 3 }
 
 # Per-channel-name param_override additions, merged onto whatever the channel
 # already carries. These two a7 pin groups are one merchant (a7 channel 4134,

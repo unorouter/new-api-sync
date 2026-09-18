@@ -1,4 +1,9 @@
-import { FormatRegistry, Type as T, type Static } from "@sinclair/typebox";
+import {
+  FormatRegistry,
+  Type as T,
+  type Static,
+  type TSchema,
+} from "@sinclair/typebox";
 import {
   SIMPLE_PROVIDER_META,
   type SimpleProviderKind,
@@ -48,13 +53,21 @@ const ProviderCommonProps = { name: str, testModelTypes: Opt(T.Array(ModelTypeEn
 
 // prettier-ignore
 const NewApiProviderSchema = T.Object({ type: T.Literal("newapi"), ...ProviderCommonProps, baseUrl: uri, systemAccessToken: str, userId: T.Integer({ minimum: 1 }), acceptRateLimited: Opt(T.Boolean()), acceptUpstreamDown: Opt(T.Boolean()) });
+// A scalar for every model, or glob-keyed per model (first match wins) with
+// "default" as the catch-all; read through resolvePerModel.
+const PerModel = <S extends TSchema>(schema: S) =>
+  T.Union([schema, T.Record(T.String(), schema)]);
+const ProfitMultipleSchema = PerModel(T.Number({ minimum: 1 }));
+const MaxSellFractionSchema = PerModel(
+  T.Number({ exclusiveMinimum: 0, maximum: 1 }),
+);
+const MinSellFractionSchema = PerModel(T.Number({ minimum: 0, maximum: 1 }));
+const MinSellersSchema = PerModel(T.Integer({ minimum: 1 }));
 // prettier-ignore
 // A marketplace, not a relay: /api/pricing publishes one placeholder ratio for
 // every model, so price comes from the per-merchant listings, and one upstream
 // token is minted and pinned per (model, merchant) lane.
-const A7ProviderSchema = T.Object({ type: T.Literal("a7"), ...ProviderCommonProps, baseUrl: uri, systemAccessToken: str, userId: T.Integer({ minimum: 1 }), profitMultiple: Opt(T.Union([T.Number({ minimum: 1 }), T.Record(T.String(), T.Number({ minimum: 1 }))])), maxSellFraction: Opt(T.Union([T.Number({ exclusiveMinimum: 0, maximum: 1 }), T.Record(T.String(), T.Number({ exclusiveMinimum: 0, maximum: 1 }))])), minSellFraction: Opt(T.Union([T.Number({ minimum: 0, maximum: 1 }), T.Record(T.String(), T.Number({ minimum: 0, maximum: 1 }))])), hostsPerModel: Opt(T.Record(T.String(), T.Integer({ minimum: 1 }))), minSuccessRate: Opt(T.Union([T.Integer({ minimum: 0, maximum: 10000 }), T.Record(T.String(), T.Integer({ minimum: 0, maximum: 10000 }))])), guaranteedOnly: Opt(T.Boolean()), acceptRateLimited: Opt(T.Boolean()) });
-// prettier-ignore
-const ProfitMultipleSchema = T.Union([T.Number({ minimum: 1 }), T.Record(T.String(), T.Number({ minimum: 1 }))]);
+const A7ProviderSchema = T.Object({ type: T.Literal("a7"), ...ProviderCommonProps, baseUrl: uri, systemAccessToken: str, userId: T.Integer({ minimum: 1 }), profitMultiple: Opt(ProfitMultipleSchema), maxSellFraction: Opt(MaxSellFractionSchema), minSellFraction: Opt(MinSellFractionSchema), hostsPerModel: Opt(T.Record(T.String(), T.Integer({ minimum: 1 }))), minSuccessRate: Opt(PerModel(T.Integer({ minimum: 0, maximum: 10000 }))), guaranteedOnly: Opt(T.Boolean()), acceptRateLimited: Opt(T.Boolean()) });
 // prettier-ignore
 // A flat allowlist, or glob-keyed per model ("claude-*": [bedrock]) with "default" as the catch-all.
 const PoolAllowlistSchema = T.Union([T.Array(str, { minItems: 1 }), T.Record(T.String(), T.Array(str))]);
@@ -64,14 +77,14 @@ const PoolAllowlistSchema = T.Union([T.Array(str, { minItems: 1 }), T.Record(T.S
 // request routes to the relay's best-scoring provider at up to half the
 // official price, so every lane sends bid headers and is priced at that bid.
 // URLs live in config only.
-const PoolRelayProviderSchema = T.Object({ type: T.Literal("poolrelay"), ...ProviderCommonProps, apiKey: str, baseUrl: uri, catalogUrl: uri, upstreams: PoolAllowlistSchema, profitMultiple: Opt(ProfitMultipleSchema), bidQuantile: Opt(T.Number({ exclusiveMinimum: 0, maximum: 1 })), acceptRateLimited: Opt(T.Boolean()) });
+const IhProviderSchema = T.Object({ type: T.Literal("ih"), ...ProviderCommonProps, apiKey: str, baseUrl: uri, catalogUrl: uri, upstreams: PoolAllowlistSchema, profitMultiple: Opt(ProfitMultipleSchema), maxSellFraction: Opt(MaxSellFractionSchema), minSellFraction: Opt(MinSellFractionSchema), bidQuantile: Opt(PerModel(T.Number({ exclusiveMinimum: 0, maximum: 1 }))), minSellers: Opt(MinSellersSchema), acceptRateLimited: Opt(T.Boolean()) });
 // prettier-ignore
 // Lanes over an order book of resold API keys, one per enabled model, pinned
 // to every allowed seller provider (a `provider` body field). The only spend
 // guard the market honours is a discount floor in the path (/min{N}), set where
 // at least minSellers trusted offers qualify; the lane is priced at that bound.
 // URLs live in config only.
-const OrderBookProviderSchema = T.Object({ type: T.Literal("orderbook"), ...ProviderCommonProps, apiKey: str, baseUrl: uri, providers: PoolAllowlistSchema, profitMultiple: Opt(ProfitMultipleSchema), minSellers: Opt(T.Integer({ minimum: 1 })), acceptRateLimited: Opt(T.Boolean()) });
+const SiProviderSchema = T.Object({ type: T.Literal("si"), ...ProviderCommonProps, apiKey: str, baseUrl: uri, providers: PoolAllowlistSchema, profitMultiple: Opt(ProfitMultipleSchema), maxSellFraction: Opt(MaxSellFractionSchema), minSellFraction: Opt(MinSellFractionSchema), minSellers: Opt(MinSellersSchema), acceptRateLimited: Opt(T.Boolean()) });
 // prettier-ignore
 const NvidiaProviderSchema = T.Object({ type: T.Literal("nvidia"), ...ProviderCommonProps, baseUrl: Opt(uri), imageBaseUrl: Opt(uri), apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ exclusiveMinimum: 0 })), acceptRateLimited: Opt(T.Boolean()) });
 // prettier-ignore
@@ -174,12 +187,12 @@ const RunwareProviderSchema = T.Object({
 });
 
 // prettier-ignore
-const AnyProviderSchema = T.Union([NewApiProviderSchema, A7ProviderSchema, PoolRelayProviderSchema, OrderBookProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, SimpleFreeProviderSchema, ComfyUiProviderSchema, AIHordeProviderSchema, RunwareProviderSchema]);
+const AnyProviderSchema = T.Union([NewApiProviderSchema, A7ProviderSchema, IhProviderSchema, SiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, SimpleFreeProviderSchema, ComfyUiProviderSchema, AIHordeProviderSchema, RunwareProviderSchema]);
 
 export type ProviderConfig = Static<typeof NewApiProviderSchema>;
 export type A7ProviderConfig = Static<typeof A7ProviderSchema>;
-export type PoolRelayProviderConfig = Static<typeof PoolRelayProviderSchema>;
-export type OrderBookProviderConfig = Static<typeof OrderBookProviderSchema>;
+export type IhProviderConfig = Static<typeof IhProviderSchema>;
+export type SiProviderConfig = Static<typeof SiProviderSchema>;
 export type NvidiaProviderConfig = Static<typeof NvidiaProviderSchema> & {
   baseUrl: string;
   imageBaseUrl: string;
@@ -202,7 +215,7 @@ export type ComfyUiProviderConfig = Static<typeof ComfyUiProviderSchema>;
 export type AIHordeProviderConfig = Static<typeof AIHordeProviderSchema>;
 export type RunwareProviderConfig = Static<typeof RunwareProviderSchema>;
 // prettier-ignore
-export type AnyProviderConfig = ProviderConfig | A7ProviderConfig | PoolRelayProviderConfig | OrderBookProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | SimpleFreeProviderConfig | ComfyUiProviderConfig | AIHordeProviderConfig | RunwareProviderConfig;
+export type AnyProviderConfig = ProviderConfig | A7ProviderConfig | IhProviderConfig | SiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | SimpleFreeProviderConfig | ComfyUiProviderConfig | AIHordeProviderConfig | RunwareProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
 const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);

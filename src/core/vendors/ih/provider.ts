@@ -4,6 +4,7 @@ import {
   matchesBlacklist,
 } from "@core/catalog/constants/patterns";
 import { getEnabledModelGlobs, type RuntimeConfig } from "@core/config";
+import { resolvePerModel } from "@core/pricing";
 import type {
   ProviderResult,
   ProviderRunContext,
@@ -12,15 +13,18 @@ import type {
 import { testAndFilterModels } from "@core/testing/runner";
 import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
-import type { PoolRelayProviderConfig } from "@core/validations/config";
+import type { IhProviderConfig } from "@core/validations/config";
 import {
   bidValue,
   buildFallbackOffer,
   DEFAULT_BID_QUANTILE,
+  DEFAULT_MIN_SELLERS,
   ladderQuantile,
+  ladderSize,
   laneMultiple,
   resolvePools,
   type FallbackLane,
+  type LanePrice,
 } from "@core/vendors/shared/fallback-lanes";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -33,8 +37,8 @@ import { fetchPoolCatalog, officialUsd } from "./catalog";
 // envelope and a thinking signature the vendor accepts.
 const bareModelId = (id: string) => id.slice(id.lastIndexOf("/") + 1);
 
-export async function processPoolRelayProvider(
-  provider: PoolRelayProviderConfig,
+export async function processIhProvider(
+  provider: IhProviderConfig,
   config: RuntimeConfig,
   _ctx: ProviderRunContext,
 ): Promise<ProviderResult> {
@@ -53,7 +57,6 @@ export async function processPoolRelayProvider(
     endpointMetadata: { endpointPaths: new Map() },
   });
   const baseUrl = provider.baseUrl.replace(/\/+$/, "");
-  const quantile = provider.bidQuantile ?? DEFAULT_BID_QUANTILE;
   const globs = getEnabledModelGlobs(provider.enabledModels) ?? [];
   const wanted = (exposed: string) =>
     !matchesBlacklist(exposed, config.blacklist, name) &&
@@ -67,7 +70,7 @@ export async function processPoolRelayProvider(
       provider.apiKey,
     );
     if (!catalog.ok) {
-      report.error = t("CORE.POOLRELAY.CATALOG_FAILED", {
+      report.error = t("CORE.IH.CATALOG_FAILED", {
         name,
         reason: catalog.reason,
       });
@@ -95,7 +98,7 @@ export async function processPoolRelayProvider(
         if (!wanted(exposed) || !m.enabled || m.modelDisabled) continue;
         if (!usable) {
           consola.warn(
-            t("CORE.POOLRELAY.POOL_UNAVAILABLE", {
+            t("CORE.IH.POOL_UNAVAILABLE", {
               name,
               model: exposed,
               pool: prefix,
@@ -104,24 +107,60 @@ export async function processPoolRelayProvider(
           );
           continue;
         }
-        const inputUsd = ladderQuantile(m.pricePointsIn, quantile);
-        const outputUsd = ladderQuantile(m.pricePointsOut, quantile);
+        const quantile = resolvePerModel(
+          provider.bidQuantile,
+          exposed,
+          DEFAULT_BID_QUANTILE,
+        );
+        const minSellers = resolvePerModel(
+          provider.minSellers,
+          exposed,
+          DEFAULT_MIN_SELLERS,
+        );
+        const sellers = Math.min(
+          ladderSize(m.pricePointsIn),
+          ladderSize(m.pricePointsOut),
+        );
+        if (sellers === 0) {
+          consola.warn(
+            t("CORE.IH.NO_ASKS", { name, model: exposed, pool: prefix }),
+          );
+          continue;
+        }
+        const inputUsd = ladderQuantile(m.pricePointsIn, quantile, minSellers);
+        const outputUsd = ladderQuantile(
+          m.pricePointsOut,
+          quantile,
+          minSellers,
+        );
         if (inputUsd === undefined || outputUsd === undefined) {
           consola.warn(
-            t("CORE.POOLRELAY.NO_ASKS", { name, model: exposed, pool: prefix }),
+            t("CORE.IH.THIN_POOL", {
+              name,
+              model: exposed,
+              pool: prefix,
+              sellers,
+              min: minSellers,
+            }),
           );
           continue;
         }
         const listInputUsd = officialUsd(m.officialIn);
         const listOutputUsd = officialUsd(m.officialOut);
-        lanes.push({
+        const price: LanePrice = {
           exposed,
-          upstream: `${up.prefix}/${m.upstreamModelId}`,
           pool: prefix,
           inputUsd,
           outputUsd,
           ...(listInputUsd !== undefined ? { listInputUsd } : {}),
           ...(listOutputUsd !== undefined ? { listOutputUsd } : {}),
+        };
+        const multiple = laneMultiple(provider, price);
+        if (multiple === undefined) continue;
+        lanes.push({
+          ...price,
+          upstream: `${up.prefix}/${m.upstreamModelId}`,
+          multiple,
           // Claude over the Anthropic wire keeps thinking blocks and their
           // signatures intact; the OpenAI wire drops both.
           channelType: m.upstreamModelId.startsWith("claude-")
@@ -183,14 +222,11 @@ export async function processPoolRelayProvider(
         ...(testDetail ? { testDetail } : {}),
         ...(throttled.has(lane.upstream) ? { rateLimited: true } : {}),
       };
-      const multiple = laneMultiple(provider, probed);
-      if (multiple === undefined) continue;
       offers.push(
         buildFallbackOffer({
           provider: name,
-          providerKind: "poolrelay",
+          providerKind: "ih",
           apiKey: provider.apiKey,
-          multiple,
           lane: probed,
         }),
       );

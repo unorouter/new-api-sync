@@ -13,11 +13,11 @@ import type {
 import { testAndFilterModels } from "@core/testing/runner";
 import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
-import type { OrderBookProviderConfig } from "@core/validations/config";
+import type { SiProviderConfig } from "@core/validations/config";
 import { resolvePerModel } from "@core/pricing";
 import {
   buildFallbackOffer,
-  DEFAULT_FALLBACK_MULTIPLE,
+  DEFAULT_MIN_SELLERS,
   laneMultiple,
   resolvePools,
   type FallbackLane,
@@ -37,7 +37,6 @@ import {
 // only as honest as the sellers behind it (one Claude pin answered a probe as a
 // GPT model with another request's nonce), so the allowlist is per model family
 // in config and only offers the market itself marks trusted are counted.
-const DEFAULT_MIN_SELLERS = 3;
 // The market bills whole micro-dollars, so a small request's estimated discount
 // tops out near 97%: a 97% floor refused deepseek-v3.1 with 49 sellers at 98% off
 // (2026-09-19, "best otherwise-eligible 96.9697%"). Floors stay at or under 90.
@@ -65,8 +64,8 @@ function sellerPin(
   return providers.find((p) => p.host === host)?.id.toLowerCase();
 }
 
-export async function processOrderBookProvider(
-  provider: OrderBookProviderConfig,
+export async function processSiProvider(
+  provider: SiProviderConfig,
   config: RuntimeConfig,
   _ctx: ProviderRunContext,
 ): Promise<ProviderResult> {
@@ -85,7 +84,6 @@ export async function processOrderBookProvider(
     endpointMetadata: { endpointPaths: new Map() },
   });
   const baseUrl = provider.baseUrl.replace(/\/+$/, "");
-  const minSellers = provider.minSellers ?? DEFAULT_MIN_SELLERS;
   const globs = getEnabledModelGlobs(provider.enabledModels) ?? [];
   const exposedOf = (id: string) =>
     (config.modelMapping?.[id] ?? id).toLowerCase();
@@ -101,7 +99,7 @@ export async function processOrderBookProvider(
       fetchMarketModels(baseUrl),
     ]);
     if (!sellers.ok || !markets.ok) {
-      report.error = t("CORE.ORDERBOOK.MARKET_FAILED", {
+      report.error = t("CORE.SI.MARKET_FAILED", {
         name,
         reason: !sellers.ok ? sellers.reason : markets.ok ? "" : markets.reason,
       });
@@ -125,10 +123,15 @@ export async function processOrderBookProvider(
       batch.forEach((id, index) => {
         const book = books[index];
         const exposed = exposedOf(id);
+        const minSellers = resolvePerModel(
+          provider.minSellers,
+          exposed,
+          DEFAULT_MIN_SELLERS,
+        );
         if (!book || !book.ok) {
           unverified.push(exposed);
           consola.warn(
-            t("CORE.ORDERBOOK.BOOK_FAILED", {
+            t("CORE.SI.BOOK_FAILED", {
               name,
               model: exposed,
               reason: book && !book.ok ? book.reason : "",
@@ -139,7 +142,7 @@ export async function processOrderBookProvider(
         const allowed = new Set(
           resolvePools(provider.providers, exposed).filter((pin) => {
             if (knownPins.has(pin)) return true;
-            consola.warn(t("CORE.ORDERBOOK.UNKNOWN_PIN", { name, pin }));
+            consola.warn(t("CORE.SI.UNKNOWN_PIN", { name, pin }));
             return false;
           }),
         );
@@ -161,7 +164,7 @@ export async function processOrderBookProvider(
           listOutputUsd <= 0
         ) {
           consola.warn(
-            t("CORE.ORDERBOOK.THIN_BOOK", {
+            t("CORE.SI.THIN_BOOK", {
               name,
               model: exposed,
               offers: eligible.length,
@@ -185,15 +188,15 @@ export async function processOrderBookProvider(
         if (!expected) return;
         const inputUsd = expected.o.price_input_per_1m / 1e6;
         const outputUsd = expected.o.price_output_per_1m / 1e6;
-        const multiple = Math.min(
-          resolvePerModel(
-            provider.profitMultiple,
-            exposed,
-            DEFAULT_FALLBACK_MULTIPLE,
-          ),
-          listInputUsd / inputUsd,
-          listOutputUsd / outputUsd,
-        );
+        const multiple = laneMultiple(provider, {
+          exposed,
+          pool: "",
+          inputUsd,
+          outputUsd,
+          listInputUsd,
+          listOutputUsd,
+        });
+        if (multiple === undefined) return;
         // The market caps no price; its only spend guard is a floor on the
         // discount off list. It sits where the dearest admitted seller still
         // earns WORST_CASE_MULTIPLE, never above the expected seller's discount.
@@ -206,7 +209,7 @@ export async function processOrderBookProvider(
         );
         const floor = Math.min(FLOOR_CAP_PCT, Math.floor(100 * (1 - bound)));
         if (floor < 1) {
-          consola.warn(t("CORE.ORDERBOOK.NO_FLOOR", { name, model: exposed }));
+          consola.warn(t("CORE.SI.NO_FLOOR", { name, model: exposed }));
           return;
         }
         const pins = [...allowed].filter((pin) =>
@@ -221,6 +224,7 @@ export async function processOrderBookProvider(
           outputUsd,
           listInputUsd,
           listOutputUsd,
+          multiple,
           channelType: claude ? CHANNEL_TYPES.ANTHROPIC : CHANNEL_TYPES.OPENAI,
           baseUrl: claude
             ? `${baseUrl}/anthropic/min${floor}`
@@ -269,14 +273,11 @@ export async function processOrderBookProvider(
         ...(testDetail ? { testDetail } : {}),
         ...(throttled.has(lane.upstream) ? { rateLimited: true } : {}),
       };
-      const multiple = laneMultiple(provider, probed);
-      if (multiple === undefined) continue;
       offers.push(
         buildFallbackOffer({
           provider: name,
-          providerKind: "orderbook",
+          providerKind: "si",
           apiKey: provider.apiKey,
-          multiple,
           lane: probed,
         }),
       );
