@@ -19,6 +19,10 @@ import {
   getTokenFullKeysBatch,
   listTokens,
 } from "@core/vendors/newapi/tokens";
+import {
+  awaitTokenThrottle,
+  noteTokenThrottle,
+} from "@core/vendors/newapi/token-throttle";
 import { consola } from "consola";
 import {
   DEFAULT_MAX_SELL_FRACTION,
@@ -504,6 +508,10 @@ export async function ensurePins(
     let lastErr: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
+      if (!(await awaitTokenThrottle(provider.baseUrl))) {
+        lastErr ??= new Error("HTTP 429: wait budget spent");
+        break;
+      }
       try {
         await postPin(
           provider,
@@ -518,6 +526,10 @@ export async function ensurePins(
         break;
       } catch (err) {
         lastErr = err;
+        // Same account limit as the token routes: a 2 s retry into a 429 only
+        // earns two more, so the next attempt waits the cooldown out instead.
+        if (String(err instanceof Error ? err.message : err).includes("429"))
+          noteTokenThrottle(provider.baseUrl);
       }
     }
     if (lastErr !== undefined) {

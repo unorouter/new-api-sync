@@ -13,9 +13,9 @@ import { t } from "@server/i18n";
 import { consola } from "consola";
 import type { ClientContext } from "./context";
 import {
+  awaitTokenThrottle,
   clearTokenThrottle,
   noteTokenThrottle,
-  tokenThrottleRemainingMs,
 } from "./token-throttle";
 import type { TokenListResponse, UpstreamToken } from "./types";
 import pLimit from "p-limit";
@@ -46,6 +46,38 @@ export async function listTokens(ctx: ClientContext): Promise<UpstreamToken[]> {
   return allTokens;
 }
 
+interface TokenCreateResponse {
+  success: boolean;
+  message?: string;
+  data?: { key?: string };
+}
+
+// null is "the relay refused for rate, ask again": the cooldown is armed, and the
+// next call waits it out or gives up when the run's wait budget is spent.
+async function postToken(
+  ctx: ClientContext,
+  body: Record<string, unknown>,
+): Promise<Awaited<
+  ReturnType<typeof fetchJsonResult<TokenCreateResponse>>
+> | null> {
+  if (!(await awaitTokenThrottle(ctx.baseUrl))) return null;
+  const result = await fetchJsonResult<TokenCreateResponse>(
+    `${ctx.baseUrl}/api/token/`,
+    {
+      method: "POST",
+      headers: ctx.headers,
+      body,
+      retry: 4,
+      retryDelayMs: 4000,
+    },
+  );
+  if (!result.ok && result.status === 429) {
+    noteTokenThrottle(ctx.baseUrl, result.retryAfterMs);
+    return null;
+  }
+  return result;
+}
+
 export async function createToken(
   ctx: ClientContext,
   name: string,
@@ -58,25 +90,13 @@ export async function createToken(
     unlimited_quota: true,
     model_limits_enabled: false,
   };
-  // New-api rate-limits token writes too. Retry on 429, and stand down for the
-  // shared cooldown once it starts refusing: the ladder is per call, the limit
-  // is per account.
-  if (tokenThrottleRemainingMs(ctx.baseUrl) > 0) return { ok: false };
-  const result = await fetchJsonResult<{
-    success: boolean;
-    message?: string;
-    data?: { key?: string };
-  }>(`${ctx.baseUrl}/api/token/`, {
-    method: "POST",
-    headers: ctx.headers,
-    body,
-    retry: 4,
-    retryDelayMs: 4000,
-  });
-  if (!result.ok && result.status === 429) {
-    noteTokenThrottle(ctx.baseUrl, result.retryAfterMs);
-    return { ok: false };
-  }
+  // New-api rate-limits token writes too, per account. A refused create waits
+  // out the shared cooldown and is sent again: returning here lost the token that
+  // happened to meet the 429, and with it the lane.
+  let result = await postToken(ctx, body);
+  for (let again = 0; again < 2 && result === null; again++)
+    result = await postToken(ctx, body);
+  if (result === null) return { ok: false };
   const data = result.ok ? result.data : undefined;
   if (!data?.success) {
     consola.warn(
@@ -98,7 +118,7 @@ export async function getTokenFullKey(
   id: number,
 ): Promise<string | null> {
   // Per-token endpoint is rate-limited; prefer getTokenFullKeysBatch.
-  if (tokenThrottleRemainingMs(ctx.baseUrl) > 0) return null;
+  if (!(await awaitTokenThrottle(ctx.baseUrl))) return null;
   const result = await fetchJsonResult<{
     success: boolean;
     data?: { key: string };
@@ -133,7 +153,7 @@ export async function getTokenFullKeysBatch(
   const result = new Map<number, string>();
   for (let i = 0; i < ids.length; i += TOKEN_BATCH_MAX) {
     const batch = ids.slice(i, i + TOKEN_BATCH_MAX);
-    if (tokenThrottleRemainingMs(ctx.baseUrl) > 0) break;
+    if (!(await awaitTokenThrottle(ctx.baseUrl))) break;
     const response = await fetchJsonResult<{
       success: boolean;
       data?: { keys?: Record<string, string> };
