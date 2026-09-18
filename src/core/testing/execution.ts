@@ -371,12 +371,18 @@ export async function testStreamRequest(
         });
       }
     }
+    // Some OpenAI-shaped upstreams close the stream after the finished choice
+    // without the [DONE] sentinel; the gateway ends such a stream normally at EOF.
+    const complete =
+      foundMarker ||
+      (config.completionMarker === "data: [DONE]" &&
+        /"finish_reason":\s*"[a-z_]+"/.test(buffer));
     return {
-      pass: foundMarker,
+      pass: complete,
       request: reqInfo,
       response: buffer.slice(0, 500),
       responseHeaders: respHeaders,
-      error: foundMarker ? undefined : t("CORE.TESTER.ERR_STREAM_NO_MARKER"),
+      error: complete ? undefined : t("CORE.TESTER.ERR_STREAM_NO_MARKER"),
       status: response.status,
       latencyMs: elapsed(),
     };

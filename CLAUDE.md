@@ -204,6 +204,19 @@ a7 pins (`vendors/a7/pins.ts`): a reprice pauses the pin, accept via
 `price-notices/<id>/accept`; a drop creates no notice and keeps billing the old snapshot, only
 unpin + pin re-confirms; `fallback_to_smart_routing` stays false.
 
+Marketplace lanes (`vendors/poolrelay`, `vendors/orderbook`, `vendors/shared/fallback-lanes.ts`):
+one channel per enabled model, priced at `profitMultiple` times the most its spend guard lets a
+request cost and capped under list, so they sort behind cheaper lanes in the auto groups. Every URL
+is config only. `poolrelay` calls `<pool>/<model>` with bid headers (`set_header` in
+param_override) at the `bidQuantile` ask of that pool. `orderbook` pins every allowed seller
+provider in the `provider` body field (probes carry it too, `testAndFilterModels({ extraBody })`),
+prices on the `minSellers`-th cheapest trusted offer, and sets a `/min{N}` discount floor capped at
+90: the market bills whole micro-dollars, so a small request's estimated discount tops out near 97%
+and a higher floor refuses it. Both run locally only (not in the cluster config).
+
+A stream probe that reaches EOF after an OpenAI `finish_reason` passes without `data: [DONE]`:
+some upstreams omit the sentinel and the gateway ends those streams normally.
+
 ## Local runs
 
 `TRUSTED_NETWORKS` is pod CIDR + loopback, so the local target is `http://127.0.0.1:13000` from the

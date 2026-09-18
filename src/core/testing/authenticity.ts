@@ -274,6 +274,7 @@ async function runAnthropicProbe(opts: {
   timeoutMs: number;
   logKey: string;
   transport: AuthenticityTransport;
+  extraBody?: Record<string, unknown>;
 }): Promise<ProbeResult> {
   const openai = opts.transport === "openai";
   const reqUrl = openai
@@ -307,6 +308,7 @@ async function runAnthropicProbe(opts: {
       model: opts.model,
       messages: [{ role: "user", content: opts.buildPrompt(nonce) }],
       max_tokens: opts.maxTokens,
+      ...opts.extraBody,
     };
 
     let data: unknown;
@@ -410,6 +412,7 @@ export async function testAnthropicAuthenticity(opts: {
   // Probe over the format the channel is sold on: a7 merchants that only speak
   // OpenAI chat answer /v1/messages with 400/403/404 and could never verify.
   transport?: AuthenticityTransport;
+  extraBody?: Record<string, unknown>;
 }): Promise<boolean> {
   const transport = opts.transport ?? "anthropic";
   const nonceTag = (n: string) =>

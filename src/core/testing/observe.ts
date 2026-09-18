@@ -20,13 +20,33 @@ import { consola } from "consola";
 import { appendFileSync } from "fs";
 import { join } from "path";
 
-/** Bridges verify-core's injected transport onto plain fetch. */
-export const verifierTransport = async (args: {
+/** Top-level fields a marketplace needs on every probe (a `provider` pin);
+ *  multipart and binary bodies pass through untouched. */
+export function mergeProbeBody(
+  body: unknown,
+  extra?: Record<string, unknown>,
+): unknown {
+  if (
+    !extra ||
+    typeof body !== "object" ||
+    body === null ||
+    Array.isArray(body) ||
+    body instanceof FormData ||
+    body instanceof ArrayBuffer
+  )
+    return body;
+  return { ...body, ...extra };
+}
+
+type VerifierTransportArgs = {
   url: string;
   headers: Record<string, string>;
   reqBody: unknown;
   timeoutMs: number;
-}) => {
+};
+
+/** Bridges verify-core's injected transport onto plain fetch. */
+export const verifierTransport = async (args: VerifierTransportArgs) => {
   try {
     await paceUpstreamRequest(args.url);
     const res = await fetch(args.url, {
@@ -52,20 +72,37 @@ export const verifierTransport = async (args: {
   }
 };
 
+export function verifierTransportWithBody(extra?: Record<string, unknown>) {
+  if (!extra) return verifierTransport;
+  return (args: VerifierTransportArgs) =>
+    verifierTransport({
+      ...args,
+      reqBody: mergeProbeBody(args.reqBody, extra),
+    });
+}
+
 export async function observeClaudeEvidence(opts: {
   baseUrl: string;
   apiKey: string;
   model: string;
   timeoutMs: number;
   label: string;
+  extraBody?: Record<string, unknown>;
 }): Promise<void> {
+  const transport = verifierTransportWithBody(opts.extraBody);
+  const lane = {
+    baseUrl: opts.baseUrl,
+    apiKey: opts.apiKey,
+    model: opts.model,
+    timeoutMs: opts.timeoutMs,
+  };
   try {
     const [signature, tokens, probe] = await Promise.all([
-      checkThinkingSignature({ transport: verifierTransport, ...opts }),
-      checkTokenTruth({ transport: verifierTransport, ...opts }),
+      checkThinkingSignature({ transport, ...lane }),
+      checkTokenTruth({ transport, ...lane }),
       // One cheap call purely to read the envelope: which vendor's shape came
       // back, what minted the id, whose field names the usage object carries.
-      verifierTransport({
+      transport({
         url: `${opts.baseUrl.replace(/\/+$/, "")}/v1/messages`,
         headers: {
           "Content-Type": "application/json",

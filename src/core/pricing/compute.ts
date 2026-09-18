@@ -60,21 +60,22 @@ const PAID_GROUP_RATIO_CANDIDATES = [1, 0.5, 0.25, 0.1, 0.05, 0.01] as const;
 const CLAUDE_CONTEXT_1M_PATTERN = /^claude-/i;
 const CLAUDE_CONTEXT_1M_BETA = "context-1m-2025-08-07";
 
+export const CLAUDE_CONTEXT_1M_OPERATIONS: Record<string, unknown>[] = [
+  {
+    mode: "set_header",
+    path: "anthropic-beta",
+    value: { $append: [CLAUDE_CONTEXT_1M_BETA] },
+    conditions: [
+      {
+        path: "original_model",
+        mode: "suffix",
+        value: CLAUDE_CONTEXT_1M_SUFFIX,
+      },
+    ],
+  },
+];
 const CLAUDE_CONTEXT_1M_PARAM_OVERRIDE = JSON.stringify({
-  operations: [
-    {
-      mode: "set_header",
-      path: "anthropic-beta",
-      value: { $append: [CLAUDE_CONTEXT_1M_BETA] },
-      conditions: [
-        {
-          path: "original_model",
-          mode: "suffix",
-          value: CLAUDE_CONTEXT_1M_SUFFIX,
-        },
-      ],
-    },
-  ],
+  operations: CLAUDE_CONTEXT_1M_OPERATIONS,
 });
 
 // Opt-in (per-model, via enabledModels metadata.disableThinking) override for

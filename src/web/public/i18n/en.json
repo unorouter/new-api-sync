@@ -637,6 +637,22 @@
       "PULL_FAILED": "[lane-keys] {provider}: store pull failed, local copy only ({error})",
       "PUSHED": "[lane-keys] {provider}: {count} key(s) sealed and pushed",
       "PUSH_FAILED": "[lane-keys] {provider}: store push failed, local copy kept ({error})"
+    },
+    "POOLRELAY": {
+      "CATALOG_FAILED": "[{name}] pool catalog unavailable: {reason}",
+      "POOL_UNAVAILABLE": "[{name}] {model}: pool {pool} is {status}, lane skipped this run",
+      "NO_ASKS": "[{name}] {model}: no provider asks in pool {pool}, lane skipped"
+    },
+    "ORDERBOOK": {
+      "MARKET_FAILED": "[{name}] market data unavailable: {reason}",
+      "BOOK_FAILED": "[{name}] {model}: order book unavailable ({reason}), its lanes are kept as they are",
+      "UNKNOWN_PIN": "[{name}] {pin} is not a seller provider id on this market, ignored",
+      "THIN_BOOK": "[{name}] {model}: {offers} trusted sellers on the allowed providers, needs {min}; lane skipped",
+      "NO_FLOOR": "[{name}] {model}: asks sit at list price, no discount floor can bound a request; lane skipped"
+    },
+    "FALLBACK": {
+      "OVER_LIST": "[{name}] {model} via {pool}: lane cost ${cost}/M is at or above list ${list}/M; not sold",
+      "SUMMARY": "[{name}] {lanes} fallback lanes published from {candidates} candidates"
     }
   }
 }

@@ -16,6 +16,8 @@ import type {
   A7ProviderConfig,
 } from "@core/validations/config";
 import { processA7Provider } from "@core/vendors/a7/provider";
+import { processPoolRelayProvider } from "@core/vendors/poolrelay/provider";
+import { processOrderBookProvider } from "@core/vendors/orderbook/provider";
 import { processNewApiProvider } from "@core/vendors/newapi/provider";
 import { processNvidiaProvider } from "@core/vendors/nvidia/provider";
 import { processOpenRouterProvider } from "@core/vendors/openrouter/provider";
@@ -69,6 +71,8 @@ const BESPOKE_ORDER: Record<string, number> = {
   nvidia: 1,
   openrouter: 2,
   a7: 3,
+  poolrelay: 4,
+  orderbook: 5,
 };
 function typeOrder(type: string): number {
   return BESPOKE_ORDER[type] ?? 50;
@@ -103,6 +107,10 @@ export async function runAllProviders(
           return processNewApiProvider(provider, config, ctx);
         if (provider.type === "a7")
           return processA7Provider(provider, config, ctx);
+        if (provider.type === "poolrelay")
+          return processPoolRelayProvider(provider, config, ctx);
+        if (provider.type === "orderbook")
+          return processOrderBookProvider(provider, config, ctx);
         if (provider.type === "nvidia")
           return processNvidiaProvider(provider, config, ctx);
         if (provider.type === "openrouter")

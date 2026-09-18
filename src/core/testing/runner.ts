@@ -62,7 +62,7 @@ import {
   fingerprintDrifted,
   measureTokenizerFingerprint,
 } from "ai-model-verifier/detectors/tokenizer-fingerprint";
-import { verifierTransport } from "./observe";
+import { mergeProbeBody, verifierTransportWithBody } from "./observe";
 import { observeClaudeEvidence } from "./observe";
 import {
   checkThinkingFloor,
@@ -272,12 +272,20 @@ async function testModels(opts: {
   // trips the probe; see skipAuthenticity in validations/config.ts.
   skipAuthenticity?: boolean;
   capabilities?: Map<string, ModelCapabilityHint>;
+  extraBody?: Record<string, unknown>;
+  familyOf?: (model: string) => string;
 }): Promise<{
   workingModels: string[];
   rateLimitedModels: string[];
   details: ModelTestDetail[];
 }> {
   const useResponsesAPI = opts.useResponsesAPI ?? false;
+  const familyOf = opts.familyOf ?? ((model: string) => model);
+  const withExtraBody = <C extends { body: unknown }>(cfg: C): C =>
+    opts.extraBody
+      ? { ...cfg, body: mergeProbeBody(cfg.body, opts.extraBody) }
+      : cfg;
+  const fingerprintTransport = verifierTransportWithBody(opts.extraBody);
   const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
   const prefix = opts.logPrefix ?? "unknown";
   const gate = getConcurrencyGate();
@@ -301,7 +309,7 @@ async function testModels(opts: {
 
         const blacklistKey = `${prefix}|${model}`;
         const apiKey = opts.apiKeyFor?.(model) ?? opts.apiKey;
-        const isClaude = model.startsWith("claude-");
+        const isClaude = familyOf(model).startsWith("claude-");
         // Keyed on the MODEL, not the channel type: a7/openrouter test claude
         // over OpenAI-compat, and a blacklisted faker re-probed on every run
         // eventually passes once (fake identities are nondeterministic) and
@@ -405,11 +413,13 @@ async function testModels(opts: {
             false,
           );
 
-        const streamConfig = isText ? getStreamRequestConfig(reqOpts) : null;
-        const toolCfg =
+        const streamBase = isText ? getStreamRequestConfig(reqOpts) : null;
+        const streamConfig = streamBase && withExtraBody(streamBase);
+        const toolBase =
           isText && !cachedTool
             ? getToolCallConfig(reqOpts, opts.capabilities?.get(model))
             : null;
+        const toolCfg = toolBase && withExtraBody(toolBase);
         const retry = (fn: () => Promise<TestExchange>) =>
           withRetry(fn, (r) => r.pass, opts.retryPolicy);
         // A definitive tool fail is paid generation; only transients are worth re-buying.
@@ -420,7 +430,10 @@ async function testModels(opts: {
           });
         const [httpResult, streamResult, toolResult] = await Promise.all([
           retry(() =>
-            testRequest(HTTP_CONFIG_BY_TYPE[modelType](reqOpts), timeoutMs),
+            testRequest(
+              withExtraBody(HTTP_CONFIG_BY_TYPE[modelType](reqOpts)),
+              timeoutMs,
+            ),
           ),
           streamConfig
             ? retry(() => testStreamRequest(streamConfig, timeoutMs))
@@ -466,7 +479,7 @@ async function testModels(opts: {
         let fingerprintDrift = false;
         if (isClaude && !opts.skipAuthenticity && httpResult.pass) {
           const fp = await measureTokenizerFingerprint({
-            transport: verifierTransport,
+            transport: fingerprintTransport,
             baseUrl: opts.baseUrl,
             apiKey,
             model,
@@ -523,6 +536,7 @@ async function testModels(opts: {
                     opts.channelType === CHANNEL_TYPES.ANTHROPIC
                       ? "anthropic"
                       : "openai",
+                  extraBody: opts.extraBody,
                 });
         }
 
@@ -543,6 +557,7 @@ async function testModels(opts: {
             model,
             timeoutMs,
             label: blacklistKey,
+            extraBody: opts.extraBody,
           });
         }
 
@@ -624,7 +639,7 @@ async function testModels(opts: {
     TRANSIENT_STATUS.has(r.httpStatus) &&
     !reallyPassed(r) &&
     acceptsTransient(r.model) &&
-    ((!r.model.startsWith("claude-") && !mustAlwaysThink(r.model)) ||
+    ((!familyOf(r.model).startsWith("claude-") && !mustAlwaysThink(r.model)) ||
       opts.skipAuthenticity === true ||
       isAuthenticityPassCached(passKey(prefix, r.model), opts.baseUrl));
 
@@ -714,6 +729,11 @@ export async function testAndFilterModels(opts: {
   acceptRateLimited?: boolean | ((model: string) => boolean);
   skipAuthenticity?: boolean;
   capabilities?: Map<string, ModelCapabilityHint>;
+  /** Merged into every probe body: a marketplace seller pin (`provider`). */
+  extraBody?: Record<string, unknown>;
+  /** Probe id to model family, for ids that carry a routing prefix
+   *  (`<pool>/claude-opus-5`); Claude-only checks key on the family. */
+  familyOf?: (model: string) => string;
 }): Promise<{
   workingModels: string[];
   rateLimitedModels: string[];
@@ -766,6 +786,8 @@ export async function testAndFilterModels(opts: {
       retryPolicy: opts.retryPolicy,
       acceptRateLimited: opts.acceptRateLimited,
       capabilities: opts.capabilities,
+      extraBody: opts.extraBody,
+      familyOf: opts.familyOf,
     });
     testedWorkingModels = testResult.workingModels;
     rateLimitedModels = testResult.rateLimitedModels;
