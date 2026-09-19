@@ -182,21 +182,28 @@ export async function ensureLaneTokens(
   return result;
 }
 
-// Live gateway channel back to its lane token name. The group is
+// Live gateway channel back to its merchant and exposed model. The group is
 // a7-<merchant slug>-<merchant id>-<sanitized model>; the model suffix is known,
 // the merchant id is the trailing digits before it.
+export function channelLane(ch: {
+  group?: string;
+  models: string;
+}): { channelId: number; exposed: string } | undefined {
+  const exposed = ch.models.split(",")[0]?.trim().toLowerCase();
+  if (!exposed || !ch.group) return undefined;
+  const suffix = `-${sanitizeGroupName(exposed)}`;
+  if (!ch.group.endsWith(suffix)) return undefined;
+  const id = /(\d+)$/.exec(ch.group.slice(0, -suffix.length))?.[1];
+  return id ? { channelId: Number(id), exposed } : undefined;
+}
+
 export function laneNameFromChannel(
   ch: { group?: string; models: string },
   marketByExposed: Map<string, string>,
 ): string | undefined {
-  const exposed = ch.models.split(",")[0]?.trim().toLowerCase();
-  const market = exposed ? marketByExposed.get(exposed) : undefined;
-  if (!exposed || !market || !ch.group) return undefined;
-  const suffix = `-${sanitizeGroupName(exposed)}`;
-  if (!ch.group.endsWith(suffix)) return undefined;
-  const id = /(\d+)$/.exec(ch.group.slice(0, -suffix.length))?.[1];
-  if (!id) return undefined;
-  return laneTokenNameFor(Number(id), market);
+  const lane = channelLane(ch);
+  const market = lane ? marketByExposed.get(lane.exposed) : undefined;
+  return lane && market ? laneTokenNameFor(lane.channelId, market) : undefined;
 }
 
 // Same rationale as cleanupEmptyGroupTokens: only a FULL provider run may

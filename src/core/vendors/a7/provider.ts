@@ -31,6 +31,7 @@ import {
   type Listing,
 } from "./marketplace";
 import {
+  channelLane,
   cleanupStaleLaneTokens,
   ensureLaneTokens,
   ensurePins,
@@ -327,7 +328,11 @@ export async function processA7Provider(
 
     // A lane the gateway switched off serves nothing until its own retest
     // revives it: a passing probe holds it but does not count toward `wanted`.
+    // Keyed by merchant and exposed name, since the market may list a model
+    // under two spellings.
     const offLanes = new Set<string>();
+    const laneKey = (channelId: number, exposed: string) =>
+      `${channelId}|${exposed.toLowerCase()}`;
     if (!dryRun) {
       const marketByExposed = new Map<string, string>();
       for (const model of byModel.keys())
@@ -337,17 +342,16 @@ export async function processA7Provider(
         );
       for (const ch of ctx.liveChannels ?? []) {
         if (ch.tag !== name || ch.status === 1 || !ch.group) continue;
-        const laneName = laneNameFromChannel(ch, marketByExposed);
-        if (!laneName) continue;
-        offLanes.add(laneName);
+        const lane = channelLane(ch);
+        if (!lane) continue;
+        offLanes.add(laneKey(lane.channelId, lane.exposed));
         if (ch.status !== 3) continue;
         // A credential fault means the cached key stopped working; drop it so
         // this walk reveals it afresh.
         const reason = parseDisableReason(ch.other_info);
-        if (
-          reason.credential &&
-          evictLaneKey(name, { name: laneName }, "gateway")
-        )
+        if (!reason.credential) continue;
+        const laneName = laneNameFromChannel(ch, marketByExposed);
+        if (laneName && evictLaneKey(name, { name: laneName }, "gateway"))
           consola.info(
             `[${name}] cached key for ${laneName} evicted: gateway disabled it (${reason.reason.slice(0, 80)})`,
           );
@@ -492,7 +496,10 @@ export async function processA7Provider(
             key: probe.key,
             rateLimited: verdict.rateLimitedModels.includes(probe.lane.model),
           });
-          if (!offLanes.has(laneTokenName(probe.lane))) serving++;
+          const exposed =
+            config.modelMapping?.[probe.lane.model] ?? probe.lane.model;
+          if (!offLanes.has(laneKey(probe.lane.listing.channel_id, exposed)))
+            serving++;
         }
         const held = kept.length - serving;
         consola.info(
