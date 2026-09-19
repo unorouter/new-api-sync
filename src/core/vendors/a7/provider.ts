@@ -325,8 +325,9 @@ export async function processA7Provider(
       (config.modelFilter?.length ?? 0) > 0 ||
       (config.modelTypeFilter?.length ?? 0) > 0;
 
-    // A lane the gateway auto disabled for a credential fault holds a key that
-    // stopped working; drop it from the cache so this walk reveals it afresh.
+    // A lane the gateway switched off serves nothing until its own retest
+    // revives it: a passing probe holds it but does not count toward `wanted`.
+    const offLanes = new Set<string>();
     if (!dryRun) {
       const marketByExposed = new Map<string, string>();
       for (const model of byModel.keys())
@@ -335,11 +336,18 @@ export async function processA7Provider(
           model,
         );
       for (const ch of ctx.liveChannels ?? []) {
-        if (ch.tag !== name || ch.status !== 3 || !ch.group) continue;
-        const reason = parseDisableReason(ch.other_info);
-        if (!reason.credential) continue;
+        if (ch.tag !== name || ch.status === 1 || !ch.group) continue;
         const laneName = laneNameFromChannel(ch, marketByExposed);
-        if (laneName && evictLaneKey(name, { name: laneName }, "gateway"))
+        if (!laneName) continue;
+        offLanes.add(laneName);
+        if (ch.status !== 3) continue;
+        // A credential fault means the cached key stopped working; drop it so
+        // this walk reveals it afresh.
+        const reason = parseDisableReason(ch.other_info);
+        if (
+          reason.credential &&
+          evictLaneKey(name, { name: laneName }, "gateway")
+        )
           consola.info(
             `[${name}] cached key for ${laneName} evicted: gateway disabled it (${reason.reason.slice(0, 80)})`,
           );
@@ -372,13 +380,11 @@ export async function processA7Provider(
       );
       const kept: { lane: MerchantLane; key: string; rateLimited: boolean }[] =
         [];
+      let serving = 0;
       let idx = 0;
       let probed = 0;
-      while (kept.length < mc.wanted && idx < mc.candidates.length) {
-        const take = Math.min(
-          mc.wanted - kept.length,
-          mc.candidates.length - idx,
-        );
+      while (serving < mc.wanted && idx < mc.candidates.length) {
+        const take = Math.min(mc.wanted - serving, mc.candidates.length - idx);
         const batch: MerchantLane[] = mc.candidates
           .slice(idx, idx + take)
           .map((listing) => ({ model: mc.model, listing }));
@@ -486,9 +492,11 @@ export async function processA7Provider(
             key: probe.key,
             rateLimited: verdict.rateLimitedModels.includes(probe.lane.model),
           });
+          if (!offLanes.has(laneTokenName(probe.lane))) serving++;
         }
+        const held = kept.length - serving;
         consola.info(
-          `[${name}] ${mc.model}: kept ${kept.length}/${mc.wanted}, probed ${probed}, ${mc.candidates.length - idx} candidate(s) left`,
+          `[${name}] ${mc.model}: kept ${serving}/${mc.wanted}${held > 0 ? ` (+${held} held, gateway disabled)` : ""}, probed ${probed}, ${mc.candidates.length - idx} candidate(s) left`,
         );
       }
       consola.info(
