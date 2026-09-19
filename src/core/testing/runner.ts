@@ -17,7 +17,7 @@ import {
   isAuthenticityBlacklisted,
   isAuthenticityPassCached,
   resetAuthenticityProbes,
-  testAnthropicAuthenticity,
+  runAuthenticity,
 } from "./authenticity";
 import {
   getVerdict,
@@ -30,6 +30,7 @@ import {
   setAuthenticityVerdict,
 } from "./verdict-cache";
 import {
+  mergeProbeBody,
   testRequest,
   testStreamRequest,
   testToolCallRequest,
@@ -57,17 +58,12 @@ import type {
 } from "./types";
 import type { ApplyReport, ProviderReport, SyncDiff } from "@core/types";
 import { redactExchange, redactUrl } from "./redact";
-import { modelsMatch } from "ai-model-verifier/substitution";
+import { modelsMatch } from "ai-model-verifier/models";
 import {
   fingerprintDrifted,
-  measureTokenizerFingerprint,
-} from "ai-model-verifier/detectors/tokenizer-fingerprint";
-import { mergeProbeBody, verifierTransportWithBody } from "./observe";
-import { observeClaudeEvidence } from "./observe";
-import {
-  checkThinkingFloor,
+  judgeThinkingFloor,
   mustAlwaysThink,
-} from "ai-model-verifier/detectors/thinking-floor";
+} from "ai-model-verifier/rules";
 
 let testReport: TestReport = {
   timestamp: new Date().toISOString(),
@@ -285,7 +281,6 @@ async function testModels(opts: {
     opts.extraBody
       ? { ...cfg, body: mergeProbeBody(cfg.body, opts.extraBody) }
       : cfg;
-  const fingerprintTransport = verifierTransportWithBody(opts.extraBody);
   const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
   const prefix = opts.logPrefix ?? "unknown";
   const gate = getConcurrencyGate();
@@ -458,7 +453,7 @@ async function testModels(opts: {
         // A relay can echo the right name and still serve a tier that never
         // thinks; the package's floor check reads the usage of the reply above.
         const floor = httpResult.pass
-          ? checkThinkingFloor(model, httpResult.response)
+          ? judgeThinkingFloor(model, httpResult.response)
           : null;
         const noThinking = floor?.state === "no-thinking";
         if (noThinking) {
@@ -470,33 +465,6 @@ async function testModels(opts: {
             "fail",
             `no-thinking: ${floor.reason}`,
           );
-        }
-        // The billed input-token delta for a fixed text is deterministic per
-        // lane, so a delta that moved since the last probe means the backend
-        // changed and the cached authenticity pass is void this run. It names
-        // no tier on its own: 4.6-era models share a tokenizer and relays count
-        // the same text differently, so the verifier ships no signature table.
-        let fingerprintDrift = false;
-        if (isClaude && !opts.skipAuthenticity && httpResult.pass) {
-          const fp = await measureTokenizerFingerprint({
-            transport: fingerprintTransport,
-            baseUrl: opts.baseUrl,
-            apiKey,
-            model,
-            wire:
-              opts.channelType === CHANNEL_TYPES.ANTHROPIC
-                ? "anthropic"
-                : "openai",
-            timeoutMs,
-          });
-          if (fp.state === "measured" && fp.delta !== null) {
-            fingerprintDrift = fingerprintDrifted(cached?.tokenizerDelta, fp);
-            if (fingerprintDrift)
-              consola.warn(
-                `[${prefix}] ${model}: ${t("CORE.TESTER.TOKENIZER_DRIFT", { from: cached?.tokenizerDelta ?? 0, to: fp.delta })}`,
-              );
-            recordTokenizerDelta(blacklistKey, fp.delta);
-          }
         }
         const rejected = substituted || noThinking;
 
@@ -518,47 +486,57 @@ async function testModels(opts: {
             ? (toolResult.toolParallel ?? false)
             : null;
 
+        // Probe over the wire the channel is sold on: a7 merchants that only
+        // speak OpenAI chat answer /v1/messages with 400/403/404 and could
+        // never verify. The tokenizer fingerprint is measured on every probe:
+        // the billed input-token delta for a fixed text is deterministic per
+        // lane, so a delta that moved since the last probe means the backend
+        // changed and the cached authenticity pass is void this run. It names
+        // no tier on its own. A cached pass means the generative ladder was
+        // already paid for; it is trusted until it expires or the delta moves.
         let authentic = true;
-        if (isClaude && !opts.skipAuthenticity && (success || streamSuccess)) {
-          // A cached pass verdict means the 4 generative probes were already paid
-          // for; trust it until the entry is manually pruned.
-          authentic =
-            isAuthenticityPassCached(blacklistKey, opts.baseUrl) &&
-            !fingerprintDrift
-              ? true
-              : await testAnthropicAuthenticity({
-                  baseUrl: opts.baseUrl,
-                  apiKey,
-                  model,
-                  timeoutMs,
-                  logKey: blacklistKey,
-                  transport:
-                    opts.channelType === CHANNEL_TYPES.ANTHROPIC
-                      ? "anthropic"
-                      : "openai",
-                  extraBody: opts.extraBody,
-                });
-        }
-
-        // OBSERVE ONLY. The signature and token checks are new, so they log
-        // what they WOULD have caught and never change a verdict or a lane.
-        // Promote them only after reviewing real runs, or a false positive
-        // silently deletes working revenue lanes.
-        if (
-          isClaude &&
-          !opts.skipAuthenticity &&
-          authentic &&
-          (success || streamSuccess) &&
-          !isAuthenticityPassCached(blacklistKey, opts.baseUrl)
-        ) {
-          void observeClaudeEvidence({
+        if (isClaude && !opts.skipAuthenticity && httpResult.pass) {
+          const lane = {
             baseUrl: opts.baseUrl,
             apiKey,
             model,
             timeoutMs,
-            label: blacklistKey,
-            extraBody: opts.extraBody,
+            logKey: blacklistKey,
+            wire:
+              opts.channelType === CHANNEL_TYPES.ANTHROPIC
+                ? ("anthropic" as const)
+                : ("openai" as const),
+            ...(opts.extraBody ? { extraBody: opts.extraBody } : {}),
+          };
+          const cachedPass = isAuthenticityPassCached(
+            blacklistKey,
+            opts.baseUrl,
+          );
+          const first = await runAuthenticity({
+            ...lane,
+            ladder: !cachedPass && !rejected,
+            fingerprint: true,
           });
+          const fp = first.fingerprint;
+          let drift = false;
+          if (fp && fp.state === "measured" && fp.delta !== null) {
+            drift = fingerprintDrifted(cached?.tokenizerDelta, fp);
+            if (drift)
+              consola.warn(
+                `[${prefix}] ${model}: ${t("CORE.TESTER.TOKENIZER_DRIFT", { from: cached?.tokenizerDelta ?? 0, to: fp.delta })}`,
+              );
+            recordTokenizerDelta(blacklistKey, fp.delta);
+          }
+          if (cachedPass && drift && !rejected)
+            authentic =
+              (
+                await runAuthenticity({
+                  ...lane,
+                  ladder: true,
+                  fingerprint: false,
+                })
+              ).authentic === true;
+          else if (!cachedPass) authentic = first.authentic === true;
         }
 
         const finalSuccess = success && authentic;
@@ -683,14 +661,17 @@ export async function screenDroppedClaudeAuthenticity(opts: {
         const blacklistKey = `${opts.prefix}|${model}`;
         if (isAuthenticityBlacklisted(blacklistKey)) return model;
         if (isAuthenticityPassCached(blacklistKey, opts.baseUrl)) return null;
-        const authentic = await testAnthropicAuthenticity({
+        const run = await runAuthenticity({
           baseUrl: opts.baseUrl,
           apiKey: opts.apiKey,
           model,
           timeoutMs,
           logKey: blacklistKey,
+          wire: "anthropic",
+          ladder: true,
+          fingerprint: false,
         });
-        if (authentic) return null;
+        if (run.authentic !== false) return null;
         const http: TestExchange = {
           pass: false,
           request: { url: "", headers: {}, body: null },

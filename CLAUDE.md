@@ -166,10 +166,15 @@ survives while it is fresh); artifacts mirror to `artifacts/`. Functional passes
 2), functional fails after 24 hours, or 2 hours when the fail was a 429, 5xx or timeout (a dead merchant is re-probed once a day, not once a run),
 authenticity passes after 12 hours (`authenticityPassTtlHours` per provider overrides it, a7 uses 4 so every 6-hourly walk re-probes), authenticity fails after 24 hours (one probe then decides again), and the `metadata` cron re-probes live a7 Claude lanes whose
 pass is stale (`vendors/a7/reverify.ts`, disables the channel on a fail). Every authenticity
-outcome is appended to `verdict-history.jsonl` beside the cache. Every Claude probe also measures
-the verifier's tokenizer fingerprint (input-token delta for a fixed text, `tokenizerDelta` on the
-entry): a delta that moved since the last probe voids the cached pass for that run. It names no tier
-(4.6-era models share a tokenizer, relays count differently), so it never fails a lane by itself. Without `verdictStore` the sync is local-only.
+outcome is appended to `verdict-history.jsonl` beside the cache. The probes themselves are
+`ai-model-verifier`'s rule engine (`testing/authenticity.ts` is a thin adapter: `runRules` on the
+wire the channel is sold on, with the seller pin as `bodyExtras`, findings mapped onto the verdict
+cache, the first non-note finding's reason as the blacklist reason, an inconclusive one leaving the
+lane unverified without a cache write). Signature, token truth and envelope are observe only
+(`logs/observe-<date>.jsonl`). Every Claude probe also measures the verifier's tokenizer fingerprint
+(input-token delta for a fixed text, `tokenizerDelta` on the entry): a delta that moved since the
+last probe voids the cached pass for that run. It names no tier (4.6-era models share a tokenizer,
+relays count differently), so it never fails a lane by itself. Without `verdictStore` the sync is local-only.
 Every verdict write saves the local file at once and pushes the store at most every 2 minutes, so a
 run killed at any point (Job deadline, OOM, Ctrl-C) keeps everything it probed: the next run loads the
 local file (the PVC on the cluster) before merging the store.

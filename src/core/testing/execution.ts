@@ -9,6 +9,24 @@ import type {
   ToolCallRequestConfig,
 } from "./types";
 
+/** Top-level fields a marketplace needs on every probe (a `provider` pin);
+ *  multipart and binary bodies pass through untouched. */
+export function mergeProbeBody(
+  body: unknown,
+  extra?: Record<string, unknown>,
+): unknown {
+  if (
+    !extra ||
+    typeof body !== "object" ||
+    body === null ||
+    Array.isArray(body) ||
+    body instanceof FormData ||
+    body instanceof ArrayBuffer
+  )
+    return body;
+  return { ...body, ...extra };
+}
+
 export interface RetryPolicy<T> {
   attempts?: number;
   backoffMs?: number[];
