@@ -178,7 +178,10 @@ authority. For every other maker every ladder rule is observe only (`authenticit
 config.yml overrides per maker id or `*`; `[]` promotes a maker), the lane passes and the finding is
 recorded: `logs/observe-<date>.jsonl` and the store object `observe/<hour>.jsonl` carry one line per
 ladder run with maker, wire, every probe's reply, every finding, `wouldFlag` and every report
-(signature, token truth, envelope, throughput). That log is what a maker is promoted from. Only Claude probes measure the tokenizer fingerprint
+(signature, token truth, envelope, throughput, survey). The survey (`reports.survey`) is six questions
+asked beside the ladder and recorded as answered, never judged: training cutoff, context window, a
+verbatim replay of prior instructions (a relay's injected system prompt), a sum with a fact check and
+its hidden token count, a JSON object naming maker and model, a one sentence self description. That log is what a maker is promoted from. Only Claude probes measure the tokenizer fingerprint
 (input-token delta for a fixed text, `tokenizerDelta` on the entry): a delta that moved since the
 last probe voids the cached pass for that run. It names no tier (4.6-era models share a tokenizer,
 relays count differently), so it never fails a lane by itself. Without `verdictStore` the sync is local-only.

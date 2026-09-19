@@ -64,8 +64,14 @@ const LADDER: readonly RuleId[] = [
   "quorum",
   "tier-self-report",
 ];
-// Never a verdict, only evidence.
-const OBSERVED: readonly RuleId[] = ["signature", "token-truth", "envelope"];
+// Never a verdict, only evidence. The survey asks its own questions (cutoff,
+// context window, injected system prompt, a sum, a JSON self-description).
+const OBSERVED: readonly RuleId[] = [
+  "signature",
+  "token-truth",
+  "envelope",
+  "survey",
+];
 
 let observeOnlyByMaker: Record<string, readonly string[]> = {};
 
