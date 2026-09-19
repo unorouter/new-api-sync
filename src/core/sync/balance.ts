@@ -53,6 +53,42 @@ async function fetchDeepInfraBalance(
   return -checklist.stripe_balance - (checklist.recent ?? 0);
 }
 
+// The relay's account lives on its site (the catalog's origin), not the API
+// host; the consumer balance is a decimal dollar string.
+async function fetchPoolRelayBalance(
+  catalogUrl: string,
+  apiKey: string,
+): Promise<number | null> {
+  const data = await tryFetchJson<{
+    balances?: { consumer_balance?: string | number };
+  }>(`${new URL(catalogUrl).origin}/api/me`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  const raw = data?.balances?.consumer_balance;
+  const value = typeof raw === "string" ? Number(raw) : raw;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+// The order book bills in whole micro-USDC; spendable funds are the available
+// on-chain and fiat balances (held and pending amounts are not).
+async function fetchOrderBookBalance(
+  baseUrl: string,
+  apiKey: string,
+): Promise<number | null> {
+  const data = await tryFetchJson<{
+    usdc_available_usdc?: string | number;
+    fiat_available_usdc?: string | number;
+  }>(`${baseUrl.replace(/\/$/, "")}/v1/payments/balance`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  const micro = (v: string | number | undefined) =>
+    typeof v === "string" ? Number(v) : (v ?? Number.NaN);
+  const usdc = micro(data?.usdc_available_usdc);
+  const fiat = micro(data?.fiat_available_usdc);
+  if (!Number.isFinite(usdc)) return null;
+  return (usdc + (Number.isFinite(fiat) ? fiat : 0)) / 1e6;
+}
+
 async function providerBalance(
   provider: AnyProviderConfig,
 ): Promise<BalanceEntry> {
@@ -85,6 +121,20 @@ async function providerBalance(
       case "deepinfra": {
         entry.balance = await fetchDeepInfraBalance(
           provider.baseUrl ?? "https://api.deepinfra.com",
+          provider.apiKey,
+        );
+        break;
+      }
+      case "ih": {
+        entry.balance = await fetchPoolRelayBalance(
+          provider.catalogUrl,
+          provider.apiKey,
+        );
+        break;
+      }
+      case "si": {
+        entry.balance = await fetchOrderBookBalance(
+          provider.baseUrl,
           provider.apiKey,
         );
         break;
