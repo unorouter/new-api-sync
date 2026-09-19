@@ -10,6 +10,7 @@ import {
 import type { Channel } from "@core/types";
 import type { A7ProviderConfig } from "@core/validations/config";
 import type { NewApiClient } from "@core/vendors/newapi/client";
+import { makerForModel } from "ai-model-verifier/makers";
 import { consola } from "consola";
 import { t } from "@server/i18n";
 import {
@@ -18,10 +19,10 @@ import {
 } from "./marketplace";
 import { ensureLaneTokens, laneTokenName, type MerchantLane } from "./pins";
 
-// Probe budget per cron tick: the metadata cron runs every 15 minutes, so
-// eight lanes a tick re-verifies the whole Claude fleet inside an hour while
-// a7's key-reveal rate limit stays untouched.
-const REVERIFY_PER_TICK = 8;
+// Probe budget per cron tick: the metadata cron runs every 15 minutes, about
+// 64 ticks a day, and ~300 live lanes on a 4 hour pass TTL fall due ~1800
+// times a day. Lane keys are cached, so a7's reveal limit is untouched.
+const REVERIFY_PER_TICK = 32;
 const MANUALLY_DISABLED = 2;
 
 export interface ReverifyResult {
@@ -40,10 +41,10 @@ interface LiveLane {
 
 // A live lane is never re-selected, so the candidate path's pass TTL never
 // reaches it: a7 383 served haiku under claude-opus-5 for two days on a verdict
-// that had expired. Re-probe every live Claude lane whose pass is stale and
+// that had expired. Re-probe every live text lane whose pass is stale and
 // disable the channel when the probe records a fail. Disabled means status 2
 // (manual), which the sync preserves and the gateway's own retest ignores.
-export async function reverifyLiveClaudeLanes(
+export async function reverifyLiveLanes(
   provider: A7ProviderConfig,
   config: RuntimeConfig,
   target: NewApiClient,
@@ -57,11 +58,7 @@ export async function reverifyLiveClaudeLanes(
     inconclusive: 0,
   };
   const live = channels.filter(
-    (ch) =>
-      ch.tag === provider.name &&
-      ch.status === 1 &&
-      !!ch.group &&
-      ch.models.split(",")[0]?.trim().toLowerCase().startsWith("claude-"),
+    (ch) => ch.tag === provider.name && ch.status === 1 && !!ch.group,
   );
   result.live = live.length;
   if (live.length === 0) return result;
@@ -77,7 +74,7 @@ export async function reverifyLiveClaudeLanes(
       (config.modelMapping?.[model] ?? model).toLowerCase(),
       model,
     );
-  // Only the models the live Claude lanes are sold under, never the snapshot.
+  // Only the models the live lanes are sold under, never the snapshot.
   const liveMarkets = new Set<string>();
   for (const ch of live) {
     const market = marketByExposed.get(
@@ -122,11 +119,16 @@ export async function reverifyLiveClaudeLanes(
   result.due = due.length;
   if (due.length === 0) return result;
 
-  // Oldest pass first, so a lane never starves behind fresher ones.
-  due.sort((a, b) =>
-    (getVerdict(a.key)?.verifiedAt ?? "").localeCompare(
-      getVerdict(b.key)?.verifiedAt ?? "",
-    ),
+  // Claude first (its verdicts have authority), then oldest pass first, so a
+  // lane never starves behind fresher ones.
+  const rank = (l: LiveLane) =>
+    makerForModel(l.lane.model) === "anthropic" ? 0 : 1;
+  due.sort(
+    (a, b) =>
+      rank(a) - rank(b) ||
+      (getVerdict(a.key)?.verifiedAt ?? "").localeCompare(
+        getVerdict(b.key)?.verifiedAt ?? "",
+      ),
   );
   const batch = due.slice(0, REVERIFY_PER_TICK);
   const tokens = await ensureLaneTokens(

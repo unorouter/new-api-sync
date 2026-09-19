@@ -193,6 +193,7 @@ function historyPath(): string {
 }
 
 export async function flushVerdictHistory(store?: VerdictStore): Promise<void> {
+  await flushObservations(store);
   if (pendingHistory.length > 0) {
     const lines = pendingHistory.map((e) => JSON.stringify(e));
     pendingHistory.length = 0;
@@ -206,6 +207,45 @@ export async function flushVerdictHistory(store?: VerdictStore): Promise<void> {
     await store.appendHistory(lines);
   } catch (err) {
     unpushedHistory.unshift(...lines);
+    consola.warn(
+      t("CORE.VERDICT_STORE.HISTORY_FAILED", {
+        store: store.label,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+}
+
+// Every ladder run, decisive or observed, with what the probes saw: the
+// observation log the rules for a maker are promoted from. Local file per day,
+// store object per hour so the append rewrite stays small.
+const pendingObservations: string[] = [];
+const unpushedObservations: string[] = [];
+
+export function recordObservation(line: Record<string, unknown>): void {
+  pendingObservations.push(JSON.stringify(line));
+}
+
+async function flushObservations(store?: VerdictStore): Promise<void> {
+  if (pendingObservations.length > 0) {
+    const lines = pendingObservations.splice(0);
+    const day = new Date().toISOString().slice(0, 10);
+    const path = join(logsDir(), `observe-${day}.jsonl`);
+    mkdirSync(dirname(path), { recursive: true });
+    appendFileSync(path, lines.join("\n") + "\n");
+    unpushedObservations.push(...lines);
+  }
+  if (!store || unpushedObservations.length === 0) return;
+  const lines = unpushedObservations.splice(0);
+  const hour = new Date().toISOString().slice(0, 13);
+  try {
+    await store.appendText(
+      `observe/${hour}.jsonl`,
+      lines,
+      "application/x-ndjson",
+    );
+  } catch (err) {
+    unpushedObservations.unshift(...lines);
     consola.warn(
       t("CORE.VERDICT_STORE.HISTORY_FAILED", {
         store: store.label,

@@ -119,7 +119,7 @@ const SimpleFreeProviderSchema = T.Object({
   // flaky; on a genuinely retired endpoint it leaves dead channels parked as
   // disabled instead of removing them.
   acceptUpstreamDown: Opt(T.Boolean()),
-  // Skip the claude authenticity probe for this provider only. Set it when the
+  // Skip the authenticity probe for this provider only. Set it when the
   // upstream is a VERIFIED first-party Claude that fails the probe for a known
   // reason, not to silence a suspicious relay: the probe exists to catch a
   // cheap model wearing an expensive label, and blanket-disabling it is how a
@@ -267,6 +267,13 @@ export const ConfigSchema = T.Object({
   globalConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),
   perUpstreamConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),
   blacklist: Opt(T.Array(str)),
+  // Authenticity ladder rules that only log, per maker id (`deepseek`, `openai`,
+  // ...) or `*` for every maker without its own entry. Absent: every rule
+  // observes for every maker except anthropic. `[]` gives a maker's verdicts
+  // authority.
+  authenticity: Opt(
+    T.Object({ observeOnly: Opt(T.Record(T.String(), T.Array(str))) }),
+  ),
   modelMapping: Opt(T.Record(T.String(), T.String())),
   // Splice upstream group labels before they become channel names: key is a
   // fragment (optionally `provider/fragment`), value replaces just that fragment.

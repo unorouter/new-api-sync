@@ -510,6 +510,7 @@
       "AUTHENTICITY_ADDED": "[真伪黑名单] 已添加 {key}：{reason}",
       "AUTHENTICITY_FAIL": "[真伪检测] {model}：{rule}，{reason}，已拒绝",
       "AUTHENTICITY_INCONCLUSIVE": "[真伪检测] {model}：{reason}，本次运行未能验证，未加入黑名单",
+      "AUTHENTICITY_OBSERVED": "[真伪检测] {model}：{rule}，{reason}，{maker} 厂商仅观察，未拒绝",
       "AUTHENTICITY_NOTE": "[真伪检测] {model}：{rule}，{reason}，仅记录",
       "REPORT_WRITTEN": "[测试报告] 已写入 {path}",
       "ERR_NO_RESPONSE": "无响应或超时",
@@ -615,7 +616,7 @@
       "HISTORY_FAILED": "[verdict-store] {store}：历史追加失败，已保留本地文件（{error}）"
     },
     "REVERIFY": {
-      "SUMMARY": "[{provider}] claude 复核：在线通道 {live} 个，待复核 {due} 个，通过 {passed} 个，已停用 {disabled} 个，无法判定 {inconclusive} 个",
+      "SUMMARY": "[{provider}] 真伪复核：在线通道 {live} 个，待复核 {due} 个，通过 {passed} 个，已停用 {disabled} 个，无法判定 {inconclusive} 个",
       "DISABLED": "[{provider}] 已停用 {channel}：{reason}",
       "DISABLE_FAILED": "[{provider}] 无法停用 {channel}（{reason}），网关更新失败"
     },

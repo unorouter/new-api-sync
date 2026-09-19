@@ -11,7 +11,6 @@ import type {
   UpstreamOffer,
 } from "@core/pricing/offers";
 import { testAndFilterModels } from "@core/testing/runner";
-import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
 import type { IhProviderConfig } from "@core/validations/config";
 import {
@@ -182,6 +181,10 @@ export async function processIhProvider(
               value: bidValue(outputUsd),
             },
           ],
+          probeHeaders: {
+            "x-max-input-price": bidValue(inputUsd),
+            "x-max-output-price": bidValue(outputUsd),
+          },
           remark: `${exposed} via ${name} ${up.slug} pool (${prefix}/, ${up.activeProviders} providers, bid $${bidValue(inputUsd)}/$${bidValue(outputUsd)} per M)`,
         });
       }
@@ -191,36 +194,28 @@ export async function processIhProvider(
       return result();
     }
 
-    const details = new Map<string, ModelTestDetail | undefined>();
-    const throttled = new Set<string>();
-    for (const channelType of new Set(lanes.map((l) => l.channelType))) {
+    // One probe set per lane, carrying its bid: without it the relay routes to
+    // its best-scoring provider, which is not the one the lane is priced on.
+    for (const lane of lanes) {
       const probe = await testAndFilterModels({
-        allModels: lanes
-          .filter((l) => l.channelType === channelType)
-          .map((l) => l.upstream),
+        allModels: [lane.upstream],
         baseUrl,
         apiKey: provider.apiKey,
-        channelType,
+        channelType: lane.channelType,
         providerLabel: name,
         testableModelTypes: new Set(["text"]),
         acceptRateLimited: provider.acceptRateLimited ?? false,
         familyOf: bareModelId,
+        ...(lane.probeHeaders ? { extraHeaders: lane.probeHeaders } : {}),
       });
-      for (const id of probe.workingModels)
-        details.set(
-          id,
-          probe.details?.find((d) => d.model === id),
-        );
-      for (const id of probe.rateLimitedModels) throttled.add(id);
-    }
-
-    for (const lane of lanes) {
-      if (!details.has(lane.upstream)) continue;
-      const testDetail = details.get(lane.upstream);
+      if (!probe.workingModels.includes(lane.upstream)) continue;
+      const testDetail = probe.details?.find((d) => d.model === lane.upstream);
       const probed: FallbackLane = {
         ...lane,
         ...(testDetail ? { testDetail } : {}),
-        ...(throttled.has(lane.upstream) ? { rateLimited: true } : {}),
+        ...(probe.rateLimitedModels.includes(lane.upstream)
+          ? { rateLimited: true }
+          : {}),
       };
       offers.push(
         buildFallbackOffer({

@@ -84,6 +84,8 @@ export interface FallbackLane {
   operations: Record<string, unknown>[];
   /** Fields every probe must carry to reach the same sellers as the lane. */
   probeBody?: Record<string, unknown>;
+  /** Headers every probe must carry to reach the same provider as the lane. */
+  probeHeaders?: Record<string, string>;
   remark: string;
   testDetail?: ModelTestDetail;
   rateLimited?: boolean;

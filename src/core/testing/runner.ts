@@ -58,6 +58,7 @@ import type {
 } from "./types";
 import type { ApplyReport, ProviderReport, SyncDiff } from "@core/types";
 import { redactExchange, redactUrl } from "./redact";
+import { makerForModel } from "ai-model-verifier/makers";
 import { modelsMatch } from "ai-model-verifier/models";
 import {
   fingerprintDrifted,
@@ -264,11 +265,12 @@ async function testModels(opts: {
   modelEndpoints?: Map<string, string[]>;
   retryPolicy?: RetryPolicy<TestExchange>;
   acceptRateLimited?: boolean | ((model: string) => boolean);
-  // Set only for a hand-verified first-party Claude whose upstream persona
-  // trips the probe; see skipAuthenticity in validations/config.ts.
+  // Set only for a hand-verified first party whose upstream persona trips
+  // the probe; see skipAuthenticity in validations/config.ts.
   skipAuthenticity?: boolean;
   capabilities?: Map<string, ModelCapabilityHint>;
   extraBody?: Record<string, unknown>;
+  extraHeaders?: Record<string, string>;
   familyOf?: (model: string) => string;
 }): Promise<{
   workingModels: string[];
@@ -277,10 +279,21 @@ async function testModels(opts: {
 }> {
   const useResponsesAPI = opts.useResponsesAPI ?? false;
   const familyOf = opts.familyOf ?? ((model: string) => model);
-  const withExtraBody = <C extends { body: unknown }>(cfg: C): C =>
-    opts.extraBody
-      ? { ...cfg, body: mergeProbeBody(cfg.body, opts.extraBody) }
-      : cfg;
+  // A lane's pin (body) and bid (headers) ride on every probe, so the probes
+  // reach the provider the lane is priced on.
+  const withExtraBody = <
+    C extends { body: unknown; headers: Record<string, string> },
+  >(
+    cfg: C,
+  ): C => ({
+    ...cfg,
+    ...(opts.extraBody
+      ? { body: mergeProbeBody(cfg.body, opts.extraBody) }
+      : {}),
+    ...(opts.extraHeaders
+      ? { headers: { ...cfg.headers, ...opts.extraHeaders } }
+      : {}),
+  });
   const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
   const prefix = opts.logPrefix ?? "unknown";
   const gate = getConcurrencyGate();
@@ -304,7 +317,8 @@ async function testModels(opts: {
 
         const blacklistKey = `${prefix}|${model}`;
         const apiKey = opts.apiKeyFor?.(model) ?? opts.apiKey;
-        const isClaude = familyOf(model).startsWith("claude-");
+        const maker = makerForModel(familyOf(model));
+        const isAnthropic = maker === "anthropic";
         // Keyed on the MODEL, not the channel type: a7/openrouter test claude
         // over OpenAI-compat, and a blacklisted faker re-probed on every run
         // eventually passes once (fake identities are nondeterministic) and
@@ -351,11 +365,12 @@ async function testModels(opts: {
         const isText = modelType === "text";
 
         // Verdict reuse (logs/verdict-cache.json): a pair with a recorded pass is
-        // not re-probed; force a retest by deleting its entry. Claude pairs
+        // not re-probed; force a retest by deleting its entry. Text pairs
         // additionally require a FRESH authenticity pass (verifiedAt inside
         // AUTHENTICITY_PASS_TTL_HOURS), so a merchant that swaps its backend after
         // the probe is re-checked within hours instead of never. Text pairs without a
         // definitive tool verdict fall through so the tool probe can complete them.
+        const identityChecked = isText && !opts.skipAuthenticity;
         const cached = getVerdict(blacklistKey);
         if (isTestFailFresh(cached)) {
           addTestResult({
@@ -396,7 +411,7 @@ async function testModels(opts: {
           cached &&
           isTestPassFresh(cached) &&
           (!isText || cachedTool) &&
-          (!isClaude || isAuthenticityPassFresh(cached))
+          (!identityChecked || isAuthenticityPassFresh(cached, opts.baseUrl))
         )
           return mkDetail(
             model,
@@ -495,11 +510,12 @@ async function testModels(opts: {
         // no tier on its own. A cached pass means the generative ladder was
         // already paid for; it is trusted until it expires or the delta moves.
         let authentic = true;
-        if (isClaude && !opts.skipAuthenticity && httpResult.pass) {
+        if (identityChecked && httpResult.pass) {
           const lane = {
             baseUrl: opts.baseUrl,
             apiKey,
             model,
+            maker,
             timeoutMs,
             logKey: blacklistKey,
             wire:
@@ -507,15 +523,17 @@ async function testModels(opts: {
                 ? ("anthropic" as const)
                 : ("openai" as const),
             ...(opts.extraBody ? { extraBody: opts.extraBody } : {}),
+            ...(opts.extraHeaders ? { extraHeaders: opts.extraHeaders } : {}),
           };
           const cachedPass = isAuthenticityPassCached(
             blacklistKey,
             opts.baseUrl,
           );
+          // The tokenizer fingerprint is Claude's; other makers get the ladder only.
           const first = await runAuthenticity({
             ...lane,
             ladder: !cachedPass && !rejected,
-            fingerprint: true,
+            fingerprint: isAnthropic,
           });
           const fp = first.fingerprint;
           let drift = false;
@@ -560,7 +578,7 @@ async function testModels(opts: {
           http: httpResult,
           stream: streamResult,
           toolCall: toolResult,
-          authentic: isClaude ? authentic : null,
+          authentic: identityChecked ? authentic : null,
         });
 
         const toLog = (r: TestExchange | null, pass: boolean) =>
@@ -589,7 +607,7 @@ async function testModels(opts: {
           finalStream,
           toolCallSuccess,
           toolParallel,
-          isClaude && (success || streamSuccess === true),
+          identityChecked && (success || streamSuccess === true),
           httpResult.status,
         );
       }),
@@ -611,13 +629,15 @@ async function testModels(opts: {
   // A throttled lane is never identity-checked, and the gateway's auto-test
   // enables it as soon as the upstream clears: for Claude that let a ChatGPT
   // merchant go live under a fable label (a7 3999). Only a lane that already
-  // proved itself may ride a transient status in.
+  // proved itself may ride a transient status in; a maker under observation
+  // has nothing to prove yet.
   const acceptedTransient = (r: (typeof results)[number]) =>
     r.httpStatus != null &&
     TRANSIENT_STATUS.has(r.httpStatus) &&
     !reallyPassed(r) &&
     acceptsTransient(r.model) &&
-    ((!familyOf(r.model).startsWith("claude-") && !mustAlwaysThink(r.model)) ||
+    ((makerForModel(familyOf(r.model)) !== "anthropic" &&
+      !mustAlwaysThink(r.model)) ||
       opts.skipAuthenticity === true ||
       isAuthenticityPassCached(passKey(prefix, r.model), opts.baseUrl));
 
@@ -648,7 +668,7 @@ export async function screenDroppedClaudeAuthenticity(opts: {
   timeoutMs?: number;
 }): Promise<string[]> {
   if (opts.channelType !== CHANNEL_TYPES.ANTHROPIC || !opts.apiKey) return [];
-  const claude = opts.models.filter((m) => m.startsWith("claude-"));
+  const claude = opts.models.filter((m) => makerForModel(m) === "anthropic");
   if (claude.length === 0) return [];
   const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
   const gate = getConcurrencyGate();
@@ -665,6 +685,7 @@ export async function screenDroppedClaudeAuthenticity(opts: {
           baseUrl: opts.baseUrl,
           apiKey: opts.apiKey,
           model,
+          maker: "anthropic",
           timeoutMs,
           logKey: blacklistKey,
           wire: "anthropic",
@@ -712,8 +733,10 @@ export async function testAndFilterModels(opts: {
   capabilities?: Map<string, ModelCapabilityHint>;
   /** Merged into every probe body: a marketplace seller pin (`provider`). */
   extraBody?: Record<string, unknown>;
+  /** Sent on every probe: a marketplace bid (`x-max-input-price`). */
+  extraHeaders?: Record<string, string>;
   /** Probe id to model family, for ids that carry a routing prefix
-   *  (`<pool>/claude-opus-5`); Claude-only checks key on the family. */
+   *  (`<pool>/claude-opus-5`); the maker is read off the family. */
   familyOf?: (model: string) => string;
 }): Promise<{
   workingModels: string[];
@@ -767,7 +790,9 @@ export async function testAndFilterModels(opts: {
       retryPolicy: opts.retryPolicy,
       acceptRateLimited: opts.acceptRateLimited,
       capabilities: opts.capabilities,
+      skipAuthenticity: opts.skipAuthenticity,
       extraBody: opts.extraBody,
+      extraHeaders: opts.extraHeaders,
       familyOf: opts.familyOf,
     });
     testedWorkingModels = testResult.workingModels;

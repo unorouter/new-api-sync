@@ -53,7 +53,8 @@ import {
   pushVerdictCache,
   saveVerdictCache,
 } from "@core/testing/verdict-cache";
-import { reverifyLiveClaudeLanes } from "@core/vendors/a7/reverify";
+import { reverifyLiveLanes } from "@core/vendors/a7/reverify";
+import { setAuthenticityObserveOnly } from "@core/testing/authenticity";
 import {
   getMetadataFromEnabledModels,
   getPricingGridFromEnabledModels,
@@ -864,7 +865,7 @@ export async function runMetadataSync(
     options: store.raw(),
   };
   await syncUpstreamPricing(store, config, snap, inScope);
-  await reverifyClaudeLanes(target, config);
+  await reverifyLanes(target, config);
 
   syncGridCollapse(store, config, inScope);
 
@@ -899,9 +900,9 @@ export async function runMetadataSync(
 // Re-price the models current channels serve from a dry-run provider pipeline
 // (read-only pricing fetch, canonical vote, cap, priceAdjustment; no probes, no
 // tokens), touching only the names those channels publish.
-// Twice-daily Claude re-verification on the cron's cadence: the full sync only
+// Re-verification of live a7 lanes on the cron's cadence: the full sync only
 // probes candidates, and a lane that is already live is never one.
-async function reverifyClaudeLanes(
+async function reverifyLanes(
   target: NewApiClient,
   config: RuntimeConfig,
 ): Promise<void> {
@@ -915,9 +916,10 @@ async function reverifyClaudeLanes(
     verdicts ?? undefined,
     a7Providers.map((p) => p.name),
   );
+  setAuthenticityObserveOnly(config.authenticity?.observeOnly);
   const liveChannels = await target.listChannels();
   for (const p of a7Providers) {
-    const r = await reverifyLiveClaudeLanes(p, config, target, liveChannels);
+    const r = await reverifyLiveLanes(p, config, target, liveChannels);
     consola.info(t("CORE.REVERIFY.SUMMARY", { provider: p.name, ...r }));
   }
   await flushAllLaneKeys();

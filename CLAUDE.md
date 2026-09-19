@@ -78,7 +78,7 @@ Never a full `sync run` for one model. `DELETE FROM channels WHERE id IN (...)` 
 `deploy/new-api-master` (channel cache), delete the pair from `logs/verdict-cache.json` (keys
 `a7:<merchant>|<model>` or `<provider>|<model>`, or wait for its TTL), then
 `bun sync run --only <p> --models "<glob>"`. A channel that comes back passed authenticity: fix
-`testing/authenticity.ts`.
+`testing/authenticity.ts` (or the maker table in `ai-model-verifier`).
 
 ### Invariants
 
@@ -164,14 +164,21 @@ is the object `new-api-sync/verdict-cache.json` in bucket `unorouter-sync` behin
 `sync run` merges the object in at start and pushes at end (union by key, newest stamp wins, a fail
 survives while it is fresh); artifacts mirror to `artifacts/`. Functional passes expire after 7 days (jittered
 2), functional fails after 24 hours, or 2 hours when the fail was a 429, 5xx or timeout (a dead merchant is re-probed once a day, not once a run),
-authenticity passes after 12 hours (`authenticityPassTtlHours` per provider overrides it, a7 uses 4 so every 6-hourly walk re-probes), authenticity fails after 24 hours (one probe then decides again), and the `metadata` cron re-probes live a7 Claude lanes whose
-pass is stale (`vendors/a7/reverify.ts`, disables the channel on a fail). Every authenticity
+authenticity passes after 12 hours (`authenticityPassTtlHours` per provider overrides it, a7 uses 4 so every 6-hourly walk re-probes), authenticity fails after 24 hours (one probe then decides again), and the `metadata` cron re-probes live a7 lanes whose
+pass is stale (`vendors/a7/reverify.ts`, 32 per tick, Claude first, disables the channel on a fail). Every authenticity
 outcome is appended to `verdict-history.jsonl` beside the cache. The probes themselves are
 `ai-model-verifier`'s rule engine (`testing/authenticity.ts` is a thin adapter: `runRules` on the
-wire the channel is sold on, with the seller pin as `bodyExtras`, findings mapped onto the verdict
-cache, the first non-note finding's reason as the blacklist reason, an inconclusive one leaving the
-lane unverified without a cache write). Signature, token truth and envelope are observe only
-(`logs/observe-<date>.jsonl`). Every Claude probe also measures the verifier's tokenizer fingerprint
+wire the channel is sold on, judged against the model's MAKER (`makerForModel`,
+`ai-model-verifier/makers`: anthropic, openai, google, deepseek, moonshot, zhipu, minimax, xiaomi,
+mistral, alibaba, meta, xai, tencent; an unknown id is judged by the wire's default maker), with the
+seller pin as `bodyExtras` and the ih bid as headers, findings mapped onto the verdict cache, the
+first decisive finding's reason as the blacklist reason, an inconclusive one leaving the lane
+unverified without a cache write). Every text lane runs the ladder; only anthropic's findings have
+authority. For every other maker every ladder rule is observe only (`authenticity.observeOnly` in
+config.yml overrides per maker id or `*`; `[]` promotes a maker), the lane passes and the finding is
+recorded: `logs/observe-<date>.jsonl` and the store object `observe/<hour>.jsonl` carry one line per
+ladder run with maker, wire, every probe's reply, every finding, `wouldFlag` and every report
+(signature, token truth, envelope, throughput). That log is what a maker is promoted from. Only Claude probes measure the tokenizer fingerprint
 (input-token delta for a fixed text, `tokenizerDelta` on the entry): a delta that moved since the
 last probe voids the cached pass for that run. It names no tier (4.6-era models share a tokenizer,
 relays count differently), so it never fails a lane by itself. Without `verdictStore` the sync is local-only.
@@ -216,7 +223,8 @@ so they sort behind cheaper lanes in the auto groups. Every numeric knob (those 
 `bidQuantile`, `minSellers`) takes a scalar or a7's glob map with `default` (`resolvePerModel`,
 first match wins). Every URL is config only. `ih` calls `<pool>/<model>` with bid headers (`set_header` in
 param_override) at the `bidQuantile` ask of that pool, never under its `minSellers`-th ask (a
-thinner pool gets no lane). `si` pins every allowed seller
+thinner pool gets no lane); its probes carry the same bid (`testAndFilterModels({ extraHeaders })`),
+so the verdict is for the provider the lane is priced on, and a 402 is the honest fail. `si` pins every allowed seller
 provider in the `provider` body field (probes carry it too, `testAndFilterModels({ extraBody })`),
 prices on the `minSellers`-th cheapest trusted offer, and sets a `/min{N}` discount floor capped at
 90: the market bills whole micro-dollars, so a small request's estimated discount tops out near 97%

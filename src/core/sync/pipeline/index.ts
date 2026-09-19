@@ -16,6 +16,7 @@ import { computePricedPlan } from "@core/pricing/compute";
 import { emitChannels } from "@core/pricing/emit";
 import { fetchAllPricingSources } from "@core/pricing/resolver";
 import { ConcurrencyGate, setConcurrencyGate } from "@core/infra/concurrency";
+import { setAuthenticityObserveOnly } from "@core/testing/authenticity";
 import { setAuthenticityPassTtlByHost } from "@core/testing/verdict-cache";
 import type {
   DesiredState,
@@ -209,6 +210,7 @@ async function buildDesiredState(
     }),
   );
   setAuthenticityPassTtlByHost(authenticityTtlOverrides);
+  setAuthenticityObserveOnly(config.authenticity?.observeOnly);
 
   const managedProviders = new Set(config.providers.map((p) => p.name));
   const baseline = await buildBaseline({

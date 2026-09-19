@@ -113,7 +113,7 @@ providers:
   #   name: fish
   #   perUpstreamConcurrency: 2
   #   perUpstreamRpm: 60
-  # authenticityPassTtlHours shortens the 12 hour default for one upstream: a Claude
+  # authenticityPassTtlHours shortens the 12 hour default for one upstream: a
   # lane there is re-probed once its last pass is older than this. Keep it under the
   # gap between full runs so every walk re-probes every lane (the metadata
   # cron picks up stale a7 lanes every 15 minutes). Marketplaces where merchants
@@ -121,6 +121,15 @@ providers:
   # - type: a7
   #   name: a7
   #   authenticityPassTtlHours: 4
+  # Every text lane runs the authenticity ladder, judged against the model's maker.
+  # Only anthropic's findings reject a lane; every other maker is observed (the
+  # finding is logged to logs/observe-<date>.jsonl, the lane passes) until the log
+  # shows how those models answer. Name the rules that stay observe only per maker
+  # id or "*"; an empty list gives that maker's verdicts authority.
+  # authenticity:
+  #   observeOnly:
+  #     deepseek: []
+  #     "*": [foreign, quorum]
   # acceptUpstreamDown is the same idea one level up, for the channel-shape probe
   # rather than a single model. A 5xx or a timeout there normally drops every model
   # behind that bucket for the run; with this set the bucket is kept, its models are
