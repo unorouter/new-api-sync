@@ -142,10 +142,10 @@ Release: bump `version`, merge to `main`, `release.yml` builds. Never ship binar
 
 Two CronJobs in `services` (`k8s/`; a push to `main` builds the image in GitHub Actions and pins it, no local builds):
 `new-api-sync` = `metadata` every 15 min Berlin except the two hours after each full run;
-`new-api-sync-full` = `run --only a7` at 04:00, 10:00, 16:00 and 22:00, 2h deadline, `backoffLimit: 0`,
-the only job that probes.
+`new-api-sync-full` = `run --only a7,ih,si` at 04:00, 10:00, 16:00 and 22:00, 3h deadline, `backoffLimit: 0`,
+the only job that probes. The marketplaces change constantly, so they sync on the cluster.
 
-Cluster config (OpenBao `secret/sync-env` key `config.yml`) declares a7, fish, open1 only; local
+Cluster config (OpenBao `secret/sync-env` key `config.yml`) declares a7, ih and si only; local
 `bun sync metadata` covers the rest. Mirror every edit to those blocks and to the shared blocks
 (`rateLimit`, `modelMapping`, `groupMapping`, `blacklist`, `modelAlias`, `channelParamOverride`).
 Payload over stdin, `patch` never `put` (the secret also holds `GUEST_API_KEY`), read back:
@@ -231,7 +231,7 @@ so the verdict is for the provider the lane is priced on, and a 402 is the hones
 provider in the `provider` body field (probes carry it too, `testAndFilterModels({ extraBody })`),
 prices on the `minSellers`-th cheapest trusted offer, and sets a `/min{N}` discount floor capped at
 90: the market bills whole micro-dollars, so a small request's estimated discount tops out near 97%
-and a higher floor refuses it. Both run locally only (not in the cluster config). `metadata` never
+and a higher floor refuses it. Both run on the cluster (in the cluster config since 2026-09-19). `metadata` never
 touches their `param_override` (`MARKETPLACE_KINDS`): an si pin is a plain `set`, which the
 reconcile would read as its own and clear.
 

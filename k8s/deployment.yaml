@@ -119,7 +119,7 @@ spec:
           containers:
             - name: sync
               image: ghcr.io/unorouter/new-api-sync:ce9347ba4403942d5b2a9e9996f7d2fd5fe354bf
-              args: ["run", "--only", "a7"]
+              args: ["run", "--only", "a7,ih,si"]
               env:
                 - name: GUEST_API_KEY
                   valueFrom:
