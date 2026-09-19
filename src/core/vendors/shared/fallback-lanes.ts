@@ -7,12 +7,16 @@ import { resolvePerModel } from "@core/pricing";
 import { CLAUDE_CONTEXT_1M_OPERATIONS } from "@core/pricing/compute";
 import type { OfferModel, UpstreamOffer } from "@core/pricing/offers";
 import type { ModelTestDetail } from "@core/testing/types";
+import type { AnyProviderConfig } from "@core/validations/config";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 
 // Lanes bought from a marketplace (relay pools, order-book sellers) sit behind
 // the a7 lanes of the same model: a lane group's ratio orders the gateway's auto
 // groups, so a dearer lane only serves once the cheaper ones fail.
+
+export const MARKETPLACE_KINDS: ReadonlySet<AnyProviderConfig["type"]> =
+  new Set(["ih", "si"]);
 
 const USD_PER_M_PER_RATIO = 2;
 const DEFAULT_FALLBACK_MULTIPLE = 2;

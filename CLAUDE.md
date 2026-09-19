@@ -220,7 +220,9 @@ thinner pool gets no lane). `si` pins every allowed seller
 provider in the `provider` body field (probes carry it too, `testAndFilterModels({ extraBody })`),
 prices on the `minSellers`-th cheapest trusted offer, and sets a `/min{N}` discount floor capped at
 90: the market bills whole micro-dollars, so a small request's estimated discount tops out near 97%
-and a higher floor refuses it. Both run locally only (not in the cluster config).
+and a higher floor refuses it. Both run locally only (not in the cluster config). `metadata` never
+touches their `param_override` (`MARKETPLACE_KINDS`): an si pin is a plain `set`, which the
+reconcile would read as its own and clear.
 
 A stream probe that reaches EOF after an OpenAI `finish_reason` passes without `data: [DONE]`:
 some upstreams omit the sentinel and the gateway ends those streams normally.

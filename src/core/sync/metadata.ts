@@ -82,6 +82,7 @@ import {
 import { expandRateLimitModels } from "@core/sync/pipeline/option-maps";
 import { SIMPLE_PROVIDER_META_MAP } from "@core/vendors/registry-meta";
 import { acceptPriceNotices } from "@core/vendors/a7/pins";
+import { MARKETPLACE_KINDS } from "@core/vendors/shared/fallback-lanes";
 import type { Channel, ModelMeta, TargetSnapshot, Vendor } from "@core/types";
 import { MODEL_OPTION_FIELD, MODEL_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
@@ -416,6 +417,9 @@ async function reconcileParamOverride(
   const byProvider = buildDisableThinkingByProvider(config);
   const vendorOverrides = buildVendorParamOverrideByProvider(config);
   const configuredPrefixes = buildConfiguredProviderPrefixes(config);
+  const marketplacePrefixes = config.providers
+    .filter((provider) => MARKETPLACE_KINDS.has(provider.type))
+    .map((provider) => `${sanitizeGroupName(provider.name)}-`);
   const rules = config.channelParamOverride;
   if (
     byProvider.length === 0 &&
@@ -426,6 +430,10 @@ async function reconcileParamOverride(
 
   let changed = 0;
   for (const ch of channels) {
+    // A marketplace lane's override is its seller pins or bid headers, which
+    // only its own run can rebuild; an si pin is a plain `set` and read as ours.
+    if (marketplacePrefixes.some((prefix) => ch.name.startsWith(prefix)))
+      continue;
     const current = ch.param_override?.trim() || undefined;
 
     // A run only reconciles channels of the providers ITS OWN config declares.
