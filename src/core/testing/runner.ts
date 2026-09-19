@@ -60,11 +60,7 @@ import type { ApplyReport, ProviderReport, SyncDiff } from "@core/types";
 import { redactExchange, redactUrl } from "./redact";
 import { makerForModel } from "ai-model-verifier/makers";
 import { modelsMatch } from "ai-model-verifier/models";
-import {
-  fingerprintDrifted,
-  judgeThinkingFloor,
-  mustAlwaysThink,
-} from "ai-model-verifier/rules";
+import { fingerprintDrifted, mustAlwaysThink } from "ai-model-verifier/rules";
 
 let testReport: TestReport = {
   timestamp: new Date().toISOString(),
@@ -465,23 +461,9 @@ async function testModels(opts: {
           setAuthenticityVerdict(blacklistKey, "fail", `substituted:${served}`);
         }
 
-        // A relay can echo the right name and still serve a tier that never
-        // thinks; the package's floor check reads the usage of the reply above.
-        const floor = httpResult.pass
-          ? judgeThinkingFloor(model, httpResult.response)
-          : null;
-        const noThinking = floor?.state === "no-thinking";
-        if (noThinking) {
-          consola.warn(
-            `[${prefix}] ${model}: ${t("CORE.TESTER.ERR_PRO_NO_THINKING", { model, out: floor.completionTokens ?? 0 })}`,
-          );
-          setAuthenticityVerdict(
-            blacklistKey,
-            "fail",
-            `no-thinking: ${floor.reason}`,
-          );
-        }
-        const rejected = substituted || noThinking;
+        // The thinking floor sits in the ladder, where the maker's observe
+        // gate decides whether it judges.
+        const rejected = substituted;
 
         const success = httpResult.pass && !rejected;
         const streamSuccess =

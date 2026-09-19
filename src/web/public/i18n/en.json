@@ -520,7 +520,6 @@
       "ERR_MODEL_SUBSTITUTED": "upstream served a different model: {got}",
       "ERR_STREAM": "error in stream",
       "ERR_STREAM_NO_MARKER": "stream ended without completion marker",
-      "ERR_PRO_NO_THINKING": "served without thinking tokens (completion_tokens={out}), a real {model} cannot disable thinking",
       "PROVIDER_FAILED": "[{provider}] Failed: {models}",
       "ERR_AUTHENTICITY_BLACKLISTED": "authenticity-blacklisted",
       "ERR_FAIL_CACHED": "functional fail cached at {at}, not re-probed",

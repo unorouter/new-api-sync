@@ -520,7 +520,6 @@
       "ERR_MODEL_SUBSTITUTED": "上游返回了不同的模型：{got}",
       "ERR_STREAM": "流式响应出错",
       "ERR_STREAM_NO_MARKER": "流式响应未出现完成标记",
-      "ERR_PRO_NO_THINKING": "响应无思考 token（completion_tokens={out}），真正的 {model} 无法关闭思考",
       "PROVIDER_FAILED": "[{provider}] 失败：{models}",
       "ERR_AUTHENTICITY_BLACKLISTED": "在真伪黑名单中",
       "ERR_FAIL_CACHED": "功能性失败已于 {at} 缓存，本次不再探测",

@@ -53,6 +53,7 @@ export type AuthenticityWire = Extract<VendorId, "anthropic" | "openai">;
 
 // The behavioural ladder, in the library's precedence order.
 const LADDER: readonly RuleId[] = [
+  "thinking-floor",
   "coding-tool",
   "scam",
   "cjk-leak",
