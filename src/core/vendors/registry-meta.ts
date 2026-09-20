@@ -400,6 +400,15 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-... (api.moleapi.com)",
   },
   {
+    kind: "axzt",
+    label: "Axzt",
+    // ai.axzt.top - default group serves qwen3.6-plus at zero cost on a funded wallet (10000
+    // before and after). Base is root; discovery appends /v1.
+    defaultBaseUrl: "https://ai.axzt.top",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (ai.axzt.top)",
+  },
+  {
     kind: "berget",
     label: "Berget.AI",
     // api.berget.ai - EU/GDPR-hosted (Sweden). 14 models GLM/Kimi/Mistral/gpt-oss/Llama

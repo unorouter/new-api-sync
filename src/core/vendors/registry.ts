@@ -61,6 +61,7 @@ import { discoverAurikoModels } from "./auriko/discovery";
 import { discoverNionioModels } from "./nionio/discovery";
 import { discoverAihub071Models } from "./aihub071/discovery";
 import { discoverMoleapiModels } from "./moleapi/discovery";
+import { discoverAxztModels } from "./axzt/discovery";
 import { discoverShu26Models } from "./shu26/discovery";
 import { discoverArithcoreModels } from "./arithcore/discovery";
 import { discoverWuhuModels } from "./wuhu/discovery";
@@ -164,6 +165,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   nionio: discoverNionioModels,
   aihub071: discoverAihub071Models,
   moleapi: discoverMoleapiModels,
+  axzt: discoverAxztModels,
   shu26: discoverShu26Models,
   arithcore: discoverArithcoreModels,
   wuhu: discoverWuhuModels,
