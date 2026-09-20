@@ -58,6 +58,11 @@ import { discoverWandbModels } from "./wandb/discovery";
 import { discoverMimoModels } from "./mimo/discovery";
 import { discoverAbliterationModels } from "./abliteration/discovery";
 import { discoverAurikoModels } from "./auriko/discovery";
+import { discoverNionioModels } from "./nionio/discovery";
+import { discoverAihub071Models } from "./aihub071/discovery";
+import { discoverShu26Models } from "./shu26/discovery";
+import { discoverArithcoreModels } from "./arithcore/discovery";
+import { discoverWuhuModels } from "./wuhu/discovery";
 import { discoverBergetModels } from "./berget/discovery";
 import { discoverKenariModels } from "./kenari/discovery";
 import { discoverLlmtrModels } from "./llmtr/discovery";
@@ -91,6 +96,7 @@ import { discoverMiniMaxModels } from "./minimax/discovery";
 import { discoverVoidAiModels } from "./voidai/discovery";
 import { discoverZanityModels } from "./zanity/discovery";
 import { discoverKiloModels } from "./kilo/discovery";
+import { discoverEye2Models } from "./eye2/discovery";
 import { discoverKlModels } from "./kl/discovery";
 import { discoverXkiroModels } from "./xkiro/discovery";
 import { discoverSeekaiModels } from "./seekai/discovery";
@@ -154,6 +160,11 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   mimo: discoverMimoModels,
   abliteration: discoverAbliterationModels,
   auriko: discoverAurikoModels,
+  nionio: discoverNionioModels,
+  aihub071: discoverAihub071Models,
+  shu26: discoverShu26Models,
+  arithcore: discoverArithcoreModels,
+  wuhu: discoverWuhuModels,
   berget: discoverBergetModels,
   kenari: discoverKenariModels,
   llmtr: discoverLlmtrModels,
@@ -188,6 +199,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   zanity: discoverZanityModels,
   kilo: discoverKiloModels,
   kl: discoverKlModels,
+  eye2: discoverEye2Models,
   xkiro: discoverXkiroModels,
   seekai: discoverSeekaiModels,
   yjs: discoverYjsModels,

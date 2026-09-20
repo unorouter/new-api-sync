@@ -339,6 +339,57 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "ak_live_... (auriko.ai)",
   },
   {
+    kind: "nionio",
+    label: "Nionio",
+    // api.nionio2026.xyz - new-api relay; the "[free]" group serves GLM-5.3, deepseek-v4-pro
+    // and kimi-k3 at zero cost on an empty wallet. Free lanes proxy shared upstream pools, so
+    // a saturated pool answers 429 (passthrough, not a key quota). Base is root; discovery
+    // appends /v1.
+    defaultBaseUrl: "https://api.nionio2026.xyz",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (api.nionio2026.xyz/keys)",
+  },
+  {
+    kind: "aihub071",
+    label: "AIHub071",
+    // aihub.071129.xyz - new-api relay, 295-model catalog. Ten zero-cost lanes answer on an empty
+    // wallet: DeepSeek-V4-Flash plus the shared ":free" pool slugs the fleet already sells, so the
+    // lane is failover capacity. Saturated pools answer 429 as passthrough. Base is root;
+    // discovery appends /v1.
+    defaultBaseUrl: "https://aihub.071129.xyz",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (aihub.071129.xyz)",
+  },
+  {
+    kind: "wuhu",
+    label: "Wuhu",
+    // api.wuhu.lol - new-api relay, 734-model catalog. Seven zero-cost ":free" pool lanes answer
+    // on an empty wallet (nemotron nano/super/ultra/lightning, north-mini-code, dots-3-note-preview,
+    // laguna-xs-2.1), all already sold, so the lane is failover capacity. Base is root; discovery
+    // appends /v1.
+    defaultBaseUrl: "https://api.wuhu.lol",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (api.wuhu.lol)",
+  },
+  {
+    kind: "arithcore",
+    label: "Arithcore",
+    // api.arithcore.com - 5-model relay; the "Agens多模态免费" group serves agnes-2.5-flash free on
+    // an empty wallet. Base is root; discovery appends /v1.
+    defaultBaseUrl: "https://api.arithcore.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (api.arithcore.com)",
+  },
+  {
+    kind: "shu26",
+    label: "Shu26",
+    // shu26.cfd (fronts codegoai.com) - deepseek-v4-flash free on an empty wallet. Its /v1/models
+    // returns an empty list, so discovery serves a static pair. Base is root; discovery appends /v1.
+    defaultBaseUrl: "https://shu26.cfd",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (shu26.cfd)",
+  },
+  {
     kind: "berget",
     label: "Berget.AI",
     // api.berget.ai - EU/GDPR-hosted (Sweden). 14 models GLM/Kimi/Mistral/gpt-oss/Llama
@@ -1007,6 +1058,20 @@ export const SIMPLE_PROVIDER_META = [
     defaultBaseUrl: "https://glm.coding-global.com",
     defaultRatio: 0,
     apiKeyPlaceholder: "glm key",
+  },
+  {
+    kind: "eye2",
+    label: "eye2",
+    // eye1.coding-global.com - eye2.ai reverse, our own Bun proxy, no gluetun.
+    // Keyless in the strongest sense: the socket.io handshake answers an anonymous
+    // GET and never sets a cookie, so nothing is tied to an identity. Upstream
+    // takes ONE free-form string, so the proxy flattens the whole conversation
+    // into it; the reference worker sent only the last message and dropped the
+    // system prompt. Publishes eye2-gemini/grok/qwen/mistral/glm: upstream reveals
+    // only the family, never the version, so the ids carry the lane prefix.
+    defaultBaseUrl: "https://eye1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-eye2-...",
   },
   {
     kind: "kl",
