@@ -198,7 +198,10 @@ export function uncoveredRanges(
 }
 
 // Upstreams write their log after the response lands, so the last minutes of
-// a fetch are refetched next time instead of being marked covered.
+// a fetch that reaches the present are refetched next time instead of being
+// marked covered. A window that ended earlier than that has settled: trimming
+// it too left a five minute hole at every day boundary that every later run
+// fetched again.
 const LOG_LAG_SECONDS = 300;
 
 export function extendCoverage(
@@ -207,7 +210,8 @@ export function extendCoverage(
   rows: UpstreamLogRow[],
 ): void {
   for (const r of rows) cache.rows.set(r.id, r);
-  const until = fetched.end - LOG_LAG_SECONDS;
+  const settled = Math.floor(Date.now() / 1000) - LOG_LAG_SECONDS;
+  const until = fetched.end > settled ? settled : fetched.end;
   if (until <= fetched.start) return;
   cache.segments = mergeSegments([
     ...cache.segments,
