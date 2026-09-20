@@ -19,6 +19,74 @@ const iso = (d: string) => `${d}T00:00:00.000Z`;
 // these fields win over ALL sources. Keyed by BARE name. Use ONLY when a live
 // source is factually wrong and verified against the official model card.
 export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
+  // eye2.ai relay (ey1..ey3). OpenRouter dropped gemini-1.5-flash and grok-beta
+  // from its catalog, so one publishes a fuzzy-matched 8192 context that is wrong
+  // for the real model AND wrong for ours, and the other publishes none at all.
+  //
+  // contextWindow here is MEASURED THROUGH THE RELAY, not the vendor spec: all
+  // five models accepted 100,000 characters and refused 120,000 on 2026-09-20,
+  // an identical boundary across every family, so it is eye2's platform cap
+  // rather than anything about the model. Real Gemini 1.5 Flash is 1M; we cannot
+  // offer that through this lane and must not advertise it.
+  //
+  // If a provider that serves these models directly is ever added, these entries
+  // must move to CURATED or be scoped, because OVERRIDE beats every live source.
+  "gemini-1.5-flash": {
+    releaseDate: iso("2024-05-14"),
+    contextWindow: 24_576,
+    // A live source has this as mode "embedding" with an 8192 input cap, which is
+    // wrong on both counts: it answers chat, and it took 100k characters here.
+    maxInputTokens: 24_576,
+    maxOutputTokens: 8_192,
+    mode: "chat",
+    series: "Gemini",
+    supportsTools: false,
+    description:
+      "Google's Gemini 1.5 Flash, served through a keyless relay. Fast and cheap to run, but a 2024 model with a relay-imposed context limit.",
+  },
+  "grok-beta": {
+    releaseDate: iso("2024-11-04"),
+    contextWindow: 24_576,
+    maxInputTokens: 24_576,
+    maxOutputTokens: 8_192,
+    mode: "chat",
+    series: "Grok",
+    supportsTools: false,
+    description:
+      "xAI's original Grok beta, served through a keyless relay. Identifies itself as grok-beta with a 2023 knowledge cutoff.",
+  },
+  qwen3: {
+    contextWindow: 24_576,
+    maxInputTokens: 24_576,
+    maxOutputTokens: 8_192,
+    mode: "chat",
+    series: "Qwen",
+    supportsTools: false,
+    description:
+      "Alibaba's Qwen3, served through a keyless relay. The relay caps context well below what Qwen3 supports natively.",
+  },
+  "mistral-7b-instruct": {
+    releaseDate: iso("2023-09-27"),
+    contextWindow: 24_576,
+    maxInputTokens: 24_576,
+    maxOutputTokens: 8_192,
+    mode: "chat",
+    series: "Mistral",
+    supportsTools: false,
+    description:
+      "Mistral 7B Instruct, served through a keyless relay. Small and quick; it reports itself as mistral-tiny-0.1.",
+  },
+  "glm-4": {
+    releaseDate: iso("2024-01-16"),
+    contextWindow: 24_576,
+    maxInputTokens: 24_576,
+    maxOutputTokens: 8_192,
+    mode: "chat",
+    series: "GLM",
+    supportsTools: false,
+    description:
+      "Zhipu's GLM-4, served through a keyless relay. The least reliable of this lane's models.",
+  },
   // Baidu ERNIE. No live source carries these at all, so without an entry the models
   // publish with no date and no context. Figures from Baidu's own docs: the V2 model
   // list (cloud.baidu.com/doc/qianfan/s/rmh4stp0j) for the 5.x/X1.1 line, and the V1

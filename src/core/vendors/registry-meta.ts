@@ -1079,6 +1079,31 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "glm key",
   },
   {
+    kind: "unturf",
+    label: "UncloseAI",
+    // hermes.ai.unturf.com - keyless, no proxy of ours in front of it: native
+    // OpenAI shape that answers with no Authorization header at all. Listed as a
+    // no-auth provider by OmniRoute and confirmed live. ONE concurrent request
+    // only (a second gets an instant 429) and ~10s per completion, so keep
+    // perUpstreamConcurrency at 1 and treat it as a trickle lane.
+    defaultBaseUrl: "https://hermes.ai.unturf.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "keyless",
+  },
+  {
+    kind: "cfp",
+    label: "Cloudflare Playground",
+    // cfp1.coding-global.com - playground.ai.cloudflare.com behind our own Bun
+    // proxy. No account, no API key, no cookie. The documented gate is a
+    // browser-grade TLS fingerprint on the websocket upgrade, which bun's own TLS
+    // clears, so this needs no headless browser. Transport is Cloudflare's
+    // cf_agent RPC over a PartySocket websocket, not HTTP. Publishes upstream's
+    // vendor/model slugs so modelMapping can collapse them into existing pools.
+    defaultBaseUrl: "https://cfp1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-cfp-...",
+  },
+  {
     kind: "eye2",
     label: "eye2",
     // eye1.coding-global.com - eye2.ai reverse, our own Bun proxy, no gluetun.

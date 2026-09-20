@@ -98,8 +98,10 @@ import { discoverMiniMaxModels } from "./minimax/discovery";
 import { discoverVoidAiModels } from "./voidai/discovery";
 import { discoverZanityModels } from "./zanity/discovery";
 import { discoverKiloModels } from "./kilo/discovery";
+import { discoverCfpModels } from "./cfp/discovery";
 import { discoverEye2Models } from "./eye2/discovery";
 import { discoverKlModels } from "./kl/discovery";
+import { discoverUnturfModels } from "./unturf/discovery";
 import { discoverXkiroModels } from "./xkiro/discovery";
 import { discoverSeekaiModels } from "./seekai/discovery";
 import { discoverYjsModels } from "./yjs/discovery";
@@ -204,6 +206,8 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   kilo: discoverKiloModels,
   kl: discoverKlModels,
   eye2: discoverEye2Models,
+  cfp: discoverCfpModels,
+  unturf: discoverUnturfModels,
   xkiro: discoverXkiroModels,
   seekai: discoverSeekaiModels,
   yjs: discoverYjsModels,
