@@ -197,10 +197,14 @@ const SPEECH_TO_TEXT_PATTERNS = [
   "transcri",
 ];
 
-const isSpeechToText = (modelName: string) => {
+const isSpeechToText = (modelName: string, mode: string) => {
+  if (mode === "audio_transcription") return true;
   const n = modelName.toLowerCase();
   return SPEECH_TO_TEXT_PATTERNS.some((p) => n.includes(p));
 };
+
+const modeOf = (md: Record<string, unknown>): string =>
+  typeof md.mode === "string" ? md.mode : "";
 
 // An edit/i2i model takes the image it edits as input, which no source
 // publishes and no capability flag covers (supportsVision describes a chat
@@ -230,7 +234,8 @@ function inputFallback(
   type: ModelType,
   md: Record<string, unknown>,
 ): string[] {
-  if (type === "audio" && isSpeechToText(modelName)) return ["audio"];
+  if (type === "audio" && isSpeechToText(modelName, modeOf(md)))
+    return ["audio"];
   const inputs = ["text"];
   for (const [flag, modality] of [
     ["supportsVision", "image"],
@@ -270,14 +275,19 @@ export function buildModelMetadata(opts: {
   // A curated entry is exempt from that correction: the whole reason a model is
   // curated is that the type-derived guess is the thing that was wrong (an OCR
   // model typed image emits text, a moderation classifier emits neither).
-  const type = opts.modelType ?? inferModelType(opts.modelName);
+  // A source's speech mode outranks the name: aura-1 and melotts carry no
+  // audio keyword and would be typed text, publishing text out for a voice.
+  const mode = modeOf(merged);
+  const type: ModelType = mode.startsWith("audio")
+    ? "audio"
+    : (opts.modelType ?? inferModelType(opts.modelName));
   const curatedOutputs =
     CURATED_OVERRIDE[toBareName(opts.modelName)]?.outputModalities;
   const existing = merged.outputModalities;
   const published = Array.isArray(existing) ? existing : [];
   const textOnly = published.length === 1 && published[0] === "text";
   if (!Array.isArray(curatedOutputs)) {
-    if (type === "audio" && isSpeechToText(opts.modelName)) {
+    if (type === "audio" && isSpeechToText(opts.modelName, mode)) {
       merged.outputModalities = ["text"];
     } else if (published.length === 0 || (textOnly && type !== "text")) {
       merged.outputModalities = [TYPE_OUTPUT_MODALITY[type]];
