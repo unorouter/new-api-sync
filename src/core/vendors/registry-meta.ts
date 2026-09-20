@@ -390,6 +390,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-... (shu26.cfd)",
   },
   {
+    kind: "moleapi",
+    label: "Moleapi",
+    // api.moleapi.com - 527-model relay with a real small-model free tier: nine ids answer with
+    // the wallet untouched (glm-4 flash/9b/z1, qwen3-8b, qwen3.5-4b, hunyuan-mt-7b, the two OCR
+    // lanes). Base is root; discovery appends /v1.
+    defaultBaseUrl: "https://api.moleapi.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (api.moleapi.com)",
+  },
+  {
     kind: "berget",
     label: "Berget.AI",
     // api.berget.ai - EU/GDPR-hosted (Sweden). 14 models GLM/Kimi/Mistral/gpt-oss/Llama
