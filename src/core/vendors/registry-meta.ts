@@ -1009,6 +1009,19 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "glm key",
   },
   {
+    kind: "kl",
+    label: "Kilo Code",
+    // kl1.coding-global.com - kilocode.ai reverse (deanxv/kilo2api image, no gluetun).
+    // Keyless for the :free catalog; the value of KL_COOKIE is forwarded as a Bearer
+    // that kilocode.ai does not validate for those ids. Separate kind from `kilo`
+    // because that one is api.kilo.ai/api/gateway with its own 200 req/hr per IP
+    // quota, while this rides kilocode's shared OpenRouter org. Superset of kilo's
+    // 14 ids by 5. Discovery keeps only :free, the rest need a profile token.
+    defaultBaseUrl: "https://kl1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-kilocode-...",
+  },
+  {
     kind: "chatglm",
     label: "ChatGLM",
     // chatglm1.coding-global.com - chatglm.cn web-chat reverse (Go, behind gluetun).
