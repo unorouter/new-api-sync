@@ -190,7 +190,7 @@ const RunwareProviderSchema = T.Object({
 // million tokens. The lane serves only POST /v1/decisions; the gateway settles on the
 // upstream's own input/output token counts. Defaults point at OpenRouter's alpha route.
 // prettier-ignore
-const TypeSafeModelSchema = T.Object({ upstream: Opt(str), inputPricePerM: T.Number({ minimum: 0 }), outputPricePerM: T.Number({ minimum: 0 }), contextWindow: Opt(T.Integer({ minimum: 1 })) });
+const TypeSafeModelSchema = T.Object({ upstream: Opt(str), inputPricePerM: T.Number({ minimum: 0 }), outputPricePerM: T.Number({ minimum: 0 }), contextWindow: Opt(T.Integer({ minimum: 1 })), releaseDate: Opt(str) });
 const TypeSafeProviderSchema = T.Object({
   type: T.Literal("typesafe"),
   ...ProviderCommonProps,

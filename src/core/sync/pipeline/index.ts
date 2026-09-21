@@ -383,6 +383,20 @@ async function buildDesiredState(
     for (const m of offer.models)
       if (m.metadata)
         allMetadata[m.upstream] = { ...allMetadata[m.upstream], ...m.metadata };
+  // No pricing source knows a decisions model, so its context and release date
+  // come from the block itself; without them the catalog sorts it last.
+  for (const provider of config.providers) {
+    if (provider.type !== "typesafe") continue;
+    for (const [modelName, m] of Object.entries(provider.models)) {
+      allMetadata[modelName] = {
+        ...allMetadata[modelName],
+        ...(m.contextWindow
+          ? { contextWindow: m.contextWindow, maxInputTokens: m.contextWindow }
+          : {}),
+        ...(m.releaseDate ? { releaseDate: m.releaseDate } : {}),
+      };
+    }
+  }
   for (const provider of config.providers) {
     Object.assign(
       allPricingGrids,

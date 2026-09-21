@@ -95,7 +95,7 @@ providers:
   #   name: jev1
   #   apiKey: sk-or-v1-...
   #   models:
-  #     jev-1.13: { upstream: typesafe/jev-1.13, inputPricePerM: 0.084, outputPricePerM: 0, contextWindow: 32000 }
+  #     jev-1.13: { upstream: typesafe/jev-1.13, inputPricePerM: 0.084, outputPricePerM: 0, contextWindow: 32000, releaseDate: "2026-09-18" }
 
   # disabled providers (uncomment to enable)
   # - type: openrouter
