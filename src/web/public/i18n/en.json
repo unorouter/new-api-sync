@@ -238,7 +238,8 @@
       "UI_DESC": "launch the web UI (Elysia and React dashboard)",
       "METADATA_DESC": "re-seed model metadata (release date, params, context, description) on existing models; no probing/testing, no channel or pricing changes",
       "BALANCE_DESC": "check the target and every configured provider's remaining balance; read-only, no probing or writes",
-      "RECONCILE_DESC": "match every upstream provider's own usage log against our gateway logs for a window; lists usage that never came through us and foreign tokens; read-only"
+      "RECONCILE_DESC": "match every upstream provider's own usage log against our gateway logs for a window; lists usage that never came through us and foreign tokens; read-only",
+      "FINGERPRINTS_DESC": "print the answer fingerprint summary: per model family the trusted profiles, then every lane with its divergence, identity mix, wrapper size and style class; read-only"
     },
     "OPTION": {
       "CONFIG_PATH": "config file path",
@@ -253,7 +254,8 @@
       "SINCE": "window to reconcile, e.g. 30m, 6h, 24h, 3d",
       "RECONCILE_JSON": "print the result as JSON instead of a summary",
       "FROM": "window start: ISO date, ISO datetime or unix seconds (overrides --since)",
-      "TO": "window end, same forms or \"now\" (default now)"
+      "TO": "window end, same forms or \"now\" (default now)",
+      "FINGERPRINT_MODEL": "only families matching this glob"
     },
     "STATUS": {
       "UI_RUNNING": "new-api-sync UI running at http://localhost:{port}"
@@ -324,6 +326,16 @@
       "FOREIGN_IP": "[{name}] FOREIGN source ip {ip}: {rows} rows {quota} (not one of our egress addresses)",
       "NO_IPS": "[{name}] the relay records no source ip on this account",
       "LEAK_SUMMARY": "[{name}] unaccounted: abandoned attempts {abandoned} rows {abandonedQuota} (billed after our gateway timed out and retried), probe-shaped {probe} rows {probeQuota} (our own sync probes), unexplained {unexplained} rows {unexplainedQuota}"
+    },
+    "FINGERPRINTS": {
+      "HEADER": "Answer fingerprints: {lanes} lane(s), judged {judgedAt}",
+      "STYLE": "style classifier: {classes} class(es), {trained} replies, leave-one-lane-out accuracy {accuracy}, {emitted}",
+      "STYLE_ON": "emitted",
+      "STYLE_OFF": "silent (below the 0.9 gate)",
+      "FAMILY": "{family} ({maker}): profiles {profiles}; baseline prompt tokens {baseline}",
+      "NO_PROFILE": "none yet",
+      "LANE": "  {key}: runs {runs}, valid answers {samples} | {verdict} jsd {jsd} vs {against} | identity mix {mix} | wrapper {wrapper} tok | style {style}",
+      "NONE": "no fingerprint summary yet: run a sync first"
     }
   },
   "MODEL_TYPE": {
@@ -647,6 +659,10 @@
       "OVER_LIST": "[{name}] {model} via {pool}: lane cost ${cost}/M is at or above the sell ceiling ${ceiling}/M ({fraction} of list); not sold",
       "REPRICED": "[{name}] {model} via {pool}: {wanted}x repriced to {multiple}x (floor {floor}x, ceiling {ceiling}x, both from list)",
       "SUMMARY": "[{name}] {lanes} fallback lanes published from {candidates} candidates"
+    },
+    "FINGERPRINT": {
+      "PULL_FAILED": "[fingerprints] {store}: pull failed, running on the local ledger ({error})",
+      "PUSH_FAILED": "[fingerprints] {store}: push failed, local ledger kept ({error})"
     }
   }
 }

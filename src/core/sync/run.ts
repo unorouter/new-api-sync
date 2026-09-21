@@ -32,6 +32,11 @@ import {
   pushVerdictCache,
 } from "@core/testing/verdict-cache";
 import {
+  judgeAndPushAnswerFingerprints,
+  loadAnswerFingerprints,
+} from "@core/testing/answer-fingerprints";
+import { sourceOfFor } from "@core/testing/fingerprint-source";
+import {
   recordRunSummary,
   resetTestState,
   writeTestReport,
@@ -135,6 +140,7 @@ export async function runSync(
     ? new VerdictStore(config.verdictStore)
     : null;
   await loadVerdictCache(store ?? undefined);
+  await loadAnswerFingerprints(store ?? undefined);
   await loadLaneKeys(
     store ?? undefined,
     config.providers.map((p) => p.name),
@@ -281,6 +287,7 @@ export async function runSync(
     timingReport();
     const artifacts = [writeTestReport(), writeApplyErrorsLog(applyErrors)];
     await flushAllLaneKeys();
+    await judgeAndPushAnswerFingerprints(sourceOfFor(config), store ?? undefined);
     if (store) {
       await pushVerdictCache(store);
       await flushProbeIds(store);

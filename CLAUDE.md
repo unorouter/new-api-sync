@@ -15,6 +15,7 @@ bun sync metadata [--dry-run]     # re-seed metadata + re-price, no probes
 bun sync reset                    # delete all synced data
 bun sync balance [--json]
 bun sync reconcile [--only p] [--since 24h | --from 2026-08-26 --to now] [--json]   # upstream usage logs vs our logs, exit 1 on unaccounted usage
+bun sync fingerprints [--model glob] [--json]   # answer fingerprint ledger: trusted profiles per family, every lane with divergence, identity mix, wrapper size, style class
 ```
 
 `reconcile` (`src/core/sync/reconcile/`) pulls every relay account's own `/api/log/self` (100 rows
@@ -178,12 +179,34 @@ authority. For every other maker every ladder rule is observe only (`authenticit
 config.yml overrides per maker id or `*`; `[]` promotes a maker), the lane passes and the finding is
 recorded: `logs/observe-<date>.jsonl` and the store object `observe/<hour>.jsonl` carry one line per
 ladder run with maker, wire, every probe's reply, every finding, `wouldFlag` and every report
-(signature, token truth, envelope, throughput, survey). The survey (`reports.survey`) is six questions
-asked beside the ladder and recorded as answered, never judged: training cutoff, context window, a
-verbatim replay of prior instructions (a relay's injected system prompt), a sum with a fact check and
-its hidden token count, a JSON object naming maker and model, a one sentence self description. That log is what a maker is promoted from. Only Claude probes measure the tokenizer fingerprint
-(input-token delta for a fixed text, `tokenizerDelta` on the entry): a delta that moved since the
-last probe voids the cached pass for that run. It names no tier (4.6-era models share a tokenizer,
+(signature, token truth, envelope, throughput, survey, think leak, wrapper leak, answer fingerprint).
+The survey (`reports.survey`) is four questions asked beside the ladder and recorded as answered,
+never judged: a verbatim replay of prior instructions (a relay's injected system prompt, matched by
+`wrapper-leak`), a sum with a fact check and its hidden token count, a JSON object naming maker and
+model, a one sentence self description. That log is what a maker is promoted from.
+
+Answer fingerprints (`testing/answer-fingerprints.ts`): every ladder run also asks the one-word
+battery (8 cells x `authenticity.answerFingerprint.repeats`, default 3, at temperature 1, no nonce)
+and appends one record per run to a per-lane ledger (`logs/answer-fingerprints.json`, store object
+`answer-fingerprints.json`, merged by run stamp, 60 runs or 30 days). Before every store push
+(`run.ts` finally, `metadata.ts` reverify) each lane's pooled distribution is judged against its
+family's trusted profiles: the maker's own route (`official: true` in `registry-meta.ts`: the
+maker's API or its consumer product), one profile per known host (our shards, kl, cfp, each ih
+pool), or the largest cluster of the family when no official route carries it. Verdicts are
+`known`, `novel`, `uncertain` or `insufficient` (Jensen-Shannon in bits, 0.25 match, 0.35 mismatch,
+10 valid answers per cell, arXiv 2607.10252) and are notes: nothing here disables a lane. Two
+history notes ride on the same ledger: `identityMix`, the share of the last 10 runs whose identity
+probes named another family (a mixed pool behind one merchant), and `wrapperTokens`, the creative
+probe's prompt tokens above the family's trusted baseline (the injected wrapper, constant per
+backend). A naive Bayes style classifier over the emotional, creative and self replies, trained on
+the official lanes only, emits `styleMaker` once its leave-one-lane-out accuracy clears 0.9; it
+names a family, never a version, which no black-box method does. Each observe line carries the
+previous pass's judgement as `laneHistory`; `bun sync fingerprints` prints the summary
+(`logs/answer-fingerprints-summary.json`, store `answer-fingerprints/summary.json`).
+
+Only Claude's tokenizer fingerprint has a verdict; every maker now measures it (`delta` on the
+apple text, `diverseDelta` on a script-mixed text that separates vocabularies, `tokenizerDelta` on
+the entry): a delta that moved since the last probe voids the cached pass for that run. It names no tier (4.6-era models share a tokenizer,
 relays count differently), so it never fails a lane by itself. Without `verdictStore` the sync is local-only.
 Every verdict write saves the local file at once and pushes the store at most every 2 minutes, so a
 run killed at any point (Job deadline, OOM, Ctrl-C) keeps everything it probed: the next run loads the

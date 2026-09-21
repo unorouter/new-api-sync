@@ -56,6 +56,12 @@ import {
 import { reverifyLiveLanes } from "@core/vendors/a7/reverify";
 import { setAuthenticityObserveOnly } from "@core/testing/authenticity";
 import {
+  judgeAndPushAnswerFingerprints,
+  loadAnswerFingerprints,
+  setAnswerFingerprintOptions,
+} from "@core/testing/answer-fingerprints";
+import { sourceOfFor } from "@core/testing/fingerprint-source";
+import {
   getMetadataFromEnabledModels,
   getPricingGridFromEnabledModels,
 } from "@core/config";
@@ -912,17 +918,20 @@ async function reverifyLanes(
     ? new VerdictStore(config.verdictStore)
     : null;
   await loadVerdictCache(verdicts ?? undefined);
+  await loadAnswerFingerprints(verdicts ?? undefined);
   await loadLaneKeys(
     verdicts ?? undefined,
     a7Providers.map((p) => p.name),
   );
   setAuthenticityObserveOnly(config.authenticity?.observeOnly);
+  setAnswerFingerprintOptions(config.authenticity?.answerFingerprint);
   const liveChannels = await target.listChannels();
   for (const p of a7Providers) {
     const r = await reverifyLiveLanes(p, config, target, liveChannels);
     consola.info(t("CORE.REVERIFY.SUMMARY", { provider: p.name, ...r }));
   }
   await flushAllLaneKeys();
+  await judgeAndPushAnswerFingerprints(sourceOfFor(config), verdicts ?? undefined);
   if (verdicts) await pushVerdictCache(verdicts);
   else saveVerdictCache();
   await flushProbeIds(verdicts);

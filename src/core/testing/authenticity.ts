@@ -19,7 +19,14 @@ import {
   type VendorId,
 } from "ai-model-verifier";
 import type { MakerId } from "ai-model-verifier/makers";
+import { normalizeModelId } from "ai-model-verifier/models";
 import type { TokenizerFingerprintResult } from "ai-model-verifier/rules";
+import { toBareName } from "@core/catalog/bare-name";
+import {
+  answerFingerprintRepeats,
+  laneHistory,
+  recordFingerprintRun,
+} from "./answer-fingerprints";
 import { consola } from "consola";
 import { recordProbeRequestId } from "./probe-ids";
 import type { AuthenticityProbeLog } from "./types";
@@ -64,13 +71,17 @@ const LADDER: readonly RuleId[] = [
   "quorum",
   "tier-self-report",
 ];
-// Never a verdict, only evidence. The survey asks its own questions (cutoff,
-// context window, injected system prompt, a sum, a JSON self-description).
+// Never a verdict, only evidence. The survey asks its own questions (injected
+// system prompt, a sum, a JSON self-description); the answer fingerprint is
+// the one-word battery accumulated per lane in answer-fingerprints.ts.
 const OBSERVED: readonly RuleId[] = [
   "signature",
   "token-truth",
   "envelope",
   "survey",
+  "think-leak",
+  "wrapper-leak",
+  "answer-fingerprint",
 ];
 
 let observeOnlyByMaker: Record<string, readonly string[]> = {};
@@ -166,10 +177,18 @@ function observe(
   const wouldFlag = run.findings
     .filter((f) => f.severity !== "note" && observed.has(f.rule))
     .map((f) => f.rule);
+  const provider = opts.logKey.split("|")[0] ?? opts.logKey;
+  const probe = (label: string) => run.probes.find((p) => p.label === label);
+  const identity = [probe("identity"), probe("model-name")];
+  const survey = (label: string) =>
+    run.reports.survey?.find((s) => s.label === label)?.answer ?? "";
+  // The judgement on the line is the previous pass's: the line is written
+  // before the lanes are judged, and the fingerprint needs days anyway.
+  const history = laneHistory(opts.logKey);
   recordObservation({
     at: new Date().toISOString(),
     key: opts.logKey,
-    provider: opts.logKey.split("|")[0] ?? opts.logKey,
+    provider,
     model: opts.model,
     maker: opts.maker,
     wire: opts.wire,
@@ -204,6 +223,30 @@ function observe(
       text: p.responseText,
     })),
     reports: run.reports,
+    ...(history ? { laneHistory: history } : {}),
+  });
+  recordFingerprintRun({
+    key: opts.logKey,
+    provider,
+    model: opts.model,
+    family: normalizeModelId(toBareName(opts.model)),
+    maker: opts.maker,
+    host: new URL(opts.baseUrl).host,
+    run: {
+      at: new Date().toISOString(),
+      sample: run.reports.answerFingerprint ?? null,
+      foreign: identity.some((p) => p?.signal === "foreign"),
+      answered: identity.every((p) => !!p?.responseText),
+      promptTokens: probe("creative")?.usage?.prompt ?? null,
+      text: [
+        probe("emotional")?.responseText ?? "",
+        probe("creative")?.responseText ?? "",
+        survey("self"),
+      ]
+        .filter(Boolean)
+        .join("\n")
+        .slice(0, 1200),
+    },
   });
   for (const f of run.findings)
     if (f.severity !== "note" && observed.has(f.rule))
@@ -227,9 +270,12 @@ function observe(
 export async function runAuthenticity(
   opts: LaneOpts & { ladder: boolean; fingerprint: boolean },
 ): Promise<AuthenticityRun> {
+  // The tokenizer fingerprint rides on every ladder run: its verdict is
+  // Claude-only inside the library, so for other makers it is the two deltas
+  // on the record and nothing else.
   const only: RuleId[] = [
     ...(opts.ladder ? [...LADDER, ...OBSERVED] : []),
-    ...(opts.fingerprint ? ["tokenizer-fingerprint" as const] : []),
+    ...(opts.fingerprint || opts.ladder ? ["tokenizer-fingerprint" as const] : []),
   ];
   if (only.length === 0) return { authentic: null };
   const run = await runRules({
@@ -243,6 +289,7 @@ export async function runAuthenticity(
     ...(opts.extraBody ? { bodyExtras: opts.extraBody } : {}),
     onProbe: probeLog(opts.logKey),
     only,
+    checks: { answerFingerprint: { repeats: answerFingerprintRepeats() } },
   });
   const fingerprint = run.reports.tokenizerFingerprint;
   if (!opts.ladder)

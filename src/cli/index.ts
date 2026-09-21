@@ -12,6 +12,15 @@ import { printReconcileSummary, runReconcile } from "@core/sync/reconcile/run";
 import { printMetadataSummary, runMetadataSync } from "@core/sync/metadata";
 import { runReset } from "@core/sync/reset";
 import { printResetSummary, printRunSummary, runSync } from "@core/sync/run";
+import {
+  judgeAllLanes,
+  loadAnswerFingerprints,
+  printFingerprintSummary,
+  saveAnswerFingerprints,
+  setAnswerFingerprintOptions,
+} from "@core/testing/answer-fingerprints";
+import { sourceOfFor } from "@core/testing/fingerprint-source";
+import { VerdictStore } from "@core/infra/verdict-store";
 import { readLocaleFromGlobal, setLocale, t } from "@server/i18n";
 import { Command } from "commander";
 import { consola } from "consola";
@@ -202,6 +211,25 @@ program
       if (result.verdict === "leak") process.exitCode = 1;
     },
   );
+
+program
+  .command("fingerprints")
+  .description(t("CLI.COMMAND.FINGERPRINTS_DESC"))
+  .option("-c, --config <path>", t("CLI.OPTION.CONFIG_PATH"))
+  .option("--model <glob>", t("CLI.OPTION.FINGERPRINT_MODEL"))
+  .option("--json", t("CLI.OPTION.RECONCILE_JSON"))
+  .action(async (options: { config?: string; model?: string; json?: boolean }) => {
+    const config = await loadConfig(options.config);
+    const store = config.verdictStore
+      ? new VerdictStore(config.verdictStore)
+      : undefined;
+    setAnswerFingerprintOptions(config.authenticity?.answerFingerprint);
+    await loadAnswerFingerprints(store);
+    const summary = judgeAllLanes(sourceOfFor(config));
+    saveAnswerFingerprints(summary);
+    if (options.json) console.log(JSON.stringify(summary, null, 2));
+    else printFingerprintSummary(summary, options.model);
+  });
 
 program
   .command("ui")

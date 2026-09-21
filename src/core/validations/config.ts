@@ -272,7 +272,20 @@ export const ConfigSchema = T.Object({
   // observes for every maker except anthropic. `[]` gives a maker's verdicts
   // authority.
   authenticity: Opt(
-    T.Object({ observeOnly: Opt(T.Record(T.String(), T.Array(str))) }),
+    T.Object({
+      observeOnly: Opt(T.Record(T.String(), T.Array(str))),
+      // The one-word answer battery: `repeats` per cell per ladder run
+      // (default 3, 24 calls), Jensen-Shannon thresholds in bits (0.25 match,
+      // 0.35 mismatch) and the valid answers a cell needs before it counts (10).
+      answerFingerprint: Opt(
+        T.Object({
+          repeats: Opt(T.Integer({ minimum: 1, maximum: 10 })),
+          matchBits: Opt(T.Number({ minimum: 0, maximum: 1 })),
+          mismatchBits: Opt(T.Number({ minimum: 0, maximum: 1 })),
+          minCellSamples: Opt(T.Integer({ minimum: 1 })),
+        }),
+      ),
+    }),
   ),
   modelMapping: Opt(T.Record(T.String(), T.String())),
   // Splice upstream group labels before they become channel names: key is a

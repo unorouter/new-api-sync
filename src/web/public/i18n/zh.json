@@ -238,7 +238,8 @@
       "UI_DESC": "启动 Web 界面（Elysia 和 React 仪表盘）",
       "METADATA_DESC": "为现有模型重新写入元数据（发布日期、参数、上下文、描述）；不探测/测试，不改动渠道或定价",
       "BALANCE_DESC": "查询目标站点与所有已配置供应商的剩余余额；只读，不探测也不写入",
-      "RECONCILE_DESC": "按时间窗口把每个上游供应商自己的用量日志与我方网关日志逐条对账；列出未经我方网关的用量与外来令牌；只读"
+      "RECONCILE_DESC": "按时间窗口把每个上游供应商自己的用量日志与我方网关日志逐条对账；列出未经我方网关的用量与外来令牌；只读",
+      "FINGERPRINTS_DESC": "打印答案指纹汇总：每个模型族的可信参考，再列出每条通道的散度、身份混合率、包装层大小与风格类别；只读"
     },
     "OPTION": {
       "CONFIG_PATH": "配置文件路径",
@@ -253,7 +254,8 @@
       "SINCE": "对账时间窗口，如 30m、6h、24h、3d",
       "RECONCILE_JSON": "以 JSON 输出结果而非摘要",
       "FROM": "时间窗口起点：ISO 日期、ISO 日期时间或 unix 秒（覆盖 --since）",
-      "TO": "时间窗口终点，格式同上或 \"now\"（默认 now）"
+      "TO": "时间窗口终点，格式同上或 \"now\"（默认 now）",
+      "FINGERPRINT_MODEL": "仅包含匹配该通配符的模型族"
     },
     "STATUS": {
       "UI_RUNNING": "new-api-sync 界面运行于 http://localhost:{port}"
@@ -324,6 +326,16 @@
       "FOREIGN_IP": "[{name}] 外来来源 IP {ip}：{rows} 条 {quota}（不在我方出口地址内）",
       "NO_IPS": "[{name}] 该中转站未在此账户记录来源 IP",
       "LEAK_SUMMARY": "[{name}] 未对账：被放弃的尝试 {abandoned} 条 {abandonedQuota}（我方网关超时重试后上游仍计费），探测形态 {probe} 条 {probeQuota}（我方同步程序自身探测），无法解释 {unexplained} 条 {unexplainedQuota}"
+    },
+    "FINGERPRINTS": {
+      "HEADER": "答案指纹：{lanes} 条通道，判定于 {judgedAt}",
+      "STYLE": "风格分类器：{classes} 个类别，{trained} 条回复，留一通道交叉验证准确率 {accuracy}，{emitted}",
+      "STYLE_ON": "已启用",
+      "STYLE_OFF": "未启用（低于 0.9 门槛）",
+      "FAMILY": "{family}（{maker}）：参考 {profiles}；基线提示词 token {baseline}",
+      "NO_PROFILE": "暂无",
+      "LANE": "  {key}：运行 {runs} 次，有效答案 {samples} | {verdict} jsd {jsd} 对比 {against} | 身份混合率 {mix} | 包装层 {wrapper} token | 风格 {style}",
+      "NONE": "尚无指纹汇总：请先运行一次同步"
     }
   },
   "MODEL_TYPE": {
@@ -647,6 +659,10 @@
       "OVER_LIST": "[{name}] {model} 经由 {pool}：通道成本 ${cost}/M 不低于售价上限 ${ceiling}/M（官方标价的 {fraction}），不予发布",
       "REPRICED": "[{name}] {model} 经由 {pool}：{wanted} 倍调整为 {multiple} 倍（按官方标价计算，下限 {floor} 倍，上限 {ceiling} 倍）",
       "SUMMARY": "[{name}] 从 {candidates} 个候选中发布了 {lanes} 条备用通道"
+    },
+    "FINGERPRINT": {
+      "PULL_FAILED": "[指纹] {store}：拉取失败，使用本地账本（{error}）",
+      "PUSH_FAILED": "[指纹] {store}：推送失败，已保留本地账本（{error}）"
     }
   }
 }

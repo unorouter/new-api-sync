@@ -22,6 +22,10 @@ export interface SimpleProviderMeta {
   /** channel param_override JSON applied to every emitted channel of this kind
    *  (e.g. Gemini's OpenAI-compat endpoint 400s on unknown sampler fields). */
   paramOverride?: string;
+  /** The maker's own route (its API or its consumer product): a reference
+   *  profile for answer fingerprints and a training lane for the style
+   *  classifier. Never a host that resells many makers. */
+  official?: true;
 }
 
 export const SIMPLE_PROVIDER_META = [
@@ -48,6 +52,7 @@ export const SIMPLE_PROVIDER_META = [
   },
   {
     kind: "gemini",
+    official: true,
     label: "Gemini",
     defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
     defaultRatio: 0,
@@ -94,6 +99,7 @@ export const SIMPLE_PROVIDER_META = [
   },
   {
     kind: "mistral",
+    official: true,
     label: "Mistral",
     defaultBaseUrl: "https://api.mistral.ai",
     defaultRatio: 0,
@@ -146,6 +152,7 @@ export const SIMPLE_PROVIDER_META = [
   },
   {
     kind: "cohere",
+    official: true,
     label: "Cohere",
     // OpenAI-compatibility layer; base ends at "/compatibility", runner + discovery
     // append /v1. Trial key serves chat + embeddings free (rate-limited, 1000/mo).
@@ -531,6 +538,7 @@ export const SIMPLE_PROVIDER_META = [
   },
   {
     kind: "openai",
+    official: true,
     label: "OpenAI",
     // api.openai.com/v1 first-party, complimentary-tokens program (data-sharing opt-in). Fixed
     // eligible set is free to a daily cap; discovery hardcodes ONLY that set. WARNING: over-cap
@@ -634,6 +642,7 @@ export const SIMPLE_PROVIDER_META = [
   },
   {
     kind: "bailian",
+    official: true,
     label: "Bailian",
     // Alibaba Bailian / Model Studio (Singapore intl). Base is the workspace host +
     // /compatible-mode; runner + discovery append /v1. First-party Qwen3.x / DeepSeek-V4 /
@@ -652,6 +661,7 @@ export const SIMPLE_PROVIDER_META = [
   },
   {
     kind: "sensenova",
+    official: true,
     label: "SenseNova",
     // 商汤 SenseTime Token Plan (token.sensenova.cn). Base is root; runner + discovery append /v1.
     // Free public beta 1500 calls/5h/model: sensenova-6.7/6.8-flash-lite plus resold
@@ -662,6 +672,7 @@ export const SIMPLE_PROVIDER_META = [
   },
   {
     kind: "internlm",
+    official: true,
     label: "InternLM",
     // 书生 Shanghai AI Lab. chat.intern-ai.org.cn; base ends /api, runner + discovery append /v1.
     // ~90M tokens/month free, own models (internlm3-latest, internvl2.5-latest vision). GitHub/email
@@ -705,6 +716,7 @@ export const SIMPLE_PROVIDER_META = [
   },
   {
     kind: "minimax",
+    official: true,
     label: "MiniMax",
     // api.minimax.io - direct MiniMax (distinct vendor). OpenAI-compat. Trial credits (email/
     // phone signup, no card). Frontier M2.x/M3, 1M context. Dynamic; probe drops failures.
@@ -928,6 +940,7 @@ export const SIMPLE_PROVIDER_META = [
   },
   {
     kind: "zai",
+    official: true,
     label: "Z.ai",
     // Host only: new-api's ZHIPU_V4 (26) adapter appends /api/paas/v4/chat/completions
     // itself, and the sync probe mirrors that path. A base with /api/paas/v4 would
@@ -1132,6 +1145,7 @@ export const SIMPLE_PROVIDER_META = [
   },
   {
     kind: "chatglm",
+    official: true,
     label: "ChatGLM",
     // chatglm1.coding-global.com - chatglm.cn web-chat reverse (Go, behind gluetun).
     // Guest mode: no account, no captcha, unlike the glmcg z.ai lane. Separate kind
@@ -1146,6 +1160,7 @@ export const SIMPLE_PROVIDER_META = [
   },
   {
     kind: "kimi",
+    official: true,
     label: "Kimi",
     // kimi1.coding-global.com - www.kimi.com web reverse (Go, behind gluetun).
     // Needs real accounts (no guest mode); the proxy pools their refresh tokens
@@ -1176,6 +1191,7 @@ export const SIMPLE_PROVIDER_META = [
   },
   {
     kind: "qwen2api",
+    official: true,
     label: "Qwen",
     // qwenN.coding-global.com - chat.qwen.ai reverse via OpenGate
     // (youssefvdel/opengate). Auth is email+password per account, added through
@@ -1240,6 +1256,7 @@ export const SIMPLE_PROVIDER_META = [
   },
   {
     kind: "gemini2api",
+    official: true,
     label: "Gemini2API",
     // gemini1.coding-global.com - gemini.google.com web reverse (Go, behind gluetun).
     // Anonymous: no account, no cookie, nothing bannable. Google meters per EXIT IP,

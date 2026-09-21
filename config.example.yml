@@ -130,6 +130,15 @@ providers:
   #   observeOnly:
   #     deepseek: []
   #     "*": [foreign, quorum]
+  # The one-word answer battery every ladder run asks (8 cells, temperature 1),
+  # accumulated per lane and judged against the family's trusted profiles before
+  # each store push (notes only). repeats per cell per run (3 = 24 calls),
+  # Jensen-Shannon thresholds in bits and the valid answers a cell needs.
+  #   answerFingerprint:
+  #     repeats: 3
+  #     matchBits: 0.25
+  #     mismatchBits: 0.35
+  #     minCellSamples: 10
   # acceptUpstreamDown is the same idea one level up, for the channel-shape probe
   # rather than a single model. A 5xx or a timeout there normally drops every model
   # behind that bucket for the run; with this set the bucket is kept, its models are
