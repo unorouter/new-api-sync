@@ -89,6 +89,14 @@ providers:
       - gpt-5*
     priceAdjustment: -0.67
 
+  # TypeSafe Jev, a decisions model: serves only POST /v1/decisions, never chat.
+  # Reached through OpenRouter's alpha route; prices are the SELL price per 1M tokens.
+  # - type: typesafe
+  #   name: jev1
+  #   apiKey: sk-or-v1-...
+  #   models:
+  #     jev-1.13: { upstream: typesafe/jev-1.13, inputPricePerM: 0.084, outputPricePerM: 0, contextWindow: 32000 }
+
   # disabled providers (uncomment to enable)
   # - type: openrouter
   #   name: openrouter

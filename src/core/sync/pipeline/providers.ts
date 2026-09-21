@@ -89,11 +89,19 @@ export async function runAllProviders(
   normalizedEndpointsByName: Map<string, string[]>;
   aggregatedEndpointPaths: Map<string, { path: string; method: string }>;
 }> {
-  // comfyui + aihorde + runware build channels separately; private providers are
-  // declarative-only (no discovery/testing/pricing) and handled in the pipeline.
+  // comfyui + aihorde + runware + typesafe build channels separately; private providers
+  // are declarative-only (no discovery/testing/pricing) and handled in the pipeline.
   const pricingProviders = config.providers.filter(
-    (p): p is Exclude<typeof p, { type: "comfyui" | "aihorde" | "runware" }> =>
-      p.type !== "comfyui" && p.type !== "aihorde" && p.type !== "runware",
+    (
+      p,
+    ): p is Exclude<
+      typeof p,
+      { type: "comfyui" | "aihorde" | "runware" | "typesafe" }
+    > =>
+      p.type !== "comfyui" &&
+      p.type !== "aihorde" &&
+      p.type !== "runware" &&
+      p.type !== "typesafe",
   );
   const sorted = [...pricingProviders].sort(
     (a, b) => typeOrder(a.type) - typeOrder(b.type),

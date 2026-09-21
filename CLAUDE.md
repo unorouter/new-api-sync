@@ -258,6 +258,15 @@ and a higher floor refuses it. Both run on the cluster (in the cluster config si
 touches their `param_override` (`MARKETPLACE_KINDS`): an si pin is a plain `set`, which the
 reconcile would read as its own and clear.
 
+TypeSafe lanes (`vendors/typesafe`, config `type: typesafe`): Jev is a decisions model, it answers
+typed questions (`noul`, `choice`, `score`) over a shared `state` on POST `/v1/decisions` and
+never chat, so the provider is declarative like runware: one channel of the gateway's TypeSafe type
+(1003), `setting.decisions_upstream_path` pointing at OpenRouter's `/api/alpha/decisions`, no
+discovery or probe (the endpoint is in `NON_TESTABLE_ENDPOINT_TYPES`), the model pinned to the
+`decisions` endpoint with vendor `typesafe`. Prices in the block are the sell price per million
+tokens (2x OpenRouter's $0.042 input, output free) and land in `ModelRatio`/`CompletionRatio`,
+never a per-call price: the gateway settles on the upstream's own token counts.
+
 A stream probe that reaches EOF after an OpenAI `finish_reason` passes without `data: [DONE]`:
 some upstreams omit the sentinel and the gateway ends those streams normally.
 

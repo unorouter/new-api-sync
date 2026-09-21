@@ -56,6 +56,19 @@ function extractBoolSetting(
   }
 }
 
+function extractStringSetting(
+  setting: string | undefined,
+  key: string,
+): string | undefined {
+  if (!setting) return undefined;
+  try {
+    const v = JSON.parse(setting)?.[key];
+    return typeof v === "string" && v !== "" ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function extractPositiveNumber(
   setting: string | undefined,
   key: string,
@@ -110,6 +123,10 @@ function mergeSettingCapabilities(
     "max_concurrency",
   );
   const desiredMaxRps = extractPositiveNumber(desiredSetting, "max_rps");
+  const desiredDecisionsPath = extractStringSetting(
+    desiredSetting,
+    "decisions_upstream_path",
+  );
   if (
     !desiredCaps &&
     desiredPassThrough === undefined &&
@@ -118,7 +135,8 @@ function mergeSettingCapabilities(
     desiredAutoTestIntervalMax === undefined &&
     desiredForceStream === undefined &&
     desiredMaxConcurrency === undefined &&
-    desiredMaxRps === undefined
+    desiredMaxRps === undefined &&
+    desiredDecisionsPath === undefined
   )
     return undefined;
   let existing: Record<string, unknown> = {};
@@ -156,6 +174,8 @@ function mergeSettingCapabilities(
   if (desiredMaxConcurrency !== undefined)
     existing.max_concurrency = desiredMaxConcurrency;
   if (desiredMaxRps !== undefined) existing.max_rps = desiredMaxRps;
+  if (desiredDecisionsPath !== undefined)
+    existing.decisions_upstream_path = desiredDecisionsPath;
   return JSON.stringify(existing);
 }
 
@@ -175,6 +195,10 @@ function normalizeCapabilities(setting?: string): string | undefined {
   const forceStream = extractBoolSetting(setting, "force_upstream_stream");
   const maxConcurrency = extractPositiveNumber(setting, "max_concurrency");
   const maxRps = extractPositiveNumber(setting, "max_rps");
+  const decisionsPath = extractStringSetting(
+    setting,
+    "decisions_upstream_path",
+  );
   if (
     !caps &&
     passThrough === undefined &&
@@ -183,7 +207,8 @@ function normalizeCapabilities(setting?: string): string | undefined {
     autoTestIntervalMax === undefined &&
     forceStream === undefined &&
     maxConcurrency === undefined &&
-    maxRps === undefined
+    maxRps === undefined &&
+    decisionsPath === undefined
   )
     return undefined;
   return JSON.stringify({
@@ -210,6 +235,9 @@ function normalizeCapabilities(setting?: string): string | undefined {
       ? { max_concurrency: maxConcurrency }
       : {}),
     ...(maxRps !== undefined ? { max_rps: maxRps } : {}),
+    ...(decisionsPath !== undefined
+      ? { decisions_upstream_path: decisionsPath }
+      : {}),
   });
 }
 

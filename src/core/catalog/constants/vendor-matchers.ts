@@ -46,6 +46,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   bytedance: { modelPatterns: ["doubao-","seed-","sdxl-lightning"], strongPatterns: ["sdxl-lightning"], nameAliases: ["字节","豆包","doubao","bytedance"], displayName: "ByteDance", icon: "Doubao.Color" },
   stabilityai: { modelPatterns: ["stable-diffusion","stability","sdxl"], nameAliases: ["stability ai","stabilityai"], displayName: "Stability AI", icon: "Stability" },
   runware: { modelPatterns: [], nameAliases: ["runware"], displayName: "Runware", icon: "Runware" },
+  typesafe: { modelPatterns: ["jev-"], strongPatterns: ["jev-"], nameAliases: ["typesafe"], displayName: "TypeSafe" },
   aihorde: { modelPatterns: ["deliberate","albedobase-xl","juggernaut-xl","wai-nsfw-illustrious","pony-realism","nova-anime-xl","nova-furry-pony","cyberrealistic-pony","icbinp"], nameAliases: ["ai horde","aihorde","stable horde"], displayName: "AI Horde", icon: "AIHorde" },
   elevenlabs: { modelPatterns: ["eleven-","eleven_","elevenlabs","eleven-multilingual","eleven-turbo","eleven-flash","scribe","dubbing"], nameAliases: ["elevenlabs","eleven labs"], displayName: "ElevenLabs", icon: "ElevenLabs" },
   midjourney: { modelPatterns: ["midjourney","mj_","mj-"], nameAliases: ["midjourney","mj"], displayName: "Midjourney", icon: "Midjourney" },

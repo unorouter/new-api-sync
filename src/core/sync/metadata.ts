@@ -79,6 +79,8 @@ import { runProviderPipeline } from "@core/sync/pipeline";
 import {
   buildAiHordeModels,
   buildRunwareModels,
+  buildTypeSafeModels,
+  TYPESAFE_ENDPOINTS,
   pickBetterDescription,
 } from "@core/sync/pipeline/desired-models";
 import {
@@ -756,6 +758,7 @@ export async function runMetadataSync(
 
   const aiHordeModels = buildAiHordeModels(channels);
   const runwareModels = buildRunwareModels(channels);
+  const typeSafeModels = buildTypeSafeModels(channels);
   const imageChannelModels = new Set([...aiHordeModels, ...runwareModels]);
 
   // Diffusion checkpoints are named after the checkpoint, not its host, so name
@@ -768,6 +771,8 @@ export async function runMetadataSync(
   for (const name of aiHordeModels) vendorByChannel.set(name, "aihorde");
   for (const name of runwareModels)
     if (!vendorByChannel.has(name)) vendorByChannel.set(name, "runware");
+  for (const name of typeSafeModels)
+    if (!vendorByChannel.has(name)) vendorByChannel.set(name, "typesafe");
 
   for (const name of names) {
     // `{model}:free` published names have no `:free` key in the pricing sources;
@@ -827,7 +832,9 @@ export async function runMetadataSync(
         ...(vendorId != null ? { vendor_id: vendorId } : {}),
         ...(merged ? { metadata: JSON.stringify(merged) } : {}),
         ...(description ? { description } : {}),
-        endpoints: inferEndpoints(name),
+        endpoints: typeSafeModels.has(name)
+          ? TYPESAFE_ENDPOINTS
+          : inferEndpoints(name),
         tags,
         status: 1,
       });

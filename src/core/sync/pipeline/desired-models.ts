@@ -89,6 +89,21 @@ export function buildRunwareModels(channels: Channel[]): Set<string> {
   return set;
 }
 
+// Model names served by a TYPESAFE-type channel: decisions only, no chat surface.
+export function buildTypeSafeModels(channels: Channel[]): Set<string> {
+  const set = new Set<string>();
+  for (const ch of channels) {
+    if (ch.type !== CHANNEL_TYPES.TYPESAFE) continue;
+    for (const m of parseModelList(ch.models))
+      if (!isRoutingOnlyAlias(m)) set.add(m);
+  }
+  return set;
+}
+
+export const TYPESAFE_ENDPOINTS = JSON.stringify({
+  decisions: ENDPOINT_DEFAULT_PATHS.decisions,
+});
+
 export interface ToolEvidence {
   supportsTools: boolean;
   supportsParallelTools: boolean;
@@ -118,6 +133,7 @@ export function buildDesiredModels(opts: {
   const channelModelUpstream = buildChannelModelUpstream(opts.channels);
   const aiHordeModels = buildAiHordeModels(opts.channels);
   const runwareModels = buildRunwareModels(opts.channels);
+  const typeSafeModels = buildTypeSafeModels(opts.channels);
 
   for (const channel of opts.channels) {
     for (const modelName of parseModelList(channel.models)) {
@@ -142,6 +158,16 @@ export function buildDesiredModels(opts: {
           endpoints: JSON.stringify({
             "image-generation": "/v1/images/generations",
           }),
+        });
+        continue;
+      }
+      if (typeSafeModels.has(modelName)) {
+        const metadata = opts.metadataByUpstream[modelName];
+        models.set(modelName, {
+          model_name: modelName,
+          vendor: "typesafe",
+          endpoints: TYPESAFE_ENDPOINTS,
+          ...(metadata ? { metadata: JSON.stringify(metadata) } : {}),
         });
         continue;
       }

@@ -186,8 +186,24 @@ const RunwareProviderSchema = T.Object({
   models: T.Record(str, RunwareModelSchema),
 });
 
+// TypeSafe decisions model (Jev): published id -> upstream id and the SELL price per
+// million tokens. The lane serves only POST /v1/decisions; the gateway settles on the
+// upstream's own input/output token counts. Defaults point at OpenRouter's alpha route.
 // prettier-ignore
-const AnyProviderSchema = T.Union([NewApiProviderSchema, A7ProviderSchema, IhProviderSchema, SiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, SimpleFreeProviderSchema, ComfyUiProviderSchema, AIHordeProviderSchema, RunwareProviderSchema]);
+const TypeSafeModelSchema = T.Object({ upstream: Opt(str), inputPricePerM: T.Number({ minimum: 0 }), outputPricePerM: T.Number({ minimum: 0 }), contextWindow: Opt(T.Integer({ minimum: 1 })) });
+const TypeSafeProviderSchema = T.Object({
+  type: T.Literal("typesafe"),
+  ...ProviderCommonProps,
+  baseUrl: Opt(uri),
+  decisionsPath: Opt(str),
+  apiKey: str,
+  channelName: Opt(str),
+  channelTag: Opt(str),
+  models: T.Record(str, TypeSafeModelSchema),
+});
+
+// prettier-ignore
+const AnyProviderSchema = T.Union([NewApiProviderSchema, A7ProviderSchema, IhProviderSchema, SiProviderSchema, NvidiaProviderSchema, OpenRouterProviderSchema, SimpleFreeProviderSchema, ComfyUiProviderSchema, AIHordeProviderSchema, RunwareProviderSchema, TypeSafeProviderSchema]);
 
 export type ProviderConfig = Static<typeof NewApiProviderSchema>;
 export type A7ProviderConfig = Static<typeof A7ProviderSchema>;
@@ -214,8 +230,9 @@ export type SimpleFreeProviderConfig = Static<
 export type ComfyUiProviderConfig = Static<typeof ComfyUiProviderSchema>;
 export type AIHordeProviderConfig = Static<typeof AIHordeProviderSchema>;
 export type RunwareProviderConfig = Static<typeof RunwareProviderSchema>;
+export type TypeSafeProviderConfig = Static<typeof TypeSafeProviderSchema>;
 // prettier-ignore
-export type AnyProviderConfig = ProviderConfig | A7ProviderConfig | IhProviderConfig | SiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | SimpleFreeProviderConfig | ComfyUiProviderConfig | AIHordeProviderConfig | RunwareProviderConfig;
+export type AnyProviderConfig = ProviderConfig | A7ProviderConfig | IhProviderConfig | SiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | SimpleFreeProviderConfig | ComfyUiProviderConfig | AIHordeProviderConfig | RunwareProviderConfig | TypeSafeProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
 const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);

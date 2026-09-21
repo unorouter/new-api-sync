@@ -32,6 +32,7 @@ import type {
 } from "@core/validations/config";
 import { buildAIHordeChannels } from "@core/vendors/aihorde-image/provider";
 import { buildRunwareChannels } from "@core/vendors/runware-image/provider";
+import { buildTypeSafeChannels } from "@core/vendors/typesafe/provider";
 import { buildComfyUiChannels } from "@core/vendors/comfyui/provider";
 import { t } from "@server/i18n";
 import { consola } from "consola";
@@ -347,6 +348,26 @@ async function buildDesiredState(
       });
   }
 
+  for (const provider of config.providers) {
+    if (provider.type !== "typesafe") continue;
+    const result = buildTypeSafeChannels(provider);
+    providerReports.push(result.report);
+    if (!result.report.success) {
+      consola.warn(
+        `typesafe provider ${provider.name} failed: ${result.report.error ?? ""}`,
+      );
+      continue;
+    }
+    channels.push(...result.channels);
+    for (const channel of result.channels)
+      mergedGroups.push({
+        name: channel.group,
+        ratio: 1,
+        description: `TypeSafe decisions via ${provider.name}`,
+        provider: channel.tag ?? provider.name,
+      });
+  }
+
   const allPricingGrids: Record<string, Record<string, string | number>[]> = {};
   const allMetadata: Record<string, Record<string, unknown>> = {};
   // Provider-decoded resolution grids (ephone image models priced per resolution). Keyed by the
@@ -411,6 +432,19 @@ async function buildDesiredState(
       const mapped = config.modelMapping?.[modelName] ?? modelName;
       optionMaps.modelPrice[mapped] = Math.round(m.price * 10000) / 10000;
       optionMaps.modelQuotaType[mapped] = 1;
+    }
+  }
+
+  // Per-token sell price: new-api's ModelRatio is USD per million input tokens over 2,
+  // CompletionRatio the output to input price ratio (0 when output is free).
+  for (const provider of config.providers) {
+    if (provider.type !== "typesafe") continue;
+    const cfg = provider;
+    for (const [modelName, m] of Object.entries(cfg.models)) {
+      const mapped = config.modelMapping?.[modelName] ?? modelName;
+      optionMaps.modelRatio[mapped] = m.inputPricePerM / 2;
+      optionMaps.completionRatio[mapped] =
+        m.inputPricePerM > 0 ? m.outputPricePerM / m.inputPricePerM : 0;
     }
   }
 
