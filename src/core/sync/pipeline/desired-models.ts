@@ -101,7 +101,7 @@ export function buildTypeSafeModels(channels: Channel[]): Set<string> {
 }
 
 export const TYPESAFE_ENDPOINTS = JSON.stringify({
-  decisions: ENDPOINT_DEFAULT_PATHS.decisions,
+  "typesafe-decisions": ENDPOINT_DEFAULT_PATHS["typesafe-decisions"],
 });
 
 export interface ToolEvidence {

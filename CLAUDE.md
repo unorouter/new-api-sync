@@ -263,7 +263,7 @@ typed questions (`noul`, `choice`, `score`) over a shared `state` on POST `/v1/d
 never chat, so the provider is declarative like runware: one channel of the gateway's TypeSafe type
 (1003), `setting.decisions_upstream_path` pointing at OpenRouter's `/api/alpha/decisions`, no
 discovery or probe (the endpoint is in `NON_TESTABLE_ENDPOINT_TYPES`), the model pinned to the
-`decisions` endpoint with vendor `typesafe`. Prices in the block are the sell price per million
+`typesafe-decisions` endpoint (the gateway's own endpoint type name) with vendor `typesafe`. Prices in the block are the sell price per million
 tokens (2x OpenRouter's $0.042 input, output free) and land in `ModelRatio`/`CompletionRatio`,
 never a per-call price: the gateway settles on the upstream's own token counts.
 
