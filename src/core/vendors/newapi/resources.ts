@@ -75,6 +75,22 @@ async function paginate<T>(
 // 1667 of 1677 channels returned without it - the 10 lost ones then read as dead
 // groups and the group prune deleted their visibility.
 export async function listChannels(ctx: ClientContext): Promise<Channel[]> {
+  // The total drifts while another sync deletes channels mid walk; a second
+  // walk after the churn is complete again (1696 of 1698 on 2026-09-21).
+  try {
+    return await walkChannels(ctx);
+  } catch (err) {
+    if (
+      !(err instanceof Error) ||
+      !err.message.startsWith("channel list incomplete")
+    )
+      throw err;
+    await new Promise((r) => setTimeout(r, 3000));
+    return walkChannels(ctx);
+  }
+}
+
+async function walkChannels(ctx: ClientContext): Promise<Channel[]> {
   let reportedTotal: number | undefined;
   const rows = await paginate(async (page) => {
     const url = `${ctx.baseUrl}/api/channel/?p=${page}&page_size=${PS}&id_sort=true`;

@@ -925,10 +925,21 @@ async function reverifyLanes(
   );
   setAuthenticityObserveOnly(config.authenticity?.observeOnly);
   setAnswerFingerprintOptions(config.authenticity?.answerFingerprint);
-  const liveChannels = await target.listChannels();
+  // The market or the gateway being unreachable for a tick is not a failed
+  // sync: the lanes keep their verdicts and the next tick tries again.
+  let liveChannels: Channel[];
+  try {
+    liveChannels = await target.listChannels();
+  } catch (err) {
+    consola.warn(
+      t("CORE.REVERIFY.SKIPPED", {
+        provider: a7Providers.map((p) => p.name).join(","),
+        reason: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    return;
+  }
   for (const p of a7Providers) {
-    // The market being unreachable for a tick is not a failed sync: the lanes
-    // keep their verdicts and the next tick tries again.
     try {
       const r = await reverifyLiveLanes(p, config, target, liveChannels);
       consola.info(t("CORE.REVERIFY.SUMMARY", { provider: p.name, ...r }));
@@ -942,7 +953,10 @@ async function reverifyLanes(
     }
   }
   await flushAllLaneKeys();
-  await judgeAndPushAnswerFingerprints(sourceOfFor(config), verdicts ?? undefined);
+  await judgeAndPushAnswerFingerprints(
+    sourceOfFor(config),
+    verdicts ?? undefined,
+  );
   if (verdicts) await pushVerdictCache(verdicts);
   else saveVerdictCache();
   await flushProbeIds(verdicts);
