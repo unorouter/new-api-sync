@@ -393,7 +393,9 @@ async function buildDesiredState(
         ...(m.contextWindow
           ? { contextWindow: m.contextWindow, maxInputTokens: m.contextWindow }
           : {}),
-        ...(m.releaseDate ? { releaseDate: m.releaseDate } : {}),
+        ...(m.releaseDate
+          ? { releaseDate: m.releaseDate, releaseTs: Date.parse(m.releaseDate) }
+          : {}),
       };
     }
   }
