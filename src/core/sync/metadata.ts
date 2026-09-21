@@ -927,8 +927,19 @@ async function reverifyLanes(
   setAnswerFingerprintOptions(config.authenticity?.answerFingerprint);
   const liveChannels = await target.listChannels();
   for (const p of a7Providers) {
-    const r = await reverifyLiveLanes(p, config, target, liveChannels);
-    consola.info(t("CORE.REVERIFY.SUMMARY", { provider: p.name, ...r }));
+    // The market being unreachable for a tick is not a failed sync: the lanes
+    // keep their verdicts and the next tick tries again.
+    try {
+      const r = await reverifyLiveLanes(p, config, target, liveChannels);
+      consola.info(t("CORE.REVERIFY.SUMMARY", { provider: p.name, ...r }));
+    } catch (err) {
+      consola.warn(
+        t("CORE.REVERIFY.SKIPPED", {
+          provider: p.name,
+          reason: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    }
   }
   await flushAllLaneKeys();
   await judgeAndPushAnswerFingerprints(sourceOfFor(config), verdicts ?? undefined);
