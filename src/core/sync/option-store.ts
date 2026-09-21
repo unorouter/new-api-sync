@@ -149,8 +149,10 @@ export class OptionStore {
     this.writeObject(key, map);
   }
 
-  private sortedAuto(auto: Iterable<string>): string[] {
-    const ratio = this.object("GroupRatio");
+  private sortedAuto(
+    auto: Iterable<string>,
+    ratio = this.object("GroupRatio"),
+  ): string[] {
     const ratioOf = (g: string) => {
       const r = ratio[g];
       return typeof r === "number" ? r : 1;
@@ -385,7 +387,7 @@ export class OptionStore {
         `[option-store] GroupRatio: ${plan.rescaled.length} group(s) followed a moved ModelRatio: ${plan.rescaled.join(", ")}`,
       );
     for (const key of plan.changed) {
-      const value = this.next[key];
+      const value = await this.rebase(client, key);
       if (value === undefined) continue;
       if (await client.updateOption(key, value)) {
         written.push(key);
@@ -393,5 +395,44 @@ export class OptionStore {
       } else errors.push({ key, message: "option write failed" });
     }
     return { written, errors, dropped: plan.dropped, healed: plan.healed };
+  }
+
+  // A run holds the options it loaded for as long as it runs (the cluster's full
+  // run took 77 minutes on 2026-09-21), so writing that picture back whole erased
+  // what a local run published meanwhile: cfp4..cfp8 and five new cfp models lost
+  // their routing that way, twice. Only this run's own edits are replayed onto the
+  // value as it stands now.
+  private async rebase(
+    client: NewApiClient,
+    key: string,
+  ): Promise<string | undefined> {
+    const mine = this.next[key];
+    if (mine === undefined) return undefined;
+    const loaded = this.before[key];
+    const live = (await client.getOptions([key]))[key];
+    if (live === undefined || live === loaded) return mine;
+    if (key === "AutoGroups") {
+      const was = new Set(parseJsonStringArray(loaded));
+      const now = parseJsonStringArray(mine);
+      const kept = new Set(now);
+      const merged = parseJsonStringArray(live).filter(
+        (g) => !was.has(g) || kept.has(g),
+      );
+      // GroupRatio flushes first, so this read already holds both runs' groups.
+      const ratio = parseJsonObject(
+        (await client.getOptions(["GroupRatio"]))["GroupRatio"],
+      );
+      return JSON.stringify(
+        this.sortedAuto([...merged, ...now.filter((g) => !was.has(g))], ratio),
+      );
+    }
+    if (!OBJECT_KEYS.has(key)) return mine;
+    const was = parseJsonObject(loaded);
+    const now = parseJsonObject(mine);
+    const merged = parseJsonObject(live);
+    for (const name of Object.keys(was)) if (!(name in now)) delete merged[name];
+    for (const [name, value] of Object.entries(now))
+      if (stringify(was[name]) !== stringify(value)) merged[name] = value;
+    return stringify(merged) ?? "{}";
   }
 }
