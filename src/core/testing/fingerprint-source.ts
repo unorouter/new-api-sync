@@ -17,7 +17,8 @@ const OFFICIAL_KINDS = new Set<string>(
 export function sourceOfFor(config: RuntimeConfig): SourceOf {
   const typeOf = new Map(config.providers.map((p) => [p.name, p.type]));
   return (entry: FingerprintEntry) => {
-    const provider = entry.provider;
+    // a7 keys are `a7:<merchant>|<model>`: the provider name ends at the colon.
+    const provider = entry.provider.split(":")[0] ?? entry.provider;
     const type = typeOf.get(provider);
     if (type === "a7" || type === "si") return { source: "market", name: provider };
     if (type === "ih") {

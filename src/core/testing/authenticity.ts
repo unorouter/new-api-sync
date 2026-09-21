@@ -237,7 +237,8 @@ function observe(
       sample: run.reports.answerFingerprint ?? null,
       foreign: identity.some((p) => p?.signal === "foreign"),
       answered: identity.every((p) => !!p?.responseText),
-      promptTokens: probe("creative")?.usage?.prompt ?? null,
+      // A relay that reports no usage sends 0, which is no measurement.
+      promptTokens: probe("creative")?.usage?.prompt || null,
       text: [
         probe("emotional")?.responseText ?? "",
         probe("creative")?.responseText ?? "",

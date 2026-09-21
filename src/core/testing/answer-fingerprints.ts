@@ -275,11 +275,17 @@ export function judgeAllLanes(sourceOf: SourceOf): FingerprintSummary {
   const out: FamilySummary[] = [];
   for (const [family, lanes] of families) {
     const profiles = profilesFor(family, sourceOf);
-    const baseline = median(
+    // The family's prompt token floor: its trusted lanes, else the least
+    // wrapped lane, so a market-only family still ranks its wrappers.
+    const trusted = median(
       lanes
         .filter((e) => sourceOf(e).source !== "market")
         .flatMap((e) => e.runs.map((r) => r.promptTokens ?? NaN)),
     );
+    const laneMedians = lanes
+      .map((e) => median(e.runs.map((r) => r.promptTokens ?? NaN)))
+      .filter((m): m is number => m !== null);
+    const baseline = trusted ?? (laneMedians.length ? Math.min(...laneMedians) : null);
     const rows: FamilySummary["lanes"] = [];
     for (const e of lanes) {
       const s = pooledSample(e);
