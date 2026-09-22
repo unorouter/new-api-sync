@@ -1287,6 +1287,18 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-nry-…",
   },
   {
+    kind: "dahl",
+    label: "Dahl",
+    // inference.dahl.global - OpenAI-compat gateway on the Gonka network. An account
+    // gets a one time grant of 100M tokens that must be allocated onto a key
+    // (POST /v1/account/allocate). Capacity is admitted paid, then signed-in, then
+    // anonymous; GLM-5.3-Flash is paid only in practice. Identical prompts come
+    // back cached in ~60ms.
+    defaultBaseUrl: "https://inference.dahl.global",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "dahl_...",
+  },
+  {
     kind: "hcnsec",
     label: "HCNSec",
     // api.hcnsec.cn - new-api fork, OpenAI-compat, free. Small catalog (kat-coder-pro,
