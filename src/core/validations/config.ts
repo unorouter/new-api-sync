@@ -318,9 +318,10 @@ export const ConfigSchema = T.Object({
   // matches the glob. `override` (default false) prepends ours to a user-supplied
   // system message; false only injects when the request carries none. Keyed by
   // model glob (micromatch). Used to lift soft refusals on CN models (deepseek/glm).
+  // `providers` narrows a rule to those provider names, for a lane-specific prompt.
   // Empty prompt = clear a previously synced prompt from matching channels.
   // prettier-ignore
-  systemPrompt: Opt(T.Array(T.Object({ models: T.Array(str, { minItems: 1 }), prompt: T.String(), override: Opt(T.Boolean()) }))),
+  systemPrompt: Opt(T.Array(T.Object({ models: T.Array(str, { minItems: 1 }), prompt: T.String(), override: Opt(T.Boolean()), providers: Opt(T.Array(str)) }))),
   // Extra channel param_override operations for channels whose NAME matches a
   // glob (micromatch): merged onto whatever override the channel already carries.
   // For upstreams that 400 on a sampler field only some lanes reject.

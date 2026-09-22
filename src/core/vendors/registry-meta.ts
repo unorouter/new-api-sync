@@ -1287,6 +1287,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-nry-…",
   },
   {
+    kind: "chatat",
+    label: "ch.at",
+    // cat1.coding-global.com - our Bun proxy (backup/2api/chatat-proxy) in front of
+    // ch.at, Deep AI Inc's keyless OpenAI-shaped endpoint that invites bots. It
+    // meters 100 requests a minute per address and cuts every answer at about 500
+    // tokens with no finish_reason, so a hard system prompt keeps answers short.
+    defaultBaseUrl: "https://cat1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-cat-...",
+  },
+  {
     kind: "dahl",
     label: "Dahl",
     // inference.dahl.global - OpenAI-compat gateway on the Gonka network. An account

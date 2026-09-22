@@ -517,8 +517,10 @@ export async function reconcileSystemPrompt(
 
   let changed = 0;
   for (const ch of channels) {
-    const rule = rules.find((r) =>
-      parseModelList(ch.models).some(
+    const rule = rules.find(
+      (r) =>
+        (!r.providers || r.providers.includes(ch.tag ?? "")) &&
+        parseModelList(ch.models).some(
         (name) =>
           !isRoutingOnlyAlias(name) && matchesAnyPattern(name, r.models),
       ),

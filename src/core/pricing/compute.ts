@@ -39,7 +39,7 @@ interface ComputeArgs {
   reverseMapping: Map<string, string>;
   modelMapping: Record<string, string>;
   modelAlias?: Record<string, string[]>;
-  systemPrompt?: { models: string[]; prompt: string; override?: boolean }[];
+  systemPrompt?: { models: string[]; prompt: string; override?: boolean; providers?: string[] }[];
   channelParamOverride?: ChannelParamOverrideRule[];
   /** Per-provider scheduled-test cadence, keyed by provider name. */
   autoTestIntervalByProvider?: Map<string, number>;
@@ -704,8 +704,10 @@ function pushBucketsAsTiers(
         mirrorAliasRatio(modelRatios, publishedName, alias, sourced);
       }
 
-      const sysPromptRule = args?.systemPrompt?.find((r) =>
-        matchesAnyPattern(publishedName, r.models),
+      const sysPromptRule = args?.systemPrompt?.find(
+        (r) =>
+          (!r.providers || r.providers.includes(offer.provider)) &&
+          matchesAnyPattern(publishedName, r.models),
       );
 
       const channelName = `${offer.sanitizedBase}-${sanitizeGroupName(publishedName)}`;

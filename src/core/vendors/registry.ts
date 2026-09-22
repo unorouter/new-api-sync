@@ -11,6 +11,7 @@ import {
   type OpenAIFreeDiscovery,
 } from "./shared/openai-free-provider";
 import { discoverBynaraModels } from "./bynara/discovery";
+import { discoverChatatModels } from "./chatat/discovery";
 import { discoverDahlModels } from "./dahl/discovery";
 import { discoverGlmCgModels } from "./glmcg/discovery";
 import { discoverVertexCgModels } from "./vertexcg/discovery";
@@ -237,6 +238,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   qwen2api: discoverQwenModels,
   bynara: discoverBynaraModels,
   dahl: discoverDahlModels,
+  chatat: discoverChatatModels,
   hcnsec: discoverBynaraModels,
   tokenrouter: discoverBynaraModels,
   modal: discoverBynaraModels,
