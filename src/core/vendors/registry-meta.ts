@@ -1298,6 +1298,15 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-cat-...",
   },
   {
+    kind: "routeway",
+    label: "Routeway",
+    // api.routeway.ai - OpenAI-compat gateway. Free plan: the :free ids only, at
+    // 5 requests a minute and 200 a day per key across all of them, one at a time.
+    defaultBaseUrl: "https://api.routeway.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-...",
+  },
+  {
     kind: "gonkabroker",
     label: "Gonka Broker",
     // proxy.gonkabroker.com - OpenAI-compat front for the Gonka network, same
