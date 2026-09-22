@@ -1307,6 +1307,18 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-...",
   },
   {
+    kind: "modelscope",
+    label: "ModelScope",
+    // api-inference.modelscope.ai - OpenAI-compat inference of the international
+    // ModelScope site. Works only once the account is bound to a verified Alibaba
+    // Cloud account (401 "Please bind your Alibaba Cloud account" otherwise); calls
+    // spend a daily Magicube grant (200 for the daily login, 50 for the binding).
+    // The .cn site refuses to mint tokens without a mainland +86 phone.
+    defaultBaseUrl: "https://api-inference.modelscope.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "ms-...",
+  },
+  {
     kind: "gonkabroker",
     label: "Gonka Broker",
     // proxy.gonkabroker.com - OpenAI-compat front for the Gonka network, same

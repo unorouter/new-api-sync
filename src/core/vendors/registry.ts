@@ -14,6 +14,7 @@ import { discoverBynaraModels } from "./bynara/discovery";
 import { discoverChatatModels } from "./chatat/discovery";
 import { discoverDahlModels } from "./dahl/discovery";
 import { discoverGonkaBrokerModels } from "./gonkabroker/discovery";
+import { discoverModelScopeModels } from "./modelscope/discovery";
 import { discoverRoutewayModels } from "./routeway/discovery";
 import { discoverGlmCgModels } from "./glmcg/discovery";
 import { discoverVertexCgModels } from "./vertexcg/discovery";
@@ -241,6 +242,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   bynara: discoverBynaraModels,
   dahl: discoverDahlModels,
   gonkabroker: discoverGonkaBrokerModels,
+  modelscope: discoverModelScopeModels,
   routeway: discoverRoutewayModels,
   chatat: discoverChatatModels,
   hcnsec: discoverBynaraModels,
