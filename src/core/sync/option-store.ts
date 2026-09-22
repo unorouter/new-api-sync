@@ -392,6 +392,8 @@ export class OptionStore {
       if (await client.updateOption(key, value)) {
         written.push(key);
         this.before[key] = value;
+        // Else a later flush reads another writer's merged entries as ones this run dropped.
+        this.next[key] = value;
       } else errors.push({ key, message: "option write failed" });
     }
     return { written, errors, dropped: plan.dropped, healed: plan.healed };
@@ -430,7 +432,8 @@ export class OptionStore {
     const was = parseJsonObject(loaded);
     const now = parseJsonObject(mine);
     const merged = parseJsonObject(live);
-    for (const name of Object.keys(was)) if (!(name in now)) delete merged[name];
+    for (const name of Object.keys(was))
+      if (!(name in now)) delete merged[name];
     for (const [name, value] of Object.entries(now))
       if (stringify(was[name]) !== stringify(value)) merged[name] = value;
     return stringify(merged) ?? "{}";

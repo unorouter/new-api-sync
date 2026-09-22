@@ -265,7 +265,9 @@ export async function runSync(
     throwIfRunAborted();
     await updateGuestTokenIfConfigured(target, liveChannels);
     timingMark("reconcile+token");
-    const unpriced = store.unpricedLiveModels(liveChannels);
+    const unpriced = (await OptionStore.load(target)).unpricedLiveModels(
+      liveChannels,
+    );
     printPricingAudit(apply.pricing, unpriced);
     if (unpriced.length > 0)
       apply.errors.push({
@@ -287,7 +289,10 @@ export async function runSync(
     timingReport();
     const artifacts = [writeTestReport(), writeApplyErrorsLog(applyErrors)];
     await flushAllLaneKeys();
-    await judgeAndPushAnswerFingerprints(sourceOfFor(config), store ?? undefined);
+    await judgeAndPushAnswerFingerprints(
+      sourceOfFor(config),
+      store ?? undefined,
+    );
     if (store) {
       await pushVerdictCache(store);
       await flushProbeIds(store);

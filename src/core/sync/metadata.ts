@@ -521,9 +521,9 @@ export async function reconcileSystemPrompt(
       (r) =>
         (!r.providers || r.providers.includes(ch.tag ?? "")) &&
         parseModelList(ch.models).some(
-        (name) =>
-          !isRoutingOnlyAlias(name) && matchesAnyPattern(name, r.models),
-      ),
+          (name) =>
+            !isRoutingOnlyAlias(name) && matchesAnyPattern(name, r.models),
+        ),
     );
 
     const wantPrompt = rule?.prompt ?? "";
@@ -898,7 +898,9 @@ export async function runMetadataSync(
   // is exactly what re-prices every other provider's lanes.
   if (flushed.written.length > 0)
     consola.info(`[metadata] options written: ${flushed.written.join(", ")}`);
-  const unpriced = store.unpricedLiveModels(channels);
+  const unpriced = (await OptionStore.load(target)).unpricedLiveModels(
+    channels,
+  );
   printPricingAudit(flushed, unpriced);
   result.optionErrors.push(
     ...flushed.errors.map((e) => `${e.key}: ${e.message}`),
