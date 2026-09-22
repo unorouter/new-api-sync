@@ -627,7 +627,7 @@
       "HISTORY_FAILED": "[verdict-store] {store}：历史追加失败，已保留本地文件（{error}）"
     },
     "REVERIFY": {
-      "SUMMARY": "[{provider}] 真伪复核：在线通道 {live} 个，待复核 {due} 个，通过 {passed} 个，已停用 {disabled} 个，无法判定 {inconclusive} 个",
+      "SUMMARY": "[{provider}] 真伪复核：在线通道 {live} 个，待复核 {due} 个，通过 {passed} 个，已停用 {disabled} 个，无法判定 {inconclusive} 个，留待下一轮 {deferred} 个",
       "DISABLED": "[{provider}] 已停用 {channel}：{reason}",
       "DISABLE_FAILED": "[{provider}] 无法停用 {channel}（{reason}），网关更新失败",
       "SKIPPED": "[{provider}] 本轮跳过复验，市场无响应：{reason}"
@@ -642,6 +642,9 @@
       "PULL_FAILED": "[lane-keys] {provider}：存储拉取失败，仅使用本地副本（{error}）",
       "PUSHED": "[lane-keys] {provider}：已加密推送 {count} 个密钥",
       "PUSH_FAILED": "[lane-keys] {provider}：存储推送失败，保留本地副本（{error}）"
+    },
+    "A7": {
+      "WALK_BUDGET": "[{provider}] 遍历时间预算已用完（{elapsed}）：{count} 个模型保留现有通道，等待下一次运行：{models}"
     },
     "IH": {
       "CATALOG_FAILED": "[{name}] 无法获取供应池目录：{reason}",

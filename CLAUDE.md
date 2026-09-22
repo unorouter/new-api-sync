@@ -166,7 +166,9 @@ is the object `new-api-sync/verdict-cache.json` in bucket `unorouter-sync` behin
 survives while it is fresh); artifacts mirror to `artifacts/`. Functional passes expire after 7 days (jittered
 2), functional fails after 24 hours, or 2 hours when the fail was a 429, 5xx or timeout (a dead merchant is re-probed once a day, not once a run),
 authenticity passes after 12 hours (`authenticityPassTtlHours` per provider overrides it, a7 uses 4 so every 6-hourly walk re-probes), authenticity fails after 24 hours (one probe then decides again), and the `metadata` cron re-probes live a7 lanes whose
-pass is stale (`vendors/a7/reverify.ts`, 32 per tick, Claude first, disables the channel on a fail). Every authenticity
+pass is stale (`vendors/a7/reverify.ts`, 32 per tick, Claude first, disables the channel on a fail; a pool as
+wide as the a7 gate starts no lane later than 11 minutes into the tick, the rest wait for the next one, since
+the Job dies at 20 minutes and a killed tick also loses its option flush). Every authenticity
 outcome is appended to `verdict-history.jsonl` beside the cache. The probes themselves are
 `ai-model-verifier`'s rule engine (`testing/authenticity.ts` is a thin adapter: `runRules` on the
 wire the channel is sold on, judged against the model's MAKER (`makerForModel`,
@@ -185,9 +187,12 @@ never judged: a verbatim replay of prior instructions (a relay's injected system
 `wrapper-leak`), a sum with a fact check and its hidden token count, a JSON object naming maker and
 model, a one sentence self description. That log is what a maker is promoted from.
 
-Answer fingerprints (`testing/answer-fingerprints.ts`): every ladder run also asks the one-word
-battery (8 cells x `authenticity.answerFingerprint.repeats`, default 3, at temperature 1, no nonce)
-and appends one record per run to a per-lane ledger (`logs/answer-fingerprints.json`, store object
+Answer fingerprints (`testing/answer-fingerprints.ts`): a ladder run also asks the one-word
+battery (8 cells x `authenticity.answerFingerprint.repeats`, default 3, at temperature 1, no nonce,
+4 calls in flight) until the lane holds 4 sampled runs, then at most once a day
+(`answerFingerprintDue`); the battery in every ladder, 24 calls in a row, cost a median 105 s per lane
+and pushed both CronJobs past their deadlines on 2026-09-22. Every ladder run appends one record to a
+per-lane ledger (`logs/answer-fingerprints.json`, store object
 `answer-fingerprints.json`, merged by run stamp, 60 runs or 30 days). Before every store push
 (`run.ts` finally, `metadata.ts` reverify) each lane's pooled distribution is judged against its
 family's trusted profiles: the maker's own route (`official: true` in `registry-meta.ts`: the
@@ -232,6 +237,10 @@ returns empty at once instead of walking its own retry ladder, and the lanes it 
 a later round or the next run. A walk that lost lanes that way sets `deletesWithheld` on its report,
 which keeps the provider out of the delete set and withholds the stale-token cleanup exactly as a
 failed report did; the run itself stays green unless more than a fifth of the lanes were lost.
+
+The a7 walk starts no model after 150 minutes (`WALK_BUDGET_MS`); a model it did not reach keeps its
+lanes and tokens like one the market could not describe (`unverifiedModels`), so the full run always
+reaches its apply inside the 3 hour Job. The 14:00Z run on 2026-09-22 was killed mid apply.
 
 One a7 run at a time, anywhere, >= 30 min apart. Start local a7 runs at :01 to :13 with no active
 `new-api-sync-*` Job; suspend the metadata cron for a full `--only a7` (~25 min). A throttled full

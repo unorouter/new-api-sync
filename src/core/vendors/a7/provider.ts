@@ -19,6 +19,7 @@ import type { MergedGroup, ProviderReport } from "@core/types";
 import type { A7ProviderConfig } from "@core/validations/config";
 import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
 import { consola } from "consola";
+import { t } from "@server/i18n";
 import {
   DEFAULT_MAX_SELL_FRACTION,
   DEFAULT_PROFIT_MULTIPLE,
@@ -45,6 +46,10 @@ const USD_PER_M_PER_RATIO = 2;
 // Share of the walk's lanes that may lose their key to a 429 before the run
 // counts as failed rather than partial.
 const THROTTLE_FAIL_RATIO = 0.2;
+// The full run's Job is killed at 3 hours and its apply takes a few minutes, so
+// no model starts after this; one not reached keeps its lanes and tokens, exactly
+// like a model the marketplace could not describe this run.
+const WALK_BUDGET_MS = 150 * 60_000;
 
 interface ModelCandidates {
   model: string;
@@ -371,6 +376,24 @@ export async function processA7Provider(
     let modelIdx = 0;
     for (const mc of models) {
       modelIdx++;
+      if (Date.now() - loopStart >= WALK_BUDGET_MS) {
+        const deferred = models.slice(modelIdx - 1).map((m) => m.model);
+        for (const m of deferred) {
+          unverifiedMarket.add(m);
+          (report.unverifiedModels ??= []).push(
+            (config.modelMapping?.[m] ?? m).toLowerCase(),
+          );
+        }
+        consola.warn(
+          t("CORE.A7.WALK_BUDGET", {
+            provider: name,
+            elapsed: elapsed(),
+            count: deferred.length,
+            models: deferred.join(", "),
+          }),
+        );
+        break;
+      }
       const modelStart = Date.now();
       // Walk the cheap-sorted candidates until `wanted` merchants pass their
       // probe: a faker/dead pick is REPLACED by the next candidate instead of

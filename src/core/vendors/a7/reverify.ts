@@ -31,6 +31,8 @@ export interface ReverifyResult {
   passed: number;
   disabled: number;
   inconclusive: number;
+  /** Due lanes the tick had no time left to start; the next tick takes them. */
+  deferred: number;
 }
 
 interface LiveLane {
@@ -49,6 +51,8 @@ export async function reverifyLiveLanes(
   config: RuntimeConfig,
   target: NewApiClient,
   channels: Channel[],
+  /** No lane starts after this instant; in-flight ones finish. */
+  startBefore: number,
 ): Promise<ReverifyResult> {
   const result: ReverifyResult = {
     live: 0,
@@ -56,6 +60,7 @@ export async function reverifyLiveLanes(
     passed: 0,
     disabled: 0,
     inconclusive: 0,
+    deferred: 0,
   };
   const live = channels.filter(
     (ch) => ch.tag === provider.name && ch.status === 1 && !!ch.group,
@@ -138,35 +143,53 @@ export async function reverifyLiveLanes(
   );
   const baseUrl = provider.baseUrl.replace(/\/$/, "");
 
+  const verifyLane = async (item: LiveLane): Promise<void> => {
+    const token = tokens.get(laneTokenName(item.lane));
+    if (!token) {
+      result.inconclusive++;
+      return;
+    }
+    const verdict = await testAndFilterModels({
+      allModels: [item.lane.model],
+      baseUrl,
+      apiKey: token.key,
+      channelType: CHANNEL_TYPES.OPENAI,
+      providerLabel: `${provider.name}:${item.lane.listing.channel_id}`,
+      testableModelTypes: new Set(["text"]),
+      acceptRateLimited: provider.acceptRateLimited,
+    });
+    if (verdict.workingModels.includes(item.lane.model)) {
+      result.passed++;
+      return;
+    }
+    // A transient (503, cooldown, throttle) records no verdict and keeps the
+    // lane; only a recorded fail pulls it.
+    if (isAuthenticityBlacklisted(item.key))
+      await disableLane(
+        item.channel,
+        getVerdict(item.key)?.authenticityReason ?? "",
+      );
+    else result.inconclusive++;
+  };
+  // As many workers as the gate lets through for this upstream, so a lane is
+  // only taken off the queue when it can start: queued behind the gate, every
+  // lane would pass the deadline check at once and the tick would overrun its Job.
+  const slots =
+    provider.perUpstreamConcurrency ?? config.perUpstreamConcurrency;
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    for (let i = next++; i < batch.length; i = next++) {
+      const item = batch[i];
+      if (!item) continue;
+      if (Date.now() >= startBefore) {
+        result.deferred++;
+        continue;
+      }
+      await verifyLane(item);
+    }
+  };
   await Promise.all(
-    batch.map(async (item) => {
-      const token = tokens.get(laneTokenName(item.lane));
-      if (!token) {
-        result.inconclusive++;
-        return;
-      }
-      const verdict = await testAndFilterModels({
-        allModels: [item.lane.model],
-        baseUrl,
-        apiKey: token.key,
-        channelType: CHANNEL_TYPES.OPENAI,
-        providerLabel: `${provider.name}:${item.lane.listing.channel_id}`,
-        testableModelTypes: new Set(["text"]),
-        acceptRateLimited: provider.acceptRateLimited,
-      });
-      if (verdict.workingModels.includes(item.lane.model)) {
-        result.passed++;
-        return;
-      }
-      // A transient (503, cooldown, throttle) records no verdict and keeps the
-      // lane; only a recorded fail pulls it.
-      if (isAuthenticityBlacklisted(item.key))
-        await disableLane(
-          item.channel,
-          getVerdict(item.key)?.authenticityReason ?? "",
-        );
-      else result.inconclusive++;
-    }),
+    Array.from({ length: Math.min(slots, batch.length) }, worker),
   );
   return result;
 }

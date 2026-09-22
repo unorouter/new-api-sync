@@ -23,6 +23,7 @@ import { normalizeModelId } from "ai-model-verifier/models";
 import type { TokenizerFingerprintResult } from "ai-model-verifier/rules";
 import { toBareName } from "@core/catalog/bare-name";
 import {
+  answerFingerprintDue,
   answerFingerprintRepeats,
   laneHistory,
   recordFingerprintRun,
@@ -274,9 +275,19 @@ export async function runAuthenticity(
   // The tokenizer fingerprint rides on every ladder run: its verdict is
   // Claude-only inside the library, so for other makers it is the two deltas
   // on the record and nothing else.
+  // A rule named in `only` runs even with its check off, so a warm lane drops
+  // the battery from the list rather than only from `checks`.
+  const battery = opts.ladder && answerFingerprintDue(opts.logKey);
   const only: RuleId[] = [
-    ...(opts.ladder ? [...LADDER, ...OBSERVED] : []),
-    ...(opts.fingerprint || opts.ladder ? ["tokenizer-fingerprint" as const] : []),
+    ...(opts.ladder
+      ? [
+          ...LADDER,
+          ...OBSERVED.filter((r) => battery || r !== "answer-fingerprint"),
+        ]
+      : []),
+    ...(opts.fingerprint || opts.ladder
+      ? ["tokenizer-fingerprint" as const]
+      : []),
   ];
   if (only.length === 0) return { authentic: null };
   const run = await runRules({
@@ -290,7 +301,9 @@ export async function runAuthenticity(
     ...(opts.extraBody ? { bodyExtras: opts.extraBody } : {}),
     onProbe: probeLog(opts.logKey),
     only,
-    checks: { answerFingerprint: { repeats: answerFingerprintRepeats() } },
+    checks: battery
+      ? { answerFingerprint: { repeats: answerFingerprintRepeats() } }
+      : {},
   });
   const fingerprint = run.reports.tokenizerFingerprint;
   if (!opts.ladder)

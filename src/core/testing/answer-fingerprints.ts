@@ -26,7 +26,12 @@ import {
 } from "ai-model-verifier";
 import { consola } from "consola";
 import { join } from "path";
-import { classifyStyle, trainStyleModel, type StyleModel, type StyleVerdict } from "./style-classifier";
+import {
+  classifyStyle,
+  trainStyleModel,
+  type StyleModel,
+  type StyleVerdict,
+} from "./style-classifier";
 
 const CACHE_FILE = "answer-fingerprints.json";
 const SUMMARY_FILE = "answer-fingerprints-summary.json";
@@ -35,6 +40,11 @@ const STORE_SUMMARY = "answer-fingerprints/summary.json";
 const KEEP_RUNS = 60;
 const KEEP_DAYS = 30;
 const HISTORY_WINDOW = 10;
+// A lane is asked the battery until it holds this many sampled runs, then once a
+// day: 24 extra calls on every ladder run pushed the re-verify tick and the full
+// run past their Job deadlines.
+const WARM_SAMPLED_RUNS = 4;
+const REFRESH_MS = 24 * 3_600_000;
 const MIN_CLUSTER_LANES = 3;
 const MIN_PROFILE_CELLS = 4;
 
@@ -72,7 +82,13 @@ export type FingerprintEntry = {
 
 export type LaneHistory = Pick<
   FingerprintEntry,
-  "verdict" | "jsd" | "against" | "identityMix" | "wrapperTokens" | "styleMaker" | "judgedAt"
+  | "verdict"
+  | "jsd"
+  | "against"
+  | "identityMix"
+  | "wrapperTokens"
+  | "styleMaker"
+  | "judgedAt"
 > & { runs: number; samples: number };
 
 export type FingerprintOptions = CompareOptions & { repeats?: number };
@@ -92,7 +108,10 @@ const isEntry = (e: unknown): e is FingerprintEntry =>
   typeof (e as FingerprintEntry).key === "string" &&
   Array.isArray((e as FingerprintEntry).runs);
 
-function mergeEntries(a: FingerprintEntry, b: FingerprintEntry): FingerprintEntry {
+function mergeEntries(
+  a: FingerprintEntry,
+  b: FingerprintEntry,
+): FingerprintEntry {
   const byAt = new Map<string, FingerprintRun>();
   for (const r of [...a.runs, ...b.runs]) byAt.set(r.at, r);
   const cutoff = Date.now() - KEEP_DAYS * 86_400_000;
@@ -114,7 +133,10 @@ const pickJudgement = (e: FingerprintEntry) => ({
   judgedAt: e.judgedAt,
 });
 
-function mergeAll(remote: FingerprintEntry[], local: FingerprintEntry[]): FingerprintEntry[] {
+function mergeAll(
+  remote: FingerprintEntry[],
+  local: FingerprintEntry[],
+): FingerprintEntry[] {
   const out = new Map<string, FingerprintEntry>();
   for (const e of remote) out.set(e.key, e);
   for (const e of local) {
@@ -124,10 +146,13 @@ function mergeAll(remote: FingerprintEntry[], local: FingerprintEntry[]): Finger
   return [...out.values()];
 }
 
-export async function loadAnswerFingerprints(store?: VerdictStore): Promise<void> {
+export async function loadAnswerFingerprints(
+  store?: VerdictStore,
+): Promise<void> {
   entries.clear();
   const local = readJson<unknown>(cachePath());
-  for (const e of (Array.isArray(local) ? local : []).filter(isEntry)) entries.set(e.key, e);
+  for (const e of (Array.isArray(local) ? local : []).filter(isEntry))
+    entries.set(e.key, e);
   if (!store) return;
   try {
     const text = await store.readText(STORE_OBJECT);
@@ -170,9 +195,18 @@ export function recordFingerprintRun(opts: {
   entries.set(opts.key, prior ? mergeEntries(prior, fresh) : fresh);
 }
 
+export function answerFingerprintDue(key: string, now = Date.now()): boolean {
+  const sampled = entries.get(key)?.runs.filter((r) => r.sample) ?? [];
+  const last = sampled.at(-1);
+  if (sampled.length < WARM_SAMPLED_RUNS || !last) return true;
+  const at = Date.parse(last.at);
+  return !Number.isFinite(at) || now - at >= REFRESH_MS;
+}
+
 export const pooledSample = (e: FingerprintEntry): FingerprintSample | null =>
   e.runs.reduce<FingerprintSample | null>(
-    (acc, r) => (r.sample ? (acc ? mergeFingerprints(acc, r.sample) : r.sample) : acc),
+    (acc, r) =>
+      r.sample ? (acc ? mergeFingerprints(acc, r.sample) : r.sample) : acc,
     null,
   );
 
@@ -191,14 +225,28 @@ export function laneHistory(key: string): LaneHistory | null {
 }
 
 /** Which profile set a lane feeds: the maker's own route, a known host, or a market. */
-export type SourceOf = (entry: FingerprintEntry) => { source: LaneSource; name: string };
+export type SourceOf = (entry: FingerprintEntry) => {
+  source: LaneSource;
+  name: string;
+};
 
-export type FamilyProfile = { name: string; kind: LaneSource | "majority"; lanes: number; sample: FingerprintSample };
+export type FamilyProfile = {
+  name: string;
+  kind: LaneSource | "majority";
+  lanes: number;
+  sample: FingerprintSample;
+};
 
-export function profilesFor(family: string, sourceOf: SourceOf): FamilyProfile[] {
+export function profilesFor(
+  family: string,
+  sourceOf: SourceOf,
+): FamilyProfile[] {
   const min = options.minCellSamples ?? 10;
   const lanes = [...entries.values()].filter((e) => e.family === family);
-  const pools = new Map<string, { kind: LaneSource; lanes: number; sample: FingerprintSample | null }>();
+  const pools = new Map<
+    string,
+    { kind: LaneSource; lanes: number; sample: FingerprintSample | null }
+  >();
   for (const e of lanes) {
     const { source, name } = sourceOf(e);
     if (source === "market") continue;
@@ -221,7 +269,12 @@ export function profilesFor(family: string, sourceOf: SourceOf): FamilyProfile[]
     }
     const top = fingerprintClusters(samples, options.matchBits, options)[0];
     if (top && top.members.length >= MIN_CLUSTER_LANES)
-      out.push({ name: "majority", kind: "majority", lanes: top.members.length, sample: top.pooled });
+      out.push({
+        name: "majority",
+        kind: "majority",
+        lanes: top.members.length,
+        sample: top.pooled,
+      });
   }
   return out;
 }
@@ -253,7 +306,12 @@ export type FamilySummary = {
 export type FingerprintSummary = {
   judgedAt: string;
   lanes: number;
-  style: { accuracy: number | null; classes: string[]; trained: number; emitted: boolean };
+  style: {
+    accuracy: number | null;
+    classes: string[];
+    trained: number;
+    emitted: boolean;
+  };
   families: FamilySummary[];
 };
 
@@ -268,10 +326,17 @@ export function judgeAllLanes(sourceOf: SourceOf): FingerprintSummary {
   const style: StyleModel | null = trainStyleModel(
     all
       .filter((e) => sourceOf(e).source === "official" && e.maker)
-      .map((e) => ({ lane: e.key, label: e.maker!, texts: e.runs.map((r) => r.text) })),
+      .map((e) => ({
+        lane: e.key,
+        label: e.maker!,
+        texts: e.runs.map((r) => r.text),
+      })),
   );
   const families = new Map<string, FingerprintEntry[]>();
-  for (const e of all) (families.get(e.family) ?? families.set(e.family, []).get(e.family)!).push(e);
+  for (const e of all)
+    (families.get(e.family) ?? families.set(e.family, []).get(e.family)!).push(
+      e,
+    );
   const out: FamilySummary[] = [];
   for (const [family, lanes] of families) {
     const profiles = profilesFor(family, sourceOf);
@@ -285,17 +350,29 @@ export function judgeAllLanes(sourceOf: SourceOf): FingerprintSummary {
     const laneMedians = lanes
       .map((e) => median(e.runs.map((r) => r.promptTokens ?? NaN)))
       .filter((m): m is number => m !== null);
-    const baseline = trusted ?? (laneMedians.length ? Math.min(...laneMedians) : null);
+    const baseline =
+      trusted ?? (laneMedians.length ? Math.min(...laneMedians) : null);
     const rows: FamilySummary["lanes"] = [];
     for (const e of lanes) {
       const s = pooledSample(e);
-      const cmp = s && profiles.length ? compareToProfiles(s, profiles, options) : null;
+      const cmp =
+        s && profiles.length ? compareToProfiles(s, profiles, options) : null;
       const recent = e.runs.slice(-HISTORY_WINDOW);
       const answered = recent.filter((r) => r.answered);
-      const identityMix = answered.length >= 3 ? answered.filter((r) => r.foreign).length / answered.length : null;
+      const identityMix =
+        answered.length >= 3
+          ? answered.filter((r) => r.foreign).length / answered.length
+          : null;
       const lanePrompt = median(recent.map((r) => r.promptTokens ?? NaN));
-      const wrapperTokens = lanePrompt !== null && baseline !== null ? lanePrompt - baseline : null;
-      const styleMaker = style && style.emitted ? classifyStyle(style, recent.map((r) => r.text)) : null;
+      const wrapperTokens =
+        lanePrompt !== null && baseline !== null ? lanePrompt - baseline : null;
+      const styleMaker =
+        style && style.emitted
+          ? classifyStyle(
+              style,
+              recent.map((r) => r.text),
+            )
+          : null;
       Object.assign(e, {
         verdict: cmp?.verdict ?? (s ? "insufficient" : undefined),
         jsd: cmp?.jsd ?? null,
@@ -309,7 +386,9 @@ export function judgeAllLanes(sourceOf: SourceOf): FingerprintSummary {
         key: e.key,
         provider: e.provider,
         runs: e.runs.length,
-        samples: s ? Object.values(s.cells).reduce((a, c) => a + c.valid, 0) : 0,
+        samples: s
+          ? Object.values(s.cells).reduce((a, c) => a + c.valid, 0)
+          : 0,
         verdict: e.verdict ?? null,
         jsd: e.jsd ?? null,
         against: e.against ?? null,
@@ -366,8 +445,16 @@ export async function judgeAndPushAnswerFingerprints(
       (Array.isArray(remote) ? remote : []).filter(isEntry),
       [...entries.values()],
     );
-    await store.writeText(STORE_OBJECT, JSON.stringify(merged), "application/json");
-    await store.writeText(STORE_SUMMARY, JSON.stringify(summary), "application/json");
+    await store.writeText(
+      STORE_OBJECT,
+      JSON.stringify(merged),
+      "application/json",
+    );
+    await store.writeText(
+      STORE_SUMMARY,
+      JSON.stringify(summary),
+      "application/json",
+    );
     entries.clear();
     for (const e of merged) entries.set(e.key, e);
     writeJsonAtomic(cachePath(), merged);
@@ -402,13 +489,22 @@ export function printFingerprintSummary(
           .replace(/\*/g, ".*")}$`,
       )
     : null;
-  consola.info(t("CLI.FINGERPRINTS.HEADER", { lanes: summary.lanes, judgedAt: summary.judgedAt }));
+  consola.info(
+    t("CLI.FINGERPRINTS.HEADER", {
+      lanes: summary.lanes,
+      judgedAt: summary.judgedAt,
+    }),
+  );
   consola.info(
     t("CLI.FINGERPRINTS.STYLE", {
       classes: summary.style.classes.length,
       trained: summary.style.trained,
       accuracy: fmt(summary.style.accuracy),
-      emitted: t(summary.style.emitted ? "CLI.FINGERPRINTS.STYLE_ON" : "CLI.FINGERPRINTS.STYLE_OFF"),
+      emitted: t(
+        summary.style.emitted
+          ? "CLI.FINGERPRINTS.STYLE_ON"
+          : "CLI.FINGERPRINTS.STYLE_OFF",
+      ),
     }),
   );
   for (const f of summary.families) {
@@ -418,8 +514,9 @@ export function printFingerprintSummary(
         family: f.family,
         maker: f.maker ?? "unknown",
         profiles:
-          f.profiles.map((p) => `${p.name} (${p.lanes} lanes, ${p.validCells} cells)`).join(", ") ||
-          t("CLI.FINGERPRINTS.NO_PROFILE"),
+          f.profiles
+            .map((p) => `${p.name} (${p.lanes} lanes, ${p.validCells} cells)`)
+            .join(", ") || t("CLI.FINGERPRINTS.NO_PROFILE"),
         baseline: fmt(f.baselinePromptTokens, 0),
       }),
     );
@@ -434,7 +531,9 @@ export function printFingerprintSummary(
           against: l.against ?? "-",
           mix: fmt(l.identityMix),
           wrapper: fmt(l.wrapperTokens, 0),
-          style: l.styleMaker ? `${l.styleMaker.top} ${fmt(l.styleMaker.p)}` : "-",
+          style: l.styleMaker
+            ? `${l.styleMaker.top} ${fmt(l.styleMaker.p)}`
+            : "-",
         }),
       );
   }
