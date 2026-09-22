@@ -13,6 +13,7 @@ import {
 import { discoverBynaraModels } from "./bynara/discovery";
 import { discoverChatatModels } from "./chatat/discovery";
 import { discoverDahlModels } from "./dahl/discovery";
+import { discoverGonkaBrokerModels } from "./gonkabroker/discovery";
 import { discoverGlmCgModels } from "./glmcg/discovery";
 import { discoverVertexCgModels } from "./vertexcg/discovery";
 import { discoverChatGlmModels } from "./chatglm/discovery";
@@ -238,6 +239,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   qwen2api: discoverQwenModels,
   bynara: discoverBynaraModels,
   dahl: discoverDahlModels,
+  gonkabroker: discoverGonkaBrokerModels,
   chatat: discoverChatatModels,
   hcnsec: discoverBynaraModels,
   tokenrouter: discoverBynaraModels,

@@ -1298,6 +1298,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-cat-...",
   },
   {
+    kind: "gonkabroker",
+    label: "Gonka Broker",
+    // proxy.gonkabroker.com - OpenAI-compat front for the Gonka network, same
+    // backend as Dahl. Free tier: a monthly token grant (at least 1M) kept only
+    // after phone verification, and 6 requests a minute until a top up.
+    defaultBaseUrl: "https://proxy.gonkabroker.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "gnk-prx-...",
+  },
+  {
     kind: "dahl",
     label: "Dahl",
     // inference.dahl.global - OpenAI-compat gateway on the Gonka network. An account
