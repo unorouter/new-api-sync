@@ -688,6 +688,15 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
 
 // bare name -> curated metadata. Dates are official announcement dates.
 const CURATED: Record<string, SourceMetadata> = {
+  // TypeSafe Jev (OpenRouter typesafe/jev-1.13, released 2026-09-18): OpenRouter's
+  // model list leaves out decisions models, so no source dates it.
+  "jev-1.13": {
+    releaseDate: iso("2026-09-18"),
+    contextWindow: 32_000,
+    maxInputTokens: 32_000,
+    inputModalities: ["text"],
+    outputModalities: ["text"],
+  },
   // Anthropic (OpenRouter dropped the dated 3.7 id)
   "claude-3-7-sonnet-20250219": {
     releaseDate: iso("2025-02-24"),
