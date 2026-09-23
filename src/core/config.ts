@@ -151,7 +151,7 @@ export function customValidateConfig(config: ConfigSchemaType): string[] {
       if (!("default" in adj))
         errors.push(t("ERROR.CONFIG_PRICE_ADJUSTMENT_NEEDS_DEFAULT", { path }));
       for (const [key, val] of Object.entries(adj))
-        if (typeof val === "number" && !NON_TEXT_TYPES.has(key) && val >= 1)
+        if (typeof val === "number" && !NON_TEXT_TYPES.has(key) && val > 1)
           errors.push(
             t("ERROR.CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT", { path, key }),
           );

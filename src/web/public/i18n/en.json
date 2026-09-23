@@ -222,7 +222,7 @@
     "CANCELLED_BY_USER": "cancelled by user",
     "CONFIG_DUPLICATE_PROVIDER": "providers.{index}.name: duplicate provider name: {name}",
     "CONFIG_PRICE_ADJUSTMENT_NEEDS_DEFAULT": "{path}: priceAdjustment object must contain a default key",
-    "CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT": "{path}.{key}: priceAdjustment values for text types (vendors/default) must be < 1; only non-text types (image, video, audio, embedding) can be >= 1",
+    "CONFIG_PRICE_ADJUSTMENT_TEXT_LIMIT": "{path}.{key}: priceAdjustment values for text types (vendors/default) must be <= 1; only non-text types (image, video, audio, embedding) can be > 1",
     "PRICING_EMPTY_SOURCES": "[pricing] unusable pricing sources: {sources}. Aborting sync: canonical resolution requires LiteLLM and OpenRouter pricing, plus basellm metadata.",
     "PRICING_CHANNEL_COLLISION": "Channel name collision: \"{name}\" produced twice ({first} and plan {second}). Each (provider, group, vendor, ratio-tier, base-url-suffix) bucket must produce a unique channel name.",
     "NEWAPI_OPTIONS_FETCH_FAILED": "Options API failed or returned no group options; run aborted so nothing is rewritten from an empty base",
