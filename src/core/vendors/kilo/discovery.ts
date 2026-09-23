@@ -7,13 +7,29 @@ interface KiloModel {
   id: string;
   context_length?: number;
   context_window?: number;
+  pricing?: { prompt?: string; completion?: string };
+  architecture?: { output_modalities?: string[] };
+}
+
+// Stealth previews are $0 without the :free suffix (stealth/space-bunny-alpha)
+// and serve keyless too; the */free ids are routers, not models.
+function isFreeChatModel(m: KiloModel): boolean {
+  if (/:free$/.test(m.id)) return true;
+  const out = m.architecture?.output_modalities;
+  return (
+    m.pricing?.prompt === "0" &&
+    m.pricing?.completion === "0" &&
+    out?.length === 1 &&
+    out[0] === "text" &&
+    !m.id.endsWith("/free")
+  );
 }
 
 // Kilo Code AI Gateway (api.kilo.ai/api/gateway). Base is the gateway root; new-api +
 // runner append /v1/chat/completions for forwarding, but the model list lives at
 // /models (NOT /v1/models). Keyless: free :free-tagged models serve unauthenticated
 // (200 req/hr per IP). ~9 free models (nemotron-3-ultra/super, step-3.7-flash,
-// nex-n2-pro, cohere/north-mini-code, poolside/laguna). Discovery keeps only :free.
+// nex-n2-pro, cohere/north-mini-code, poolside/laguna).
 export async function discoverKiloModels(
   baseUrl: string,
   apiKey: string,
@@ -34,7 +50,7 @@ export async function discoverKiloModels(
   });
 
   const list = data?.data ?? [];
-  const free = list.filter((m) => /:free$/.test(m.id));
+  const free = list.filter(isFreeChatModel);
   const maxOutputByModel = new Map<string, number>();
   for (const m of free) {
     const ctx = m.context_length ?? m.context_window;
