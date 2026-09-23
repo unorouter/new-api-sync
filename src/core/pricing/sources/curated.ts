@@ -3652,6 +3652,17 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsVision: true,
     supportsTools: true,
   },
+  // Stealth model on OpenRouter's stealth/ namespace; OpenRouter lists text,
+  // image and video in, tools, and mandatory reasoning.
+  "space-bunny-alpha": {
+    releaseDate: iso("2026-09-23"),
+    contextWindow: 1_000_000,
+    maxOutputTokens: 524_288,
+    isReasoning: true,
+    supportsVision: true,
+    supportsVideo: true,
+    supportsTools: true,
+  },
   // Z.ai GLM-4.6 Vision Flash
   "glm-4.6v-flash": {
     releaseDate: iso("2025-12-09"),
