@@ -6,16 +6,16 @@ placeholder (often 37.5) and would fail canonical-cap checks. This extracts an
 effective model_ratio + completion_ratio from the expression so the gate can
 compare against canonical ratios in the same units.
 
-Units: the expression's `p * X` coefficient X is the input ratio in new-api's
-native units (USD per million tokens / 2 — same as `model_ratio`). See
-src/core/pricing/sources/types.ts:usdPerTokenToRatio.
+Units: the expression's `p * X` coefficient X is real USD per million tokens
+(new-api pkg/billingexpr settles exprOutput / 1e6 * QuotaPerUnit), so the input
+ratio is X / 2, the same scale as `model_ratio`.
 
 Strategy: parse all tiers, pick by input coefficient (p). Default picks the
 HIGHEST tier (worst-case upstream cost) so the canonical-cap comparison never
 underestimates what the upstream charges us: a tiered upstream that is cheap on
 short prompts but expensive past 32k must be judged on its expensive tier, or we
 adopt its billing and lose money on long-context calls. Returns the picked
-tier's `p` as effective ratio and `c/p` as completion ratio. Single-tier
+tier's `p / 2` as effective ratio and `c/p` as completion ratio. Single-tier
 expressions become their direct coefficients.
 
 Returns undefined when the expression is unparseable; caller should fall back
@@ -99,7 +99,7 @@ export function effectiveRatioFromBillingExpr(
   const completionRatio =
     typeof chosen.c === "number" ? chosen.c / chosen.p : 1;
   return {
-    modelRatio: chosen.p,
+    modelRatio: chosen.p / 2,
     completionRatio,
     cacheRatio:
       typeof chosen.cr === "number" ? chosen.cr / chosen.p : undefined,
