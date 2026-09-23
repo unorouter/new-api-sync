@@ -1785,6 +1785,19 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsAudio: true,
     supportsTools: true,
   },
+  // Upstream supports tool calls, but the only lane is k2think.ai's guest route,
+  // which rejects any tools field.
+  "k2-horizon": {
+    releaseDate: iso("2026-09-03"),
+    contextWindow: 524_288,
+    maxInputTokens: 524_288,
+    maxOutputTokens: 32_768,
+    series: "K2",
+    isReasoning: true,
+    supportsTools: false,
+    description:
+      "MBZUAI IFM's K2 Horizon, a fully open 375B mixture of experts with 23B active parameters and visible reasoning, released under Apache 2.0.",
+  },
   "inkling-small": {
     releaseDate: iso("2026-07-30"),
     contextWindow: 524_288,
