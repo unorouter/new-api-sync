@@ -245,6 +245,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   modelscope: discoverModelScopeModels,
   routeway: discoverRoutewayModels,
   chatat: discoverChatatModels,
+  k2: discoverBynaraModels,
   hcnsec: discoverBynaraModels,
   tokenrouter: discoverBynaraModels,
   modal: discoverBynaraModels,

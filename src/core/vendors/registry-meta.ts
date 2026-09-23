@@ -1298,6 +1298,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-cat-...",
   },
   {
+    kind: "k2",
+    label: "K2 Horizon",
+    // k2h1.coding-global.com - our Bun proxy (backup/2api/k2-proxy) in front of
+    // k2think.ai's keyless guest route (MBZUAI IFM, K2-Horizon-375B-A23B). The
+    // guest stream is buffered into one frame and any tools field is a 400, so
+    // the proxy asks for plain JSON and folds tool turns into text.
+    defaultBaseUrl: "https://k2h1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-k2-...",
+  },
+  {
     kind: "routeway",
     label: "Routeway",
     // api.routeway.ai - OpenAI-compat gateway. Free plan: the :free ids only, at
