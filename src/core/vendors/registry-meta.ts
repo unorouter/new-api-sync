@@ -1309,6 +1309,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-k2-...",
   },
   {
+    kind: "privatemode",
+    label: "Privatemode",
+    // pm1.coding-global.com - Privatemode's own attesting proxy
+    // (backup/2api/privatemode-proxy), which encrypts each prompt for their
+    // enclave and forwards the caller's key. One time 5M token signup grant.
+    defaultBaseUrl: "https://pm1.coding-global.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  },
+  {
     kind: "routeway",
     label: "Routeway",
     // api.routeway.ai - OpenAI-compat gateway. Free plan: the :free ids only, at
