@@ -123,7 +123,7 @@ const STRIPPABLE_SUFFIXES = ["-latest","-preview","-instruct","-thinking","-thin
 // prettier-ignore
 const TIER_SUFFIXES = ["-highspeed","-fast","-pro","-air","-flash","-mini","-nano","-turbo","-lite","-max","-ultra","-plus","-standard","-economy","-coder","-code","-vision","-image","-audio"];
 // prettier-ignore
-const DATE_SUFFIX_PATTERNS = [/-\d{8}$/,/-\d{4}-\d{2}-\d{2}$/,/-\d{2}-\d{4}$/,/-\d{2}-\d{2}$/,/-\d{4}-\d{2}$/];
+const DATE_SUFFIX_PATTERNS = [/-\d{8}$/,/-\d{4}-\d{2}-\d{2}$/,/-\d{2}-\d{4}$/,/-\d{2}-\d{2}$/,/-\d{4}-\d{2}$/,/-(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])$/];
 
 const getTierSuffix = (n: string): string | null =>
   TIER_SUFFIXES.find((s) => n.endsWith(s)) ?? null;
@@ -156,7 +156,7 @@ function normalize(name: string): string {
     .replace(/-$/, "");
 }
 
-function strippedVariants(name: string): string[] {
+function strippedVariants(name: string, suffixOnly = false): string[] {
   const variants: string[] = [];
   let current = name;
   const trim = (len: number) => {
@@ -178,6 +178,7 @@ function strippedVariants(name: string): string[] {
       break;
     }
   }
+  if (suffixOnly) return variants;
   const minTokens = Math.max(2, Math.ceil(name.split("-").length * 0.6));
   const tokens = current.split("-");
   while (tokens.length > minTokens) {
@@ -258,6 +259,15 @@ function fuzzyLookup<T>(
   const consider = (hit: Hit | undefined) => {
     if (hit && (!best || hit.score > best.score)) best = hit;
   };
+  // A candidate that reaches our name by losing only a date or a known suffix is this
+  // model; one that also drops a word (qwen3.8-max-prime) is a variant and must not win
+  // just by coming first.
+  for (const [cNorm, keys] of index.normalized) {
+    if (!strippedVariants(cNorm, true).includes(norm)) continue;
+    const k = keys?.[0];
+    const v = k ? index.candidates.get(k) : undefined;
+    if (k && v !== undefined) return { key: k, value: v, score: 1.0 };
+  }
   for (const [cNorm, keys] of index.normalized) {
     for (const variant of strippedVariants(cNorm)) {
       // Exact match on the candidate's own stripped form, so this is the same model by
