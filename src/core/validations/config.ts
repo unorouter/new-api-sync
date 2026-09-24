@@ -314,6 +314,9 @@ export const ConfigSchema = T.Object({
   // pure rebrands/aliases (e.g. deepseek-v3.2-exp == deepseek-v3.2) where the alias
   // has no independent upstream source. Keyed by the base PUBLISHED name.
   modelAlias: Opt(T.Record(T.String(), T.Array(str))),
+  // Deepest discount a paid lane may sell at, keyed by published model glob: grok at 0.95
+  // keeps every grok lane at 5% of list or more, however cheap the relay is.
+  maxDiscount: Opt(T.Record(T.String(), T.Number({ minimum: 0, maximum: 1 }))),
   // Inject a channel-level system prompt on every channel whose PUBLISHED model
   // matches the glob. `override` (default false) prepends ours to a user-supplied
   // system message; false only injects when the request carries none. Keyed by

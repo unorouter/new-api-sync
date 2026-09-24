@@ -39,6 +39,7 @@ interface ComputeArgs {
   reverseMapping: Map<string, string>;
   modelMapping: Record<string, string>;
   modelAlias?: Record<string, string[]>;
+  maxDiscount?: Record<string, number>;
   systemPrompt?: { models: string[]; prompt: string; override?: boolean; providers?: string[] }[];
   channelParamOverride?: ChannelParamOverrideRule[];
   /** Per-provider scheduled-test cadence, keyed by provider name. */
@@ -410,6 +411,7 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
       sourced,
     );
   capAbove1x(tiers, modelRatios, canonical, drops);
+  floorDiscount(tiers, args.maxDiscount);
   return { tiers, modelRatios, drops };
 }
 
@@ -468,6 +470,19 @@ function capAbove1x(
   }
   for (let i = tiers.length - 1; i >= 0; i--)
     if (tiers[i]!.models.length === 0) tiers.splice(i, 1);
+}
+
+function floorDiscount(
+  tiers: PricedTier[],
+  maxDiscount: Record<string, number> | undefined,
+): void {
+  if (!maxDiscount) return;
+  for (const tier of tiers) {
+    if (tier.groupRatio <= 0) continue;
+    for (const [pattern, discount] of Object.entries(maxDiscount))
+      if (tier.models.some((m) => matchesAnyPattern(m, [pattern])))
+        tier.groupRatio = Math.max(tier.groupRatio, bucketKey(1 - discount));
+  }
 }
 
 function processStandardOffer(

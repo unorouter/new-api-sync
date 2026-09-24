@@ -259,6 +259,7 @@ async function buildDesiredState(
     reverseMapping,
     modelMapping: config.modelMapping,
     modelAlias: config.modelAlias,
+    maxDiscount: config.maxDiscount,
     systemPrompt: config.systemPrompt,
     channelParamOverride: config.channelParamOverride,
     autoTestIntervalByProvider,
