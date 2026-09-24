@@ -1319,6 +1319,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   },
   {
+    kind: "anyapi",
+    label: "AnyAPI",
+    // api.anyapi.ai - OpenAI-compat reseller whose free ids are OpenRouter's
+    // :free slugs; they throttle hard (429 throttling_error), so lanes ride
+    // acceptRateLimited and the gateway's auto test.
+    defaultBaseUrl: "https://api.anyapi.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-...",
+  },
+  {
     kind: "routeway",
     label: "Routeway",
     // api.routeway.ai - OpenAI-compat gateway. Free plan: the :free ids only, at
