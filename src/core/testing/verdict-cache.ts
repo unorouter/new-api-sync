@@ -43,6 +43,9 @@ export interface VerdictEntry {
   failedAt?: string;
   // Fail came from a 429, 5xx or timeout: retried after TEST_FAIL_TRANSIENT_TTL_HOURS.
   failTransient?: boolean;
+  // HTTP status of that fail, so a cached fail is judged by acceptRateLimited
+  // exactly like the fresh probe it replays.
+  failStatus?: number;
   // A fail withdrawn by clearTestFail. Stamped so the merge does not resurrect
   // the store's copy of the fail, whose failedAt would otherwise be newest.
   failClearedAt?: string;
@@ -441,6 +444,7 @@ export function recordTestVerdict(opts: {
   /** False when the tool verdict was replayed from the cache (evidence not refreshed). */
   toolFresh: boolean;
   transientFail?: boolean;
+  failStatus?: number;
 }): void {
   const prior = cache.get(opts.key);
   const entry: VerdictEntry = prior ?? { key: opts.key, since: today() };
@@ -451,6 +455,7 @@ export function recordTestVerdict(opts: {
     entry.testedAt = today();
     delete entry.failedAt;
     delete entry.failTransient;
+    delete entry.failStatus;
   } else {
     delete entry.success;
     delete entry.streamSuccess;
@@ -458,6 +463,8 @@ export function recordTestVerdict(opts: {
     delete entry.failClearedAt;
     if (opts.transientFail) entry.failTransient = true;
     else delete entry.failTransient;
+    if (opts.failStatus !== undefined) entry.failStatus = opts.failStatus;
+    else delete entry.failStatus;
   }
   if (opts.toolFresh && opts.toolCallSuccess !== null) {
     entry.toolCallSuccess = opts.toolCallSuccess;
@@ -480,6 +487,7 @@ export function clearTestFail(key: string): void {
   if (!entry?.failedAt) return;
   delete entry.failedAt;
   delete entry.failTransient;
+  delete entry.failStatus;
   entry.failClearedAt = new Date().toISOString();
   persist();
 }

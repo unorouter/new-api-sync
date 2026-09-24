@@ -394,6 +394,7 @@ async function testModels(opts: {
             null,
             null,
             false,
+            cached?.failStatus,
           );
         }
         const cachedTool =
@@ -551,6 +552,7 @@ async function testModels(opts: {
           toolParallel,
           toolFresh: cachedTool === null,
           transientFail: !success && isTransientStatus(httpResult.status),
+          failStatus: httpResult.status,
         });
 
         addTestResult({
