@@ -1,3 +1,4 @@
+import { matchesAnyPattern } from "@core/catalog/constants/patterns";
 import type { Channel, MergedGroup, MergedModel } from "@core/types";
 import { t } from "@server/i18n";
 import type { BaselineInputs, PricedPlan, PricedTier } from "./types";
@@ -5,6 +6,7 @@ import type { BaselineInputs, PricedPlan, PricedTier } from "./types";
 interface EmitArgs {
   plan: PricedPlan;
   baseline: BaselineInputs;
+  noAutoBan?: string[];
 }
 
 interface EmitResult {
@@ -38,6 +40,7 @@ export function emitChannels(args: EmitArgs): EmitResult {
 
   const channels: Channel[] = [];
   const mergedGroups: MergedGroup[] = [];
+  const noAutoBan = args.noAutoBan ?? [];
 
   for (const tier of liveTiers) {
     mergedGroups.push({
@@ -66,6 +69,9 @@ export function emitChannels(args: EmitArgs): EmitResult {
       setting: buildSettingJson(tier),
       param_override: tier.paramOverride,
       header_override: tier.headerOverride,
+      ...(tier.models.some((m) => matchesAnyPattern(m, noAutoBan))
+        ? { auto_ban: 0 }
+        : {}),
     });
   }
 

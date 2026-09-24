@@ -282,6 +282,7 @@ async function buildDesiredState(
   const { mergedGroups, mergedModels, channels } = emitChannels({
     plan,
     baseline,
+    noAutoBan: config.noAutoBan,
   });
   // A live lane the run did not re-select keeps serving at its old ratio, and
   // cheapest-first routing would prefer it over the repriced ones.
