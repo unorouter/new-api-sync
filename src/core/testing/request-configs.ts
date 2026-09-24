@@ -39,10 +39,12 @@ const tokenBudget = (model: string, n: number) =>
     ? { max_completion_tokens: n }
     : { max_tokens: n };
 const noError = (data: unknown) => !(data as ErrorEnvelope).error;
-const jsonBearer = (apiKey: string) => ({
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${apiKey}`,
-});
+// Mirrors the gateway, which sends no Authorization for a keyless channel:
+// api.kilo.ai 401s any Bearer at all, even on its free models.
+const jsonBearer = (apiKey: string): Record<string, string> =>
+  apiKey === "keyless"
+    ? { "Content-Type": "application/json" }
+    : { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` };
 const jsonAnthropic = (apiKey: string) => ({
   "Content-Type": "application/json",
   "x-api-key": apiKey,
