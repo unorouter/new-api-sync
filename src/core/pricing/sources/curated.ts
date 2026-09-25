@@ -98,10 +98,30 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // and 5120 tokens" and output at [2, 2048], which is what the "-8k" in the name adds up
   // to, so contextWindow is that sum rather than a figure Baidu states outright.
   // Axon Labs publishes no model card; context and the reasoning levels (none to max)
-  // come from the creator's own announcement to us.
-  "axon-1.8-lightning": { contextWindow: 512_000, series: "Axon", isReasoning: true },
-  "axon-1.8-flash": { contextWindow: 512_000, series: "Axon", isReasoning: true },
-  "axon-1.8-pro": { contextWindow: 512_000, series: "Axon", isReasoning: true },
+  // come from the creator's own announcement to us. 1.8 went public with the
+  // anymousxe/axon-cli release of 2026-09-19; Pro is early access, first offered to
+  // us on 2026-09-21 before Axon's own site carried it.
+  "axon-1.8-lightning": {
+    releaseDate: iso("2026-09-19"),
+    contextWindow: 512_000,
+    series: "Axon",
+    isReasoning: true,
+    description: "Axon 1.8 Lightning is the fastest and cheapest model in Axon Labs' 1.8 line, built for quick answers and high-volume chat, with optional reasoning from none up to max.",
+  },
+  "axon-1.8-flash": {
+    releaseDate: iso("2026-09-19"),
+    contextWindow: 512_000,
+    series: "Axon",
+    isReasoning: true,
+    description: "Axon 1.8 Flash is Axon Labs' general-purpose model: fast by default with no extra reasoning unless requested, tool calling, and a 512K context window.",
+  },
+  "axon-1.8-pro": {
+    releaseDate: iso("2026-09-21"),
+    contextWindow: 512_000,
+    series: "Axon",
+    isReasoning: true,
+    description: "Axon 1.8 Pro is the early-access flagship of Axon Labs' 1.8 line, a large mixture-of-experts model for harder reasoning and coding, available on UnoRouter before Axon's own site.",
+  },
   "ernie-5.0": {
     // Baidu World 2025. The 2.4T technical report is dated 2026-02-06, so GA likely
     // trails the announcement; the announcement date is the one users recognise.
