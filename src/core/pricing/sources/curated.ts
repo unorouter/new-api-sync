@@ -97,9 +97,6 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // The V1 pages never print a single context number. They cap input at "20000 characters
   // and 5120 tokens" and output at [2, 2048], which is what the "-8k" in the name adds up
   // to, so contextWindow is that sum rather than a figure Baidu states outright.
-  // Our mistral-small lanes serve mistral-small-2603 (Small 4); the sources' bare
-  // mistral-small entry is Small 3 from 2025-01.
-  "mistral-small": { releaseDate: iso("2026-03-16") },
   // Axon Labs publishes no model card; context and the reasoning levels (none to max)
   // come from the creator's own announcement to us.
   "axon-1.8-lightning": { contextWindow: 512_000, series: "Axon", isReasoning: true },
