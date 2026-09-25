@@ -1813,8 +1813,14 @@ const CURATED: Record<string, SourceMetadata> = {
   // Upstream supports tool calls, but the only lane is k2think.ai's guest route,
   // which rejects any tools field.
   // LoreBary's built-in model: identifies as Google, ends turns on Gemma's token 106,
-  // and every request carries a hidden roleplay directive.
+  // and every request carries a hidden roleplay directive. No launch date is published;
+  // the date is LoreBary 2.0 (2025-12-14), the release that added built-in models.
+  // Context and output are the external API caps from lorebary.com/academy/proxies/lorellm.
   lorellm: {
+    releaseDate: iso("2025-12-14"),
+    contextWindow: 16_000,
+    maxInputTokens: 16_000,
+    maxOutputTokens: 4_000,
     series: "LoreLLM",
     supportsTools: false,
     description:
