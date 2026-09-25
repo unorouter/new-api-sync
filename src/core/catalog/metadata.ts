@@ -215,13 +215,18 @@ export function buildFuzzyIndex<T>(candidates: Map<string, T>): FuzzyIndex<T> {
   return { candidates, normalized };
 }
 
+// exact: the candidate is this model (same name up to a date or a known suffix),
+// not a sibling reached by dropping a word (minimax-m2-her -> minimax-m2).
+type LookupHit<T> = { key: string; value: T; score: number; exact: boolean };
+
 function fuzzyLookup<T>(
   name: string,
   index: FuzzyIndex<T>,
   threshold = 0.75,
-): { key: string; value: T; score: number } | undefined {
+): LookupHit<T> | undefined {
   const norm = normalize(name);
-  type Hit = { key: string; value: T; score: number };
+  type Hit = LookupHit<T>;
+  const sameModel = new Set(strippedVariants(norm, true));
   const score = (keys: string[] | undefined): Hit | undefined => {
     const k = keys?.[0];
     if (!k) return undefined;
@@ -229,12 +234,12 @@ function fuzzyLookup<T>(
     if (v === undefined || tierSuffixMismatch(norm, normalize(k)))
       return undefined;
     const s = similarity(name, k);
-    return s < threshold ? undefined : { key: k, value: v, score: s };
+    return s < threshold ? undefined : { key: k, value: v, score: s, exact: false };
   };
   const exactKey = index.normalized.get(norm)?.[0];
   if (exactKey) {
     const v = index.candidates.get(exactKey);
-    if (v !== undefined) return { key: exactKey, value: v, score: 1.0 };
+    if (v !== undefined) return { key: exactKey, value: v, score: 1.0, exact: true };
   }
   for (const variant of strippedVariants(norm)) {
     // A stripped variant that EXACTLY equals a candidate's normalized key is a
@@ -250,7 +255,8 @@ function fuzzyLookup<T>(
     // similarity path below, where the two names are genuinely unrelated.
     if (directKey) {
       const v = index.candidates.get(directKey);
-      if (v !== undefined) return { key: directKey, value: v, score: 1.0 };
+      if (v !== undefined)
+        return { key: directKey, value: v, score: 1.0, exact: sameModel.has(variant) };
     }
     const hit = score(keys);
     if (hit) return hit;
@@ -266,7 +272,7 @@ function fuzzyLookup<T>(
     if (!strippedVariants(cNorm, true).includes(norm)) continue;
     const k = keys?.[0];
     const v = k ? index.candidates.get(k) : undefined;
-    if (k && v !== undefined) return { key: k, value: v, score: 1.0 };
+    if (k && v !== undefined) return { key: k, value: v, score: 1.0, exact: true };
   }
   for (const [cNorm, keys] of index.normalized) {
     for (const variant of strippedVariants(cNorm)) {
@@ -277,7 +283,7 @@ function fuzzyLookup<T>(
       if (variant === norm) {
         const k = keys?.[0];
         const v = k ? index.candidates.get(k) : undefined;
-        if (k && v !== undefined) consider({ key: k, value: v, score: 1.0 });
+        if (k && v !== undefined) consider({ key: k, value: v, score: 1.0, exact: false });
         break;
       }
     }
@@ -294,7 +300,7 @@ export function lookup<T>(
   modelName: string,
   index: FuzzyIndex<T>,
   reverseMapping: Map<string, string>,
-): { key: string; value: T; score: number } | undefined {
+): LookupHit<T> | undefined {
   const result = fuzzyLookup(modelName, index);
   if (result) return result;
   const originalName = reverseMapping.get(modelName);
@@ -371,8 +377,12 @@ export function buildMetadataMap(opts: {
 
   for (const modelName of opts.modelNames) {
     const meta: ModelMetadata = {};
-    const orResult = lookup(modelName, orIndex, reverseMapping);
-    const blmResult = lookup(modelName, blmIndex, reverseMapping);
+    const orHit = lookup(modelName, orIndex, reverseMapping);
+    const blmHit = lookup(modelName, blmIndex, reverseMapping);
+    // A sibling's OpenRouter blurb must not beat basellm's text for the model itself.
+    const siblingOnly = !orHit?.exact && blmHit?.exact && blmHit.value.description;
+    const orResult = siblingOnly ? undefined : orHit;
+    const blmResult = blmHit;
     if (orResult) {
       meta.description = orResult.value;
       counters.orHits++;

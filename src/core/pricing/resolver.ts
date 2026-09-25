@@ -117,18 +117,28 @@ function resolveOneName(
   reverseMapping: Map<string, string>,
 ): ResolvedMetadata {
   const merged: SourceMetadata = {};
-  for (let i = sources.length - 1; i >= 0; i--) {
-    const hit = lookup(modelName, sources[i]!.metadata, reverseMapping);
+  const hits = sources.map((s) => lookup(modelName, s.metadata, reverseMapping));
+  // A source lacking this model falls back to a sibling (minimax-m2-her -> minimax-m2).
+  // Sibling fields only fill gaps: every exact hit applies after them, whatever its
+  // source priority, so the model's own context and description always win.
+  const order = [...hits.keys()]
+    .reverse()
+    .sort((a, b) => Number(hits[a]?.exact ?? false) - Number(hits[b]?.exact ?? false));
+  let descriptionExact = false;
+  for (const i of order) {
+    const hit = hits[i];
     if (!hit) continue;
     const incoming = hit.value;
     // Higher priority applies last; keep an existing full description when the
-    // incoming one is truncated.
-    if (
+    // incoming one is truncated, but only one written for this same model.
+    const keepDescription =
       incoming.description &&
       merged.description &&
       looksTruncated(incoming.description) &&
-      !looksTruncated(merged.description)
-    ) {
+      !looksTruncated(merged.description) &&
+      (descriptionExact || !hit.exact);
+    if (incoming.description && !keepDescription) descriptionExact = hit.exact;
+    if (keepDescription) {
       const keep = merged.description;
       Object.assign(merged, incoming);
       merged.description = keep;
