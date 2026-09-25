@@ -181,5 +181,8 @@ export interface ModelTestDetail {
   toolParallel: boolean | null;
   authenticityProbed: boolean;
   httpStatus?: number;
+  /** Failed HTTP probe only: the start of the upstream's error, for callers that
+   *  must tell an empty wallet from a dead lane. */
+  errorText?: string;
   channelType: number;
 }

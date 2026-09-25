@@ -10,7 +10,7 @@ import type {
   ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import { testAndFilterModels } from "@core/testing/runner";
+import { isBalanceError, testAndFilterModels } from "@core/testing/runner";
 import type { ProviderReport } from "@core/types";
 import type { IhProviderConfig } from "@core/validations/config";
 import {
@@ -196,6 +196,7 @@ export async function processIhProvider(
 
     // One probe set per lane, carrying its bid: without it the relay routes to
     // its best-scoring provider, which is not the one the lane is priced on.
+    let balanceErrors = 0;
     for (const lane of lanes) {
       const probe = await testAndFilterModels({
         allModels: [lane.upstream],
@@ -208,6 +209,7 @@ export async function processIhProvider(
         familyOf: bareModelId,
         ...(lane.probeHeaders ? { extraHeaders: lane.probeHeaders } : {}),
       });
+      if (probe.details?.some(isBalanceError)) balanceErrors++;
       if (!probe.workingModels.includes(lane.upstream)) continue;
       const testDetail = probe.details?.find((d) => d.model === lane.upstream);
       const probed: FallbackLane = {
@@ -231,6 +233,13 @@ export async function processIhProvider(
     report.models = new Set(lanes.map((l) => l.exposed)).size;
     report.success = offers.length > 0;
     if (!report.success) report.error = t("CORE.ERROR.NO_WORKING_MODELS");
+    // An empty wallet fails every probe; the lanes are not dead, so keep them.
+    // One lane's own quota answer is ordinary, so it takes half the run.
+    if (balanceErrors > 0 && balanceErrors * 2 >= lanes.length) {
+      report.deletesWithheld = true;
+      report.error = t("CORE.ERROR.BALANCE_EMPTY_DELETES_WITHHELD", { name, count: balanceErrors });
+      consola.warn(report.error);
+    }
     consola.info(
       t("CORE.FALLBACK.SUMMARY", {
         name,

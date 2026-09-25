@@ -615,6 +615,8 @@
       "ALL_MODELS_FILTERED_SHORT": "所有模型已被过滤",
       "NO_MODELS_FOUND": "未找到模型",
       "NO_WORKING_MODELS": "没有可用模型",
+      "WALLET_EMPTY_SKIPPED": "{name}：我方余额为空；充值前线路保持不变",
+      "BALANCE_EMPTY_DELETES_WITHHELD": "{name}：{count} 个探测返回我方余额不足；已保留线路，充值前暂停删除",
       "NO_WORKING_MODELS_SPLIT": "没有可用模型（文本 0/{textTotal} 通过，图像 {imageCount}）",
       "API_UNREACHABLE": "无法访问 API"
     },

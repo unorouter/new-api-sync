@@ -615,6 +615,8 @@
       "ALL_MODELS_FILTERED_SHORT": "All models filtered out",
       "NO_MODELS_FOUND": "No models found",
       "NO_WORKING_MODELS": "No working models",
+      "WALLET_EMPTY_SKIPPED": "{name}: our wallet there is empty; lanes left as they are until it is topped up",
+      "BALANCE_EMPTY_DELETES_WITHHELD": "{name}: {count} probe(s) answered that our balance there is empty; lanes kept, deletes withheld until it is topped up",
       "NO_WORKING_MODELS_SPLIT": "No working models (0/{textTotal} text passed, {imageCount} image)",
       "API_UNREACHABLE": "Failed to reach API"
     },

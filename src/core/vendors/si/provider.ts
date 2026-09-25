@@ -10,7 +10,7 @@ import type {
   ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import { testAndFilterModels } from "@core/testing/runner";
+import { isBalanceError, testAndFilterModels } from "@core/testing/runner";
 import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
 import type { SiProviderConfig } from "@core/validations/config";
@@ -245,6 +245,7 @@ export async function processSiProvider(
     // is cheapest instead of the ones the lane will reach.
     const details = new Map<string, ModelTestDetail | undefined>();
     const throttled = new Set<string>();
+    let balanceErrors = 0;
     for (const lane of lanes) {
       const probe = await testAndFilterModels({
         allModels: [lane.upstream],
@@ -256,6 +257,7 @@ export async function processSiProvider(
         acceptRateLimited: provider.acceptRateLimited ?? false,
         extraBody: lane.probeBody,
       });
+      if (probe.details?.some(isBalanceError)) balanceErrors++;
       if (!probe.workingModels.includes(lane.upstream)) continue;
       details.set(
         lane.upstream,
@@ -287,6 +289,13 @@ export async function processSiProvider(
     report.models = new Set(lanes.map((l) => l.exposed)).size;
     report.success = offers.length > 0;
     if (!report.success) report.error = t("CORE.ERROR.NO_WORKING_MODELS");
+    // An empty wallet fails every probe; the lanes are not dead, so keep them.
+    // One lane's own quota answer is ordinary, so it takes half the run.
+    if (balanceErrors > 0 && balanceErrors * 2 >= lanes.length) {
+      report.deletesWithheld = true;
+      report.error = t("CORE.ERROR.BALANCE_EMPTY_DELETES_WITHHELD", { name, count: balanceErrors });
+      consola.warn(report.error);
+    }
     consola.info(
       t("CORE.FALLBACK.SUMMARY", {
         name,

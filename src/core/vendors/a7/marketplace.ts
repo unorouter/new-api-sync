@@ -74,6 +74,23 @@ export function marketplaceHeaders(
 const LISTING_TIMEOUT_MS = 120_000;
 const LISTING_CONCURRENCY = 3;
 
+interface SelfResponse {
+  success?: boolean;
+  data?: { quota?: number };
+}
+
+/** Our a7 wallet in quota units; null when the account endpoint did not answer. */
+export async function fetchA7Quota(
+  provider: A7ProviderConfig,
+): Promise<number | null> {
+  const url = `${provider.baseUrl.replace(/\/$/, "")}/api/user/self`;
+  const body = await tryFetchJson<SelfResponse>(url, {
+    headers: marketplaceHeaders(provider),
+    timeoutMs: 30_000,
+  });
+  return typeof body?.data?.quota === "number" ? body.data.quota : null;
+}
+
 interface PricingResponse {
   success?: boolean;
   data?: { model_name?: string }[];

@@ -24,6 +24,7 @@ import {
   DEFAULT_MAX_SELL_FRACTION,
   DEFAULT_PROFIT_MULTIPLE,
   fetchListingsByModel,
+  fetchA7Quota,
   fetchMarketplaceModelNames,
   resolveMarketplaceModels,
   selectMerchants,
@@ -279,6 +280,21 @@ export async function processA7Provider(
   const dryRun = ctx.dryRun ?? false;
 
   try {
+    // An empty wallet fails every probe with a quota answer, and the walk would
+    // then delete every lane and its pinned token. The lanes are fine; wait for
+    // the top-up instead.
+    const quota = dryRun ? null : await fetchA7Quota(provider);
+    if (quota !== null && quota <= 0) {
+      report.deletesWithheld = true;
+      report.error = t("CORE.ERROR.WALLET_EMPTY_SKIPPED", { name });
+      consola.warn(`[${name}] ${report.error}`);
+      return {
+        report,
+        offers,
+        endpointMetadata: { endpointPaths: new Map() },
+        extraGroups,
+      };
+    }
     const marketNames = await fetchMarketplaceModelNames(provider);
     const wantedModels = marketNames
       ? resolveMarketplaceModels(provider, config, marketNames)

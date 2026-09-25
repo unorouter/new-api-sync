@@ -239,7 +239,16 @@ const HTTP_CONFIG_BY_TYPE = {
 } as const;
 
 // prettier-ignore
-const mkDetail = (model: string, channelType: number, success: boolean, streamSuccess: boolean | null, toolCallSuccess: boolean | null, toolParallel: boolean | null, authenticityProbed: boolean, httpStatus?: number): ModelTestDetail => ({ model, success, streamSuccess, toolCallSuccess, toolParallel, authenticityProbed, channelType, ...(httpStatus !== undefined && { httpStatus }) });
+const mkDetail = (model: string, channelType: number, success: boolean, streamSuccess: boolean | null, toolCallSuccess: boolean | null, toolParallel: boolean | null, authenticityProbed: boolean, httpStatus?: number, errorText?: string): ModelTestDetail => ({ model, success, streamSuccess, toolCallSuccess, toolParallel, authenticityProbed, channelType, ...(httpStatus !== undefined && { httpStatus }), ...(errorText && { errorText }) });
+
+const exchangeErrorText = (r: TestExchange): string =>
+  (typeof r.response === "string" ? r.response : JSON.stringify(r.response ?? r.error ?? "")).slice(0, 300);
+
+// Balance-type answers: the caller's own wallet at that upstream is empty, which
+// says nothing about whether the lane works.
+const BALANCE_ERROR_RE = /可用额度不足|余额不足|额度不足|insufficient[_ ](user_)?(quota|balance|credit)|no credits available|out of credits|credit balance is too low/i;
+export const isBalanceError = (d: ModelTestDetail): boolean =>
+  !d.success && d.errorText !== undefined && BALANCE_ERROR_RE.test(d.errorText);
 
 // Rate limits, gateway errors and timeouts clear within hours; a 4xx, a wrong
 // model or a substitution does not.
@@ -593,6 +602,7 @@ async function testModels(opts: {
           toolParallel,
           identityChecked && (success || streamSuccess === true),
           httpResult.status,
+          finalSuccess ? undefined : exchangeErrorText(httpResult),
         );
       }),
     ),
