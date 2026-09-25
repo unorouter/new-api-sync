@@ -12,6 +12,7 @@ import {
 } from "./shared/openai-free-provider";
 import { discoverBynaraModels } from "./bynara/discovery";
 import { discoverChatatModels } from "./chatat/discovery";
+import { discoverLorebaryModels } from "./lorebary/discovery";
 import { discoverDahlModels } from "./dahl/discovery";
 import { discoverGonkaBrokerModels } from "./gonkabroker/discovery";
 import { discoverModelScopeModels } from "./modelscope/discovery";
@@ -249,6 +250,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   privatemode: discoverBynaraModels,
   axon: discoverBynaraModels,
   anyapi: discoverRoutewayModels,
+  lorebary: discoverLorebaryModels,
   hcnsec: discoverBynaraModels,
   tokenrouter: discoverBynaraModels,
   modal: discoverBynaraModels,
