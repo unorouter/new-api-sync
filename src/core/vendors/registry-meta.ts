@@ -1309,6 +1309,15 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-k2-...",
   },
   {
+    kind: "axon",
+    label: "Axon",
+    // Axon Labs' own API on a Cloudflare Worker. The creator funded our key and
+    // asked for the models on UnoRouter, so the lane costs us nothing.
+    defaultBaseUrl: "https://axon-api.anymousxe-info.workers.dev",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "axk-…",
+  },
+  {
     kind: "privatemode",
     label: "Privatemode",
     // pm1.coding-global.com - Privatemode's own attesting proxy

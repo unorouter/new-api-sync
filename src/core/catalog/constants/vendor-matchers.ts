@@ -39,6 +39,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   minimax: { modelPatterns: ["abab","minimax-"], displayName: "MiniMax", icon: "Minimax.Color" },
   moonshot: { modelPatterns: ["moonshot-","kimi-","kimi","k2.6","k2-"], nameAliases: ["月之暗面","kimi"], displayName: "Moonshot", icon: "Moonshot" },
   // Moonshot's bare "k2-" would otherwise claim MBZUAI IFM's K2 models.
+  axon: { modelPatterns: ["axon-"], strongPatterns: ["axon-"], nameAliases: ["axon","axon-labs"], displayName: "Axon Labs" },
   ifm: { modelPatterns: ["k2-horizon"], strongPatterns: ["k2-horizon"], nameAliases: ["ifm","mbzuai"], displayName: "IFM" },
   zhipu: { modelPatterns: ["glm-","glm4","glm5","glm6","chatglm","cogview","cogvideo","cogagent"], nameAliases: ["智谱","zhipu ai","chatglm","z.ai","z-ai","zai"], displayName: "Zhipu", icon: "Zhipu.Color" },
   perplexity: { modelPatterns: ["sonar"], displayName: "Perplexity", icon: "Perplexity.Color" },

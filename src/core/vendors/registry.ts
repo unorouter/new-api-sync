@@ -247,6 +247,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   chatat: discoverChatatModels,
   k2: discoverBynaraModels,
   privatemode: discoverBynaraModels,
+  axon: discoverBynaraModels,
   anyapi: discoverRoutewayModels,
   hcnsec: discoverBynaraModels,
   tokenrouter: discoverBynaraModels,

@@ -97,6 +97,11 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   // The V1 pages never print a single context number. They cap input at "20000 characters
   // and 5120 tokens" and output at [2, 2048], which is what the "-8k" in the name adds up
   // to, so contextWindow is that sum rather than a figure Baidu states outright.
+  // Axon Labs publishes no model card; context and the reasoning levels (none to max)
+  // come from the creator's own announcement to us.
+  "axon-1.8-lightning": { contextWindow: 512_000, series: "Axon", isReasoning: true },
+  "axon-1.8-flash": { contextWindow: 512_000, series: "Axon", isReasoning: true },
+  "axon-1.8-pro": { contextWindow: 512_000, series: "Axon", isReasoning: true },
   "ernie-5.0": {
     // Baidu World 2025. The 2.4T technical report is dated 2026-02-06, so GA likely
     // trails the announcement; the announcement date is the one users recognise.
