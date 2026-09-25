@@ -1792,6 +1792,14 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // Upstream supports tool calls, but the only lane is k2think.ai's guest route,
   // which rejects any tools field.
+  // LoreBary's built-in model: identifies as Google, ends turns on Gemma's token 106,
+  // and every request carries a hidden roleplay directive.
+  lorellm: {
+    series: "LoreLLM",
+    supportsTools: false,
+    description:
+      "LoreBary's free built-in roleplay model, a Gemma based model tuned for character chat with a fixed roleplay directive on every request.",
+  },
   "k2-horizon": {
     releaseDate: iso("2026-09-03"),
     contextWindow: 524_288,

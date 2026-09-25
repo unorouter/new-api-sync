@@ -1328,6 +1328,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   },
   {
+    kind: "lorebary",
+    label: "LoreBary",
+    // api.lorebary.com/lorellm - LoreBary's free built-in roleplay model (Gemma based,
+    // vLLM), keyed per user. Every request carries a hidden ~480 token roleplay
+    // directive, so it suits character chat, not tools.
+    defaultBaseUrl: "https://api.lorebary.com/lorellm",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "lb-...",
+  },
+  {
     kind: "anyapi",
     label: "AnyAPI",
     // api.anyapi.ai - OpenAI-compat reseller whose free ids are OpenRouter's
