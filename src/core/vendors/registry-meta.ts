@@ -1348,6 +1348,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "sk-...",
   },
   {
+    kind: "apinex",
+    label: "APInex",
+    // api.apinex.bond - OpenAI-compat reseller. Free ids are `free/<model>` at 5 requests
+    // a minute per key; every reply self reports as "<model> provided via APInex", so
+    // identity probes learn nothing and the answer fingerprint decides.
+    defaultBaseUrl: "https://api.apinex.bond",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-apx...",
+  },
+  {
     kind: "routeway",
     label: "Routeway",
     // api.routeway.ai - OpenAI-compat gateway. Free plan: the :free ids only, at
