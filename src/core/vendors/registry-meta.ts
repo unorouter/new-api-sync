@@ -1328,6 +1328,15 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   },
   {
+    kind: "tokenharbor",
+    label: "Token Harbor",
+    // tokenharbor.ai - gateway with explicit :free routes (DeepSeek V4.x Flash, MiMo,
+    // Qwen3.8 Flash) on a weekly free allowance; free routes may be logged.
+    defaultBaseUrl: "https://tokenharbor.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "thk_live_...",
+  },
+  {
     kind: "blablador",
     label: "Blablador",
     // api.blablador.fz-juelich.de - Helmholtz Blablador (FZ Juelich), free for
