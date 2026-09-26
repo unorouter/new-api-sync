@@ -1816,6 +1816,16 @@ const CURATED: Record<string, SourceMetadata> = {
   // and every request carries a hidden roleplay directive. No launch date is published;
   // the date is LoreBary 2.0 (2025-12-14), the release that added built-in models.
   // Context and output are the external API caps from lorebary.com/academy/proxies/lorellm.
+  // Atria ASI preview model; self-reports Shanghai AI Lab. Specs from api.atria-asi.ai/docs;
+  // the date is its public launch post (r/opencodeCLI), not a published release date.
+  "atria-dawn-preview": {
+    releaseDate: iso("2026-09-15"),
+    contextWindow: 256_000,
+    maxInputTokens: 256_000,
+    isReasoning: true,
+    description:
+      "Atria Dawn Preview, a reasoning model for research, engineering and long running agent tasks, served by Atria ASI in preview.",
+  },
   lorellm: {
     releaseDate: iso("2025-12-14"),
     contextWindow: 16_000,

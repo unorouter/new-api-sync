@@ -258,6 +258,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   tokenharbor: discoverRoutewayModels,
   linkapi: discoverBynaraModels,
   literouter: discoverRoutewayModels,
+  atria: discoverBynaraModels,
   hcnsec: discoverBynaraModels,
   tokenrouter: discoverBynaraModels,
   modal: discoverBynaraModels,

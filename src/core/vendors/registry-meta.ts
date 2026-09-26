@@ -1328,6 +1328,15 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   },
   {
+    kind: "atria",
+    label: "Atria ASI",
+    // api.atria-asi.ai - preview API for Atria-Dawn-Preview (self-reports Shanghai AI
+    // Lab), 100M free tokens per account on signup, Google login.
+    defaultBaseUrl: "https://api.atria-asi.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "atr_...",
+  },
+  {
     kind: "literouter",
     label: "LiteRouter",
     // api.literouter.com - Eqlyx LLC gateway; free accounts get the :free ids with
