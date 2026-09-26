@@ -1328,6 +1328,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   },
   {
+    kind: "blablador",
+    label: "Blablador",
+    // api.blablador.fz-juelich.de - Helmholtz Blablador (FZ Juelich), free for
+    // Helmholtz ID users; the key is a Helmholtz Codebase personal access token
+    // with read_user scope. External users get 15 to 30 requests a minute.
+    defaultBaseUrl: "https://api.blablador.fz-juelich.de",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "glpat-...",
+  },
+  {
     kind: "lorebary",
     label: "LoreBary",
     // api.lorebary.com/lorellm - LoreBary's free built-in roleplay model (Gemma based,
