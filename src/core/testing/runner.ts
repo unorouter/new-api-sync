@@ -463,7 +463,9 @@ async function testModels(opts: {
         // asked for. Only the echoed model name catches it (bcc1 "hyper" served
         // opus-4-6 for both opus-4-8 and opus-4-7).
         const served = servedModel(httpResult) ?? servedModel(streamResult);
-        const substituted = served !== null && !modelsMatch(model, served);
+        // Relays tag free routes as "[free]model" and echo the plain upstream id.
+        const substituted =
+          served !== null && !modelsMatch(model.replace(/^\[[^\]]*\]/, ""), served);
         if (substituted) {
           consola.warn(
             `[${prefix}] ${model}: ${t("CORE.TESTER.ERR_MODEL_SUBSTITUTED", { got: served })}`,
