@@ -240,14 +240,56 @@ export async function cleanupStaleLaneTokens(
 }
 
 async function listPins(provider: A7ProviderConfig): Promise<PinRecord[]> {
+  return (await fetchPins(provider)) ?? [];
+}
+
+// null when a7 did not answer, so a caller can tell "no pins" from "unknown".
+async function fetchPins(
+  provider: A7ProviderConfig,
+): Promise<PinRecord[] | null> {
   const url = `${provider.baseUrl.replace(/\/$/, "")}/api/marketplace/pins`;
   const body = await tryFetchJson<PinsResponse>(url, {
     headers: marketplaceHeaders(provider),
     timeoutMs: 30_000,
   });
-  if (!body?.success) return [];
+  if (!body?.success) return null;
   const data = body.data;
   return Array.isArray(data) ? data : (data?.items ?? []);
+}
+
+const laneSuffix = (name: string) => name.toLowerCase().replace(/\./g, "-");
+
+// A lane key whose pin is gone (merchant delisted, pin POST lost to a throttle)
+// is an ordinary a7 key: a7 smart-routes it to any merchant at that merchant's
+// price while the lane stays priced on the one we pinned. Nothing errors, so the
+// guard never sees it (claude-opus-5.5 on merchant 3119 ran at 1.4x instead of 5x
+// for a day). Such lanes are deleted; the next a7 sync re-pins and recreates them.
+// A deleted rather than disabled lane, because the gateway retest would pass
+// through smart routing and turn it straight back on.
+export async function retireUnpinnedLanes(
+  provider: A7ProviderConfig,
+  channels: { id?: number; name: string; tag?: string }[],
+  deleteChannel: (id: number) => Promise<boolean>,
+): Promise<{ retired: string[]; skipped?: string }> {
+  const pins = await fetchPins(provider);
+  if (pins === null) return { retired: [], skipped: "pin list unavailable" };
+  const pinnedTokens = new Set(pins.map((p) => p.token_id));
+  const unpinned = (await listTokens(clientContext(provider))).filter(
+    (t) => /^\d+-/.test(t.name) && !pinnedTokens.has(t.id),
+  );
+  const lanes = channels.filter((c) => c.tag === provider.name && c.id);
+  const doomed = lanes.filter((c) =>
+    unpinned.some((t) => laneSuffix(c.name).endsWith(`-${laneSuffix(t.name)}`)),
+  );
+  if (doomed.length > lanes.length / 4)
+    return {
+      retired: [],
+      skipped: `${doomed.length} of ${lanes.length} lanes unpinned, looks like an a7 glitch`,
+    };
+  const retired: string[] = [];
+  for (const c of doomed)
+    if (c.id && (await deleteChannel(c.id))) retired.push(c.name);
+  return { retired };
 }
 
 async function postPin(
