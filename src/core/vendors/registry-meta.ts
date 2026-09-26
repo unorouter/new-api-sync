@@ -1337,6 +1337,15 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "atr_...",
   },
   {
+    kind: "aaawinn",
+    label: "aaawinn",
+    // aaawinn.xyz - new-api relay; a key minted in its "白嫖分组" group serves
+    // deepseek-v4-pro and kimi-k3 on an empty wallet. GitHub login only.
+    defaultBaseUrl: "https://aaawinn.xyz",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-... (白嫖分组 key)",
+  },
+  {
     kind: "literouter",
     label: "LiteRouter",
     // api.literouter.com - Eqlyx LLC gateway; free accounts get the :free ids with
