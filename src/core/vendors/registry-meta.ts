@@ -1328,6 +1328,15 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   },
   {
+    kind: "literouter",
+    label: "LiteRouter",
+    // api.literouter.com - Eqlyx LLC gateway; free accounts get the :free ids with
+    // one request every 7 seconds per key and 5,000 tokens per request.
+    defaultBaseUrl: "https://api.literouter.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "64 hex chars",
+  },
+  {
     kind: "linkapi",
     label: "LinkAPI",
     // api.linkapi.ai - new-api relay whose owner funds a few [free] models. A 0
