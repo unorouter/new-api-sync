@@ -1810,12 +1810,6 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsAudio: true,
     supportsTools: true,
   },
-  // Upstream supports tool calls, but the only lane is k2think.ai's guest route,
-  // which rejects any tools field.
-  // LoreBary's built-in model: identifies as Google, ends turns on Gemma's token 106,
-  // and every request carries a hidden roleplay directive. No launch date is published;
-  // the date is LoreBary 2.0 (2025-12-14), the release that added built-in models.
-  // Context and output are the external API caps from lorebary.com/academy/proxies/lorellm.
   // Atria ASI preview model; self-reports Shanghai AI Lab. Specs from api.atria-asi.ai/docs;
   // the date is its public launch post (r/opencodeCLI), not a published release date.
   "atria-dawn-preview": {
@@ -1826,6 +1820,10 @@ const CURATED: Record<string, SourceMetadata> = {
     description:
       "Atria Dawn Preview, a reasoning model for research, engineering and long running agent tasks, served by Atria ASI in preview.",
   },
+  // LoreBary's built-in model: identifies as Google, ends turns on Gemma's token 106,
+  // and every request carries a hidden roleplay directive. No launch date is published;
+  // the date is LoreBary 2.0 (2025-12-14), the release that added built-in models.
+  // Context and output are the external API caps from lorebary.com/academy/proxies/lorellm.
   lorellm: {
     releaseDate: iso("2025-12-14"),
     contextWindow: 16_000,
@@ -1836,6 +1834,8 @@ const CURATED: Record<string, SourceMetadata> = {
     description:
       "LoreBary's free built-in roleplay model, a Gemma based model tuned for character chat with a fixed roleplay directive on every request.",
   },
+  // Upstream supports tool calls, but the only lane is k2think.ai's guest route,
+  // which rejects any tools field.
   "k2-horizon": {
     releaseDate: iso("2026-09-03"),
     contextWindow: 524_288,
