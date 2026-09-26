@@ -1328,6 +1328,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   },
   {
+    kind: "linkapi",
+    label: "LinkAPI",
+    // api.linkapi.ai - new-api relay whose owner funds a few [free] models. A 0
+    // wallet is refused, so the account needs a daily check-in balance; the free
+    // model itself never moves it. Its [free]kimi-k3 answered garbage.
+    defaultBaseUrl: "https://api.linkapi.ai",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-...",
+  },
+  {
     kind: "tokenharbor",
     label: "Token Harbor",
     // tokenharbor.ai - gateway with explicit :free routes (DeepSeek V4.x Flash, MiMo,

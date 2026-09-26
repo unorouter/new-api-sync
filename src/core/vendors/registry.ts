@@ -256,6 +256,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   lorebary: discoverLorebaryModels,
   blablador: discoverBlabladorModels,
   tokenharbor: discoverRoutewayModels,
+  linkapi: discoverBynaraModels,
   hcnsec: discoverBynaraModels,
   tokenrouter: discoverBynaraModels,
   modal: discoverBynaraModels,
