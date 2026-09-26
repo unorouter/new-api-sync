@@ -5,14 +5,13 @@ import { consola } from "consola";
 // api.blablador.fz-juelich.de - FZ Juelich's research inference service. /v1/models
 // mixes display names ("90 - Kimi-K3 1M on Juwels Booster"), staging aliases and
 // OpenAI legacy stubs, so only the aliases that answered as the named model are
-// listed; config modelMapping folds them onto the published names.
+// listed; config modelMapping folds them onto the published names. The DeepSeek
+// and Qwen3.8-27B aliases answer under another model id and fail the mismatch check.
 const SERVED = [
   "alias-kimi-k3-1m",
-  "alias-deepseek-v41-flash-booster",
   "alias-mimo-v2.6-pro",
   "alias-mimo-v2.6-flash",
   "alias-qwen3.8-flash-next",
-  "alias-qwen3.8-27b",
 ] as const;
 
 export async function discoverBlabladorModels(
