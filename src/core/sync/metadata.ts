@@ -90,7 +90,8 @@ import {
 } from "@core/sync/option-store";
 import { expandRateLimitModels } from "@core/sync/pipeline/option-maps";
 import { SIMPLE_PROVIDER_META_MAP } from "@core/vendors/registry-meta";
-import { acceptPriceNotices } from "@core/vendors/a7/pins";
+import { acceptPriceNotices, retireUnpinnedLanes } from "@core/vendors/a7/pins";
+import { deleteChannel } from "@core/vendors/newapi/resources";
 import { MARKETPLACE_KINDS } from "@core/vendors/shared/fallback-lanes";
 import type { Channel, ModelMeta, TargetSnapshot, Vendor } from "@core/types";
 import { MODEL_OPTION_FIELD, MODEL_OPTION_KEYS } from "@core/types";
@@ -884,7 +885,7 @@ export async function runMetadataSync(
     vendors,
     options: store.raw(),
   };
-  await syncUpstreamPricing(store, config, snap, inScope);
+  await syncUpstreamPricing(store, config, snap, inScope, target);
   await reverifyLanes(target, config, startedAt + REVERIFY_START_BEFORE_MS);
 
   syncGridCollapse(store, config, inScope);
@@ -990,6 +991,7 @@ async function syncUpstreamPricing(
   config: RuntimeConfig,
   snap: TargetSnapshot,
   inScope: (name: string) => boolean,
+  target: NewApiClient,
 ): Promise<void> {
   const served = [
     ...modelsOnChannels(snap.channels, {
@@ -1099,6 +1101,17 @@ async function syncUpstreamPricing(
     consola.info(
       `[${p.name}] price changes accepted: ${pins.accepted}, left paused: ${pins.leftPaused}`,
     );
+    const unpinned = await retireUnpinnedLanes(p, snap.channels, (id) =>
+      deleteChannel(target.ctx, id),
+    );
+    if (unpinned.skipped)
+      consola.warn(
+        `[${p.name}] unpinned lane check skipped: ${unpinned.skipped}`,
+      );
+    else if (unpinned.retired.length)
+      consola.warn(
+        `[${p.name}] retired ${unpinned.retired.length} unpinned lane(s): ${unpinned.retired.join(", ")}`,
+      );
   }
 }
 
