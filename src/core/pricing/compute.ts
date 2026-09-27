@@ -533,10 +533,10 @@ function processStandardOffer(
           mp !== undefined && sticker !== undefined && sticker > 0
             ? offer.groupRatio * (mp / sticker)
             : offer.groupRatio;
-        const ceiling =
-          sticker !== undefined && sticker > 0
-            ? (args.canonical.get(m.exposed) ?? sticker) / sticker
-            : 0;
+        // canonical holds per-token ratios; dividing one by a per-call sticker
+        // made kdy1's gpt-image-2.5 ceiling 62.5 and its adj 0.9 sold images at
+        // $2.25. No per-call list exists here, so the sticker is the ceiling.
+        const ceiling = sticker !== undefined && sticker > 0 ? 1 : 0;
         groupRatio =
           applyMarkupOverride(cost, resolved) ??
           applyPriceAdjustment(cost, adj, ceiling);
