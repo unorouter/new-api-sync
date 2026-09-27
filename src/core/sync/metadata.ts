@@ -314,21 +314,22 @@ async function reconcilePassThrough(
     if (ch.type === CHANNEL_TYPES.ALI) continue;
     // Runware takes an ARRAY of task objects, not an OpenAI image request. Passing the
     // raw body through skips the adaptor's conversion and the upstream answers
-    // invalidPayloadFormat for every generation.
-    if (ch.type === CHANNEL_TYPES.RUNWARE) continue;
+    // invalidPayloadFormat for every generation, so a stale flag is cleared, not skipped.
+    const runware = ch.type === CHANNEL_TYPES.RUNWARE;
     const served = parseModelList(ch.models).filter(
       (name) => !isRoutingOnlyAlias(name),
     );
     const isMedia = served.some((name) => inferModelType(name) !== "text");
-    if (!isMedia) continue;
+    if (!isMedia && !runware) continue;
     // Gemini (24) covers BOTH task models (veo/imagen, native-shape bodies that need
     // pass-through) and chat-completions image models (gemini-*-image), which are sent as an
     // OpenAI `messages` body. Passing that through skips the gateway's messages -> contents
     // conversion and the native API rejects it with "contents is required". Only task-routed
     // Gemini channels get pass-through.
     const wantPassThrough =
-      ch.type !== CHANNEL_TYPES.GEMINI ||
-      served.some((name) => getTaskModelOverride(name));
+      !runware &&
+      (ch.type !== CHANNEL_TYPES.GEMINI ||
+        served.some((name) => getTaskModelOverride(name)));
     const ok = await patchSetting(target, ch, (setting) => {
       if (setting.pass_through_body_enabled === wantPassThrough) return false;
       setting.pass_through_body_enabled = wantPassThrough;
