@@ -1328,6 +1328,16 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   },
   {
+    kind: "codecraft",
+    label: "CodeCraft",
+    // codecraftapi.com - 33 ids that are all one MiniMax M2-series backend (tokenizer
+    // delta 277 like real MiniMax) behind a hidden prompt naming the id it claims.
+    // Free plan: 1M tokens a month, 60 requests a minute.
+    defaultBaseUrl: "https://codecraftapi.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "cc_...",
+  },
+  {
     kind: "atria",
     label: "Atria ASI",
     // api.atria-asi.ai - preview API for Atria-Dawn-Preview (self-reports Shanghai AI

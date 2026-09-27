@@ -119,6 +119,8 @@ function emitFreeTextOffers(opts: {
   completionRatioByModel?: Map<string, number>;
   /** channel param_override JSON set on every OfferModel (kind-wide). */
   paramOverride?: string;
+  /** Exposed glob to the name that lane publishes under (provider config `publishAs`). */
+  publishAs?: Record<string, string>;
 }): UpstreamOffer[] {
   const offers: UpstreamOffer[] = [];
   const channelType = opts.channelType ?? CHANNEL_TYPES.OPENAI;
@@ -134,6 +136,10 @@ function emitFreeTextOffers(opts: {
   };
   const isPaid = (exposed: string) =>
     paidModels.length > 0 && matchesAnyPattern(exposed, paidModels);
+  const publishAsFor = (exposed: string): string | undefined =>
+    Object.entries(opts.publishAs ?? {}).find(([glob]) =>
+      matchesAnyPattern(exposed, [glob]),
+    )?.[1];
   const byVendor = partitionByVendor(
     opts.resolutions,
     (x) => x.exposed,
@@ -168,6 +174,9 @@ function emitFreeTextOffers(opts: {
       ...(opts.endpoints ? { endpoints: opts.endpoints } : {}),
       ...(Object.keys(metadata).length ? { metadata } : {}),
       ...(opts.paramOverride ? { paramOverride: opts.paramOverride } : {}),
+      ...(publishAsFor(x.exposed)
+        ? { publishAs: publishAsFor(x.exposed) }
+        : {}),
     };
   };
   const buildOffer = (
@@ -340,6 +349,7 @@ export async function processOpenAICompatibleFreeProvider(
             ratioByModel,
             completionRatioByModel,
             paramOverride: opts.paramOverride,
+            publishAs: providerConfig.publishAs,
             metadataByModel: getMetadataFromEnabledModels(
               providerConfig.enabledModels,
             ),
@@ -405,6 +415,7 @@ export async function processOpenAICompatibleFreeProvider(
           ratioByModel,
           completionRatioByModel,
           paramOverride: opts.paramOverride,
+          publishAs: providerConfig.publishAs,
           metadataByModel: getMetadataFromEnabledModels(
             providerConfig.enabledModels,
           ),
