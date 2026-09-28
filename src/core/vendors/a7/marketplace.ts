@@ -221,11 +221,17 @@ export function selectMerchants(
   const scoped = (blacklist ?? []).filter((e) =>
     e.toLowerCase().startsWith(`${provider.name.toLowerCase()}/`),
   );
+  // A bare numeric entry (a7/4610) fences one merchant; a name would take every
+  // merchant of that supplier.
+  const blockedIds = new Set(
+    scoped.map((e) => e.slice(provider.name.length + 1)).filter((e) => /^\d+$/.test(e)),
+  );
   const excluded = (r: Listing) =>
-    scoped.length > 0 &&
-    [r.channel_name, r.description, r.supplier_name].some((f) =>
-      matchesBlacklist(f, scoped, provider.name),
-    );
+    blockedIds.has(String(r.channel_id)) ||
+    (scoped.length > 0 &&
+      [r.channel_name, r.description, r.supplier_name].some((f) =>
+        matchesBlacklist(f, scoped, provider.name),
+      ));
 
   const viable = rows
     .filter(
