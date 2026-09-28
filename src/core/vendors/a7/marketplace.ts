@@ -221,10 +221,14 @@ export function selectMerchants(
   const scoped = (blacklist ?? []).filter((e) =>
     e.toLowerCase().startsWith(`${provider.name.toLowerCase()}/`),
   );
-  // A bare numeric entry (a7/4610) fences one merchant; a name would take every
-  // merchant of that supplier.
+  // a7/<merchant>/<model glob> fences one lane; a bare a7/<merchant> every model
+  // it sells. A name entry would take every merchant of that supplier.
   const blockedIds = new Set(
-    scoped.map((e) => e.slice(provider.name.length + 1)).filter((e) => /^\d+$/.test(e)),
+    scoped.flatMap((e) => {
+      const [id, glob] = e.slice(provider.name.length + 1).split("/", 2);
+      if (!id || !/^\d+$/.test(id)) return [];
+      return !glob || matchesAnyPattern(model, [glob]) ? [id] : [];
+    }),
   );
   const excluded = (r: Listing) =>
     blockedIds.has(String(r.channel_id)) ||
