@@ -59,6 +59,8 @@ export interface ReasoningEvidence {
   visible: boolean;
   chars: number;
   tokens: number | null;
+  /** Plain probe showed none: whether reasoning_effort high made it visible. */
+  withEffort?: boolean;
   at: string;
 }
 

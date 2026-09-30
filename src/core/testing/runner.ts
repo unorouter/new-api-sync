@@ -435,19 +435,22 @@ async function testModels(opts: {
           if (!base) return null;
           const cfg = withExtraBody(base);
           const body = { ...(cfg.body as Record<string, unknown>) };
-          const probe = await testReasoningRequest(
-            {
-              ...cfg,
-              body: {
-                ...body,
-                messages: [{ role: "user", content: REASONING_PROMPT }],
-                max_tokens: 2000,
-                stream: true,
-                stream_options: { include_usage: true },
+          const ask = (extra: Record<string, unknown>) =>
+            testReasoningRequest(
+              {
+                ...cfg,
+                body: {
+                  ...body,
+                  messages: [{ role: "user", content: REASONING_PROMPT }],
+                  max_tokens: 2000,
+                  stream: true,
+                  stream_options: { include_usage: true },
+                  ...extra,
+                },
               },
-            },
-            timeoutMs,
-          );
+              timeoutMs,
+            );
+          const probe = await ask({});
           if (probe.status !== 200) {
             consola.info(
               `[${prefix}] ${model}: ${t("CORE.TESTER.REASONING_UNMEASURED", { status: probe.status ?? "-" })}`,
@@ -455,13 +458,26 @@ async function testModels(opts: {
             return null;
           }
           const visible = probe.reasoningChars > 0;
+          // Whether an explicit effort unlocks it tells which lanes need the
+          // caller to ask for reasoning; only the plain answer is judged.
+          let withEffort: boolean | undefined;
+          if (!visible && body.reasoning_effort === undefined) {
+            const second = await ask({ reasoning_effort: "high" });
+            if (second.status === 200) withEffort = second.reasoningChars > 0;
+          }
           recordReasoning(blacklistKey, {
             visible,
             chars: probe.reasoningChars,
             tokens: probe.reasoningTokens,
+            ...(withEffort !== undefined && { withEffort }),
           });
+          const key = visible
+            ? "CORE.TESTER.REASONING_VISIBLE"
+            : withEffort
+              ? "CORE.TESTER.REASONING_EFFORT_ONLY"
+              : "CORE.TESTER.REASONING_NONE";
           consola.info(
-            `[${prefix}] ${model}: ${t(visible ? "CORE.TESTER.REASONING_VISIBLE" : "CORE.TESTER.REASONING_NONE", { chars: probe.reasoningChars, tokens: probe.reasoningTokens ?? "?" })}`,
+            `[${prefix}] ${model}: ${t(key, { chars: probe.reasoningChars, tokens: probe.reasoningTokens ?? "?" })}`,
           );
           return visible;
         };
