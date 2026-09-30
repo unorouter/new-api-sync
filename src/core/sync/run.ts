@@ -244,7 +244,9 @@ export async function runSync(
       };
     }
 
-    let liveSnap = snap;
+    // Probing a7 takes up to 1.5h, and another run (a local `sync run`) can delete
+    // channels meanwhile: diffing against the start snapshot then updates a missing row.
+    let liveSnap = { ...snap, channels: await target.listChannels() };
     const vendorsCreated = await ensureVendors(target, desired, liveSnap);
     if (vendorsCreated > 0)
       liveSnap = { ...liveSnap, vendors: await target.listVendors() };
