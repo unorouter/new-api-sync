@@ -444,7 +444,6 @@ async function testModels(opts: {
                 max_tokens: 2000,
                 stream: true,
                 stream_options: { include_usage: true },
-                reasoning_effort: body.reasoning_effort ?? "high",
               },
             },
             timeoutMs,

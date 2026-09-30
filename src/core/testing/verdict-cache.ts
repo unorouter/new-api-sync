@@ -49,8 +49,8 @@ export interface VerdictEntry {
   // A fail withdrawn by clearTestFail. Stamped so the merge does not resurrect
   // the store's copy of the fail, whose failedAt would otherwise be newest.
   failClearedAt?: string;
-  // Visible reasoning on a streamed probe with reasoning_effort high. Evidence
-  // only: some merchants sell a thinking model with thinking off.
+  // Visible reasoning on a plain streamed probe, the request customers send:
+  // some merchants sell a thinking model with thinking off.
   reasoning?: ReasoningEvidence;
   since: string;
 }

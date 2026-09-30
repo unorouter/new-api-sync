@@ -538,7 +538,7 @@
       "MODELS_TESTING_SKIPPED": "[{provider}] {count} models (testing skipped)",
       "TOKENIZER_DRIFT": "tokenizer delta moved {from} -> {to}: backend changed, cached pass void this run",
       "REASONING_VISIBLE": "reasoning visible ({chars} chars, {tokens} reasoning tokens)",
-      "REASONING_NONE": "no visible reasoning even with reasoning_effort high ({tokens} reasoning tokens)",
+      "REASONING_NONE": "no visible reasoning ({tokens} reasoning tokens)",
       "REASONING_UNMEASURED": "reasoning probe unmeasured (HTTP {status})",
       "REASONING_REQUIRED_FAIL": "visible reasoning is required here: authenticity fail for {hours}h"
     },
