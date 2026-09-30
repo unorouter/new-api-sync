@@ -411,6 +411,49 @@ async function testModels(opts: {
             cached?.failStatus,
           );
         }
+        // Visible reasoning is evidence, so it is refreshed daily even while the
+        // functional pass is still cached.
+        const probeReasoning = async () => {
+          if (
+            !isText ||
+            opts.channelType === CHANNEL_TYPES.ANTHROPIC ||
+            isReasoningFresh(blacklistKey)
+          )
+            return;
+          const base = getStreamRequestConfig(reqOpts);
+          if (!base) return;
+          const cfg = withExtraBody(base);
+          const body = { ...(cfg.body as Record<string, unknown>) };
+          const probe = await testReasoningRequest(
+            {
+              ...cfg,
+              body: {
+                ...body,
+                messages: [{ role: "user", content: REASONING_PROMPT }],
+                max_tokens: 2000,
+                stream: true,
+                stream_options: { include_usage: true },
+                reasoning_effort: body.reasoning_effort ?? "high",
+              },
+            },
+            timeoutMs,
+          );
+          if (probe.status !== 200) {
+            consola.info(
+              `[${prefix}] ${model}: ${t("CORE.TESTER.REASONING_UNMEASURED", { status: probe.status ?? "-" })}`,
+            );
+            return;
+          }
+          const visible = probe.reasoningChars > 0;
+          recordReasoning(blacklistKey, {
+            visible,
+            chars: probe.reasoningChars,
+            tokens: probe.reasoningTokens,
+          });
+          consola.info(
+            `[${prefix}] ${model}: ${t(visible ? "CORE.TESTER.REASONING_VISIBLE" : "CORE.TESTER.REASONING_NONE", { chars: probe.reasoningChars, tokens: probe.reasoningTokens ?? "?" })}`,
+          );
+        };
         const cachedTool =
           cached && cached.toolCallSuccess != null
             ? {
@@ -423,7 +466,8 @@ async function testModels(opts: {
           isTestPassFresh(cached) &&
           (!isText || cachedTool) &&
           (!identityChecked || isAuthenticityPassFresh(cached, opts.baseUrl))
-        )
+        ) {
+          await probeReasoning();
           return mkDetail(
             model,
             opts.channelType,
@@ -433,6 +477,7 @@ async function testModels(opts: {
             cachedTool ? cachedTool.parallel : null,
             false,
           );
+        }
 
         const streamBase = isText ? getStreamRequestConfig(reqOpts) : null;
         const streamConfig = streamBase && withExtraBody(streamBase);
@@ -556,42 +601,7 @@ async function testModels(opts: {
           else if (!cachedPass) authentic = first.authentic === true;
         }
 
-        if (
-          streamConfig &&
-          httpResult.pass &&
-          opts.channelType !== CHANNEL_TYPES.ANTHROPIC &&
-          !isReasoningFresh(blacklistKey)
-        ) {
-          const body = { ...(streamConfig.body as Record<string, unknown>) };
-          const probe = await testReasoningRequest(
-            {
-              ...streamConfig,
-              body: {
-                ...body,
-                messages: [{ role: "user", content: REASONING_PROMPT }],
-                max_tokens: 2000,
-                stream: true,
-                stream_options: { include_usage: true },
-                reasoning_effort: body.reasoning_effort ?? "high",
-              },
-            },
-            timeoutMs,
-          );
-          if (probe.status === 200) {
-            const visible = probe.reasoningChars > 0;
-            recordReasoning(blacklistKey, {
-              visible,
-              chars: probe.reasoningChars,
-              tokens: probe.reasoningTokens,
-            });
-            consola.info(
-              `[${prefix}] ${model}: ${t(visible ? "CORE.TESTER.REASONING_VISIBLE" : "CORE.TESTER.REASONING_NONE", { chars: probe.reasoningChars, tokens: probe.reasoningTokens ?? "?" })}`,
-            );
-          } else
-            consola.info(
-              `[${prefix}] ${model}: ${t("CORE.TESTER.REASONING_UNMEASURED", { status: probe.status ?? "-" })}`,
-            );
-        }
+        if (httpResult.pass) await probeReasoning();
 
         const finalSuccess = success && authentic;
         const finalStream =
