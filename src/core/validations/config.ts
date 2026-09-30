@@ -291,6 +291,9 @@ export const ConfigSchema = T.Object({
   authenticity: Opt(
     T.Object({
       observeOnly: Opt(T.Record(T.String(), T.Array(str))),
+      // Model globs whose lanes get one streamed reasoning_effort high probe per
+      // day, recording whether the reply carries visible reasoning. Never a verdict.
+      reasoningProbe: Opt(T.Array(str)),
       // The one-word answer battery: `repeats` per cell per ladder run
       // (default 3, 24 calls), Jensen-Shannon thresholds in bits (0.25 match,
       // 0.35 mismatch) and the valid answers a cell needs before it counts (10).

@@ -55,6 +55,7 @@ import {
 } from "@core/testing/verdict-cache";
 import { reverifyLiveLanes } from "@core/vendors/a7/reverify";
 import { setAuthenticityObserveOnly } from "@core/testing/authenticity";
+import { setReasoningProbeModels } from "@core/testing/runner";
 import {
   judgeAndPushAnswerFingerprints,
   loadAnswerFingerprints,
@@ -943,6 +944,7 @@ async function reverifyLanes(
     a7Providers.map((p) => p.name),
   );
   setAuthenticityObserveOnly(config.authenticity?.observeOnly);
+  setReasoningProbeModels(config.authenticity?.reasoningProbe);
   setAnswerFingerprintOptions(config.authenticity?.answerFingerprint);
   // The market or the gateway being unreachable for a tick is not a failed
   // sync: the lanes keep their verdicts and the next tick tries again.

@@ -536,7 +536,10 @@
       "ERR_AUTHENTICITY_BLACKLISTED": "authenticity-blacklisted",
       "ERR_FAIL_CACHED": "functional fail cached at {at}, not re-probed",
       "MODELS_TESTING_SKIPPED": "[{provider}] {count} models (testing skipped)",
-      "TOKENIZER_DRIFT": "tokenizer delta moved {from} -> {to}: backend changed, cached pass void this run"
+      "TOKENIZER_DRIFT": "tokenizer delta moved {from} -> {to}: backend changed, cached pass void this run",
+      "REASONING_VISIBLE": "reasoning visible ({chars} chars, {tokens} reasoning tokens)",
+      "REASONING_NONE": "no visible reasoning even with reasoning_effort high ({tokens} reasoning tokens)",
+      "REASONING_UNMEASURED": "reasoning probe unmeasured (HTTP {status})"
     },
     "PROVIDER": {
       "USING_EXPLICIT_MODELS": "[{name}] Using {count} explicit model(s)",

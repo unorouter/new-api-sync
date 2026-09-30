@@ -17,6 +17,7 @@ import { emitChannels } from "@core/pricing/emit";
 import { fetchAllPricingSources } from "@core/pricing/resolver";
 import { ConcurrencyGate, setConcurrencyGate } from "@core/infra/concurrency";
 import { setAuthenticityObserveOnly } from "@core/testing/authenticity";
+import { setReasoningProbeModels } from "@core/testing/runner";
 import { setAnswerFingerprintOptions } from "@core/testing/answer-fingerprints";
 import { setAuthenticityPassTtlByHost } from "@core/testing/verdict-cache";
 import type {
@@ -213,6 +214,7 @@ async function buildDesiredState(
   );
   setAuthenticityPassTtlByHost(authenticityTtlOverrides);
   setAuthenticityObserveOnly(config.authenticity?.observeOnly);
+  setReasoningProbeModels(config.authenticity?.reasoningProbe);
   setAnswerFingerprintOptions(config.authenticity?.answerFingerprint);
 
   const managedProviders = new Set(config.providers.map((p) => p.name));

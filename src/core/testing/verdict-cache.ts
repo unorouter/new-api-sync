@@ -49,8 +49,20 @@ export interface VerdictEntry {
   // A fail withdrawn by clearTestFail. Stamped so the merge does not resurrect
   // the store's copy of the fail, whose failedAt would otherwise be newest.
   failClearedAt?: string;
+  // Visible reasoning on a streamed probe with reasoning_effort high. Evidence
+  // only: some merchants sell a thinking model with thinking off.
+  reasoning?: ReasoningEvidence;
   since: string;
 }
+
+export interface ReasoningEvidence {
+  visible: boolean;
+  chars: number;
+  tokens: number | null;
+  at: string;
+}
+
+export const REASONING_TTL_HOURS = 24;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const TEST_PASS_TTL_DAYS = 7;
@@ -93,6 +105,7 @@ const stampOf = (e: VerdictEntry): string =>
     e.failedAt ?? "",
     e.failClearedAt ?? "",
     e.authFailedAt ?? "",
+    e.reasoning?.at ?? "",
     e.since,
   ]
     .sort()
@@ -490,6 +503,21 @@ export function clearTestFail(key: string): void {
   delete entry.failStatus;
   entry.failClearedAt = new Date().toISOString();
   persist();
+}
+
+export function recordReasoning(
+  key: string,
+  evidence: Omit<ReasoningEvidence, "at">,
+): void {
+  const entry: VerdictEntry = cache.get(key) ?? { key, since: today() };
+  entry.reasoning = { ...evidence, at: new Date().toISOString() };
+  cache.set(key, entry);
+  persist();
+}
+
+export function isReasoningFresh(key: string): boolean {
+  const at = cache.get(key)?.reasoning?.at;
+  return !!at && Date.now() - Date.parse(at) < REASONING_TTL_HOURS * 60 * 60 * 1000;
 }
 
 export function recordTokenizerDelta(key: string, delta: number): void {

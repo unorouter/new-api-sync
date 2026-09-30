@@ -1,4 +1,5 @@
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
+import { matchesAnyPattern } from "@core/catalog/constants/patterns";
 import {
   inferModelType,
   isTestableModel,
@@ -23,7 +24,9 @@ import {
   getVerdict,
   isAuthenticityPassFresh,
   isTestFailFresh,
+  isReasoningFresh,
   isTestPassFresh,
+  recordReasoning,
   recordTestVerdict,
   recordTokenizerDelta,
   saveVerdictCache,
@@ -31,6 +34,7 @@ import {
 } from "./verdict-cache";
 import {
   mergeProbeBody,
+  testReasoningRequest,
   testRequest,
   testStreamRequest,
   testToolCallRequest,
@@ -239,6 +243,15 @@ const HTTP_CONFIG_BY_TYPE = {
 } as const;
 
 // prettier-ignore
+let reasoningProbeGlobs: string[] = [];
+
+/** From config.yml `authenticity.reasoningProbe`. */
+export function setReasoningProbeModels(globs?: string[]): void {
+  reasoningProbeGlobs = globs ?? [];
+}
+
+const REASONING_PROMPT = "Is 1001 prime? Think it through step by step, then answer.";
+
 const mkDetail = (model: string, channelType: number, success: boolean, streamSuccess: boolean | null, toolCallSuccess: boolean | null, toolParallel: boolean | null, authenticityProbed: boolean, httpStatus?: number, errorText?: string): ModelTestDetail => ({ model, success, streamSuccess, toolCallSuccess, toolParallel, authenticityProbed, channelType, ...(httpStatus !== undefined && { httpStatus }), ...(errorText && { errorText }) });
 
 const exchangeErrorText = (r: TestExchange): string =>
@@ -549,6 +562,44 @@ async function testModels(opts: {
                 })
               ).authentic === true;
           else if (!cachedPass) authentic = first.authentic === true;
+        }
+
+        if (
+          streamConfig &&
+          httpResult.pass &&
+          opts.channelType !== CHANNEL_TYPES.ANTHROPIC &&
+          matchesAnyPattern(model, reasoningProbeGlobs) &&
+          !isReasoningFresh(blacklistKey)
+        ) {
+          const body = { ...(streamConfig.body as Record<string, unknown>) };
+          const probe = await testReasoningRequest(
+            {
+              ...streamConfig,
+              body: {
+                ...body,
+                messages: [{ role: "user", content: REASONING_PROMPT }],
+                max_tokens: 2000,
+                stream: true,
+                stream_options: { include_usage: true },
+                reasoning_effort: body.reasoning_effort ?? "high",
+              },
+            },
+            timeoutMs,
+          );
+          if (probe.status === 200) {
+            const visible = probe.reasoningChars > 0;
+            recordReasoning(blacklistKey, {
+              visible,
+              chars: probe.reasoningChars,
+              tokens: probe.reasoningTokens,
+            });
+            consola.info(
+              `[${prefix}] ${model}: ${t(visible ? "CORE.TESTER.REASONING_VISIBLE" : "CORE.TESTER.REASONING_NONE", { chars: probe.reasoningChars, tokens: probe.reasoningTokens ?? "?" })}`,
+            );
+          } else
+            consola.info(
+              `[${prefix}] ${model}: ${t("CORE.TESTER.REASONING_UNMEASURED", { status: probe.status ?? "-" })}`,
+            );
         }
 
         const finalSuccess = success && authentic;

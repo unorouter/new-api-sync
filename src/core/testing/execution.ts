@@ -329,6 +329,53 @@ export async function testToolCallRequest(
   }
 }
 
+export interface ReasoningProbe {
+  status?: number;
+  reasoningChars: number;
+  reasoningTokens: number | null;
+  contentChars: number;
+  error?: string;
+}
+
+/** Reads a whole OpenAI chat stream and counts reasoning against answer text. */
+export async function testReasoningRequest(
+  config: StreamRequestConfig,
+  timeoutMs: number,
+): Promise<ReasoningProbe> {
+  const out: ReasoningProbe = { reasoningChars: 0, reasoningTokens: null, contentChars: 0 };
+  try {
+    await paceUpstreamRequest(config.url);
+    const response = await fetch(config.url, {
+      method: "POST",
+      headers: config.headers,
+      body: JSON.stringify(config.body),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    out.status = response.status;
+    const text = await response.text();
+    if (!response.ok) return { ...out, error: text.slice(0, 200) };
+    let answer = "";
+    for (const line of text.split("\n")) {
+      if (!line.startsWith("data: {")) continue;
+      try {
+        const frame = JSON.parse(line.slice(6));
+        const delta = frame.choices?.[0]?.delta ?? {};
+        out.reasoningChars += String(delta.reasoning_content ?? delta.reasoning ?? "").length;
+        answer += String(delta.content ?? "");
+        const tokens = frame.usage?.completion_tokens_details?.reasoning_tokens;
+        if (typeof tokens === "number") out.reasoningTokens = tokens;
+      } catch {}
+    }
+    // Relays that fold thinking into the text still prove it thinks.
+    const inline = answer.match(/<think>([\s\S]*?)(<\/think>|$)/);
+    out.reasoningChars += inline?.[1]?.length ?? 0;
+    out.contentChars = answer.length - (inline?.[0].length ?? 0);
+    return out;
+  } catch (err) {
+    return { ...out, error: errMsg(err) };
+  }
+}
+
 export async function testStreamRequest(
   config: StreamRequestConfig,
   timeoutMs: number,
