@@ -1,4 +1,5 @@
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
+import { matchesAnyPattern } from "@core/catalog/constants/patterns";
 import {
   inferModelType,
   isTestableModel,
@@ -20,6 +21,7 @@ import {
   runAuthenticity,
 } from "./authenticity";
 import {
+  AUTHENTICITY_FAIL_TTL_HOURS,
   getVerdict,
   isAuthenticityPassFresh,
   isTestFailFresh,
@@ -242,6 +244,13 @@ const HTTP_CONFIG_BY_TYPE = {
 } as const;
 
 // prettier-ignore
+let reasoningRequired: Record<string, string[]> = {};
+
+/** From config.yml `authenticity.requireReasoning`. */
+export function setReasoningRequired(cfg?: Record<string, string[]>): void {
+  reasoningRequired = cfg ?? {};
+}
+
 const REASONING_PROMPT = "Is 1001 prime? Think it through step by step, then answer.";
 
 const mkDetail = (model: string, channelType: number, success: boolean, streamSuccess: boolean | null, toolCallSuccess: boolean | null, toolParallel: boolean | null, authenticityProbed: boolean, httpStatus?: number, errorText?: string): ModelTestDetail => ({ model, success, streamSuccess, toolCallSuccess, toolParallel, authenticityProbed, channelType, ...(httpStatus !== undefined && { httpStatus }), ...(errorText && { errorText }) });
@@ -413,15 +422,17 @@ async function testModels(opts: {
         }
         // Visible reasoning is evidence, so it is refreshed daily even while the
         // functional pass is still cached.
-        const probeReasoning = async () => {
-          if (
-            !isText ||
-            opts.channelType === CHANNEL_TYPES.ANTHROPIC ||
-            isReasoningFresh(blacklistKey)
-          )
-            return;
+        const reasoningGlobs = reasoningRequired[prefix.split(/[:/]/)[0] ?? ""] ?? [];
+        const mustReason = matchesAnyPattern(
+          (model.split("/").pop() ?? model).toLowerCase(),
+          reasoningGlobs,
+        );
+        const probeReasoning = async (): Promise<boolean | null> => {
+          if (!isText || opts.channelType === CHANNEL_TYPES.ANTHROPIC) return null;
+          if (isReasoningFresh(blacklistKey))
+            return getVerdict(blacklistKey)?.reasoning?.visible ?? null;
           const base = getStreamRequestConfig(reqOpts);
-          if (!base) return;
+          if (!base) return null;
           const cfg = withExtraBody(base);
           const body = { ...(cfg.body as Record<string, unknown>) };
           const probe = await testReasoningRequest(
@@ -442,7 +453,7 @@ async function testModels(opts: {
             consola.info(
               `[${prefix}] ${model}: ${t("CORE.TESTER.REASONING_UNMEASURED", { status: probe.status ?? "-" })}`,
             );
-            return;
+            return null;
           }
           const visible = probe.reasoningChars > 0;
           recordReasoning(blacklistKey, {
@@ -453,6 +464,17 @@ async function testModels(opts: {
           consola.info(
             `[${prefix}] ${model}: ${t(visible ? "CORE.TESTER.REASONING_VISIBLE" : "CORE.TESTER.REASONING_NONE", { chars: probe.reasoningChars, tokens: probe.reasoningTokens ?? "?" })}`,
           );
+          return visible;
+        };
+        // A required thinker that answers without visible reasoning is treated
+        // like a substituted model: an authenticity fail that expires.
+        const failsReasoning = (visible: boolean | null): boolean => {
+          if (!mustReason || visible !== false) return false;
+          consola.warn(
+            `[${prefix}] ${model}: ${t("CORE.TESTER.REASONING_REQUIRED_FAIL", { hours: AUTHENTICITY_FAIL_TTL_HOURS })}`,
+          );
+          setAuthenticityVerdict(blacklistKey, "fail", "no-visible-reasoning");
+          return true;
         };
         const cachedTool =
           cached && cached.toolCallSuccess != null
@@ -467,11 +489,11 @@ async function testModels(opts: {
           (!isText || cachedTool) &&
           (!identityChecked || isAuthenticityPassFresh(cached, opts.baseUrl))
         ) {
-          await probeReasoning();
+          const reasoningFailed = failsReasoning(await probeReasoning());
           return mkDetail(
             model,
             opts.channelType,
-            true,
+            !reasoningFailed,
             cached.streamSuccess ?? null,
             cachedTool?.pass ?? null,
             cachedTool ? cachedTool.parallel : null,
@@ -601,7 +623,8 @@ async function testModels(opts: {
           else if (!cachedPass) authentic = first.authentic === true;
         }
 
-        if (httpResult.pass) await probeReasoning();
+        if (httpResult.pass && failsReasoning(await probeReasoning()))
+          authentic = false;
 
         const finalSuccess = success && authentic;
         const finalStream =
