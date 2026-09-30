@@ -1,5 +1,4 @@
 import { CHANNEL_TYPES } from "@core/catalog/constants/channel-types";
-import { matchesAnyPattern } from "@core/catalog/constants/patterns";
 import {
   inferModelType,
   isTestableModel,
@@ -243,13 +242,6 @@ const HTTP_CONFIG_BY_TYPE = {
 } as const;
 
 // prettier-ignore
-let reasoningProbeGlobs: string[] = [];
-
-/** From config.yml `authenticity.reasoningProbe`. */
-export function setReasoningProbeModels(globs?: string[]): void {
-  reasoningProbeGlobs = globs ?? [];
-}
-
 const REASONING_PROMPT = "Is 1001 prime? Think it through step by step, then answer.";
 
 const mkDetail = (model: string, channelType: number, success: boolean, streamSuccess: boolean | null, toolCallSuccess: boolean | null, toolParallel: boolean | null, authenticityProbed: boolean, httpStatus?: number, errorText?: string): ModelTestDetail => ({ model, success, streamSuccess, toolCallSuccess, toolParallel, authenticityProbed, channelType, ...(httpStatus !== undefined && { httpStatus }), ...(errorText && { errorText }) });
@@ -568,7 +560,6 @@ async function testModels(opts: {
           streamConfig &&
           httpResult.pass &&
           opts.channelType !== CHANNEL_TYPES.ANTHROPIC &&
-          matchesAnyPattern(model, reasoningProbeGlobs) &&
           !isReasoningFresh(blacklistKey)
         ) {
           const body = { ...(streamConfig.body as Record<string, unknown>) };
