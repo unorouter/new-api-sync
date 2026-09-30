@@ -31,7 +31,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:cfe96414d7df0b0c4734d62b2f0500b6558e7062
+              image: ghcr.io/unorouter/new-api-sync:e7985ed592c0bf4d56e582f18ba7a0605801bf43
               args: ["metadata"]
               # The guest token's model_limits is refreshed from the gateway's
               # OWN free channels, so it needs no provider config -- only the
@@ -118,7 +118,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:cfe96414d7df0b0c4734d62b2f0500b6558e7062
+              image: ghcr.io/unorouter/new-api-sync:e7985ed592c0bf4d56e582f18ba7a0605801bf43
               args: ["run", "--only", "a7,ih,si"]
               env:
                 - name: GUEST_API_KEY
