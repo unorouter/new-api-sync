@@ -37,6 +37,7 @@ import {
   mergeProbeBody,
   testReasoningRequest,
   testRequest,
+  type ReasoningProbe,
   testStreamRequest,
   testToolCallRequest,
   withRetry,
@@ -431,26 +432,50 @@ async function testModels(opts: {
           if (!isText || opts.channelType === CHANNEL_TYPES.ANTHROPIC) return null;
           if (isReasoningFresh(blacklistKey))
             return getVerdict(blacklistKey)?.reasoning?.visible ?? null;
-          const base = getStreamRequestConfig(reqOpts);
-          if (!base) return null;
-          const cfg = withExtraBody(base);
-          const body = { ...(cfg.body as Record<string, unknown>) };
-          const ask = (extra: Record<string, unknown>) =>
-            testReasoningRequest(
-              {
-                ...cfg,
-                body: {
-                  ...body,
-                  messages: [{ role: "user", content: REASONING_PROMPT }],
-                  max_tokens: 2000,
-                  stream: true,
-                  stream_options: { include_usage: true },
-                  ...extra,
+          let ask: (effort: boolean) => Promise<ReasoningProbe>;
+          let callerSetEffort = false;
+          if (opts.channelType === CHANNEL_TYPES.GEMINI) {
+            // Native wire: thoughts are only returned when asked for, which is
+            // what the gateway sends when a client requests reasoning.
+            ask = (effort) =>
+              testReasoningRequest(
+                {
+                  url: `${reqOpts.baseUrl}/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${reqOpts.apiKey}`,
+                  headers: { "Content-Type": "application/json" },
+                  body: {
+                    contents: [{ role: "user", parts: [{ text: REASONING_PROMPT }] }],
+                    generationConfig: {
+                      maxOutputTokens: 2000,
+                      ...(effort && { thinkingConfig: { includeThoughts: true } }),
+                    },
+                  },
+                  completionMarker: "",
                 },
-              },
-              timeoutMs,
-            );
-          const probe = await ask({});
+                timeoutMs,
+              );
+          } else {
+            const base = getStreamRequestConfig(reqOpts);
+            if (!base) return null;
+            const cfg = withExtraBody(base);
+            const body = { ...(cfg.body as Record<string, unknown>) };
+            callerSetEffort = body.reasoning_effort !== undefined;
+            ask = (effort) =>
+              testReasoningRequest(
+                {
+                  ...cfg,
+                  body: {
+                    ...body,
+                    messages: [{ role: "user", content: REASONING_PROMPT }],
+                    max_tokens: 2000,
+                    stream: true,
+                    stream_options: { include_usage: true },
+                    ...(effort && { reasoning_effort: "high" }),
+                  },
+                },
+                timeoutMs,
+              );
+          }
+          const probe = await ask(false);
           if (probe.status !== 200) {
             consola.info(
               `[${prefix}] ${model}: ${t("CORE.TESTER.REASONING_UNMEASURED", { status: probe.status ?? "-" })}`,
@@ -461,8 +486,8 @@ async function testModels(opts: {
           // Whether an explicit effort unlocks it tells which lanes need the
           // caller to ask for reasoning; only the plain answer is judged.
           let withEffort: boolean | undefined;
-          if (!visible && body.reasoning_effort === undefined) {
-            const second = await ask({ reasoning_effort: "high" });
+          if (!visible && !callerSetEffort) {
+            const second = await ask(true);
             if (second.status === 200) withEffort = second.reasoningChars > 0;
           }
           recordReasoning(blacklistKey, {

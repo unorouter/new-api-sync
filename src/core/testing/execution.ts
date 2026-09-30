@@ -337,7 +337,7 @@ export interface ReasoningProbe {
   error?: string;
 }
 
-/** Reads a whole OpenAI chat stream and counts reasoning against answer text. */
+/** Reads a whole OpenAI or Gemini stream and counts reasoning against answer text. */
 export async function testReasoningRequest(
   config: StreamRequestConfig,
   timeoutMs: number,
@@ -359,6 +359,16 @@ export async function testReasoningRequest(
       if (!line.startsWith("data: {")) continue;
       try {
         const frame = JSON.parse(line.slice(6));
+        const parts = frame.candidates?.[0]?.content?.parts;
+        if (Array.isArray(parts)) {
+          for (const part of parts) {
+            if (part.thought) out.reasoningChars += String(part.text ?? "").length;
+            else answer += String(part.text ?? "");
+          }
+          const thoughts = frame.usageMetadata?.thoughtsTokenCount;
+          if (typeof thoughts === "number") out.reasoningTokens = thoughts;
+          continue;
+        }
         const delta = frame.choices?.[0]?.delta ?? {};
         out.reasoningChars += String(delta.reasoning_content ?? delta.reasoning ?? "").length;
         answer += String(delta.content ?? "");
