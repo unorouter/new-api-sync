@@ -783,8 +783,12 @@ function pushBucketsAsTiers(
         // override): they are sent an OpenAI `messages` body, so pass-through skips the
         // gateway's messages -> contents conversion and the native API answers
         // "contents is required". Task-routed Gemini models (veo/imagen) still need it.
+        // And EXCEPT CLOUDFLARE (39): Workers AI takes {prompt, width, height} and
+        // rejects the OpenAI image body the adaptor would have converted.
         ...(m.modelType !== "text" &&
         (override?.channelType ?? offer.channelType) !== CHANNEL_TYPES.ALI &&
+        (override?.channelType ?? offer.channelType) !==
+          CHANNEL_TYPES.CLOUDFLARE &&
         !(
           (override?.channelType ?? offer.channelType) ===
             CHANNEL_TYPES.GEMINI && !override

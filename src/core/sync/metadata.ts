@@ -316,7 +316,10 @@ async function reconcilePassThrough(
     // Runware takes an ARRAY of task objects, not an OpenAI image request. Passing the
     // raw body through skips the adaptor's conversion and the upstream answers
     // invalidPayloadFormat for every generation, so a stale flag is cleared, not skipped.
+    // Cloudflare Workers AI is the same case: /run/<model> takes {prompt, width, height}
+    // and answers "Additional or unevaluated properties" to an OpenAI image body.
     const runware = ch.type === CHANNEL_TYPES.RUNWARE;
+    const nativeShape = runware || ch.type === CHANNEL_TYPES.CLOUDFLARE;
     const served = parseModelList(ch.models).filter(
       (name) => !isRoutingOnlyAlias(name),
     );
@@ -328,7 +331,7 @@ async function reconcilePassThrough(
     // conversion and the native API rejects it with "contents is required". Only task-routed
     // Gemini channels get pass-through.
     const wantPassThrough =
-      !runware &&
+      !nativeShape &&
       (ch.type !== CHANNEL_TYPES.GEMINI ||
         served.some((name) => getTaskModelOverride(name)));
     const ok = await patchSetting(target, ch, (setting) => {
