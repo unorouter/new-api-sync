@@ -947,7 +947,10 @@ async function reverifyLanes(
     a7Providers.map((p) => p.name),
   );
   setAuthenticityObserveOnly(config.authenticity?.observeOnly);
-  setReasoningRequired(config.authenticity?.requireReasoning);
+  setReasoningRequired(
+    config.authenticity?.requireReasoning,
+    config.authenticity?.reasoningWhitelist,
+  );
   setAnswerFingerprintOptions(config.authenticity?.answerFingerprint);
   // The market or the gateway being unreachable for a tick is not a failed
   // sync: the lanes keep their verdicts and the next tick tries again.

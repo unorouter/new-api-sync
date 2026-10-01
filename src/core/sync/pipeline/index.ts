@@ -214,7 +214,10 @@ async function buildDesiredState(
   );
   setAuthenticityPassTtlByHost(authenticityTtlOverrides);
   setAuthenticityObserveOnly(config.authenticity?.observeOnly);
-  setReasoningRequired(config.authenticity?.requireReasoning);
+  setReasoningRequired(
+    config.authenticity?.requireReasoning,
+    config.authenticity?.reasoningWhitelist,
+  );
   setAnswerFingerprintOptions(config.authenticity?.answerFingerprint);
 
   const managedProviders = new Set(config.providers.map((p) => p.name));

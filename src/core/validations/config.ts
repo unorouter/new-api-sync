@@ -294,6 +294,9 @@ export const ConfigSchema = T.Object({
       // Provider name to model globs that must return visible reasoning; a lane
       // that answers without it gets an expiring authenticity fail.
       requireReasoning: Opt(T.Record(T.String(), T.Array(str))),
+      // Lanes exempt from requireReasoning, as provider/merchant with an optional
+      // /model glob (a7/2846, a7/2846/kimi-*): a trusted seller keeps its lanes.
+      reasoningWhitelist: Opt(T.Array(str)),
       // The one-word answer battery: `repeats` per cell per ladder run
       // (default 3, 24 calls), Jensen-Shannon thresholds in bits (0.25 match,
       // 0.35 mismatch) and the valid answers a cell needs before it counts (10).

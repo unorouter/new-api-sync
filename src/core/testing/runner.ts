@@ -249,8 +249,28 @@ const HTTP_CONFIG_BY_TYPE = {
 let reasoningRequired: Record<string, string[]> = {};
 
 /** From config.yml `authenticity.requireReasoning`. */
-export function setReasoningRequired(cfg?: Record<string, string[]>): void {
+let reasoningWhitelist: string[] = [];
+
+export function setReasoningRequired(
+  cfg?: Record<string, string[]>,
+  whitelist?: string[],
+): void {
   reasoningRequired = cfg ?? {};
+  reasoningWhitelist = whitelist ?? [];
+}
+
+// prefix is the lane label (a7:2846, si, gg/group/vendor); an entry names it as
+// provider/merchant and may narrow to a model glob.
+function reasoningWhitelisted(prefix: string, model: string): boolean {
+  const [provider, merchant] = prefix.split(/[:/]/);
+  return reasoningWhitelist.some((entry) => {
+    const [p, m, glob] = entry.split("/");
+    return (
+      p === provider &&
+      m === merchant &&
+      (!glob || matchesAnyPattern(model, [glob]))
+    );
+  });
 }
 
 const REASONING_PROMPT = "Is 1001 prime? Think it through step by step, then answer.";
@@ -425,10 +445,10 @@ async function testModels(opts: {
         // Visible reasoning is evidence, so it is refreshed daily even while the
         // functional pass is still cached.
         const reasoningGlobs = reasoningRequired[prefix.split(/[:/]/)[0] ?? ""] ?? [];
-        const mustReason = matchesAnyPattern(
-          (model.split("/").pop() ?? model).toLowerCase(),
-          reasoningGlobs,
-        );
+        const bareModel = (model.split("/").pop() ?? model).toLowerCase();
+        const mustReason =
+          matchesAnyPattern(bareModel, reasoningGlobs) &&
+          !reasoningWhitelisted(prefix, bareModel);
         const probeReasoning = async (): Promise<boolean | null> => {
           if (!isText || opts.channelType === CHANNEL_TYPES.ANTHROPIC) return null;
           if (isReasoningFresh(blacklistKey))
