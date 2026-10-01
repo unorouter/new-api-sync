@@ -517,6 +517,25 @@ export function recordReasoning(
   persist();
 }
 
+export const REASONING_FAIL_REASON = "no-visible-reasoning";
+
+/** A reasoning fail is evidence about one probe, so a later probe that shows
+ *  the lane thinking withdraws it instead of waiting out the fail's day. */
+export function clearReasoningFail(key: string): void {
+  const entry = cache.get(key);
+  if (
+    entry?.authenticity !== "fail" ||
+    entry.authenticityReason !== REASONING_FAIL_REASON
+  )
+    return;
+  entry.authenticity = "pass";
+  entry.verifiedAt = new Date().toISOString();
+  delete entry.authenticityReason;
+  delete entry.authFailedAt;
+  cache.set(key, entry);
+  persist();
+}
+
 export function isReasoningFresh(key: string): boolean {
   const at = cache.get(key)?.reasoning?.at;
   return !!at && Date.now() - Date.parse(at) < REASONING_TTL_HOURS * 60 * 60 * 1000;

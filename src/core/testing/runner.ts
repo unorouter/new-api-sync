@@ -22,6 +22,8 @@ import {
 } from "./authenticity";
 import {
   AUTHENTICITY_FAIL_TTL_HOURS,
+  REASONING_FAIL_REASON,
+  clearReasoningFail,
   getVerdict,
   isAuthenticityPassFresh,
   isTestFailFresh,
@@ -367,7 +369,13 @@ async function testModels(opts: {
         // A recorded fail is final for every model: the floor and substitution
         // checks write one for gemini/kimi/glm too, and a lane that beat them
         // once on a lucky probe must not come back (a7 2418 did).
-        if (!opts.skipAuthenticity && isAuthenticityBlacklisted(blacklistKey)) {
+        // A reasoning fail is re-measured, never replayed: the lane may think
+        // on the next probe, and the probe itself is cached for a day.
+        if (
+          !opts.skipAuthenticity &&
+          isAuthenticityBlacklisted(blacklistKey) &&
+          getVerdict(blacklistKey)?.authenticityReason !== REASONING_FAIL_REASON
+        ) {
           const http: TestExchange = {
             pass: false,
             request: { url: "", headers: {}, body: null },
@@ -451,8 +459,15 @@ async function testModels(opts: {
           !reasoningWhitelisted(prefix, bareModel);
         const probeReasoning = async (): Promise<boolean | null> => {
           if (!isText || opts.channelType === CHANNEL_TYPES.ANTHROPIC) return null;
-          if (isReasoningFresh(blacklistKey))
-            return getVerdict(blacklistKey)?.reasoning?.visible ?? null;
+          // An entry that never tried the effort variant cannot say the lane
+          // is unable to think, so it is measured again.
+          const known = getVerdict(blacklistKey)?.reasoning;
+          if (
+            isReasoningFresh(blacklistKey) &&
+            known &&
+            (known.visible || known.withEffort !== undefined)
+          )
+            return known.visible || known.withEffort === true;
           let ask: (effort: boolean) => Promise<ReasoningProbe>;
           let callerSetEffort = false;
           if (opts.channelType === CHANNEL_TYPES.GEMINI) {
@@ -525,16 +540,18 @@ async function testModels(opts: {
           consola.info(
             `[${prefix}] ${model}: ${t(key, { chars: probe.reasoningChars, tokens: probe.reasoningTokens ?? "?" })}`,
           );
-          return visible;
+          return visible || withEffort === true;
         };
         // A required thinker that answers without visible reasoning is treated
         // like a substituted model: an authenticity fail that expires.
-        const failsReasoning = (visible: boolean | null): boolean => {
-          if (!mustReason || visible !== false) return false;
+        // The lane must be able to think: on a plain request or when asked.
+        const failsReasoning = (thinks: boolean | null): boolean => {
+          if (thinks === true) clearReasoningFail(blacklistKey);
+          if (!mustReason || thinks !== false) return false;
           consola.warn(
             `[${prefix}] ${model}: ${t("CORE.TESTER.REASONING_REQUIRED_FAIL", { hours: AUTHENTICITY_FAIL_TTL_HOURS })}`,
           );
-          setAuthenticityVerdict(blacklistKey, "fail", "no-visible-reasoning");
+          setAuthenticityVerdict(blacklistKey, "fail", REASONING_FAIL_REASON);
           return true;
         };
         const cachedTool =

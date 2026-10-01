@@ -4,6 +4,7 @@ import type { RuntimeConfig } from "@core/config";
 import { isAuthenticityBlacklisted } from "@core/testing/authenticity";
 import { testAndFilterModels } from "@core/testing/runner";
 import {
+  REASONING_FAIL_REASON,
   getVerdict,
   isAuthenticityPassFresh,
 } from "@core/testing/verdict-cache";
@@ -114,8 +115,9 @@ export async function reverifyLiveLanes(
       : undefined;
     if (!listing) continue;
     const key = `${provider.name}:${listing.channel_id}|${market}`;
-    if (isAuthenticityBlacklisted(key)) {
-      await disableLane(ch, getVerdict(key)?.authenticityReason ?? "");
+    const failReason = getVerdict(key)?.authenticityReason ?? "";
+    if (isAuthenticityBlacklisted(key) && failReason !== REASONING_FAIL_REASON) {
+      await disableLane(ch, failReason);
       continue;
     }
     if (isAuthenticityPassFresh(getVerdict(key), provider.baseUrl)) continue;
