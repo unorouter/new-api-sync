@@ -421,7 +421,11 @@ async function testModels(opts: {
         // definitive tool verdict fall through so the tool probe can complete them.
         const identityChecked = isText && !opts.skipAuthenticity;
         const cached = getVerdict(blacklistKey);
-        if (isTestFailFresh(cached)) {
+        // A fail the reasoning rule caused is measured again, not replayed.
+        if (
+          isTestFailFresh(cached) &&
+          cached?.authenticityReason !== REASONING_FAIL_REASON
+        ) {
           addTestResult({
             provider: prefix,
             model,
