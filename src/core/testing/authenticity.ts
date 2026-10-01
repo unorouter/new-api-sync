@@ -29,6 +29,7 @@ import {
   recordFingerprintRun,
 } from "./answer-fingerprints";
 import { consola } from "consola";
+import { cannedReplyMarker } from "./canned-replies";
 import { recordProbeRequestId } from "./probe-ids";
 import type { AuthenticityProbeLog } from "./types";
 import {
@@ -84,32 +85,6 @@ const OBSERVED: readonly RuleId[] = [
   "wrapper-leak",
   "answer-fingerprint",
 ];
-
-// A provider's own notice served as the model's answer with a clean 200 (a banned
-// upstream account, a product assistant resold as a chat model). No ladder rule
-// reads it as a fault, so it decides for every maker. Lowercase; mirrors
-// `replyRules` in new-api service/upstream_reply_class.go.
-const CANNED_REPLY_MARKERS: readonly string[] = [
-  "flagged as having abnormal activity",
-  "orcaterm",
-  "如果您有服务器运维、云资源管理",
-  "[lorebary:",
-];
-const CANNED_REPLY_MAX_CHARS = 600;
-
-function cannedReplyMarker(run: RuleRun): string | undefined {
-  const replies = [
-    ...run.probes.map((p) => p.responseText),
-    ...(run.reports.survey ?? []).map((s) => s.text),
-  ];
-  for (const reply of replies) {
-    const text = (reply ?? "").trim().toLowerCase();
-    if (!text || text.length > CANNED_REPLY_MAX_CHARS) continue;
-    const marker = CANNED_REPLY_MARKERS.find((m) => text.includes(m));
-    if (marker) return marker;
-  }
-  return undefined;
-}
 
 let observeOnlyByMaker: Record<string, readonly string[]> = {};
 
@@ -349,7 +324,10 @@ export async function runAuthenticity(
       }),
     );
 
-  const canned = cannedReplyMarker(run);
+  const canned = cannedReplyMarker([
+    ...run.probes.map((p) => p.responseText),
+    ...(run.reports.survey ?? []).map((s) => s.text),
+  ]);
   if (canned) {
     const reason = `canned reply: "${canned}"`;
     consola.warn(

@@ -63,6 +63,7 @@ import type {
   TestReport,
 } from "./types";
 import type { ApplyReport, ProviderReport, SyncDiff } from "@core/types";
+import { cannedReplyMarker, replyTexts } from "./canned-replies";
 import { redactExchange, redactUrl } from "./redact";
 import { makerForModel } from "ai-model-verifier/makers";
 import { modelsMatch } from "ai-model-verifier/models";
@@ -585,9 +586,24 @@ async function testModels(opts: {
           setAuthenticityVerdict(blacklistKey, "fail", `substituted:${served}`);
         }
 
+        // A provider notice served as the answer passes every status check.
+        const canned = httpResult.pass
+          ? cannedReplyMarker(replyTexts(httpResult.response))
+          : undefined;
+        if (canned) {
+          consola.warn(
+            `[${prefix}] ${model}: ${t("CORE.TESTER.ERR_CANNED_REPLY", { marker: canned })}`,
+          );
+          setAuthenticityVerdict(
+            blacklistKey,
+            "fail",
+            `canned reply: "${canned}"`,
+          );
+        }
+
         // The thinking floor sits in the ladder, where the maker's observe
         // gate decides whether it judges.
-        const rejected = substituted;
+        const rejected = substituted || canned !== undefined;
 
         const success = httpResult.pass && !rejected;
         const streamSuccess =
