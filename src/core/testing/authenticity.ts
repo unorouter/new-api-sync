@@ -85,6 +85,32 @@ const OBSERVED: readonly RuleId[] = [
   "answer-fingerprint",
 ];
 
+// A provider's own notice served as the model's answer with a clean 200 (a banned
+// upstream account, a product assistant resold as a chat model). No ladder rule
+// reads it as a fault, so it decides for every maker. Lowercase; mirrors
+// `replyRules` in new-api service/upstream_reply_class.go.
+const CANNED_REPLY_MARKERS: readonly string[] = [
+  "flagged as having abnormal activity",
+  "orcaterm",
+  "如果您有服务器运维、云资源管理",
+  "[lorebary:",
+];
+const CANNED_REPLY_MAX_CHARS = 600;
+
+function cannedReplyMarker(run: RuleRun): string | undefined {
+  const replies = [
+    ...run.probes.map((p) => p.responseText),
+    ...(run.reports.survey ?? []).map((s) => s.text),
+  ];
+  for (const reply of replies) {
+    const text = (reply ?? "").trim().toLowerCase();
+    if (!text || text.length > CANNED_REPLY_MAX_CHARS) continue;
+    const marker = CANNED_REPLY_MARKERS.find((m) => text.includes(m));
+    if (marker) return marker;
+  }
+  return undefined;
+}
+
 let observeOnlyByMaker: Record<string, readonly string[]> = {};
 
 /** From config.yml `authenticity.observeOnly`: rules that only log, per maker id or `*`. */
@@ -322,6 +348,23 @@ export async function runAuthenticity(
         reason: f.reason,
       }),
     );
+
+  const canned = cannedReplyMarker(run);
+  if (canned) {
+    const reason = `canned reply: "${canned}"`;
+    consola.warn(
+      t("CORE.TESTER.AUTHENTICITY_FAIL", {
+        model: opts.model,
+        rule: "canned-reply",
+        reason,
+      }),
+    );
+    setAuthenticityVerdict(opts.logKey, "fail", reason);
+    consola.warn(
+      t("CORE.TESTER.AUTHENTICITY_ADDED", { key: opts.logKey, reason }),
+    );
+    return { authentic: false, ...(fingerprint ? { fingerprint } : {}) };
+  }
 
   if (!decisive) {
     setAuthenticityVerdict(opts.logKey, "pass", "");
