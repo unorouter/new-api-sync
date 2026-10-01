@@ -1338,6 +1338,17 @@ export const SIMPLE_PROVIDER_META = [
     apiKeyPlaceholder: "cc_...",
   },
   {
+    kind: "toptools",
+    label: "Top Tools AI",
+    // top-tools-ai.com - every id answers from one identity template and none
+    // returns reasoning; the answer fingerprint sits nearest glm-5.3-flash on all
+    // of them. Only Top-Tools-Ai is free every day (10M tokens), the named ids
+    // spend a one time welcome grant.
+    defaultBaseUrl: "https://top-tools-ai.com",
+    defaultRatio: 0,
+    apiKeyPlaceholder: "sk-...",
+  },
+  {
     kind: "atria",
     label: "Atria ASI",
     // api.atria-asi.ai - preview API for Atria-Dawn-Preview (self-reports Shanghai AI

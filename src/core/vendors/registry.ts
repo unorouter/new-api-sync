@@ -260,6 +260,7 @@ const DISCOVERERS: Record<SimpleProviderKind, Discover> = {
   literouter: discoverRoutewayModels,
   atria: discoverBynaraModels,
   codecraft: discoverBynaraModels,
+  toptools: discoverBynaraModels,
   aaawinn: discoverBynaraModels,
   hcnsec: discoverBynaraModels,
   tokenrouter: discoverBynaraModels,
