@@ -8,6 +8,7 @@ const CANNED_REPLY_MARKERS: readonly string[] = [
   "orcaterm",
   "如果您有服务器运维、云资源管理",
   "[lorebary:",
+  "please retry later, or reduce the request parameters/content",
 ];
 // A long answer that quotes one of these sentences is the model talking.
 const CANNED_REPLY_MAX_CHARS = 600;
