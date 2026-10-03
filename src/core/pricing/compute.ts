@@ -40,7 +40,12 @@ interface ComputeArgs {
   modelMapping: Record<string, string>;
   modelAlias?: Record<string, string[]>;
   maxDiscount?: Record<string, number>;
-  systemPrompt?: { models: string[]; prompt: string; override?: boolean; providers?: string[] }[];
+  systemPrompt?: {
+    models: string[];
+    prompt: string;
+    override?: boolean;
+    providers?: string[];
+  }[];
   channelParamOverride?: ChannelParamOverrideRule[];
   /** Per-provider scheduled-test cadence, keyed by provider name. */
   autoTestIntervalByProvider?: Map<string, number>;
@@ -698,6 +703,8 @@ function pushBucketsAsTiers(
         modelMapping[publishedName] = m.upstream;
       if (publishedName !== m.exposed)
         mirrorAliasRatio(modelRatios, m.exposed, publishedName, sourced);
+      for (const [effort, upstream] of Object.entries(m.effortVariants ?? {}))
+        modelMapping[`${publishedName}@effort:${effort}`] = upstream;
 
       const models = [publishedName];
       let hasContext1mAlias = false;

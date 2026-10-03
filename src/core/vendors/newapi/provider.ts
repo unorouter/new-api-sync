@@ -8,6 +8,7 @@ import {
   spliceGroupLabel,
 } from "@core/catalog/constants/patterns";
 import { toBareName } from "@core/catalog/bare-name";
+import { collapseEffortVariants, type EffortFamily } from "./effort-variants";
 import {
   getEnabledModelGlobs,
   getTestModelTypes,
@@ -119,7 +120,7 @@ function planPreTestDecisions(opts: {
   // Must be the SAME resolver the emit path uses: the gate keys canonical lookup
   // and priceAdjustment globs off this name, so a divergence prices one name and
   // publishes another.
-  exposedNameFor: (upstreamName: string) => string;
+  exposedNameFor: (upstreamName: string, group: string) => string;
 }): GateDecisionMap {
   const byExposed = new Map<string, BucketCandidate[]>();
   const unpriced = new Set<string>();
@@ -131,7 +132,7 @@ function planPreTestDecisions(opts: {
       "unknown",
     )) {
       for (const upstreamName of vendorModels) {
-        const exposed = opts.exposedNameFor(upstreamName);
+        const exposed = opts.exposedNameFor(upstreamName, p.group.name);
         const modelType = inferModelType(
           exposed,
           undefined,
@@ -506,6 +507,23 @@ export async function processNewApiProvider(
       );
     const groupsWithNoWorkingModels: string[] = [];
     const usedSanitizedNames = new Map<string, number>();
+    const effortFamilies = new Map<string, Map<string, EffortFamily>>();
+    const priceKeyOf = (model: string): string | undefined => {
+      const m = pricingByName.get(model);
+      if (!m || (m.ratio === undefined && m.modelPrice === undefined))
+        return undefined;
+      return JSON.stringify([
+        m.ratio,
+        m.completionRatio,
+        m.modelPrice,
+        m.quotaType,
+        m.billingExpr,
+      ]);
+    };
+    const exposedInGroup = (upstreamName: string, group: string): string => {
+      const family = effortFamilies.get(group)?.get(upstreamName);
+      return exposedNameFor(family ? family.base : upstreamName);
+    };
     type Prepared = {
       group: (typeof groups)[number];
       originalName: string;
@@ -531,13 +549,20 @@ export async function processNewApiProvider(
         sanitizeGroupName(`${label}-${pName}`),
         usedSanitizedNames,
       );
-      const candidateModels = filterGroupModels(
-        group.models,
-        config,
-        providerConfig,
-        localNormalizedEndpoints,
+      // Filter a family by its base name: "*-high" entries must not drop its stand-in.
+      const collapsed = collapseEffortVariants(group.models, priceKeyOf);
+      const candidateModels = collapsed.models.filter(
+        (m) =>
+          filterGroupModels(
+            [collapsed.families.get(m)?.base ?? m],
+            config,
+            providerConfig,
+            localNormalizedEndpoints,
+          ).length > 0,
       );
       if (candidateModels.length === 0) continue;
+      if (collapsed.families.size > 0)
+        effortFamilies.set(group.name, collapsed.families);
       prepared.push({
         group,
         originalName,
@@ -557,7 +582,7 @@ export async function processNewApiProvider(
           pricingSources: ctx.pricingSources,
           reverseMapping: ctx.reverseMapping,
           localNormalizedEndpoints,
-          exposedNameFor,
+          exposedNameFor: exposedInGroup,
         })
       : null;
     const groupResults = await Promise.all(
@@ -674,7 +699,10 @@ export async function processNewApiProvider(
             const rateLimitedSet = new Set(filterResult.rateLimitedModels);
             const dedupedOfferModels: OfferModel[] = [];
             for (const upstreamName of workingUpstream) {
-              const exposed = exposedNameFor(upstreamName);
+              const exposed = exposedInGroup(upstreamName, p.group.name);
+              const effortFamily = effortFamilies
+                .get(p.group.name)
+                ?.get(upstreamName);
               if (seen.has(exposed)) continue;
               seen.add(exposed);
               const normalized = localNormalizedEndpoints.get(upstreamName);
@@ -692,6 +720,9 @@ export async function processNewApiProvider(
                 upstream: upstreamName,
                 modelType,
                 ...(isFree ? { isFree: true } : {}),
+                ...(effortFamily
+                  ? { effortVariants: effortFamily.variants }
+                  : {}),
                 ...(rateLimitedSet.has(upstreamName)
                   ? { rateLimited: true }
                   : {}),

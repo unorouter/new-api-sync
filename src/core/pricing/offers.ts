@@ -33,6 +33,8 @@ export interface OfferModel {
   failoverDuplicate?: boolean;
   /** Forces ratio=0 + group_ratio=0; cap check skipped. (OpenRouter free, NVIDIA) */
   isFree?: boolean;
+  /** effort -> upstream ID, emitted as `<name>@effort:<effort>` mapping keys. */
+  effortVariants?: Record<string, string>;
   /** Kept only via a 429 accept (capacity throttle, not a real pass). The
    *  emitted channel is created disabled so new-api's auto-test enables it once
    *  the limit clears, instead of serving guaranteed-429 requests. */
