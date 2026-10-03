@@ -194,10 +194,25 @@ export async function processIhProvider(
       return result();
     }
 
+    // Like a7's hostsPerModel: the cheapest pools are probed first and a model
+    // stops at its cap of working lanes, so a failed pool is replaced by the
+    // next cheapest instead of leaving the model a lane short.
+    lanes.sort(
+      (a, b) =>
+        a.outputUsd + a.inputUsd - (b.outputUsd + b.inputUsd) ||
+        a.pool.localeCompare(b.pool),
+    );
+    const kept = new Map<string, number>();
     // One probe set per lane, carrying its bid: without it the relay routes to
     // its best-scoring provider, which is not the one the lane is priced on.
     let balanceErrors = 0;
     for (const lane of lanes) {
+      const cap = resolvePerModel(
+        provider.hostsPerModel,
+        lane.exposed,
+        Number.POSITIVE_INFINITY,
+      );
+      if ((kept.get(lane.exposed) ?? 0) >= cap) continue;
       const probe = await testAndFilterModels({
         allModels: [lane.upstream],
         baseUrl,
@@ -219,6 +234,7 @@ export async function processIhProvider(
           ? { rateLimited: true }
           : {}),
       };
+      kept.set(lane.exposed, (kept.get(lane.exposed) ?? 0) + 1);
       offers.push(
         buildFallbackOffer({
           provider: name,

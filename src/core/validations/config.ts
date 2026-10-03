@@ -77,7 +77,7 @@ const PoolAllowlistSchema = T.Union([T.Array(str, { minItems: 1 }), T.Record(T.S
 // request routes to the relay's best-scoring provider at up to half the
 // official price, so every lane sends bid headers and is priced at that bid.
 // URLs live in config only.
-const IhProviderSchema = T.Object({ type: T.Literal("ih"), ...ProviderCommonProps, apiKey: str, baseUrl: uri, catalogUrl: uri, upstreams: PoolAllowlistSchema, profitMultiple: Opt(ProfitMultipleSchema), maxSellFraction: Opt(MaxSellFractionSchema), minSellFraction: Opt(MinSellFractionSchema), bidQuantile: Opt(PerModel(T.Number({ exclusiveMinimum: 0, maximum: 1 }))), minSellers: Opt(MinSellersSchema), acceptRateLimited: Opt(T.Boolean()) });
+const IhProviderSchema = T.Object({ type: T.Literal("ih"), ...ProviderCommonProps, apiKey: str, baseUrl: uri, catalogUrl: uri, upstreams: PoolAllowlistSchema, hostsPerModel: Opt(PerModel(T.Integer({ minimum: 1 }))), profitMultiple: Opt(ProfitMultipleSchema), maxSellFraction: Opt(MaxSellFractionSchema), minSellFraction: Opt(MinSellFractionSchema), bidQuantile: Opt(PerModel(T.Number({ exclusiveMinimum: 0, maximum: 1 }))), minSellers: Opt(MinSellersSchema), acceptRateLimited: Opt(T.Boolean()) });
 // prettier-ignore
 // Lanes over an order book of resold API keys, one per enabled model, pinned
 // to every allowed seller provider (a `provider` body field). The only spend
