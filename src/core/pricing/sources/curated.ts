@@ -219,6 +219,14 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
     outputModalities: ["text", "image"],
     supportsVision: true,
   },
+  "gemini-nano-banana-2.1": {
+    releaseDate: iso("2026-10-06"),
+    contextWindow: 65_536,
+    maxInputTokens: 65_536,
+    inputModalities: ["text", "image"],
+    outputModalities: ["text", "image"],
+    supportsVision: true,
+  },
   // OpenAI web-search models, launched with search in the Chat Completions API.
   // The date is in the snapshot id itself (gpt-4o-mini-search-preview-2025-03-11).
   // Sources disagree and one is wrong by four months: relay copies carry
