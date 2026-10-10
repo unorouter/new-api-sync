@@ -17,8 +17,8 @@ function isFreeChatModel(m: KiloModel): boolean {
   if (/:free$/.test(m.id)) return true;
   const out = m.architecture?.output_modalities;
   return (
-    m.pricing?.prompt === "0" &&
-    m.pricing?.completion === "0" &&
+    Number(m.pricing?.prompt) === 0 &&
+    Number(m.pricing?.completion) === 0 &&
     out?.length === 1 &&
     out[0] === "text" &&
     !m.id.endsWith("/free")

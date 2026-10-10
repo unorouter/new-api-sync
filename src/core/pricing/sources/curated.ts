@@ -752,6 +752,18 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsVision: true,
     supportsTools: true,
   },
+  "step-5-preview": {
+    releaseDate: iso("2026-10-08"),
+    contextWindow: 1_000_000,
+    maxInputTokens: 1_000_000,
+    maxOutputTokens: 64_000,
+    series: "Step",
+    supportsVision: true,
+    supportsTools: true,
+    isReasoning: true,
+    supportsVideo: true,
+    supportsCache: true,
+  },
   // OpenRouter's own glm-5.3 and kimi-k3 lanes, split off under or- names (config publishAs).
   "or-glm-5.3": {
     releaseDate: iso("2026-08-18"),
