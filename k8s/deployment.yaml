@@ -31,7 +31,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:9a3a890d4182586fd8cc80d57831e459ab14b838@sha256:65f96bfa9076f1f3a581aa7bad67a17e2a97f5d1e4669806c2a50efda1b92bbe
+              image: ghcr.io/unorouter/new-api-sync:ee4ff20e8ce6d06c7d0edfa0d7e47be96d790e82@sha256:abb71531ba7843977326a37441cec03c971a37f0be10cd8e14ccdeba7077c77b
               args: ["metadata"]
               # The guest token's model_limits is refreshed from the gateway's
               # OWN free channels, so it needs no provider config -- only the
@@ -118,7 +118,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:9a3a890d4182586fd8cc80d57831e459ab14b838@sha256:65f96bfa9076f1f3a581aa7bad67a17e2a97f5d1e4669806c2a50efda1b92bbe
+              image: ghcr.io/unorouter/new-api-sync:ee4ff20e8ce6d06c7d0edfa0d7e47be96d790e82@sha256:abb71531ba7843977326a37441cec03c971a37f0be10cd8e14ccdeba7077c77b
               args: ["run", "--only", "a7,ih,si"]
               env:
                 - name: GUEST_API_KEY
@@ -183,7 +183,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:9a3a890d4182586fd8cc80d57831e459ab14b838@sha256:65f96bfa9076f1f3a581aa7bad67a17e2a97f5d1e4669806c2a50efda1b92bbe
+              image: ghcr.io/unorouter/new-api-sync:ee4ff20e8ce6d06c7d0edfa0d7e47be96d790e82@sha256:abb71531ba7843977326a37441cec03c971a37f0be10cd8e14ccdeba7077c77b
               args: ["run", "--only", "no1,duck,fish,gg,pol,trp1,kdy1,nbi1,ts1,qnn1,bcf1,jev1,open4,open1,open2,open3,agnes1,hd1,ahm1,an1,axz1,wuh1,art1,shu1,ah1,nio1,br1,chat1,cfr1,cf1,cf2,ce1,fa1,fm1,gem1,gm1,gq1,amd1,htz1,hg1,incp1,it1,io1,jn1,kn1,cat1,axon1,k2h1,aaw1,atr1,atr2,cc1,cln1,fvg1,nara1,cxr1,utim1,utim2,utim3,qr1,qr2,qr5,el1,rv1,cha1,arli1,rdx1,ox1,sim1,ying1,rout1,mnn1,acx1,fta1,mars1,mars2,syk1,tt1,ltr1,lkp1,lmh1,lnk1,thr1,bb1,any1,any2,pm1,rtw1,gnk1,dahl3,apx1,unt1,cfp1,ey1,kl1,xk1,sk1,yjs1,llm71,lt1,lf1,lum1,mega1,mist1,mx1,mdl1,mp1,ng1,nvda1,dsg1,om1,ocz1,oc1,oc2,pls1,pu1,qwen1,rqst1,rw1,sv1,sl1,sense1,thb1,tkr1,tph1,vy2,vy1,wb1,ws1,ws2,zai1,zm1,akiyo"]
               env:
                 - name: GUEST_API_KEY
