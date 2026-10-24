@@ -165,6 +165,14 @@ Two CronJobs in `services` (`k8s/`; a push to `main` builds the image in GitHub 
 `new-api-sync-full` = `run --only a7,ih,si` at 04:00, 10:00, 16:00 and 22:00, 3h deadline, `backoffLimit: 0`,
 the only job that probes. The marketplaces change constantly, so they sync on the cluster.
 
+`new-api-sync-weekly` = `run --only <every non-marketplace provider>` Wednesdays 01:30 Berlin, 6h
+deadline, its own `emptyDir` for logs (verdicts merge through the store). It reads OpenBao
+`secret/sync-env-weekly`: the local `config.yml` minus a7, ih, si, ms1 (Magicube cost) and cent
+(banned), with the cluster's `target`, `verdictStore`, `targetDb` and `laneGrader` blocks, and only
+the first shard of each series that fronts one upstream (dahl, chat, cfp, kl, ey, cat, gem, gm,
+k2h, nvda, rdx). A provider added or re-keyed locally is not rechecked until that secret and the
+CronJob's `--only` list are rebuilt the same way.
+
 Cluster config (OpenBao `secret/sync-env` key `config.yml`) declares a7, ih and si only; local
 `bun sync metadata` covers the rest. Mirror every edit to those blocks and to the shared blocks
 (`rateLimit`, `modelMapping`, `groupMapping`, `blacklist`, `modelAlias`, `channelParamOverride`).
