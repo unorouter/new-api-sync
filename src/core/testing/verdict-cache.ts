@@ -31,6 +31,9 @@ export interface VerdictEntry {
   // because a merchant swaps its backend after the probe (a7 383 went from opus
   // to haiku 20 hours after a clean probe).
   verifiedAt?: string;
+  // Consecutive authenticity passes with an unchanged tokenizer delta; stretches
+  // the pass lifetime of long-lived lanes (authenticityPassLifetimeMs).
+  passStreak?: number;
   // Timestamp of the last authenticity fail. Blacklists the lane for
   // AUTHENTICITY_FAIL_TTL_HOURS, then one probe decides again: a merchant that
   // fixed its backend comes back, one still faking is failed again for a day.
@@ -178,13 +181,33 @@ export function isAuthenticityFailFresh(
   return Date.now() - at < AUTHENTICITY_FAIL_TTL_HOURS * 60 * 60 * 1000;
 }
 
+// Only lanes rechecked on a slow cadence earn longer passes: marketplace
+// merchants swap backends within hours, so their short lifetimes stay fixed.
+const STREAK_MIN_BASE_HOURS = 24;
+const STREAK_MAX_FACTOR = 8;
+const STREAK_MAX_HOURS = 720;
+const STREAK_SPREAD = 0.2;
+
+export function authenticityPassLifetimeMs(
+  entry: VerdictEntry,
+  baseUrl?: string,
+): number {
+  const base = authenticityPassTtlHours(baseUrl);
+  if (base < STREAK_MIN_BASE_HOURS) return base * 60 * 60 * 1000;
+  const streak = Math.max(entry.passStreak ?? 1, 1);
+  const factor = Math.min(2 ** (streak - 1), STREAK_MAX_FACTOR);
+  // A fixed per-lane share keeps a stable fleet from expiring on the same day.
+  const spread = 1 - STREAK_SPREAD * ((keyHash(entry.key) % 1000) / 1000);
+  return Math.min(base * factor, STREAK_MAX_HOURS) * spread * 60 * 60 * 1000;
+}
+
 export function isAuthenticityPassFresh(
   entry: VerdictEntry | undefined,
   baseUrl?: string,
 ): boolean {
   if (entry?.authenticity !== "pass" || !entry.verifiedAt) return false;
   const age = Date.now() - Date.parse(entry.verifiedAt);
-  return age < authenticityPassTtlHours(baseUrl) * 60 * 60 * 1000;
+  return age < authenticityPassLifetimeMs(entry, baseUrl);
 }
 
 // Every authenticity outcome, applied or not, appended to logs/verdict-history.jsonl
@@ -545,6 +568,8 @@ export function isReasoningFresh(key: string): boolean {
 
 export function recordTokenizerDelta(key: string, delta: number): void {
   const entry: VerdictEntry = cache.get(key) ?? { key, since: today() };
+  if (entry.tokenizerDelta !== undefined && entry.tokenizerDelta !== delta)
+    delete entry.passStreak;
   entry.tokenizerDelta = delta;
   cache.set(key, entry);
   persist();
@@ -576,7 +601,10 @@ export function setAuthenticityVerdict(
     entry.since = today();
     entry.authFailedAt = new Date().toISOString();
     delete entry.verifiedAt;
+    delete entry.passStreak;
   } else {
+    entry.passStreak =
+      prior?.authenticity === "pass" ? (prior.passStreak ?? 1) + 1 : 1;
     entry.verifiedAt = new Date().toISOString();
     delete entry.authFailedAt;
   }
