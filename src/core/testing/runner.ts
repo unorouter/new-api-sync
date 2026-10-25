@@ -718,7 +718,9 @@ async function testModels(opts: {
             wire:
               opts.channelType === CHANNEL_TYPES.ANTHROPIC
                 ? ("anthropic" as const)
-                : ("openai" as const),
+                : opts.channelType === CHANNEL_TYPES.GEMINI
+                  ? ("gemini" as const)
+                  : ("openai" as const),
             ...(opts.extraBody ? { extraBody: opts.extraBody } : {}),
             ...(opts.extraHeaders ? { extraHeaders: opts.extraHeaders } : {}),
           };

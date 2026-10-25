@@ -80,7 +80,8 @@ export function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
       headers: jsonOnly,
       body: {
         contents: [{ parts: [{ text: TEST_PROMPT }] }],
-        generationConfig: { maxOutputTokens: 3 },
+        // Gemini 4 thinks before answering and spent 3 tokens on it, returning no text.
+        generationConfig: { maxOutputTokens: 256 },
       },
       isSuccess: noError,
     };

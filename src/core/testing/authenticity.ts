@@ -59,7 +59,10 @@ export const isAuthenticityPassCached = (
 ): boolean => isAuthenticityPassFresh(getVerdict(key), baseUrl);
 
 /** Wire format of the probe: the one the channel is sold on. */
-export type AuthenticityWire = Extract<VendorId, "anthropic" | "openai">;
+export type AuthenticityWire = Extract<
+  VendorId,
+  "anthropic" | "openai" | "gemini"
+>;
 
 // The behavioural ladder, in the library's precedence order.
 const LADDER: readonly RuleId[] = [
