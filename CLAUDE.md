@@ -165,13 +165,20 @@ Two CronJobs in `services` (`k8s/`; a push to `main` builds the image in GitHub 
 `new-api-sync-full` = `run --only a7,ih,si` at 04:00, 10:00, 16:00 and 22:00, 3h deadline, `backoffLimit: 0`,
 the only job that probes. The marketplaces change constantly, so they sync on the cluster.
 
-`new-api-sync-weekly` = `run --only <every non-marketplace provider>` Wednesdays 01:30 Berlin, 6h
-deadline, its own `emptyDir` for logs (verdicts merge through the store). It reads OpenBao
-`secret/sync-env-weekly`: the local `config.yml` minus a7, ih, si, ms1 (Magicube cost) and cent
-(banned), with the cluster's `target`, `verdictStore`, `targetDb` and `laneGrader` blocks, and only
-the first shard of each series that fronts one upstream (dahl, chat, cfp, kl, ey, cat, gem, gm,
-k2h, nvda, rdx). A provider added or re-keyed locally is not rechecked until that secret and the
-CronJob's `--only` list are rebuilt the same way.
+`new-api-sync-weekly` = `run --only <paid non-marketplace providers>` (relay accounts, open1, Jev and the
+few others with paid lanes) Wednesdays 01:30 Berlin, 6h deadline; `new-api-sync-daily-metadata` = `metadata`
+over every non-marketplace provider daily 03:15 Berlin (prices only, no probes). Both read OpenBao
+`secret/sync-env-weekly`: the local `config.yml` minus a7, ih, si, ms1 (Magicube cost) and cent (banned), with
+the cluster's `target`, `verdictStore`, `targetDb` and `laneGrader` blocks, the first shard of each series that
+fronts one upstream (dahl, chat, cfp, kl, ey, cat, gem, gm, k2h, nvda, rdx), and `authenticityPassTtlHours: 216`
+on every provider. Both use an `emptyDir` for logs and the pod label `new-api-sync-weekly`, which the network
+policies admit next to `new-api-sync-full`. A provider added or re-keyed locally is not covered until that secret
+and the weekly `--only` list are rebuilt the same way. Relay credits are mostly yuan labelled dollars, so a run's
+"Test cost" overstates real spend about 7x on those providers.
+
+Pass lifetimes of 24h or more stretch with `passStreak` (consecutive passes with an unchanged tokenizer delta):
+x1, x2, x4, x8, capped at 720h, minus a fixed per-lane share of up to 20% so a stable fleet does not expire on one
+day. A fail or a moved delta resets it. a7 (4h) and the 12h default never stretch.
 
 Cluster config (OpenBao `secret/sync-env` key `config.yml`) declares a7, ih and si only; local
 `bun sync metadata` covers the rest. Mirror every edit to those blocks and to the shared blocks
