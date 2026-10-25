@@ -56,6 +56,8 @@ export interface ProbeOpts {
   acceptUpstreamDown?: boolean;
 }
 
+const PROBE_CANDIDATES = 3;
+
 export async function probeChannelType(
   opts: ProbeOpts,
 ): Promise<ProbeOutcome | null> {
@@ -102,17 +104,22 @@ async function runShapeProbe(
   textModels: string[],
   native: number,
 ): Promise<ProbeOutcome | null> {
-  const representative = [...textModels].sort(
-    (a, b) => a.length - b.length,
-  )[0]!;
+  // Several candidates: a relay group often lists a model it has no channel for
+  // (pol answers 503 "no available channel"), and one such model failed the group.
+  const representatives = [...textModels]
+    .sort((a, b) => a.length - b.length)
+    .slice(0, PROBE_CANDIDATES);
   const timeoutMs = opts.timeoutMs ?? TIMEOUTS.MODEL_TEST_MS;
   const { logPrefix: prefix, vendor } = opts;
 
-  const probeOnce = async (channelType: number): Promise<ShapeResult> => {
+  const probeOnce = async (
+    channelType: number,
+    model: string,
+  ): Promise<ShapeResult> => {
     const reqOpts: ModelRequestOpts = {
       baseUrl: opts.baseUrl,
       apiKey: opts.apiKey,
-      model: representative,
+      model,
       channelType,
       useResponsesAPI: false,
     };
@@ -127,16 +134,28 @@ async function runShapeProbe(
     };
   };
 
-  const tryShape = async (channelType: number): Promise<ShapeResult> => {
+  const tryModel = async (
+    channelType: number,
+    model: string,
+  ): Promise<ShapeResult> => {
     let last: ShapeResult = { pass: false };
     for (const delay of [0, 3_000]) {
       if (delay > 0) await new Promise((r) => setTimeout(r, delay));
-      last = await probeOnce(channelType);
+      last = await probeOnce(channelType, model);
       if (last.pass) return last;
       if (last.billingBlockReason) return last;
       const transient =
         last.status === undefined || last.status === 429 || last.status >= 500;
       if (!transient) return last;
+    }
+    return last;
+  };
+
+  const tryShape = async (channelType: number): Promise<ShapeResult> => {
+    let last: ShapeResult = { pass: false };
+    for (const model of representatives) {
+      last = await tryModel(channelType, model);
+      if (last.pass || last.billingBlockReason) return last;
     }
     return last;
   };
