@@ -622,10 +622,17 @@ export async function processNewApiProvider(
                   count: vendorModels.length,
                 }),
               );
+              // One busy answer (pol's crowded Gemini groups, 503 on 2026-10-25) must not
+              // delete the group's lanes; the gateway's own test pulls lanes that are dead.
+              for (const m of vendorModels)
+                (report.unverifiedModels ??= []).push(
+                  exposedInGroup(m, p.group.name).toLowerCase(),
+                );
               return {
                 tested: 0,
                 working: 0,
                 offer: null as null | UpstreamOffer,
+                probeFailed: true,
               };
             }
             const gatedModels = gateDecisions
@@ -796,12 +803,17 @@ export async function processNewApiProvider(
           group: p.group,
           offers: groupOffers,
           hadAnyOffer: groupOffers.length > 0,
+          probeFailed: bucketResults.some(
+            (b) => "probeFailed" in b && b.probeFailed === true,
+          ),
         };
       }),
     );
     for (const gr of groupResults) {
       offers.push(...gr.offers);
-      if (!gr.hadAnyOffer) groupsWithNoWorkingModels.push(gr.group.name);
+      // A group that could not be probed this run keeps its token: its lanes are kept too.
+      if (!gr.hadAnyOffer && !gr.probeFailed)
+        groupsWithNoWorkingModels.push(gr.group.name);
     }
     // NEVER under a model/type filter: a filtered run tests only the matching
     // models, so a healthy group whose models are all out of scope produces
