@@ -850,7 +850,16 @@ export async function runMetadataSync(
         sources,
         reverseMapping,
         modelType,
-      });
+      }) ??
+      // A provider split off the shared name (publishAs or-<model>) is the same model.
+      (name.startsWith("or-")
+        ? buildModelMetadata({
+            modelName: name.slice("or-".length),
+            sources,
+            reverseMapping,
+            modelType,
+          })
+        : undefined);
 
     // A checkpoint name can fuzzy-match a text model in the pricing sources
     // (flux-1-dev-runware picks up flux-1-dev's chat entry), which then renders a

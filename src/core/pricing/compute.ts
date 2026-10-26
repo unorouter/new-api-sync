@@ -753,9 +753,10 @@ function pushBucketsAsTiers(
       // A provider whose lanes are split off the shared name (publishAs) publishes
       // under that name; pricing still comes from `exposed`, mirrored below.
       const baseName = m.publishAs ?? m.exposed;
+      // Some free providers put "-free" in the id itself (lt1's sage-a1.5-free).
       const publishedName =
         groupRatio === 0 && !baseName.endsWith(":free")
-          ? `${baseName}:free`
+          ? `${baseName.replace(/-free$/, "")}:free`
           : baseName;
 
       const modelMapping: Record<string, string> = {};
