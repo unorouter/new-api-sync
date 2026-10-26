@@ -870,6 +870,8 @@ const CURATED: Record<string, SourceMetadata> = {
   "nemotron-3.5-embed-1b": { releaseDate: iso("2026-10-07") },
   "nemotron-3.5-embed-8b": { releaseDate: iso("2026-10-07") },
   "nemotron-sea-lion-v4.8-120b-a12b": { releaseDate: iso("2026-09-08") },
+  // Voltropy announced the Vast-10M family on its blog and PR Newswire on 2026-09-29.
+  "vast-10m-flash": { releaseDate: iso("2026-09-29") },
   // Inception Mercury Decide (OpenRouter inception/mercury-decide:free, 2026-09-30):
   // a decisions model, absent from OpenRouter's model list like Jev.
   "mercury-decide": {
