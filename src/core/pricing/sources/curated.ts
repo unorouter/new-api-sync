@@ -860,6 +860,16 @@ const CURATED: Record<string, SourceMetadata> = {
     inputModalities: ["text"],
     outputModalities: ["text"],
   },
+  // Dates are the creation of the maker's own Hugging Face repo (InternScience/Agents-A1,
+  // InternScience/Sage-A1.5, LiquidAI/LFM2.5-Embedding-350M, nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B,
+  // nvidia/Nemotron-3.5-Embed-*, aisingapore/Nemotron-SEA-LION-v4.8-120B-A12B).
+  "agents-a1": { releaseDate: iso("2026-06-22") },
+  "sage-a1.5": { releaseDate: iso("2026-10-15") },
+  "lfm-2.5-embedding-350m": { releaseDate: iso("2026-05-05") },
+  "nemotron-3.5-bolt-e4b": { releaseDate: iso("2026-10-05") },
+  "nemotron-3.5-embed-1b": { releaseDate: iso("2026-10-07") },
+  "nemotron-3.5-embed-8b": { releaseDate: iso("2026-10-07") },
+  "nemotron-sea-lion-v4.8-120b-a12b": { releaseDate: iso("2026-09-08") },
   // Inception Mercury Decide (OpenRouter inception/mercury-decide:free, 2026-09-30):
   // a decisions model, absent from OpenRouter's model list like Jev.
   "mercury-decide": {
