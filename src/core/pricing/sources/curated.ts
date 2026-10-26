@@ -838,6 +838,28 @@ const CURATED: Record<string, SourceMetadata> = {
     inputModalities: ["text"],
     outputModalities: ["decisions"],
   },
+  // Dates from OpenRouter's listing (created 2026-10-16); free lanes publish the short names.
+  beam: {
+    releaseDate: iso("2026-10-16"),
+    contextWindow: 1_048_576,
+    maxInputTokens: 1_048_576,
+    inputModalities: ["text"],
+    outputModalities: ["text"],
+  },
+  "beam-1.0-501b-a23b": {
+    releaseDate: iso("2026-10-16"),
+    contextWindow: 1_048_576,
+    maxInputTokens: 1_048_576,
+    inputModalities: ["text"],
+    outputModalities: ["text"],
+  },
+  "xing4.0-29b-a4b": {
+    releaseDate: iso("2026-10-16"),
+    contextWindow: 262_144,
+    maxInputTokens: 262_144,
+    inputModalities: ["text"],
+    outputModalities: ["text"],
+  },
   // Inception Mercury Decide (OpenRouter inception/mercury-decide:free, 2026-09-30):
   // a decisions model, absent from OpenRouter's model list like Jev.
   "mercury-decide": {
