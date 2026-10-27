@@ -82,10 +82,12 @@ const LADDER: readonly RuleId[] = [
 // model that thinks only when asked and skips it at high effort is the same
 // model run without its reasoning, which users read as a worse one. A persona
 // prompt cannot change how the backend splits text, so a vocabulary of another
-// maker is another model.
+// maker is another model. A Western lab's model that will not talk about
+// Tiananmen 1989 is a Chinese model under its name.
 const ENFORCED: readonly RuleId[] = [
   "masked-identity",
   "fake-200",
+  "censored-history",
   "substituted",
   "served-model-mismatch",
   "thinking-honored",
