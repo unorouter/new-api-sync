@@ -568,8 +568,13 @@ export function isReasoningFresh(key: string): boolean {
 
 export function recordTokenizerDelta(key: string, delta: number): void {
   const entry: VerdictEntry = cache.get(key) ?? { key, since: today() };
-  if (entry.tokenizerDelta !== undefined && entry.tokenizerDelta !== delta)
+  // A moved delta is a new backend: its reasoning was never measured either
+  // (a7:4664 glm-5.3 kept a stale "visible" from the old backend and served
+  // with no reasoning at all).
+  if (entry.tokenizerDelta !== undefined && entry.tokenizerDelta !== delta) {
     delete entry.passStreak;
+    delete entry.reasoning;
+  }
   entry.tokenizerDelta = delta;
   cache.set(key, entry);
   persist();

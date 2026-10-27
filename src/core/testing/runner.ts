@@ -277,6 +277,9 @@ function reasoningWhitelisted(prefix: string, model: string): boolean {
 
 const REASONING_PROMPT =
   "Is 1001 prime? Think it through step by step, then answer.";
+// Real glm-5.3 thinks about 1500 characters on this prompt; a7:5367 sent 30
+// and passed while "> 0" was the bar.
+const MIN_REASONING_CHARS = 100;
 
 const mkDetail = (
   model: string,
@@ -553,13 +556,14 @@ async function testModels(opts: {
             );
             return null;
           }
-          const visible = probe.reasoningChars > 0;
+          const visible = probe.reasoningChars >= MIN_REASONING_CHARS;
           // Whether an explicit effort unlocks it tells which lanes need the
           // caller to ask for reasoning; only the plain answer is judged.
           let withEffort: boolean | undefined;
           if (!visible && !callerSetEffort) {
             const second = await ask(true);
-            if (second.status === 200) withEffort = second.reasoningChars > 0;
+            if (second.status === 200)
+              withEffort = second.reasoningChars >= MIN_REASONING_CHARS;
           }
           recordReasoning(blacklistKey, {
             visible,
