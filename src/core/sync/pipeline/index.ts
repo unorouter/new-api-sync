@@ -183,6 +183,10 @@ async function buildDesiredState(
     string,
     { maxConcurrency?: number; maxRps?: number }
   >();
+  const upstreamCostMarkupByProvider = new Map<
+    string,
+    number | Record<string, number>
+  >();
   for (const p of config.providers) {
     if ("baseUrl" in p && p.baseUrl && p.perUpstreamConcurrency)
       overrides.set(p.baseUrl, p.perUpstreamConcurrency);
@@ -204,6 +208,8 @@ async function buildDesiredState(
       forceUpstreamStreamByProvider.set(p.name, p.forceUpstreamStream);
     if ("channelLimits" in p && p.channelLimits)
       channelLimitsByProvider.set(p.name, p.channelLimits);
+    if ("upstreamCostMarkup" in p && p.upstreamCostMarkup !== undefined)
+      upstreamCostMarkupByProvider.set(p.name, p.upstreamCostMarkup);
   }
   setConcurrencyGate(
     new ConcurrencyGate({
@@ -271,6 +277,7 @@ async function buildDesiredState(
     autoTestIntervalByProvider,
     forceUpstreamStreamByProvider,
     channelLimitsByProvider,
+    upstreamCostMarkupByProvider,
     autoTestIntervalMaxByProvider,
     headerOverrideByProvider,
   });

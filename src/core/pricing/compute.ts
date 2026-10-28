@@ -63,6 +63,7 @@ interface ComputeArgs {
     string,
     { maxConcurrency?: number; maxRps?: number }
   >;
+  upstreamCostMarkupByProvider?: Map<string, number | Record<string, number>>;
   headerOverrideByProvider?: Map<string, string>;
   autoTestIntervalMaxByProvider?: Map<string, number>;
 }
@@ -872,6 +873,15 @@ function pushBucketsAsTiers(
           : {}),
         ...(args?.channelLimitsByProvider?.get(offer.provider)
           ? { channelLimits: args.channelLimitsByProvider.get(offer.provider) }
+          : {}),
+        ...(args?.upstreamCostMarkupByProvider?.has(offer.provider)
+          ? {
+              upstreamCostMarkup: resolvePerModel(
+                args.upstreamCostMarkupByProvider.get(offer.provider),
+                publishedName,
+                0,
+              ),
+            }
           : {}),
         ...(m.rateLimited || offer.upstreamDown ? { disabled: true } : {}),
         ...(sysPromptRule

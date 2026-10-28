@@ -133,6 +133,10 @@ function mergeSettingCapabilities(
     "max_concurrency",
   );
   const desiredMaxRps = extractPositiveNumber(desiredSetting, "max_rps");
+  const desiredCostMarkup = extractPositiveNumber(
+    desiredSetting,
+    "upstream_cost_markup",
+  );
   const desiredDecisionsPath = extractStringSetting(
     desiredSetting,
     "decisions_upstream_path",
@@ -147,6 +151,7 @@ function mergeSettingCapabilities(
     desiredForceStream === undefined &&
     desiredMaxConcurrency === undefined &&
     desiredMaxRps === undefined &&
+    desiredCostMarkup === undefined &&
     desiredDecisionsPath === undefined &&
     !desiredDataPolicy
   )
@@ -186,6 +191,8 @@ function mergeSettingCapabilities(
   if (desiredMaxConcurrency !== undefined)
     existing.max_concurrency = desiredMaxConcurrency;
   if (desiredMaxRps !== undefined) existing.max_rps = desiredMaxRps;
+  if (desiredCostMarkup !== undefined)
+    existing.upstream_cost_markup = desiredCostMarkup;
   if (desiredDecisionsPath !== undefined)
     existing.decisions_upstream_path = desiredDecisionsPath;
   if (desiredDataPolicy) existing.data_policy = desiredDataPolicy;
@@ -208,6 +215,7 @@ function normalizeCapabilities(setting?: string): string | undefined {
   const forceStream = extractBoolSetting(setting, "force_upstream_stream");
   const maxConcurrency = extractPositiveNumber(setting, "max_concurrency");
   const maxRps = extractPositiveNumber(setting, "max_rps");
+  const costMarkup = extractPositiveNumber(setting, "upstream_cost_markup");
   const decisionsPath = extractStringSetting(
     setting,
     "decisions_upstream_path",
@@ -222,6 +230,7 @@ function normalizeCapabilities(setting?: string): string | undefined {
     forceStream === undefined &&
     maxConcurrency === undefined &&
     maxRps === undefined &&
+    costMarkup === undefined &&
     decisionsPath === undefined &&
     !dataPolicy
   )
@@ -254,6 +263,7 @@ function normalizeCapabilities(setting?: string): string | undefined {
       ? { decisions_upstream_path: decisionsPath }
       : {}),
     ...(dataPolicy ? { data_policy: dataPolicy } : {}),
+    ...(costMarkup !== undefined ? { upstream_cost_markup: costMarkup } : {}),
   });
 }
 

@@ -111,6 +111,8 @@ function buildSettingJson(tier: PricedTier): string | undefined {
   if (tier.channelLimits?.maxConcurrency)
     setting.max_concurrency = tier.channelLimits.maxConcurrency;
   if (tier.channelLimits?.maxRps) setting.max_rps = tier.channelLimits.maxRps;
+  if (tier.upstreamCostMarkup)
+    setting.upstream_cost_markup = tier.upstreamCostMarkup;
 
   if (tier.autoTestIntervalMinutes)
     setting.auto_test_interval_minutes = tier.autoTestIntervalMinutes;

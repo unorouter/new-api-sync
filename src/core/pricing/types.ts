@@ -52,6 +52,10 @@ export interface PricedTier {
    *  a saturated lane is skipped instead of asked, so an upstream with a small
    *  documented budget stops answering 429 to everyone. */
   channelLimits?: { maxConcurrency?: number; maxRps?: number };
+  /** Bill each request at the upstream's reported cost times this, when that is
+   *  more than the lane's token price (channel.setting.upstream_cost_markup). For
+   *  marketplaces whose seller, and so whose real cost, changes per request. */
+  upstreamCostMarkup?: number;
   /** Scheduled-test cadence in minutes (channel.setting.auto_test_interval_minutes).
    *  Set for exit-IP-metered lanes, where each probe spends part of a small per-IP
    *  request budget that real traffic needs. */
