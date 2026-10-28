@@ -405,7 +405,10 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
 
     // A run that resolves no cache price must not fall back to the gateway's
     // default of 1: that billed cache reads at the full input rate.
-    if (cacheRatio === undefined && pricingSources.length > 0) {
+    if (
+      (cacheRatio === undefined || (cacheRatio === 0 && writtenRatio > 0)) &&
+      pricingSources.length > 0
+    ) {
       cacheRatio = resolveCacheRatio(model, pricingSources, reverseMapping);
     }
     cacheRatio ??= existing?.cacheRatio;

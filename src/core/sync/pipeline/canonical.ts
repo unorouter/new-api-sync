@@ -1,6 +1,7 @@
 import type { UpstreamOffer } from "@core/pricing/offers";
 import type { PricingSource } from "@core/pricing/sources/types";
 import type { BaselineInputs } from "@core/pricing/types";
+import { CURATED_PRICING } from "@core/pricing/sources/curated";
 import { resolveCanonicalByVote } from "@core/pricing/vote";
 
 /**
@@ -30,6 +31,11 @@ export function resolveCanonicalRetail(opts: {
   for (const m of opts.baseline.modelRatios.keys()) seenModels.add(m);
 
   for (const m of seenModels) {
+    const pinned = CURATED_PRICING[m];
+    if (pinned) {
+      canonical.set(m, pinned.modelRatio);
+      continue;
+    }
     const vote = resolveCanonicalByVote(
       m,
       opts.pricingSources,

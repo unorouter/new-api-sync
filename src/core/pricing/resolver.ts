@@ -5,7 +5,11 @@ import type { ModelType } from "@core/types";
 import { t } from "@server/i18n";
 import { fetchAipricingSource } from "./sources/aipricing";
 import { buildBasellmCanonicalSource } from "./sources/basellm";
-import { buildCuratedSource, CURATED_OVERRIDE } from "./sources/curated";
+import {
+  buildCuratedSource,
+  CURATED_OVERRIDE,
+  CURATED_PRICING,
+} from "./sources/curated";
 import { fetchEphoneMetadataSource } from "./sources/ephone";
 import { fetchGenaiPricesSource } from "./sources/genai-prices";
 import { fetchLiteLLMSource } from "./sources/litellm";
@@ -96,10 +100,13 @@ export function resolveBasePricing(
   sources: PricingSource[],
   reverseMapping: Map<string, string>,
 ): BaseModelPricing | undefined {
+  const pinned = CURATED_PRICING[modelName];
+  if (pinned) return pinned;
   for (const source of sources) {
     const hit = lookup(modelName, source.pricing, reverseMapping);
     if (!hit) continue;
-    if (hit.value.cacheRatio !== undefined) return hit.value;
+    if (hit.value.cacheRatio !== undefined && hit.value.cacheRatio > 0)
+      return hit.value;
     const cacheRatio = resolveCacheRatio(modelName, sources, reverseMapping);
     return cacheRatio === undefined ? hit.value : { ...hit.value, cacheRatio };
   }
@@ -117,6 +124,8 @@ export function resolveListCompletionRatio(
   reverseMapping: Map<string, string>,
   listRatio: number,
 ): number | undefined {
+  const pinned = CURATED_PRICING[modelName];
+  if (pinned) return pinned.completionRatio;
   const ratios: number[] = [];
   for (const source of sources) {
     const hit = lookup(modelName, source.pricing, reverseMapping);
@@ -144,11 +153,14 @@ export function resolveCacheRatio(
   sources: PricingSource[],
   reverseMapping: Map<string, string>,
 ): number | undefined {
+  const pinned = CURATED_PRICING[modelName]?.cacheRatio;
+  if (pinned !== undefined) return pinned;
   const ratios: number[] = [];
   for (const source of sources) {
     const ratio = lookup(modelName, source.pricing, reverseMapping)?.value
       .cacheRatio;
-    if (ratio !== undefined && ratio >= 0 && ratio <= 1) ratios.push(ratio);
+    // Zero is a reseller's free cache, never a list price: it billed glm-5.3 cache reads at nothing.
+    if (ratio !== undefined && ratio > 0 && ratio <= 1) ratios.push(ratio);
   }
   if (ratios.length === 0) return undefined;
   ratios.sort((a, b) => a - b);
