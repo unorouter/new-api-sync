@@ -86,7 +86,8 @@ const BY_NAME: Record<string, DataPolicyFields> = {
   lmh1: { prompts: "unknown", transfer: "none" },
   lnk1: { seatCountry: "HK", prompts: "none", transfer: "none" },
   lt1: { seatCountry: "TR", prompts: "none", transfer: "none" },
-  ltr1: { seatCountry: "US", prompts: "unknown", transfer: "none" },
+  // Discord 29.10.2026 (Eliza, operator): stores nothing itself and drops providers known to store, but routes to LinkAPI, rout.my, Venice, OpenRouter, DeepSeek, Mistral, AtlasCloud, Novita, DeepInfra and Google AI Studio, whose free tier trains on inputs.
+  ltr1: { seatCountry: "US", prompts: "trains", transfer: "none" },
   lum1: { prompts: "unknown", transfer: "none" },
   mdl1: { seatCountry: "US", prompts: "none", transfer: "scc" },
   mega1: { seatCountry: "CA", prompts: "retains", transfer: "unknown" },
