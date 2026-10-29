@@ -178,13 +178,22 @@ export function buildFallbackOffer(opts: {
     vendor === "anthropic"
       ? [...lane.operations, ...CLAUDE_CONTEXT_1M_OPERATIONS]
       : lane.operations;
+  // The sticker bills output at the list's out:in, so a lane priced on its input alone
+  // sold output under cost wherever sellers discount input deeper than output (si
+  // glm-5.2: $0.0003/M in, $0.020/M out against a 3.14 list shape, output at 1/6 of cost).
+  const listShape =
+    lane.listInputUsd && lane.listOutputUsd
+      ? lane.listOutputUsd / lane.listInputUsd
+      : undefined;
+  const inputBasis = listShape
+    ? Math.max(lane.inputUsd, lane.outputUsd / listShape)
+    : lane.inputUsd;
   const model: OfferModel = {
     exposed: lane.exposed,
     upstream: lane.upstream,
     modelType: "text",
-    upstreamRatio: lane.inputUsd / USD_PER_M_PER_RATIO,
-    upstreamCompletionRatio:
-      lane.inputUsd > 0 ? lane.outputUsd / lane.inputUsd : 1,
+    upstreamRatio: inputBasis / USD_PER_M_PER_RATIO,
+    upstreamCompletionRatio: inputBasis > 0 ? lane.outputUsd / inputBasis : 1,
     ...(operations.length > 0
       ? { paramOverride: JSON.stringify({ operations }) }
       : {}),
