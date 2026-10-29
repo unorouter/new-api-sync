@@ -573,9 +573,25 @@ function processStandardOffer(
       if (!isFixed(written)) {
         // Per-token: cost tracks this channel's own upstream ratio vs the stored
         // sticker, so a pricier relay charges proportionally more.
+        // A marketplace lane is billed on the sticker's out:in, but its sellers discount
+        // input far deeper than output (si glm-5.2: $0.00008/M in, $0.026/M out against a
+        // 3.14 list), so priced on input its output sold at a sixth of cost and the cost
+        // floor billed users 6x the shown rate. Price it on whichever side costs more.
+        // Not from si's own list price: it gives glm-5.2 input as $0.006/M.
+        const upstreamRatio =
+          m.upstreamRatio !== undefined &&
+          (offer.providerKind === "si" || offer.providerKind === "ih") &&
+          m.upstreamCompletionRatio !== undefined &&
+          written.completionRatio > 0
+            ? Math.max(
+                m.upstreamRatio,
+                (m.upstreamRatio * m.upstreamCompletionRatio) /
+                  written.completionRatio,
+              )
+            : m.upstreamRatio;
         const cost =
-          m.upstreamRatio !== undefined && written.ratio > 0
-            ? offer.groupRatio * (m.upstreamRatio / written.ratio)
+          upstreamRatio !== undefined && written.ratio > 0
+            ? offer.groupRatio * (upstreamRatio / written.ratio)
             : offer.groupRatio;
         const ceiling =
           written.ratio > 0
@@ -586,8 +602,8 @@ function processStandardOffer(
         // so retail = upstreamRatio * (1 + adj) even when offer.groupRatio is the
         // provider's free-tier 0 (a paid model in an otherwise-free provider).
         const markupBase =
-          m.upstreamRatio !== undefined && written.ratio > 0
-            ? m.upstreamRatio / written.ratio
+          upstreamRatio !== undefined && written.ratio > 0
+            ? upstreamRatio / written.ratio
             : cost;
         groupRatio =
           applyMarkupOverride(markupBase, resolved) ??

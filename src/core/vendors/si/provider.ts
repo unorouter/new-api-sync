@@ -198,8 +198,14 @@ export async function processSiProvider(
           .sort((a, b) => a.share - b.share);
         const expected = ranked[minSellers - 1];
         if (!expected) return;
-        const inputUsd = expected.o.price_input_per_1m / 1e6;
-        const outputUsd = expected.o.price_output_per_1m / 1e6;
+        // Each side at its own minSellers-th ask: the offer ranked third by its worst
+        // discount carried glm-5.2's dearest output in the book ($0.091/M against $0.026
+        // for the sellers that serve), which showed 4x the price requests really cost.
+        const nthAsk = (side: "price_input_per_1m" | "price_output_per_1m") =>
+          eligible.map((o) => o[side]).sort((a, b) => a - b)[minSellers - 1]! /
+          1e6;
+        const inputUsd = nthAsk("price_input_per_1m");
+        const outputUsd = nthAsk("price_output_per_1m");
         const multiple = laneMultiple(provider, {
           exposed,
           pool: "",
