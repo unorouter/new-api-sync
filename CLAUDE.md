@@ -47,10 +47,9 @@ tokens and time, then by model and time. Every probe the sync sends records the 
 rows reconcile exactly. Leftover upstream rows are classed abandoned (an error row of ours for the
 model within 3 min: the gateway timed out and retried, the relay billed the attempt), probe-shaped,
 or unexplained; only unexplained rows, foreign tokens with usage, or a source ip outside
-`targetEgressIps` that appears solely on unaccounted rows flip the exit code to 1 (duck logs its
-edge proxy ip, so an ip seen on id-matched rows counts as ours). `record_ip_log` is on for the
-pol, duck, gg, a7 and trp1 accounts (per-user setting, `PUT /api/user/setting`); fish logs ip and
-user agent by itself; cent is banned.
+`targetEgressIps` that appears solely on unaccounted rows flip the exit code to 1 (a relay may log
+its edge proxy ip, so an ip seen on id-matched rows counts as ours). Source ips need `record_ip_log`
+on the relay account (per-user setting, `PUT /api/user/setting`).
 
 ```bash
 bun sync baseline [--out f.json]  # dump voted canonical list prices
@@ -165,12 +164,12 @@ Two CronJobs in `services` (`k8s/`; a push to `main` builds the image in GitHub 
 `new-api-sync-full` = `run --only a7,ih,si` at 04:00, 10:00, 16:00 and 22:00, 3h deadline, `backoffLimit: 0`,
 the only job that probes. The marketplaces change constantly, so they sync on the cluster.
 
-`new-api-sync-weekly` = `run --only <paid non-marketplace providers>` (relay accounts, open1, Jev and the
+`new-api-sync-weekly` = `run --only <paid non-marketplace providers>` (relay accounts and the
 few others with paid lanes) Wednesdays 01:30 Berlin, 6h deadline; `new-api-sync-daily-metadata` = `metadata`
 over every non-marketplace provider daily 03:15 Berlin (prices only, no probes). Both read OpenBao
-`secret/sync-env-weekly`: the local `config.yml` minus a7, ih, si, ms1 (Magicube cost) and cent (banned), with
+`secret/sync-env-weekly`: the local `config.yml` minus a7, ih, si and any provider excluded for cost or a ban, with
 the cluster's `target`, `verdictStore`, `targetDb` and `laneGrader` blocks, the first shard of each series that
-fronts one upstream (dahl, chat, cfp, kl, ey, cat, gem, gm, k2h, nvda, rdx), and `authenticityPassTtlHours: 216`
+fronts one upstream, and `authenticityPassTtlHours: 216`
 on every provider. Both use an `emptyDir` for logs and the pod label `new-api-sync-weekly`, which the network
 policies admit next to `new-api-sync-full`. A provider added or re-keyed locally is not covered until that secret
 and the weekly `--only` list are rebuilt the same way. Relay credits are mostly yuan labelled dollars, so a run's
@@ -215,7 +214,7 @@ authority, except `masked-identity`, `fake-200` (a platform refusal or error pag
 reply at HTTP 200, tripped by the survey's `sensitive` question), `substituted` and
 `served-model-mismatch` (the reply's own model field names another model), which judge every
 maker. The functional test applies the same model-field check to both its plain and its stream
-reply: aichixia echoed the requested id on one and the real model on the other. For every
+reply: one relay echoed the requested id on one and the real model on the other. For every
 other maker every ladder rule is observe only (`authenticity.observeOnly` in
 config.yml overrides per maker id or `*`; `[]` promotes a maker), the lane passes and the finding is
 recorded: `logs/observe-<date>.jsonl` and the store object `observe/<hour>.jsonl` carry one line per
@@ -236,7 +235,7 @@ per-lane ledger (`logs/answer-fingerprints.json`, store object
 `answer-fingerprints.json`, merged by run stamp, 60 runs or 30 days). Before every store push
 (`run.ts` finally, `metadata.ts` reverify) each lane's pooled distribution is judged against its
 family's trusted profiles: the maker's own route (`official: <profile>` on the provider in config.yml: the
-maker's API or its consumer product), one profile per known host (our shards, kl, cfp, each ih
+maker's API or its consumer product), one profile per known host (our shards, each ih
 pool), or the largest cluster of the family when no official route carries it. Verdicts are
 `known`, `novel`, `uncertain` or `insufficient` (Jensen-Shannon in bits, 0.25 match, 0.35 mismatch,
 10 valid answers per cell, arXiv 2607.10252) and are notes: nothing here disables a lane. Two
@@ -307,7 +306,7 @@ and a higher floor refuses it. Both run on the cluster (in the cluster config si
 touches their `param_override` (`MARKETPLACE_KINDS`): an si pin is a plain `set`, which the
 reconcile would read as its own and clear.
 
-TypeSafe lanes (`vendors/typesafe`, config `type: typesafe`): Jev is a decisions model, it answers
+TypeSafe lanes (`vendors/typesafe`, config `type: typesafe`): a decisions model answers
 typed questions (`noul`, `choice`, `score`) over a shared `state` on POST `/v1/decisions` and
 never chat, so the provider is declarative like runware: one channel of the gateway's TypeSafe type
 (1003), `setting.decisions_upstream_path` pointing at OpenRouter's `/api/alpha/decisions`, no
