@@ -78,8 +78,8 @@ export interface OpenRouterPaidEndpoint {
   uptime?: number | null;
   /** "fp8" / "fp4" / "unknown". Absent on hosts that do not report one. */
   quantization?: string;
-  /** What THIS host accepts. Hosts of the same model differ (GMICloud takes no
-   *  frequency_penalty/presence_penalty/stop where DeepSeek's own endpoint does),
+  /** What THIS host accepts. Hosts of the same model differ (one takes no
+   *  frequency_penalty/presence_penalty/stop where the maker's own endpoint does),
    *  and a pinned host 400s on a param it does not list. */
   supportedParameters?: string[];
 }

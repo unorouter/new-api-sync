@@ -44,20 +44,10 @@ const DEFAULT_PAID_MARKUP = 1.5;
 // short of alternatives at, and "unknown" covers the full-precision hosts, so only
 // the explicitly-lower tiers are named here.
 const SUB_FP8_QUANTIZATIONS = new Set(["fp4", "int4", "nf4", "fp6", "int8"]);
-// Hosts with confirmed-degraded output. akashml passes probes but its glm-5.2 fp8
-// garbles names and loses context (user-reported, reproducible against novita's
-// fp8 of the same weights), so its cheap price never wins the host pick.
-//
-// deepinfra is NOT excluded despite the direct di1 lane: di1 only carries four
-// models, so blanket-blocking the host also cost every model it does not serve.
-// The two lanes coexist and the cheaper one wins per model; paying OR's cut is
-// better than having no host at all.
-const EXCLUDED_HOSTS = new Set(["akashml"]);
-
 // Sampler/format knobs a chat client sends unprompted. A host pinned via provider.only
-// gets the request verbatim, so one it does not accept fails the whole call: GMICloud
+// gets the request verbatim, so one it does not accept fails the whole call: one host
 // omits frequency_penalty/presence_penalty/stop from its supported list and answers
-// `400001 Invalid request parameters` when a preset sends them, while DeepSeek's own
+// `400001 Invalid request parameters` when a preset sends them, while the maker's own
 // endpoint of the SAME model takes all three. Only params in this list are ever
 // stripped, so a sparse or stale upstream list cannot delete something load-bearing.
 const CLIENT_SENT_PARAMS = [
@@ -134,18 +124,6 @@ function unsupportedParamOps(
 // A price cap of 0 makes OpenRouter refuse instead of bill when a free endpoint is
 // gone; ling-3.1-flash:free billed ~$10 a day on Novita after its promotion ended.
 const FREE_ONLY_PROVIDER = { max_price: { prompt: 0, completion: 0 } };
-
-// Host exclusions that apply to ONE model rather than the whole host. gmicloud's
-// glm-5.2 does not separate reasoning from content and runs a classifier that trims
-// replies mid-response (user-reported), and it is the priciest glm-5.2 lane there;
-// its minimax-m3 is the cheapest lane we have and stays.
-const EXCLUDED_HOSTS_BY_MODEL: Record<string, Set<string>> = {
-  // digitalocean is the only glm-5.2 host OpenRouter reports as quantization
-  // "unknown" rather than fp8, and it collapses on long context: 10.4 tps on a
-  // 32k prompt where every other lane ran 55-127. Its kimi-k2.6 and mimo lanes
-  // hold 44-51 tps and stay.
-  "glm-5.2": new Set(["gmicloud", "digitalocean"]),
-};
 
 // A host's published quantization, appended to its tag when OpenRouter has not
 // already put it there. OpenRouter suffixes the tag for SOME hosts (novita/fp8)
@@ -524,8 +502,10 @@ export async function processOpenRouterProvider(
                   (h.quantization ?? "").toLowerCase(),
                 ) ||
                   allowedQuant.has((h.quantization ?? "").toLowerCase())) &&
-                !EXCLUDED_HOSTS.has(h.provider.toLowerCase()) &&
-                !EXCLUDED_HOSTS_BY_MODEL[r.exposed]?.has(
+                !providerConfig.excludedHosts?.includes(
+                  h.provider.toLowerCase(),
+                ) &&
+                !providerConfig.excludedHostsByModel?.[r.exposed]?.includes(
                   h.provider.toLowerCase(),
                 ),
             );

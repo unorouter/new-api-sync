@@ -193,7 +193,7 @@ function toMetadata(model: OpenRouterSummaryModel): SourceMetadata {
       ?.map((e) => e.supportedParameters)
       .filter((l): l is string[] => Array.isArray(l) && l.length > 0) ?? [];
   if (lists.length > 0) {
-    // Hosts of one model disagree (GMICloud takes no penalties where DeepSeek's own
+    // Hosts of one model disagree (one takes no penalties where the maker's own
     // endpoint does), so neither extreme describes the model: a strict intersection
     // lets ONE outlier delete a param 14 other hosts accept, and the union promises
     // support most routes cannot honor. Publish what a MAJORITY serves, which is what
