@@ -137,7 +137,7 @@ const FREE_ONLY_PROVIDER = { max_price: { prompt: 0, completion: 0 } };
 
 // Host exclusions that apply to ONE model rather than the whole host. gmicloud's
 // glm-5.2 does not separate reasoning from content and runs a classifier that trims
-// replies mid-response (user-reported), and it is the priciest open1 glm-5.2 lane;
+// replies mid-response (user-reported), and it is the priciest glm-5.2 lane there;
 // its minimax-m3 is the cheapest lane we have and stays.
 const EXCLUDED_HOSTS_BY_MODEL: Record<string, Set<string>> = {
   // digitalocean is the only glm-5.2 host OpenRouter reports as quantization
@@ -310,7 +310,7 @@ export async function processOpenRouterProvider(
 
         // One capped key per model, minted through the management key before
         // anything is sent: the probe runs on the same credential the channel
-        // will carry, so a bootstrap inference key is never needed (open1's was
+        // will carry, so a bootstrap inference key is never needed (the old one was
         // revoked in the Aug 27 rotation and no new model could pass its probe
         // for three weeks). A model that then fails keeps its key for the next
         // run; it is guardrail-pinned, daily-capped and its secret is in the

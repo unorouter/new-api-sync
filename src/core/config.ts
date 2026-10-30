@@ -218,7 +218,7 @@ export async function loadConfig(path?: string): Promise<RuntimeConfig> {
         return { ...p, ratio: p.ratio ?? 0 };
       return p;
     }) as AnyProviderConfig[]
-  ).map(withDataPolicyDefaults);
+  ).map((p) => withDataPolicyDefaults(p, typed.dataPolicies ?? {}));
 
   const global = await loadGlobalConfig();
   const mergedBlacklist = [

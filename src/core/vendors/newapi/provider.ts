@@ -402,7 +402,7 @@ export async function processNewApiProvider(
     const pricingByName = new Map(pricing.models.map((m) => [m.name, m]));
     // Relays publish vendor-prefixed ids ("openai/gpt-oss-20b"). Publish the bare
     // name like every other provider kind, EXCEPT where the same bare name maps to
-    // more than one upstream id in this provider's catalog: trp1 serves a free
+    // more than one upstream id in this provider's catalog: a relay serves a free
     // "z-ai/glm-5.2" alongside a paid "glm-5.2", so collapsing them would sell the
     // paid lane under the free name. Counted over the WHOLE catalog, not the
     // per-vendor working set, so a twin in another bucket still blocks the strip.
@@ -622,7 +622,7 @@ export async function processNewApiProvider(
                   count: vendorModels.length,
                 }),
               );
-              // One busy answer (pol's crowded Gemini groups, 503 on 2026-10-25) must not
+              // One busy answer (crowded Gemini groups, 503 on 2026-10-25) must not
               // delete the group's lanes; the gateway's own test pulls lanes that are dead.
               for (const m of vendorModels)
                 (report.unverifiedModels ??= []).push(

@@ -328,7 +328,7 @@ export class OptionStore {
   // A lane sells at ModelRatio * GroupRatio. A run that re-bases a model writes
   // new group ratios only for the lanes it manages; every other lane serving the
   // model kept a ratio computed against the old base and its price moved with
-  // it (open1-novita sold deepseek-v4.1-flash at a quarter of cost after an a7
+  // it (one lane sold deepseek-v4.1-flash at a quarter of cost after an a7
   // run re-based it). Groups this flush does not rewrite follow the base.
   private rescaleFollowers(channels: Channel[]): string[] {
     const ratioBefore = parseJsonObject(this.before["ModelRatio"]);
@@ -401,7 +401,7 @@ export class OptionStore {
 
   // A run holds the options it loaded for as long as it runs (the cluster's full
   // run took 77 minutes on 2026-09-21), so writing that picture back whole erased
-  // what a local run published meanwhile: cfp4..cfp8 and five new cfp models lost
+  // what a local run published meanwhile: five lanes and five new models lost
   // their routing that way, twice. Only this run's own edits are replayed onto the
   // value as it stands now.
   private async rebase(

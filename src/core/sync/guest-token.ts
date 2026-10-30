@@ -14,7 +14,7 @@ interface GuestTokenUpdateResult {
 // GUEST_API_KEY: refresh the guest token's model_limits from the FULL served
 // `:free` catalog, regardless of channel status. model_limits is a wholesale
 // overwrite, so computing it from one run's scope evicted every free model
-// outside it (a `--only qwen1` run dropped 175 live free models). A free model
+// outside it (a `--only <one lane>` run dropped 175 live free models). A free model
 // whose channel is currently disabled stays allowed so it works the instant the
 // channel recovers; listing it costs nothing (it fails at routing, not auth).
 export async function updateGuestTokenIfConfigured(

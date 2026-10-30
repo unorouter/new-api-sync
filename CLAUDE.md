@@ -172,7 +172,7 @@ the cluster's `target`, `verdictStore`, `targetDb` and `laneGrader` blocks, the 
 fronts one upstream, and `authenticityPassTtlHours: 216`
 on every provider. Both use an `emptyDir` for logs and the pod label `new-api-sync-weekly`, which the network
 policies admit next to `new-api-sync-full`. A provider added or re-keyed locally is not covered until that secret
-and the weekly `--only` list are rebuilt the same way. Relay credits are mostly yuan labelled dollars, so a run's
+and the weekly `--only` list (`WEEKLY_ONLY` in that secret) are rebuilt the same way. Relay credits are mostly yuan labelled dollars, so a run's
 "Test cost" overstates real spend about 7x on those providers.
 
 Pass lifetimes of 24h or more stretch with `passStreak` (consecutive passes with an unchanged tokenizer delta):
@@ -181,7 +181,7 @@ day. A fail or a moved delta resets it. a7 (4h) and the 12h default never stretc
 
 Cluster config (OpenBao `secret/sync-env` key `config.yml`) declares a7, ih and si only; local
 `bun sync metadata` covers the rest. Mirror every edit to those blocks and to the shared blocks
-(`rateLimit`, `modelMapping`, `groupMapping`, `blacklist`, `modelAlias`, `channelParamOverride`).
+(`rateLimit`, `modelMapping`, `groupMapping`, `blacklist`, `modelAlias`, `channelParamOverride`, `dataPolicies`).
 Payload over stdin, `patch` never `put` (the secret also holds `GUEST_API_KEY`), read back:
 
 ```bash

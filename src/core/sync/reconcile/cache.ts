@@ -25,7 +25,7 @@ export const compactUpstreamRow = (r: UpstreamLogRow): UpstreamLogRow => ({
   ...(userAgentOf(r) ? { user_agent: userAgentOf(r) } : {}),
 });
 
-// Relays that log the client put it in `other` (fish: user_agent); a cached
+// Relays that log the client put it in `other` (user_agent); a cached
 // row already carries it flat.
 function userAgentOf(r: UpstreamLogRow): string | undefined {
   if (r.user_agent) return r.user_agent;

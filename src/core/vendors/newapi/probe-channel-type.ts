@@ -105,7 +105,7 @@ async function runShapeProbe(
   native: number,
 ): Promise<ProbeOutcome | null> {
   // Several candidates: a relay group often lists a model it has no channel for
-  // (pol answers 503 "no available channel"), and one such model failed the group.
+  // (a relay answers 503 "no available channel"), and one such model failed the group.
   const representatives = [...textModels]
     .sort((a, b) => a.length - b.length)
     .slice(0, PROBE_CANDIDATES);

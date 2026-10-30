@@ -619,7 +619,7 @@ function processStandardOffer(
             ? offer.groupRatio * (mp / sticker)
             : offer.groupRatio;
         // canonical holds per-token ratios; dividing one by a per-call sticker
-        // made kdy1's gpt-image-2.5 ceiling 62.5 and its adj 0.9 sold images at
+        // made one relay's gpt-image-2.5 ceiling 62.5 and its adj 0.9 sold images at
         // $2.25. No per-call list exists here, so the sticker is the ceiling.
         const ceiling = sticker !== undefined && sticker > 0 ? 1 : 0;
         groupRatio =
@@ -773,7 +773,7 @@ function pushBucketsAsTiers(
       // A provider whose lanes are split off the shared name (publishAs) publishes
       // under that name; pricing still comes from `exposed`, mirrored below.
       const baseName = m.publishAs ?? m.exposed;
-      // Some free providers put "-free" in the id itself (lt1's sage-a1.5-free).
+      // Some free providers put "-free" in the id itself (sage-a1.5-free).
       const publishedName =
         groupRatio === 0 && !baseName.endsWith(":free")
           ? `${baseName.replace(/-free$/, "")}:free`

@@ -19,13 +19,13 @@ const iso = (d: string) => `${d}T00:00:00.000Z`;
 // these fields win over ALL sources. Keyed by BARE name. Use ONLY when a live
 // source is factually wrong and verified against the official model card.
 export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
-  // eye2.ai relay (ey1..ey3). OpenRouter dropped gemini-1.5-flash and grok-beta
+  // Family-only relay models. OpenRouter dropped gemini-1.5-flash and grok-beta
   // from its catalog, so one publishes a fuzzy-matched 8192 context that is wrong
   // for the real model AND wrong for ours, and the other publishes none at all.
   //
   // contextWindow here is MEASURED THROUGH THE RELAY, not the vendor spec: all
   // five models accepted 100,000 characters and refused 120,000 on 2026-09-20,
-  // an identical boundary across every family, so it is eye2's platform cap
+  // an identical boundary across every family, so it is the relay's platform cap
   // rather than anything about the model. Real Gemini 1.5 Flash is 1M; we cannot
   // offer that through this lane and must not advertise it.
   //
@@ -256,7 +256,7 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
   "nex-n2-pro": { maxOutputTokens: 65_536 },
   "nex-n2-mini": { maxOutputTokens: 65_536 },
   // Sources report 262144, but GLM-5.2 serving stacks enforce max_tokens in
-  // [1, 131072] (poloai/tokenreply return HTTP 400 above it).
+  // [1, 131072] (relays return HTTP 400 above it).
   "glm-5.2": { maxOutputTokens: 131_072 },
   // Poolside Laguna S 2.1 ships a 1M window; an early OR /models snapshot reported
   // 256K and stuck. Hard-pin the real context.
@@ -775,7 +775,7 @@ export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
     supportsVision: true,
   },
 
-  // Three lf1 models no live source carries, so without an entry they publish
+  // Three relay models no live source carries, so without an entry they publish
   // with no vendor, no context and no date.
 
   // Kiro is AWS's agentic IDE and "auto" is its model-router, not a model:
@@ -1359,7 +1359,7 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Agnes",
     mode: "video",
   },
-  // Mistral Leanstral (served free via Requesty). 262K context, tool calling.
+  // Mistral Leanstral (served free upstream). 262K context, tool calling.
   "leanstral-1-5": {
     releaseDate: iso("2026-05-01"),
     contextWindow: 262_144,
@@ -1913,7 +1913,7 @@ const CURATED: Record<string, SourceMetadata> = {
       "FLUX.1 [dev], a 12B rectified-flow transformer for high prompt-adherence text-to-image.",
   },
   "flux.1-schnell": { releaseDate: iso("2024-08-01"), mode: "image" },
-  // Zhipu image (chatglm.cn guest lane). The -250304 suffix is 6 digits, so no
+  // Zhipu image (guest lane). The -250304 suffix is 6 digits, so no
   // DATE_SUFFIX_PATTERN strips it and the bare name keeps it.
   "cogview-4-250304": {
     releaseDate: iso("2025-03-04"),
@@ -2074,7 +2074,7 @@ const CURATED: Record<string, SourceMetadata> = {
     description:
       "Atria Dawn Preview, a reasoning model for research, engineering and long running agent tasks, served by Atria ASI in preview.",
   },
-  // Upstream supports tool calls, but the only lane is k2think.ai's guest route,
+  // Upstream supports tool calls, but the only lane is a guest route,
   // which rejects any tools field.
   "k2-horizon": {
     releaseDate: iso("2026-09-03"),
@@ -2376,9 +2376,9 @@ const CURATED: Record<string, SourceMetadata> = {
   // Preview 2026-05-31, GA 2026-06-16. Adds text-to-video and reference-to-video
   // on top of i2v, native 1080p. Billed per second upstream.
   "grok-imagine-video-1.5": { releaseDate: iso("2026-06-16"), mode: "video" },
-  // "grok-video-3" is pol's own name: xAI ships no such model (their line is
+  // "grok-video-3" is a relay's own name: xAI ships no such model (their line is
   // grok-imagine-video / -1.5). Typed as video so it routes correctly; the date
-  // is Grok Imagine Video 1.5, the model pol most likely resells under this id.
+  // is Grok Imagine Video 1.5, the model it most likely resells under this id.
   "grok-video-3": {
     releaseDate: iso("2026-06-16"),
     series: "Grok",
@@ -4002,7 +4002,7 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
-  // Zhipu legacy GLM-4 line, served free by the chatglm.cn guest lane. No live
+  // Zhipu legacy GLM-4 line, served free by a guest lane. No live
   // source carries these (they predate OpenRouter's GLM listings and Zhipu retired
   // most of them from the paid catalog), so they publish dateless and contextless
   // without this block. Dates + windows from the bigmodel.cn model cards.
@@ -4122,7 +4122,7 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "OrcaRouter",
     supportsTools: true,
   },
-  // Alibaba Qwen3.5 variants surfaced via mixlayer/llmtr/morph free lanes.
+  // Alibaba Qwen3.5 variants surfaced via free lanes.
   "qwen3.5-4b": {
     releaseDate: iso("2026-02-23"),
     contextWindow: 262_144,

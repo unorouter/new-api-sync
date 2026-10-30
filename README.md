@@ -143,7 +143,7 @@ Pulls from [NVIDIA NIM](https://build.nvidia.com/). Text models are emitted as a
   blacklist:
     - nsfw # unscoped: blocks any provider's model containing "nsfw"
     - "*-preview" # unscoped: blocks any provider's preview models
-    - duck/gpt-5* # scoped: only blocks gpt-5* models from the "duck" provider
+    - myrelay/gpt-5* # scoped: only blocks gpt-5* models from the "myrelay" provider
     - yun/claude-*-opus # scoped: only blocks claude opus models from "yun"
   ```
 
@@ -154,7 +154,7 @@ A small built-in blacklist is always merged in to suppress a handful of upstream
 `groupMapping` rewrites a fragment of an upstream group label before the label becomes a channel and group name (`<label>-<provider>-<model>`). The lane, its pricing and its upstream token are untouched; only the public name changes.
 
 - **Key** is the fragment to find inside the label, matched case-insensitively. `provider/fragment` limits the rule to one provider.
-- **Value** replaces just that fragment. The rest of the label survives, so `duck/Antigravity: pool-a` turns `Gemini-CLI-Antigravity` into `Gemini-CLI-pool-a`.
+- **Value** replaces just that fragment. The rest of the label survives, so `myrelay/Antigravity: pool-a` turns `Gemini-CLI-Antigravity` into `Gemini-CLI-pool-a`.
 - Scoped rules run before bare ones, longer fragments before shorter; each rule runs once.
 - The blacklist runs first, on the raw label and description; a rule never readmits a blacklisted group. To rename a brand lane instead of dropping it, keep the brand word out of the blacklist and add an unscoped rule for it.
 - **Existing channels are renamed in place**: `sync metadata` (and the start of `sync run`) finds channels whose remark still carries the pre-rule label, moves their `GroupRatio` / `UserUsableGroups` / `AutoGroups` keys to the new name, and renames the channel row. Channel ids and stats are kept; nothing is created or deleted. Preview with `sync metadata --dry-run`.
@@ -163,7 +163,7 @@ A small built-in blacklist is always merged in to suppress a handful of upstream
   ```yml
   groupMapping:
     antigravity: AG # any provider: Gemini-CLI-Antigravity -> Gemini-CLI-AG
-    pol/adobe: AD # only pol: image2c-adobe -> image2c-AD
+    myrelay/adobe: AD # only myrelay: image2c-adobe -> image2c-AD
   ```
 
 ### Price Adjustment
@@ -285,4 +285,3 @@ These calls are best-effort: failures are logged as warnings and do not block th
 
 `logs/authenticity-blacklist.json` is maintained automatically by the test runner to track Anthropic Claude models from providers that failed authenticity checks. This is internal state, but entries can be reviewed and removed from the History tab in the UI.
 
-<!-- bun sync run --only nvda1,open1,open2 -->

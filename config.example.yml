@@ -79,6 +79,10 @@ rateLimit:
     kimi-*:free: { success: 20 }
     glm-*:free: { success: 15 }
     deepseek-*:free: { success: 10 }
+# Data policy per lane, shown in the free model consent dialog. Key = exact lane name or
+# its family without the digits, so shard7 inherits from shard. Fields on a provider block win.
+# dataPolicies:
+#   shard: { providerName: "Example Inc.", seatCountry: "US", prompts: "none", transfer: "dpf" }
 providers:
   # ── new-api upstream ──
   - type: newapi
@@ -94,7 +98,7 @@ providers:
   # TypeSafe Jev, a decisions model: serves only POST /v1/decisions, never chat.
   # Prices are the SELL price per 1M tokens.
   # - type: typesafe
-  #   name: jev1
+  #   name: decisions1
   #   baseUrl: https://decisions.example.invalid
   #   apiKey: sk-or-v1-...
   #   models:
@@ -230,11 +234,11 @@ channelParamOverride:
       - { path: temperature, mode: delete }
       - { path: frequency_penalty, mode: delete }
       - { path: presence_penalty, mode: delete }
-  # duck's grok rejects reasoning_effort none with invalid-argument; other values
+  # A relay's grok rejects reasoning_effort none with invalid-argument; other values
   # pass, so the field is dropped only when it is exactly none.
   - channels:
-      - "Grok-Build-duck-grok-4.5"
-      - "Grok-Build-duck-grok-4.6"
+      - "Grok-Build-myrelay-grok-4.5"
+      - "Grok-Build-myrelay-grok-4.6"
     operations:
       - path: reasoning_effort
         mode: delete

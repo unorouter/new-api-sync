@@ -422,6 +422,8 @@ export const ConfigSchema = T.Object({
       windowMinutes: Opt(T.Integer({ minimum: 1, maximum: 10080 })),
     }))),
   })),
+  // prettier-ignore
+  dataPolicies: Opt(T.Record(T.String(), T.Object({ seatCountry: Opt(T.String({ pattern: "^[A-Z]{2}$" })), providerName: Opt(str), prompts: Opt(DataPolicyPromptsEnum), transfer: Opt(DataPolicyTransferEnum) }))),
   providers: T.Array(AnyProviderSchema, { minItems: 1 }),
 });
 

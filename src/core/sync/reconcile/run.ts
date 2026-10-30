@@ -82,7 +82,7 @@ function emptyProvider(p: RelayProvider): ProviderReconcile {
 }
 
 // An ip seen on a row our gateway provably made (matched by request id) is a
-// path of ours even when it is not an egress address: duck logs its own edge
+// path of ours even when it is not an egress address: a relay may log its own edge
 // proxy, not the client. Only an ip that appears solely on unaccounted rows
 // can be foreign.
 function sourceIps(

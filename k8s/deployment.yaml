@@ -184,8 +184,13 @@ spec:
           containers:
             - name: sync
               image: ghcr.io/unorouter/new-api-sync:2b94337af0a65f34bdabd590a42080282407ee99@sha256:d9f03f4402f530a4ab217f593ddda9c2a72890f3ce22570ffc9b1aa80473665a
-              args: ["run", "--only", "no1,duck,fish,gg,pol,trp1,kdy1,nbi1,ts1,qnn1,bcf1,jev1,open4,open1,gem1,utim1,qr1,qr2,qr5,rdx1,lmh1,lnk1,lum1,rw1,akiyo"]
+              args: ["run", "--only", "$(WEEKLY_ONLY)"]
               env:
+                - name: WEEKLY_ONLY
+                  valueFrom:
+                    secretKeyRef:
+                      name: sync-env-weekly
+                      key: WEEKLY_ONLY
                 - name: GUEST_API_KEY
                   valueFrom:
                     secretKeyRef:

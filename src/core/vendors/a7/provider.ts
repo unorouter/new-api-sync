@@ -662,7 +662,7 @@ function buildLaneOffer(
   // groupRatio and resolve adj to 0, so retail = upstreamRatio *
   // profitMultiple per lane WITHOUT the markup-override path. A per-model
   // positive adj would make this lane own the shared model sticker
-  // (ModelRatio), which for a multi-source model (open1/pol also serve
+  // (ModelRatio), which for a multi-source model (other providers also serve
   // kimi-k3) collapses everyone's sticker to a7's cheapest merchant cost.
   const multiple = laneMultiple(
     provider,

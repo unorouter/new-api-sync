@@ -199,7 +199,7 @@ export function buildDesiredModels(opts: {
           const path =
             opts.endpointPaths.get(origEp)?.path ??
             ENDPOINT_DEFAULT_PATHS[normalized];
-          // gg lists a junk "0" endpoint type whose "path" is "openai"; the
+          // A relay lists a junk "0" endpoint type whose "path" is "openai"; the
           // gateway rejects any path that is not absolute.
           if (path?.startsWith("/")) epMap[normalized] = path;
         }

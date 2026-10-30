@@ -139,7 +139,7 @@ new-api-sync-windows-x64.exe ui  # Windows
   blacklist:
     - nsfw # 不限作用域：屏蔽任何提供商中包含 "nsfw" 的模型
     - "*-preview" # 不限作用域：屏蔽任何提供商的预览模型
-    - duck/gpt-5* # 作用域：仅屏蔽 "duck" 提供商的 gpt-5* 模型
+    - myrelay/gpt-5* # 作用域：仅屏蔽 "myrelay" 提供商的 gpt-5* 模型
     - yun/claude-*-opus # 作用域：仅屏蔽 "yun" 提供商的 claude opus 模型
   ```
 
@@ -150,7 +150,7 @@ new-api-sync-windows-x64.exe ui  # Windows
 `groupMapping` 会在上游分组名成为渠道名与分组名（`<分组名>-<提供商>-<模型>`）之前，替换其中的一个片段。通道本身、定价和上游令牌都不受影响，只有对外名称改变。
 
 - **键**是要在分组名中查找的片段，大小写不敏感。`provider/fragment` 形式将规则限定到某一个提供商。
-- **值**只替换该片段，分组名的其余部分保持不变，例如 `duck/Antigravity: pool-a` 会把 `Gemini-CLI-Antigravity` 变为 `Gemini-CLI-pool-a`。
+- **值**只替换该片段，分组名的其余部分保持不变，例如 `myrelay/Antigravity: pool-a` 会把 `Gemini-CLI-Antigravity` 变为 `Gemini-CLI-pool-a`。
 - 作用域规则先于全局规则执行，较长片段先于较短片段，每条规则执行一次。
 - 黑名单先按原始分组名与描述执行；规则不会让已被黑名单排除的分组重新进入。若想重命名而不是丢弃某个品牌通道，请把该品牌词从黑名单中移除，并为它添加一条不限作用域的规则。
 - **现有渠道会就地重命名**：`sync metadata`（以及 `sync run` 开始时）会找出备注中仍带有改写前分组名的渠道，把它们的 `GroupRatio` / `UserUsableGroups` / `AutoGroups` 键迁移到新名称，再重命名渠道记录。渠道 ID 与统计保留，不创建也不删除任何内容。可用 `sync metadata --dry-run` 预览。
@@ -159,7 +159,7 @@ new-api-sync-windows-x64.exe ui  # Windows
   ```yml
   groupMapping:
     antigravity: AG # 所有提供商：Gemini-CLI-Antigravity -> Gemini-CLI-AG
-    pol/adobe: AD # 仅 pol：image2c-adobe -> image2c-AD
+    myrelay/adobe: AD # 仅 myrelay：image2c-adobe -> image2c-AD
   ```
 
 ### 价格调整

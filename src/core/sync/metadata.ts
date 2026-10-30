@@ -475,7 +475,7 @@ async function reconcileParamOverride(
     if (!configured && !namedByRule) continue;
 
     // Only a provider that owns this channel (name prefix) may flag it, so
-    // lf1's glm globs never touch io1/nvy/... channels that serve GLM fine.
+    // One provider's glm globs never touch other providers' channels that serve GLM fine.
     // A channel with no owner-provider wants no override, so a stale thinking
     // override on it (e.g. from an earlier unscoped run) gets cleared.
     const owner = byProvider.find((p) => ch.name.startsWith(p.prefix));

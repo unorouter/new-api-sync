@@ -261,7 +261,7 @@ export function setReasoningRequired(
   reasoningWhitelist = whitelist ?? [];
 }
 
-// prefix is the lane label (a7:2846, si, gg/group/vendor); an entry names it as
+// prefix is the lane label (a7:2846, si, relay/group/vendor); an entry names it as
 // provider/merchant and may narrow to a model glob.
 function reasoningWhitelisted(prefix: string, model: string): boolean {
   const [provider, merchant] = prefix.split(/[:/]/);
@@ -649,9 +649,9 @@ async function testModels(opts: {
         ]);
         // A relay that answers a cheaper model than the one billed for passes
         // every behavioural probe: the reply IS a real Claude, just not the one
-        // asked for. Only the echoed model name catches it (bcc1 "hyper" served
+        // asked for. Only the echoed model name catches it (one "hyper" model served
         // opus-4-6 for both opus-4-8 and opus-4-7).
-        // Both replies count: aichixia echoed the requested id on the plain call
+        // Both replies count: one relay echoed the requested id on the plain call
         // and the real one (gpt-oss-20b for gpt-5-mini) only on the stream.
         const served =
           [servedModel(httpResult), servedModel(streamResult)].find(
@@ -830,7 +830,7 @@ async function testModels(opts: {
       : opts.acceptRateLimited === true;
   // Transient upstream statuses that mean "try again later", not "broken": rate
   // limits (429) + gateway/timeout 5xx + the 405 upstream_error a reverse relay
-  // (z.ai captcha pool) returns when the pool is momentarily drained.
+  // returns when the pool is momentarily drained.
   const TRANSIENT_STATUS = new Set([
     405, 408, 425, 429, 500, 502, 503, 504, 520, 522, 524,
   ]);
