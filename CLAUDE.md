@@ -232,7 +232,7 @@ battery (8 cells x `authenticity.answerFingerprint.repeats`, default 3, at tempe
 (`answerFingerprintDue`); the battery in every ladder, 24 calls in a row, cost a median 105 s per lane
 and pushed both CronJobs past their deadlines on 2026-09-22. Every ladder run appends one record to a
 per-lane ledger (`logs/answer-fingerprints.json`, store object
-`answer-fingerprints.json`, merged by run stamp, 60 runs or 30 days). Before every store push
+`answer-fingerprints.json`, merged by run stamp, 60 runs or 30 days). The store object (about 18 MB) is rewritten only by a process that recorded a run. Before every store push
 (`run.ts` finally, `metadata.ts` reverify) each lane's pooled distribution is judged against its
 family's trusted profiles: the maker's own route (`official: <profile>` on the provider in config.yml: the
 maker's API or its consumer product), one profile per known host (our shards, each ih
@@ -260,7 +260,7 @@ Lane keys (`infra/lane-keys.ts`): every revealed upstream token secret is kept s
 store cipher (`verdictStore.encryptionKey`, same value locally and in the cluster) in
 `logs/lane-keys/<provider>.json.enc` and the store object `lane-keys/<provider>.json.enc`, keyed
 by token id, so `ensureLaneTokens` and `ensureTokens` reveal only ids they do not hold. Load is
-local then store; push is read-merge-write with eviction tombstones. A key is evicted on two
+local then store; push is read-merge-write with eviction tombstones. The store copy is pushed at most every 10 minutes per provider (the local file on every flush) plus a forced push at run end: each store write keeps a noncurrent version, and a push per reveal batch was 416 a day. A key is evicted on two
 signals: a live channel the gateway auto disabled with a credential reason (`other_info.status_reason`
 `status_code=401`/`403` or a7's `账号或令牌状态不允许`, `vendors/newapi/disable-reason.ts`), and an a7
 probe answering 401/403 on a cached key (the fail verdict is cleared, the lane re-revealed and
