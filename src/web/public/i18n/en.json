@@ -543,6 +543,7 @@
     "TESTER": {
       "AUTHENTICITY_ADDED": "[authenticity-blacklist] Added {key}: {reason}",
       "AUTHENTICITY_FAIL": "[authenticity] {model}: {rule}, {reason}, rejected",
+      "AUTHENTICITY_PERMANENT": "[authenticity] {key}: failed {strikes} retests in a row ({reason}), blacklisted permanently",
       "AUTHENTICITY_INCONCLUSIVE": "[authenticity] {model}: {reason}, not verified this run, NOT blacklisted",
       "AUTHENTICITY_OBSERVED": "[authenticity] {model}: {rule}, {reason}, observed for maker {maker}, NOT rejected",
       "AUTHENTICITY_NOTE": "[authenticity] {model}: {rule}, {reason}, noted only",

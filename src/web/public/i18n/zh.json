@@ -543,6 +543,7 @@
     "TESTER": {
       "AUTHENTICITY_ADDED": "[真伪黑名单] 已添加 {key}：{reason}",
       "AUTHENTICITY_FAIL": "[真伪检测] {model}：{rule}，{reason}，已拒绝",
+      "AUTHENTICITY_PERMANENT": "[真伪检测] {key}：连续 {strikes} 次复检未通过（{reason}），已永久拉黑",
       "AUTHENTICITY_INCONCLUSIVE": "[真伪检测] {model}：{reason}，本次运行未能验证，未加入黑名单",
       "AUTHENTICITY_OBSERVED": "[真伪检测] {model}：{rule}，{reason}，{maker} 厂商仅观察，未拒绝",
       "AUTHENTICITY_NOTE": "[真伪检测] {model}：{rule}，{reason}，仅记录",

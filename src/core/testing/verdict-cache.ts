@@ -38,6 +38,9 @@ export interface VerdictEntry {
   // AUTHENTICITY_FAIL_TTL_HOURS, then one probe decides again: a merchant that
   // fixed its backend comes back, one still faking is failed again for a day.
   authFailedAt?: string;
+  // Consecutive authenticity fails across retests, reset by a pass. Each strike
+  // doubles the block; AUTH_FAIL_PERMANENT_STRIKES blocks the lane for good.
+  authFailStrikes?: number;
   // Date of the last functional pass (http/stream/tool). Expires after
   // TEST_PASS_TTL_DAYS plus a per-key jitter so the fleet retests spread out.
   testedAt?: string;
@@ -140,7 +143,17 @@ export function mergeVerdicts(
       winner.authenticity = "fail";
       winner.authenticityReason = loser.authenticityReason;
       winner.authFailedAt = loser.authFailedAt;
+      winner.authFailStrikes = loser.authFailStrikes;
       delete winner.verifiedAt;
+      delete winner.passStreak;
+    } else if (
+      loser.authenticity === "fail" &&
+      winner.authenticity === "fail"
+    ) {
+      winner.authFailStrikes = Math.max(
+        authFailStrikes(winner),
+        authFailStrikes(loser),
+      );
     }
     out.set(e.key, winner);
   }
@@ -169,6 +182,19 @@ export function authenticityPassTtlHours(baseUrl?: string): number {
 }
 
 export const AUTHENTICITY_FAIL_TTL_HOURS = 24;
+export const AUTH_FAIL_PERMANENT_STRIKES = 3;
+
+// Entries from before the counter existed count as one strike.
+export function authFailStrikes(entry: VerdictEntry | undefined): number {
+  if (entry?.authenticity !== "fail") return 0;
+  return Math.max(entry.authFailStrikes ?? 1, 1);
+}
+
+export function isAuthenticityFailPermanent(
+  entry: VerdictEntry | undefined,
+): boolean {
+  return authFailStrikes(entry) >= AUTH_FAIL_PERMANENT_STRIKES;
+}
 
 // Entries from before authFailedAt existed carry only the fail date in
 // `since`; that date counts as the fail time so they expire the same way.
@@ -176,9 +202,23 @@ export function isAuthenticityFailFresh(
   entry: VerdictEntry | undefined,
 ): boolean {
   if (entry?.authenticity !== "fail") return false;
+  if (isAuthenticityFailPermanent(entry)) return true;
   const at = Date.parse(entry.authFailedAt ?? entry.since);
   if (!Number.isFinite(at)) return true;
-  return Date.now() - at < AUTHENTICITY_FAIL_TTL_HOURS * 60 * 60 * 1000;
+  const hours = AUTHENTICITY_FAIL_TTL_HOURS * 2 ** (authFailStrikes(entry) - 1);
+  return Date.now() - at < hours * 60 * 60 * 1000;
+}
+
+/** Channel ids of `provider` with a blocking authenticity fail on any model. */
+export function channelsWithAuthenticityFail(provider: string): Set<string> {
+  const prefix = `${provider}:`;
+  const out = new Set<string>();
+  for (const e of cache.values()) {
+    if (!e.key.startsWith(prefix) || !isAuthenticityFailFresh(e)) continue;
+    const id = e.key.slice(prefix.length).split("|", 1)[0];
+    if (id) out.add(id);
+  }
+  return out;
 }
 
 // Only lanes rechecked on a slow cadence earn longer passes: marketplace
@@ -603,15 +643,28 @@ export function setAuthenticityVerdict(
   entry.authenticity = verdict;
   entry.authenticityReason = reason;
   if (verdict === "fail") {
+    // A second fail inside the same block is the same strike.
+    const strikes = isAuthenticityFailFresh(prior)
+      ? authFailStrikes(prior)
+      : authFailStrikes(prior) + 1;
     entry.since = today();
     entry.authFailedAt = new Date().toISOString();
+    entry.authFailStrikes = strikes;
     delete entry.verifiedAt;
     delete entry.passStreak;
+    if (
+      strikes === AUTH_FAIL_PERMANENT_STRIKES &&
+      authFailStrikes(prior) < strikes
+    )
+      consola.warn(
+        t("CORE.TESTER.AUTHENTICITY_PERMANENT", { key, strikes, reason }),
+      );
   } else {
     entry.passStreak =
       prior?.authenticity === "pass" ? (prior.passStreak ?? 1) + 1 : 1;
     entry.verifiedAt = new Date().toISOString();
     delete entry.authFailedAt;
+    delete entry.authFailStrikes;
   }
   cache.set(key, entry);
   persist();

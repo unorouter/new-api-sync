@@ -12,7 +12,10 @@ import type {
 import { resolveMedianPricing } from "@core/pricing/resolver";
 import { resolveCanonicalByVote } from "@core/pricing/vote";
 import { testAndFilterModels } from "@core/testing/runner";
-import { clearTestFail } from "@core/testing/verdict-cache";
+import {
+  channelsWithAuthenticityFail,
+  clearTestFail,
+} from "@core/testing/verdict-cache";
 import { evictLaneKey, laneKeyStats } from "@core/infra/lane-keys";
 import { parseDisableReason } from "@core/vendors/newapi/disable-reason";
 import type { MergedGroup, ProviderReport } from "@core/types";
@@ -52,6 +55,7 @@ const THROTTLE_FAIL_RATIO = 0.2;
 // no model starts after this; one not reached keeps its lanes and tokens, exactly
 // like a model the marketplace could not describe this run.
 const WALK_BUDGET_MS = 150 * 60_000;
+const REPLACEMENT_BATCH = 4;
 const A7_MODEL_PARALLEL = 3;
 
 interface ModelCandidates {
@@ -413,12 +417,23 @@ export async function processA7Provider(
       );
       const kept: { lane: MerchantLane; key: string; rateLimited: boolean }[] =
         [];
+      // A channel that failed one model fails its others twice as often, so it goes last.
+      const suspect = channelsWithAuthenticityFail(name);
+      const candidates = [
+        ...mc.candidates.filter((l) => !suspect.has(String(l.channel_id))),
+        ...mc.candidates.filter((l) => suspect.has(String(l.channel_id))),
+      ];
       let serving = 0;
       let idx = 0;
       let probed = 0;
-      while (serving < mc.wanted && idx < mc.candidates.length) {
-        const take = Math.min(mc.wanted - serving, mc.candidates.length - idx);
-        const batch: MerchantLane[] = mc.candidates
+      let round = 0;
+      while (serving < mc.wanted && idx < candidates.length) {
+        // Replacements go out in batches: one at a time waits ~4 min each behind the gate.
+        const short = mc.wanted - serving;
+        const want =
+          round++ === 0 ? short : Math.max(short * 2, REPLACEMENT_BATCH);
+        const take = Math.min(want, candidates.length - idx);
+        const batch: MerchantLane[] = candidates
           .slice(idx, idx + take)
           .map((listing) => ({ model: mc.model, listing }));
         idx += take;
@@ -520,6 +535,7 @@ export async function processA7Provider(
         );
         for (const { probe, verdict } of verdicts) {
           if (verdict.workingModels.length === 0) continue;
+          if (serving >= mc.wanted) continue;
           kept.push({
             lane: probe.lane,
             key: probe.key,
@@ -532,7 +548,7 @@ export async function processA7Provider(
         }
         const held = kept.length - serving;
         consola.info(
-          `[${name}] ${mc.model}: kept ${serving}/${mc.wanted}${held > 0 ? ` (+${held} held, gateway disabled)` : ""}, probed ${probed}, ${mc.candidates.length - idx} candidate(s) left`,
+          `[${name}] ${mc.model}: kept ${serving}/${mc.wanted}${held > 0 ? ` (+${held} held, gateway disabled)` : ""}, probed ${probed}, ${candidates.length - idx} candidate(s) left`,
         );
       }
       consola.info(

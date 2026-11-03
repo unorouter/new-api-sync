@@ -132,7 +132,7 @@ Never a full `sync run` for one model. `DELETE FROM channels WHERE id IN (...)` 
 - a7 `minSuccessRate` defaults to 0: a7's own success rate is not trusted, the live probe is the
   gate, and the candidate walk runs until `hostsPerModel` lanes pass or the price-filtered list ends.
 - a7 listings are fetched one model at a time (`model=<exact name>`, spellings from `/api/pricing`),
-  three in flight, 120 s each: the unfiltered snapshot answers 200 and stalls mid-stream. A model
+  three in flight, 120 s each: the unfiltered snapshot answers 200 and stalls mid-stream. The walk probes on a per-host gate of 10 for a7 (`A7_DEFAULT_CONCURRENCY`, a provider `perUpstreamConcurrency` wins), sends replacements in batches of max(2x shortfall, 4) after the first round, keeps no more than `hostsPerModel` serving lanes, and puts listings of a channel with a blocking authenticity fail on any model last (such a channel fails its other models 54% of the time, against 28%). A model
   the marketplace cannot serve this run is `unverifiedModels` on the report: the walk skips it, the
   diff keeps its lanes (`DesiredState.unverifiedLanes`) and the stale-token cleanup keeps its
   tokens. Only a run that could read no model at all fails with "no listings".
@@ -198,7 +198,7 @@ is the object `new-api-sync/verdict-cache.json` in bucket `unorouter-sync` behin
 `sync run` merges the object in at start and pushes at end (union by key, newest stamp wins, a fail
 survives while it is fresh); artifacts mirror to `artifacts/`. Functional passes expire after 7 days (jittered
 2), functional fails after 24 hours, or 2 hours when the fail was a 429, 5xx or timeout (a dead merchant is re-probed once a day, not once a run),
-authenticity passes after 12 hours (`authenticityPassTtlHours` per provider overrides it, a7 uses 4 so every 6-hourly walk re-probes), authenticity fails after 24 hours (one probe then decides again), and the `metadata` cron re-probes live a7 lanes whose
+authenticity passes after 12 hours (`authenticityPassTtlHours` per provider overrides it, a7 uses 4 so every 6-hourly walk re-probes), authenticity fails after 24 hours, doubling per consecutive failed retest and permanent at the third (`authFailStrikes`, reset by a pass, the merge keeps the higher count; unblock by deleting the key from the cache), and the `metadata` cron re-probes live a7 lanes whose
 pass is stale (`vendors/a7/reverify.ts`, 32 per tick, Claude first, disables the channel on a fail; a pool as
 wide as the a7 gate starts no lane later than 11 minutes into the tick, the rest wait for the next one, since
 the Job dies at 20 minutes and a killed tick also loses its option flush). Every authenticity
