@@ -185,6 +185,10 @@ export async function loadAnswerFingerprints(
   }
 }
 
+// The ledger is ~18 MB and every store write keeps an old version, so a tick
+// that recorded nothing leaves the store object alone.
+let recordedSincePush = false;
+
 export function recordFingerprintRun(opts: {
   key: string;
   provider: string;
@@ -205,6 +209,7 @@ export function recordFingerprintRun(opts: {
     runs: [withoutRaw(opts.run)],
   };
   entries.set(opts.key, prior ? mergeEntries(prior, fresh) : fresh);
+  recordedSincePush = true;
 }
 
 export function answerFingerprintDue(key: string, now = Date.now()): boolean {
@@ -449,7 +454,7 @@ export async function judgeAndPushAnswerFingerprints(
 ): Promise<FingerprintSummary> {
   const summary = judgeAllLanes(sourceOf);
   saveAnswerFingerprints(summary);
-  if (!store) return summary;
+  if (!store || !recordedSincePush) return summary;
   try {
     const text = await store.readText(STORE_OBJECT);
     const remote: unknown = text ? JSON.parse(text) : [];
@@ -470,6 +475,7 @@ export async function judgeAndPushAnswerFingerprints(
     entries.clear();
     for (const e of merged) entries.set(e.key, e);
     writeJsonAtomic(cachePath(), merged, { pretty: false });
+    recordedSincePush = false;
   } catch (err) {
     consola.warn(
       t("CORE.FINGERPRINT.PUSH_FAILED", {

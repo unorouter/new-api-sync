@@ -259,19 +259,32 @@ export function pruneLaneKeys(provider: string, liveIds: Set<number>): void {
     }
 }
 
+// Every store write keeps an old version: a push per reveal batch was 416 a day.
+const STORE_PUSH_INTERVAL_MS = 10 * 60_000;
+const lastStorePush = new Map<string, number>();
+
 // Local file on every flush; the store only when this run changed something,
 // read first so a run that finished elsewhere meanwhile keeps its entries.
-export async function flushLaneKeys(provider: string): Promise<void> {
+export async function flushLaneKeys(
+  provider: string,
+  opts: { force?: boolean } = {},
+): Promise<void> {
   if (!enabled || !activeStore || !dirty.has(provider)) return;
   const store = activeStore;
   const map = entries(provider);
   writeLocal(provider, store);
+  if (
+    !opts.force &&
+    Date.now() - (lastStorePush.get(provider) ?? 0) < STORE_PUSH_INTERVAL_MS
+  )
+    return;
   try {
     const remote = await store.fetchLaneKeys(provider);
     if (remote) mergeInto(provider, parseFile(remote));
     await store.putLaneKeys(provider, currentFile(provider));
     writeLocal(provider, store);
     dirty.delete(provider);
+    lastStorePush.set(provider, Date.now());
     consola.info(t("CORE.LANE_KEYS.PUSHED", { provider, count: map.size }));
   } catch (err) {
     consola.warn(
@@ -284,5 +297,6 @@ export async function flushLaneKeys(provider: string): Promise<void> {
 }
 
 export async function flushAllLaneKeys(): Promise<void> {
-  for (const provider of [...dirty]) await flushLaneKeys(provider);
+  for (const provider of [...dirty])
+    await flushLaneKeys(provider, { force: true });
 }
