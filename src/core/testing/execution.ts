@@ -1,5 +1,6 @@
 import { fetchSameHost } from "@core/infra/http";
 import { paceUpstreamRequest } from "@core/infra/concurrency";
+import { recordReplyCost } from "./probe-cost";
 import { recordProbeRequestId } from "./probe-ids";
 import { t } from "@server/i18n";
 import type {
@@ -109,6 +110,7 @@ async function rawPost(
     const isBinaryMedia =
       contentType.startsWith("image/") || contentType.startsWith("audio/");
     const bodyText = isBinaryMedia ? "" : await response.text();
+    recordReplyCost(new URL(url).host, response.headers, bodyText);
     let data: unknown = isBinaryMedia ? { __binaryMedia: true } : null;
     if (!isBinaryMedia)
       try {
@@ -297,6 +299,8 @@ export async function testToolCallRequest(
     });
     const respHeaders = headersToRecord(response.headers);
     const text = await response.text();
+    recordProbeRequestId(response.headers, new URL(config.url).host);
+    recordReplyCost(new URL(config.url).host, response.headers, text);
     if (!response.ok)
       return {
         pass: false,
@@ -358,6 +362,8 @@ export async function testReasoningRequest(
     });
     out.status = response.status;
     const text = await response.text();
+    recordProbeRequestId(response.headers, new URL(config.url).host);
+    recordReplyCost(new URL(config.url).host, response.headers, text);
     if (!response.ok) return { ...out, error: text.slice(0, 200) };
     let answer = "";
     for (const line of text.split("\n")) {
@@ -422,6 +428,7 @@ export async function testStreamRequest(
       signal: AbortSignal.timeout(timeoutMs),
     });
     const respHeaders = headersToRecord(response.headers);
+    recordProbeRequestId(response.headers, new URL(config.url).host);
     if (!response.ok || !response.body) {
       const errBody = await response.text().catch(() => "");
       return fail({
@@ -456,6 +463,7 @@ export async function testStreamRequest(
     }
     // Some OpenAI-shaped upstreams close the stream after the finished choice
     // without the [DONE] sentinel; the gateway ends such a stream normally at EOF.
+    recordReplyCost(new URL(config.url).host, response.headers, buffer);
     const complete =
       foundMarker ||
       (config.completionMarker === "data: [DONE]" &&

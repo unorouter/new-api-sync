@@ -41,7 +41,10 @@ import {
   screenDroppedClaudeAuthenticity,
   testAndFilterModels,
 } from "@core/testing/runner";
-import { measureProbeCost } from "@core/testing/probe-cost";
+import {
+  measureProbeCost,
+  recordProbeCostLine,
+} from "@core/testing/probe-cost";
 import { getOpenRouterEndpointsTrace } from "@core/pricing/sources/openrouter";
 import type { GroupInfo, ProviderReport } from "@core/types";
 import type { ProviderConfig } from "@core/validations/config";
@@ -837,6 +840,11 @@ export async function processNewApiProvider(
         const amount = finalBalance.toFixed(4);
         const probe = await measureProbeCost(upstream.ctx, costFrom);
         recordProviderCost(pName, probe?.cost ?? balanceChange);
+        recordProbeCostLine(
+          pName,
+          probe ? "relay-log" : "balance",
+          probe ?? { cost: balanceChange, billed: 0 },
+        );
         if (probe) {
           consola.info(t("CORE.PROVIDER.BALANCE", { name: pName, amount }));
           consola.info(

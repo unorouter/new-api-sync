@@ -51,6 +51,7 @@ import {
   sameDataPolicy,
 } from "@core/data-policy";
 import { VerdictStore } from "@core/infra/verdict-store";
+import { flushProbeCosts } from "@core/testing/probe-cost";
 import { flushProbeIds } from "@core/testing/probe-ids";
 import { flushAllLaneKeys, loadLaneKeys } from "@core/infra/lane-keys";
 import {
@@ -102,6 +103,7 @@ import { MARKETPLACE_KINDS } from "@core/vendors/shared/fallback-lanes";
 import type { Channel, ModelMeta, TargetSnapshot, Vendor } from "@core/types";
 import { MODEL_OPTION_FIELD, MODEL_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
+import { recordRelayProbeCostRun } from "@core/vendors/shared/cost-tracker";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import stringify from "safe-stable-stringify";
@@ -1026,6 +1028,7 @@ async function reverifyLanes(
   }
   for (const p of a7Providers) {
     try {
+      const costFrom = Math.floor(Date.now() / 1000);
       const r = await reverifyLiveLanes(
         p,
         config,
@@ -1034,6 +1037,13 @@ async function reverifyLanes(
         startBefore,
       );
       consola.info(t("CORE.REVERIFY.SUMMARY", { provider: p.name, ...r }));
+      if (r.due > 0)
+        await recordRelayProbeCostRun(
+          p.name,
+          "reverify",
+          new NewApiClient(p, p.name).ctx,
+          costFrom,
+        );
     } catch (err) {
       consola.warn(
         t("CORE.REVERIFY.SKIPPED", {
@@ -1051,6 +1061,7 @@ async function reverifyLanes(
   if (verdicts) await pushVerdictCache(verdicts);
   else saveVerdictCache();
   await flushProbeIds(verdicts);
+  await flushProbeCosts(verdicts);
 }
 
 async function syncUpstreamPricing(

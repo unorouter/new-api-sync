@@ -23,6 +23,7 @@ import {
   type FallbackLane,
 } from "@core/vendors/shared/fallback-lanes";
 import { t } from "@server/i18n";
+import { recordReplyCostRun } from "../shared/cost-tracker";
 import { consola } from "consola";
 import {
   fetchMarketModels,
@@ -82,6 +83,7 @@ export async function processSiProvider(
   _ctx: ProviderRunContext,
 ): Promise<ProviderResult> {
   const name = provider.name;
+  const costFrom = Math.floor(Date.now() / 1000);
   const report: ProviderReport = {
     name,
     success: false,
@@ -332,5 +334,6 @@ export async function processSiProvider(
   } catch (error) {
     report.error = error instanceof Error ? error.message : String(error);
   }
+  recordReplyCostRun(name, baseUrl, costFrom);
   return result();
 }

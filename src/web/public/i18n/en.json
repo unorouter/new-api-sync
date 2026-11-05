@@ -576,6 +576,8 @@
       "BALANCE": "[{name}] Balance: ${amount}",
       "BALANCE_WITH_COST": "[{name}] Balance: ${amount} | Test cost: {cost}",
       "PROBE_COST": "[{name}] Probe cost: {cost} ({billed} billed probes, balance change {balance})",
+      "PROBE_COST_ONLY": "[{name}] Probe cost: {cost} ({billed} billed probes)",
+      "PROBE_COST_UNAVAILABLE": "[{name}] probe cost unavailable: the upstream log could not be read in full",
       "WORKING_ACROSS_VENDORS": "[{provider}/{group}] {working}/{total} working across {vendors} vendors",
       "PROBE_FAILED_SKIP": "[{label}] vendor={vendor} probe failed; skipping {count} models",
       "GROUP_LABEL_MAPPED": "[{provider}] group label \"{from}\" published as \"{to}\""
@@ -664,7 +666,8 @@
     },
     "PROBE_IDS": {
       "PUSH_FAILED": "[probe-ids] {store}: push failed, local file kept ({error})",
-      "PULL_FAILED": "[probe-ids] {store}: pull failed, using the local file ({error})"
+      "PULL_FAILED": "[probe-ids] {store}: pull failed, using the local file ({error})",
+      "COST_PUSH_FAILED": "[probe-cost] {store}: push failed, kept for the next flush ({error})"
     },
     "LANE_KEYS": {
       "DISABLED_NO_CIPHER": "[lane-keys] no verdictStore.encryptionKey, lane key cache off: every run reveals every key",

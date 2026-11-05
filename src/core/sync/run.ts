@@ -6,6 +6,7 @@ import {
 import type { RuntimeConfig } from "@core/config";
 import { throwIfRunAborted } from "@core/infra/abort";
 import { writeJsonAtomic } from "@core/infra/fs";
+import { flushProbeCosts } from "@core/testing/probe-cost";
 import { flushProbeIds } from "@core/testing/probe-ids";
 import { flushAllLaneKeys, loadLaneKeys } from "@core/infra/lane-keys";
 import { logsDir } from "@core/infra/paths";
@@ -302,6 +303,7 @@ export async function runSync(
     if (store) {
       await pushVerdictCache(store);
       await flushProbeIds(store);
+      await flushProbeCosts(store);
       for (const path of artifacts) {
         if (!path) continue;
         try {

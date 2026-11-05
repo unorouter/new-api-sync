@@ -21,6 +21,8 @@ import { parseDisableReason } from "@core/vendors/newapi/disable-reason";
 import type { MergedGroup, ProviderReport } from "@core/types";
 import type { A7ProviderConfig } from "@core/validations/config";
 import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
+import { NewApiClient } from "@core/vendors/newapi/client";
+import { recordRelayProbeCostRun } from "@core/vendors/shared/cost-tracker";
 import { consola } from "consola";
 import pLimit from "p-limit";
 import { t } from "@server/i18n";
@@ -269,6 +271,23 @@ function collectCandidates(
 }
 
 export async function processA7Provider(
+  provider: A7ProviderConfig,
+  config: RuntimeConfig,
+  ctx: ProviderRunContext,
+): Promise<ProviderResult> {
+  const costFrom = Math.floor(Date.now() / 1000);
+  const result = await walkA7Provider(provider, config, ctx);
+  if (!ctx.dryRun)
+    await recordRelayProbeCostRun(
+      provider.name,
+      "run",
+      new NewApiClient(provider, provider.name).ctx,
+      costFrom,
+    );
+  return result;
+}
+
+async function walkA7Provider(
   provider: A7ProviderConfig,
   config: RuntimeConfig,
   ctx: ProviderRunContext,

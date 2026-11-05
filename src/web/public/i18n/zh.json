@@ -576,6 +576,8 @@
       "BALANCE": "[{name}] 余额：${amount}",
       "BALANCE_WITH_COST": "[{name}] 余额：${amount} | 测试花费：{cost}",
       "PROBE_COST": "[{name}] 探测花费：{cost}（{billed} 次计费探测，余额变化 {balance}）",
+      "PROBE_COST_ONLY": "[{name}] 探测花费：{cost}（{billed} 次计费探测）",
+      "PROBE_COST_UNAVAILABLE": "[{name}] 无法计算探测花费：上游日志未能完整读取",
       "WORKING_ACROSS_VENDORS": "[{provider}/{group}] {working}/{total} 个可用，跨 {vendors} 个供应商",
       "PROBE_FAILED_SKIP": "[{label}] 供应商 {vendor} 探测失败，跳过 {count} 个模型",
       "GROUP_LABEL_MAPPED": "[{provider}] 分组名「{from}」将以「{to}」发布"
@@ -664,7 +666,8 @@
     },
     "PROBE_IDS": {
       "PUSH_FAILED": "[probe-ids] {store}：推送失败，已保留本地文件（{error}）",
-      "PULL_FAILED": "[probe-ids] {store}：拉取失败，使用本地文件（{error}）"
+      "PULL_FAILED": "[probe-ids] {store}：拉取失败，使用本地文件（{error}）",
+      "COST_PUSH_FAILED": "[probe-cost] {store}：推送失败，保留到下次推送（{error}）"
     },
     "LANE_KEYS": {
       "DISABLED_NO_CIPHER": "[lane-keys] 未设置 verdictStore.encryptionKey，令牌密钥缓存关闭：每次运行都会重新揭示全部密钥",

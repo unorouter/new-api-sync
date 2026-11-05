@@ -31,6 +31,7 @@ import {
 } from "./answer-fingerprints";
 import { consola } from "consola";
 import { cannedReplyMarker } from "./canned-replies";
+import { recordReplyCost } from "./probe-cost";
 import { recordProbeRequestId } from "./probe-ids";
 import type { AuthenticityProbeLog } from "./types";
 import {
@@ -136,9 +137,17 @@ const verifierTransport =
         signal: AbortSignal.timeout(args.timeoutMs),
       });
       recordProbeRequestId(res.headers, new URL(args.url).host);
+      const text = await res.text().catch(() => "");
+      recordReplyCost(new URL(args.url).host, res.headers, text);
+      let data: unknown = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
       return {
         status: res.status,
-        data: await res.json().catch(() => null),
+        data,
         error: null,
         corsBlocked: false,
       };
