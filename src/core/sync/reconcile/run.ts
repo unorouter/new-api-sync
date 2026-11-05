@@ -40,13 +40,16 @@ import type {
   ReconcileResult,
   UpstreamLogRow,
 } from "./types";
-import { fetchUpstreamConsumeLogs, fetchUpstreamTokens } from "./upstream-logs";
+import {
+  QUOTA_PER_USD,
+  fetchUpstreamConsumeLogs,
+  fetchUpstreamTokens,
+} from "./upstream-logs";
 import { explicitWindow, makeWindow, parseSince } from "./window";
 
 type RelayProvider = ProviderConfig | A7ProviderConfig;
 const LOCAL_SAVE_MS = 10_000;
 const REMOTE_SAVE_MS = 600_000;
-const QUOTA_PER_USD = 500000;
 const usd = (quota: number) => `$${(quota / QUOTA_PER_USD).toFixed(4)}`;
 const when = (unix: number) => new Date(unix * 1000).toISOString().slice(0, 16);
 

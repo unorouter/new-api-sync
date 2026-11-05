@@ -575,6 +575,7 @@
       "LABEL_OPENROUTER": "OpenRouter",
       "BALANCE": "[{name}] Balance: ${amount}",
       "BALANCE_WITH_COST": "[{name}] Balance: ${amount} | Test cost: {cost}",
+      "PROBE_COST": "[{name}] Probe cost: {cost} ({billed} billed probes, balance change {balance})",
       "WORKING_ACROSS_VENDORS": "[{provider}/{group}] {working}/{total} working across {vendors} vendors",
       "PROBE_FAILED_SKIP": "[{label}] vendor={vendor} probe failed; skipping {count} models",
       "GROUP_LABEL_MAPPED": "[{provider}] group label \"{from}\" published as \"{to}\""

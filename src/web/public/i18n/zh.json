@@ -575,6 +575,7 @@
       "LABEL_OPENROUTER": "OpenRouter",
       "BALANCE": "[{name}] 余额：${amount}",
       "BALANCE_WITH_COST": "[{name}] 余额：${amount} | 测试花费：{cost}",
+      "PROBE_COST": "[{name}] 探测花费：{cost}（{billed} 次计费探测，余额变化 {balance}）",
       "WORKING_ACROSS_VENDORS": "[{provider}/{group}] {working}/{total} 个可用，跨 {vendors} 个供应商",
       "PROBE_FAILED_SKIP": "[{label}] 供应商 {vendor} 探测失败，跳过 {count} 个模型",
       "GROUP_LABEL_MAPPED": "[{provider}] 分组名「{from}」将以「{to}」发布"

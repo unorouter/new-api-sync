@@ -8,6 +8,8 @@ import { t } from "@server/i18n";
 import { compactUpstreamRow } from "./cache";
 import type { SourceStatus, UpstreamLogRow } from "./types";
 
+export const QUOTA_PER_USD = 500000;
+
 const REQUESTED_PAGE_SIZE = 500;
 // One page at a time per account with a pause: a7 throttles the whole account
 // (key reveal, pins) when one endpoint is hammered.

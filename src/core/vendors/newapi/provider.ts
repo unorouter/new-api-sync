@@ -41,6 +41,7 @@ import {
   screenDroppedClaudeAuthenticity,
   testAndFilterModels,
 } from "@core/testing/runner";
+import { measureProbeCost } from "@core/testing/probe-cost";
 import { getOpenRouterEndpointsTrace } from "@core/pricing/sources/openrouter";
 import type { GroupInfo, ProviderReport } from "@core/types";
 import type { ProviderConfig } from "@core/validations/config";
@@ -497,6 +498,7 @@ export async function processNewApiProvider(
         t("CORE.NEWAPI.LANE_KEYS_SUMMARY", { name: pName, ...report.laneKeys }),
       );
     }
+    const costFrom = Math.floor(Date.now() / 1000);
     const startBalance = ctx.dryRun ? null : await upstream.fetchBalance();
     if (startBalance !== null)
       consola.info(
@@ -831,18 +833,30 @@ export async function processNewApiProvider(
     if (startBalance !== null) {
       const finalBalance = await upstream.fetchBalance();
       if (finalBalance !== null) {
-        const cost = startBalance - finalBalance;
-        recordProviderCost(pName, cost);
+        const balanceChange = startBalance - finalBalance;
         const amount = finalBalance.toFixed(4);
-        consola.info(
-          cost > 0
-            ? t("CORE.PROVIDER.BALANCE_WITH_COST", {
-                name: pName,
-                amount,
-                cost: colorize("yellow", `$${cost.toFixed(4)}`),
-              })
-            : t("CORE.PROVIDER.BALANCE", { name: pName, amount }),
-        );
+        const probe = await measureProbeCost(upstream.ctx, costFrom);
+        recordProviderCost(pName, probe?.cost ?? balanceChange);
+        if (probe) {
+          consola.info(t("CORE.PROVIDER.BALANCE", { name: pName, amount }));
+          consola.info(
+            t("CORE.PROVIDER.PROBE_COST", {
+              name: pName,
+              cost: colorize("yellow", `$${probe.cost.toFixed(4)}`),
+              billed: probe.billed,
+              balance: `$${balanceChange.toFixed(4)}`,
+            }),
+          );
+        } else
+          consola.info(
+            balanceChange > 0
+              ? t("CORE.PROVIDER.BALANCE_WITH_COST", {
+                  name: pName,
+                  amount,
+                  cost: colorize("yellow", `$${balanceChange.toFixed(4)}`),
+                })
+              : t("CORE.PROVIDER.BALANCE", { name: pName, amount }),
+          );
       }
     }
     report.groups = groups.length;

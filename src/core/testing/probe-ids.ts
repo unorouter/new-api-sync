@@ -25,6 +25,7 @@ interface ProbeIdLine {
 }
 
 const pending: string[] = [];
+const sentThisProcess: ProbeIdLine[] = [];
 const localPath = () => join(logsDir(), FILE);
 
 function idFrom(headers: Headers | Record<string, string>): string | null {
@@ -45,10 +46,17 @@ export function recordProbeRequestId(
     at: Math.floor(Date.now() / 1000),
     label,
   };
+  sentThisProcess.push(line);
   const text = JSON.stringify(line);
   mkdirSync(logsDir(), { recursive: true });
   appendFileSync(localPath(), text + "\n");
   pending.push(text);
+}
+
+export function probeIdsSentSince(at: number): Set<string> {
+  const ids = new Set<string>();
+  for (const line of sentThisProcess) if (line.at >= at) ids.add(line.id);
+  return ids;
 }
 
 export async function flushProbeIds(store: VerdictStore | null): Promise<void> {
