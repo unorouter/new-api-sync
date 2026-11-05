@@ -91,7 +91,7 @@ export function recordReplyCost(
   host: string,
   headers: Headers,
   bodyText: string,
-): void {
+): number | null {
   const header = headers.get(SI_COST_HEADER);
   const usd =
     header !== null && header !== "" && Number.isFinite(Number(header))
@@ -99,6 +99,7 @@ export function recordReplyCost(
       : bodyCost(bodyText);
   if (usd !== null && usd > 0)
     replyCosts.push({ at: Math.floor(Date.now() / 1000), host, usd });
+  return usd;
 }
 
 export function replyCostSince(

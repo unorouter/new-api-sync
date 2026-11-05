@@ -38,9 +38,9 @@ function idFrom(headers: Headers | Record<string, string>): string | null {
 export function recordProbeRequestId(
   headers: Headers | Record<string, string>,
   label: string,
-): void {
+): string | null {
   const id = idFrom(headers);
-  if (!id) return;
+  if (!id) return null;
   const line: ProbeIdLine = {
     id,
     at: Math.floor(Date.now() / 1000),
@@ -51,6 +51,7 @@ export function recordProbeRequestId(
   mkdirSync(logsDir(), { recursive: true });
   appendFileSync(localPath(), text + "\n");
   pending.push(text);
+  return id;
 }
 
 export function probeIdsSentSince(at: number): Set<string> {

@@ -10,6 +10,8 @@ export interface TestExchange {
   latencyMs?: number;
   /** Tool probe only: >=2 valid calls in one turn. */
   toolParallel?: boolean;
+  /** USD the upstream billed this reply, when the reply states it. */
+  replyCost?: number;
 }
 
 export interface AuthenticityProbeLog {
@@ -19,6 +21,9 @@ export interface AuthenticityProbeLog {
   request: { url: string; body: unknown };
   response: string | null;
   error?: string;
+  requestId?: string;
+  /** USD the upstream billed this reply, when the reply states it. */
+  replyCost?: number;
 }
 
 export interface ModelTestLog {
@@ -134,6 +139,7 @@ export interface RawResult {
   error: string | null;
   latencyMs: number;
   responseHeaders: Record<string, string>;
+  replyCost: number | null;
 }
 
 export interface AnthropicResponse {

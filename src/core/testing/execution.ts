@@ -62,6 +62,9 @@ export const NVIDIA_RETRY_POLICY: RetryPolicy<TestExchange> = {
 const errMsg = (err: unknown) =>
   err instanceof Error ? err.message : String(err);
 
+const costField = (cost: number | null): { replyCost?: number } =>
+  cost === null ? {} : { replyCost: cost };
+
 function headersToRecord(headers: Headers): Record<string, string> {
   const out: Record<string, string> = {};
   headers.forEach((v, k) => {
@@ -110,7 +113,11 @@ async function rawPost(
     const isBinaryMedia =
       contentType.startsWith("image/") || contentType.startsWith("audio/");
     const bodyText = isBinaryMedia ? "" : await response.text();
-    recordReplyCost(new URL(url).host, response.headers, bodyText);
+    const replyCost = recordReplyCost(
+      new URL(url).host,
+      response.headers,
+      bodyText,
+    );
     let data: unknown = isBinaryMedia ? { __binaryMedia: true } : null;
     if (!isBinaryMedia)
       try {
@@ -127,6 +134,7 @@ async function rawPost(
         : `HTTP ${response.status} ${response.statusText}`,
       latencyMs: Date.now() - started,
       responseHeaders,
+      replyCost,
     };
   } catch (err) {
     return {
@@ -136,6 +144,7 @@ async function rawPost(
       error: errMsg(err),
       latencyMs: Date.now() - started,
       responseHeaders: {},
+      replyCost: null,
     };
   }
 }
@@ -171,6 +180,7 @@ export async function testRequest(
       request,
       response: raw.bodyText ?? null,
       responseHeaders: raw.responseHeaders,
+      ...costField(raw.replyCost),
       error: raw.error ?? t("CORE.TESTER.ERR_NO_RESPONSE"),
       status: raw.status ?? undefined,
       latencyMs: raw.latencyMs,
@@ -182,6 +192,7 @@ export async function testRequest(
     request,
     response: raw.data,
     responseHeaders: raw.responseHeaders,
+    ...costField(raw.replyCost),
     error: pass
       ? undefined
       : (raw.error ??
@@ -265,6 +276,7 @@ export async function testToolCallRequest(
         request,
         response: raw.bodyText ?? null,
         responseHeaders: raw.responseHeaders,
+        ...costField(raw.replyCost),
         error: raw.error ?? t("CORE.TESTER.ERR_NO_RESPONSE"),
         status: raw.status ?? undefined,
         latencyMs: raw.latencyMs,
@@ -279,6 +291,7 @@ export async function testToolCallRequest(
       request,
       response: raw.data,
       responseHeaders: raw.responseHeaders,
+      ...costField(raw.replyCost),
       error: verdict.pass
         ? undefined
         : (raw.error ??
@@ -300,13 +313,18 @@ export async function testToolCallRequest(
     const respHeaders = headersToRecord(response.headers);
     const text = await response.text();
     recordProbeRequestId(response.headers, new URL(config.url).host);
-    recordReplyCost(new URL(config.url).host, response.headers, text);
+    const replyCost = recordReplyCost(
+      new URL(config.url).host,
+      response.headers,
+      text,
+    );
     if (!response.ok)
       return {
         pass: false,
         request,
         response: text.slice(0, 500) || null,
         responseHeaders: respHeaders,
+        ...costField(replyCost),
         error: `HTTP ${response.status} ${response.statusText}`,
         status: response.status,
         latencyMs: Date.now() - started,
@@ -318,6 +336,7 @@ export async function testToolCallRequest(
       request,
       response: text.slice(0, 1000),
       responseHeaders: respHeaders,
+      ...costField(replyCost),
       error: verdict.pass ? undefined : t("CORE.TESTER.ERR_TOOL_CALL_MISSING"),
       status: response.status,
       latencyMs: Date.now() - started,
@@ -463,7 +482,11 @@ export async function testStreamRequest(
     }
     // Some OpenAI-shaped upstreams close the stream after the finished choice
     // without the [DONE] sentinel; the gateway ends such a stream normally at EOF.
-    recordReplyCost(new URL(config.url).host, response.headers, buffer);
+    const replyCost = recordReplyCost(
+      new URL(config.url).host,
+      response.headers,
+      buffer,
+    );
     const complete =
       foundMarker ||
       (config.completionMarker === "data: [DONE]" &&
@@ -473,6 +496,7 @@ export async function testStreamRequest(
       request: reqInfo,
       response: buffer.slice(0, 500),
       responseHeaders: respHeaders,
+      ...costField(replyCost),
       error: complete ? undefined : t("CORE.TESTER.ERR_STREAM_NO_MARKER"),
       status: response.status,
       latencyMs: elapsed(),

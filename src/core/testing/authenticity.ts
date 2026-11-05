@@ -124,9 +124,25 @@ function observedFor(maker: MakerId | null): ReadonlySet<string> {
   return new Set(maker === "anthropic" ? [] : LADDER);
 }
 
+type ReplyMeta = { requestId?: string; replyCost?: number };
+// The library logs a probe without its response headers, so the transport
+// queues each reply's id and price under the prompt it sent and the log takes
+// them back in order (repeated fingerprint cells send identical prompts).
+type ReplyMetaQueue = Map<string, ReplyMeta[]>;
+
+function promptKey(body: unknown): string {
+  if (!body || typeof body !== "object") return "";
+  for (const field of ["messages", "contents", "input", "prompt"])
+    if (field in body) return JSON.stringify(Reflect.get(body, field));
+  return "";
+}
+
 /** Bridges the library's injected transport onto plain fetch with our pacing. */
 const verifierTransport =
-  (extraHeaders?: Record<string, string>): TransportFn =>
+  (
+    replies: ReplyMetaQueue,
+    extraHeaders?: Record<string, string>,
+  ): TransportFn =>
   async (args) => {
     try {
       await paceUpstreamRequest(args.url);
@@ -136,9 +152,23 @@ const verifierTransport =
         body: JSON.stringify(args.reqBody),
         signal: AbortSignal.timeout(args.timeoutMs),
       });
-      recordProbeRequestId(res.headers, new URL(args.url).host);
+      const requestId = recordProbeRequestId(
+        res.headers,
+        new URL(args.url).host,
+      );
       const text = await res.text().catch(() => "");
-      recordReplyCost(new URL(args.url).host, res.headers, text);
+      const replyCost = recordReplyCost(
+        new URL(args.url).host,
+        res.headers,
+        text,
+      );
+      const key = promptKey(args.reqBody);
+      const queue = replies.get(key) ?? [];
+      queue.push({
+        ...(requestId !== null ? { requestId } : {}),
+        ...(replyCost !== null ? { replyCost } : {}),
+      });
+      replies.set(key, queue);
       let data: unknown = null;
       try {
         data = text ? JSON.parse(text) : null;
@@ -162,9 +192,11 @@ const verifierTransport =
   };
 
 const probeLog =
-  (key: string) =>
+  (key: string, replies: ReplyMetaQueue) =>
   (a: ProbeAttempt): void => {
+    const reply = replies.get(promptKey(a.request.body))?.shift() ?? {};
     const entry: AuthenticityProbeLog = {
+      ...reply,
       probe: a.label,
       pass: a.pass,
       authenticityRefusal: a.signal === "coding-tool",
@@ -325,6 +357,7 @@ export async function runAuthenticity(
       : []),
   ];
   if (only.length === 0) return { authentic: null };
+  const replies: ReplyMetaQueue = new Map();
   const run = await runRules({
     vendor: opts.wire,
     baseUrl: opts.baseUrl,
@@ -332,9 +365,9 @@ export async function runAuthenticity(
     model: opts.model,
     mode: "server",
     timeoutMs: opts.timeoutMs,
-    transport: verifierTransport(opts.extraHeaders),
+    transport: verifierTransport(replies, opts.extraHeaders),
     ...(opts.extraBody ? { bodyExtras: opts.extraBody } : {}),
-    onProbe: probeLog(opts.logKey),
+    onProbe: probeLog(opts.logKey, replies),
     only,
     checks: battery
       ? { answerFingerprint: { repeats: answerFingerprintRepeats() } }
