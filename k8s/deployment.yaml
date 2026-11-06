@@ -31,7 +31,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:8c4ffb70ce798e8d02e737dfff34087e35aeb211@sha256:1ad7ce66a52544711a34a1200c045fe7d1bf3e3debdf364df568ffa8a72b8d2e
+              image: ghcr.io/unorouter/new-api-sync:fbe27e28188252a9b5c18a792ed3c7a967fcf919@sha256:252722024f2386fc7bb23b151d88c8e45491d00b3903e8442607ab639024cc03
               args: ["metadata"]
               # The guest token's model_limits is refreshed from the gateway's
               # OWN free channels, so it needs no provider config -- only the
@@ -118,7 +118,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:8c4ffb70ce798e8d02e737dfff34087e35aeb211@sha256:1ad7ce66a52544711a34a1200c045fe7d1bf3e3debdf364df568ffa8a72b8d2e
+              image: ghcr.io/unorouter/new-api-sync:fbe27e28188252a9b5c18a792ed3c7a967fcf919@sha256:252722024f2386fc7bb23b151d88c8e45491d00b3903e8442607ab639024cc03
               args: ["run", "--only", "a7,ih,si"]
               env:
                 - name: GUEST_API_KEY
@@ -183,7 +183,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:8c4ffb70ce798e8d02e737dfff34087e35aeb211@sha256:1ad7ce66a52544711a34a1200c045fe7d1bf3e3debdf364df568ffa8a72b8d2e
+              image: ghcr.io/unorouter/new-api-sync:fbe27e28188252a9b5c18a792ed3c7a967fcf919@sha256:252722024f2386fc7bb23b151d88c8e45491d00b3903e8442607ab639024cc03
               args: ["run", "--only", "$(WEEKLY_ONLY)"]
               env:
                 - name: WEEKLY_ONLY
@@ -252,7 +252,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:8c4ffb70ce798e8d02e737dfff34087e35aeb211@sha256:1ad7ce66a52544711a34a1200c045fe7d1bf3e3debdf364df568ffa8a72b8d2e
+              image: ghcr.io/unorouter/new-api-sync:fbe27e28188252a9b5c18a792ed3c7a967fcf919@sha256:252722024f2386fc7bb23b151d88c8e45491d00b3903e8442607ab639024cc03
               args: ["metadata"]
               env:
                 - name: GUEST_API_KEY
