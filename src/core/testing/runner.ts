@@ -32,6 +32,8 @@ import {
   recordReasoning,
   recordTestVerdict,
   recordTokenizerDelta,
+  isUsageCheckDue,
+  recordUsageCheck,
   saveVerdictCache,
   setAuthenticityVerdict,
 } from "./verdict-cache";
@@ -70,6 +72,7 @@ import { redactExchange, redactUrl } from "./redact";
 import { makerForModel } from "ai-model-verifier/makers";
 import { modelsMatch } from "ai-model-verifier/models";
 import { fingerprintDrifted, mustAlwaysThink } from "ai-model-verifier/rules";
+import { probeUsageTruth } from "./usage-truth";
 
 let testReport: TestReport = {
   timestamp: new Date().toISOString(),
@@ -343,6 +346,7 @@ async function testModels(opts: {
   extraBody?: Record<string, unknown>;
   extraHeaders?: Record<string, string>;
   familyOf?: (model: string) => string;
+  usageTruth?: boolean;
 }): Promise<{
   workingModels: string[];
   rateLimitedModels: string[];
@@ -758,6 +762,23 @@ async function testModels(opts: {
                 })
               ).authentic === true;
           else if (!cachedPass) authentic = first.authentic === true;
+
+          if (
+            opts.usageTruth &&
+            authentic &&
+            !rejected &&
+            lane.wire === "openai" &&
+            isUsageCheckDue(blacklistKey)
+          ) {
+            const usage = await probeUsageTruth(lane);
+            if (usage.verdict !== "inconclusive")
+              recordUsageCheck(blacklistKey);
+            if (usage.verdict === "fail") {
+              consola.warn(`[${prefix}] ${model}: ${usage.reason}`);
+              setAuthenticityVerdict(blacklistKey, "fail", usage.reason);
+              authentic = false;
+            }
+          }
         }
 
         if (httpResult.pass && failsReasoning(await probeReasoning()))
@@ -946,6 +967,9 @@ export async function testAndFilterModels(opts: {
   /** Probe id to model family, for ids that carry a routing prefix
    *  (`<pool>/claude-opus-5`); the maker is read off the family. */
   familyOf?: (model: string) => string;
+  /** Marketplace lanes: once a week bill a long prompt against the lane's own
+   *  short prompt count and fail a lane that bills it several times over. */
+  usageTruth?: boolean;
 }): Promise<{
   workingModels: string[];
   rateLimitedModels: string[];
@@ -1002,6 +1026,7 @@ export async function testAndFilterModels(opts: {
       extraBody: opts.extraBody,
       extraHeaders: opts.extraHeaders,
       familyOf: opts.familyOf,
+      usageTruth: opts.usageTruth,
     });
     testedWorkingModels = testResult.workingModels;
     rateLimitedModels = testResult.rateLimitedModels;

@@ -17,6 +17,12 @@ export interface LaneStat {
   shortOk: number;
   good: number;
   p50Seconds: number | null;
+  /** Mean billed input per consume row. */
+  avgPrompt: number;
+  /** Median output tokens per second over rows with a real answer. */
+  p50TokensPerSecond: number | null;
+  /** Mean billed input over cached input, on rows with a sizable cache hit. */
+  promptPerCached: number | null;
 }
 
 export const SHORT_MAX_OUT = 30;
@@ -37,7 +43,10 @@ SELECT
   toUInt32(countIf(type = 2 AND completion_tokens > 0 AND completion_tokens <= {shortMax:UInt32} AND prompt_tokens > {shortPrompt:UInt32})) AS shortOk,
   toUInt32(countIf(type = 2 AND completion_tokens > {shortMax:UInt32})) AS good,
   toUInt32(countIf(type = 5)) AS errorsAll,
-  quantileIf(0.5)(use_time, type = 2) AS p50
+  quantileIf(0.5)(use_time, type = 2) AS p50,
+  avgIf(prompt_tokens, type = 2) AS avgPrompt,
+  quantileIf(0.5)(completion_tokens / greatest(use_time, 1), type = 2 AND completion_tokens > 200) AS p50Tps,
+  avgIf(prompt_tokens / JSONExtractInt(other, 'cache_tokens'), type = 2 AND JSONExtractInt(other, 'cache_tokens') > 1000) AS promptPerCached
 FROM logs
 WHERE type IN (2, 5) AND channel_id > 0
   AND created_at >= {from:Int64} AND created_at < {to:Int64}
@@ -71,6 +80,11 @@ export async function fetchLaneStats(
     const errors5xx = num(r.errors5xx);
     const errorsRefused = num(r.errorsRefused);
     const p50 = r.p50 === null || r.p50 === undefined ? null : num(r.p50);
+    const finite = (v: unknown): number | null => {
+      if (v === null || v === undefined) return null;
+      const n = num(v);
+      return n > 0 ? n : null;
+    };
     return {
       channelId: num(r.channelId),
       model: typeof r.model === "string" ? r.model : "",
@@ -87,6 +101,9 @@ export async function fetchLaneStats(
       shortOk: num(r.shortOk),
       good: num(r.good),
       p50Seconds: p50 !== null && Number.isFinite(p50) ? p50 : null,
+      avgPrompt: num(r.avgPrompt),
+      p50TokensPerSecond: finite(r.p50Tps),
+      promptPerCached: finite(r.promptPerCached),
     };
   });
 }

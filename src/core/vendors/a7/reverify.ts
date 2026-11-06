@@ -155,6 +155,7 @@ export async function reverifyLiveLanes(
       return;
     }
     const verdict = await testAndFilterModels({
+      usageTruth: true,
       allModels: [item.lane.model],
       baseUrl,
       apiKey: token.key,

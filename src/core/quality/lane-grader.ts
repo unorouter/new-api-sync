@@ -43,7 +43,57 @@ export function resolveGrader(cfg: LaneGraderConfig): ResolvedGrader {
     maxShareOfModel: cfg.maxShareOfModel ?? 1 / 3,
     minLiveLanesPerModel: cfg.minLiveLanesPerModel ?? 2,
     maxPerTick: cfg.maxPerTick ?? 10,
+    inflationMinRequests: cfg.inflationMinRequests ?? 3,
+    inflationSpeedMultiple: cfg.inflationSpeedMultiple ?? 5,
+    inflationMinTokensPerSecond: cfg.inflationMinTokensPerSecond ?? 300,
+    inflationPromptPerCached: cfg.inflationPromptPerCached ?? 3,
+    inflationPromptMultiple: cfg.inflationPromptMultiple ?? 2.5,
   };
+}
+
+const median = (xs: number[]): number | null => {
+  const s = [...xs].sort((a, b) => a - b);
+  const hi = s.at(Math.floor(s.length / 2));
+  const lo = s.at(Math.floor((s.length - 1) / 2));
+  return hi === undefined || lo === undefined ? null : (hi + lo) / 2;
+};
+
+// A merchant that runs one request several times (or says it did) bills the sum:
+// a7 1326-6286 billed 4x the input of the same conversation on other lanes and
+// claimed 670 output tokens a second against 33. Speed alone is a fast host, so
+// it takes speed and inflated input together, and only a handful of requests.
+function inflationReason(
+  s: LaneStat,
+  others: readonly LaneStat[],
+  g: ResolvedGrader,
+): string | null {
+  if (s.requests < g.inflationMinRequests || s.p50TokensPerSecond === null)
+    return null;
+  const peerSpeed = median(
+    others.flatMap((o) =>
+      o.p50TokensPerSecond === null ? [] : [o.p50TokensPerSecond],
+    ),
+  );
+  if (
+    peerSpeed === null ||
+    s.p50TokensPerSecond < g.inflationMinTokensPerSecond ||
+    s.p50TokensPerSecond < peerSpeed * g.inflationSpeedMultiple
+  )
+    return null;
+  const peerRequests = others.reduce((n, o) => n + o.requests, 0);
+  const peerPrompt =
+    peerRequests > 0
+      ? others.reduce((n, o) => n + o.avgPrompt * o.requests, 0) / peerRequests
+      : 0;
+  const perCached = s.promptPerCached;
+  const promptInflated =
+    peerPrompt > 0 && s.avgPrompt >= peerPrompt * g.inflationPromptMultiple;
+  const speed = `${Math.round(s.p50TokensPerSecond)} tok/s vs ${Math.round(peerSpeed)}`;
+  if (perCached !== null && perCached >= g.inflationPromptPerCached)
+    return `usage inflation: ${speed}, input ${perCached.toFixed(1)}x its cached tokens`;
+  if (promptInflated)
+    return `usage inflation: ${speed}, input ${Math.round(s.avgPrompt)} vs ${Math.round(peerPrompt)}`;
+  return null;
 }
 
 export interface PeerRates {
@@ -95,12 +145,17 @@ export function judgeLanes(
   for (const s of stats) {
     const ch = byId.get(s.channelId);
     if (!ch || ch.status !== ENABLED || !inScope(g.providers, ch)) continue;
-    if (s.requests < g.minRequests || s.users < g.minUsers) continue;
     const others = (byModel.get(s.model) ?? []).filter(
       (o) => o.channelId !== s.channelId,
     );
     if (others.length === 0) continue;
     const peers = peerRates(others);
+    const inflation = inflationReason(s, others, g);
+    if (inflation) {
+      out.push({ channel: ch, stat: s, peers, reasons: [inflation] });
+      continue;
+    }
+    if (s.requests < g.minRequests || s.users < g.minUsers) continue;
     const empty = s.emptyOk / s.requests;
     const short = s.shortOk / s.requests;
     const error = countedErrors(s) / s.requests;

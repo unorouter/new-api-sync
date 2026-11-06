@@ -343,6 +343,13 @@ export const ConfigSchema = T.Object({
       maxShareOfModel: Opt(T.Number({ minimum: 0, maximum: 1 })),
       minLiveLanesPerModel: Opt(T.Integer({ minimum: 1 })),
       maxPerTick: Opt(T.Integer({ minimum: 1 })),
+      // Usage inflation: a lane far faster than its peers that also bills far more
+      // input than it cached (or than its peers average) on a handful of requests.
+      inflationMinRequests: Opt(T.Integer({ minimum: 1 })),
+      inflationSpeedMultiple: Opt(T.Number({ minimum: 1 })),
+      inflationMinTokensPerSecond: Opt(T.Number({ minimum: 1 })),
+      inflationPromptPerCached: Opt(T.Number({ minimum: 1 })),
+      inflationPromptMultiple: Opt(T.Number({ minimum: 1 })),
     }),
   ),
   skipUnprofitableText: Opt(T.Boolean()),

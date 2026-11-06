@@ -493,6 +493,7 @@ async function walkA7Provider(
         // awaiting them in sequence made a 170-lane night take an hour.
         const probeLane = (lane: MerchantLane, key: string) =>
           testAndFilterModels({
+            usageTruth: true,
             allModels: [lane.model],
             baseUrl,
             apiKey: key,

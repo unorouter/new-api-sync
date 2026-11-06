@@ -273,6 +273,7 @@ export async function processSiProvider(
     let balanceErrors = 0;
     for (const lane of lanes) {
       const probe = await testAndFilterModels({
+        usageTruth: true,
         allModels: [lane.upstream],
         baseUrl: lane.baseUrl,
         apiKey: provider.apiKey,

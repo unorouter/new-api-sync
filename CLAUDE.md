@@ -33,7 +33,15 @@ tick. Three strikes in 7 days logs a blacklist candidate; nothing is blacklisted
 `lane-quarantine.json`; decisions: `lane-grader/<day>.jsonl`; the first tick of a UTC day writes
 yesterday's per-lane rollup to `lane-stats/<day>.jsonl` with the observe log's lane key, which is
 what a new verifier rule is checked against. Thresholds come from replaying a week of marketplace
-traffic: 54 of 66 bad lanes caught, half within 4 hours. Probe verdicts caught none of them.
+traffic: 54 of 66 bad lanes caught, half within 4 hours. Probe verdicts caught none of them. A separate usage inflation rule
+needs only `inflationMinRequests` (3) and one user: median output speed at least
+`inflationSpeedMultiple` (5x) the model's other lanes and at least 300 tok/s, together with billed
+input at least 3x its cached tokens or 2.5x the peers' average input (a merchant running one
+request several times bills the sum; speed alone is just a fast host). Marketplace probes
+(`usageTruth`, a7, ih and si) back it up once a week per lane (`usageCheckedAt` in the verdict
+cache, `testing/usage-truth.ts`): 1, 2 and 80 copies of a fixed paragraph, and the long prompt must
+bill about the short count plus 79 per paragraph deltas; 1.5x over and 1000 tokens over is an
+authenticity fail. Every short probe passed on the two merchants it was built for.
 
 `reconcile` (`src/core/sync/reconcile/`) pulls every relay account's own `/api/log/self` (100 rows
 a page, one page at a time per account, 750 ms apart, 429 backs off up to 80 s; every page is

@@ -58,6 +58,9 @@ export interface VerdictEntry {
   // Visible reasoning on a plain streamed probe, the request customers send:
   // some merchants sell a thinking model with thinking off.
   reasoning?: ReasoningEvidence;
+  // Last large prompt usage check (usage-truth.ts): a merchant that bills a
+  // long prompt several times over passes every short probe.
+  usageCheckedAt?: string;
   since: string;
 }
 
@@ -155,6 +158,11 @@ export function mergeVerdicts(
         authFailStrikes(loser),
       );
     }
+    const checked = [winner.usageCheckedAt, loser.usageCheckedAt]
+      .filter((v): v is string => v !== undefined)
+      .sort()
+      .at(-1);
+    if (checked) winner.usageCheckedAt = checked;
     out.set(e.key, winner);
   }
   return [...out.values()].sort((x, y) => (x.key < y.key ? -1 : 1));
@@ -604,6 +612,20 @@ export function isReasoningFresh(key: string): boolean {
   return (
     !!at && Date.now() - Date.parse(at) < REASONING_TTL_HOURS * 60 * 60 * 1000
   );
+}
+
+export const USAGE_CHECK_TTL_DAYS = 7;
+
+export function isUsageCheckDue(key: string): boolean {
+  const at = cache.get(key)?.usageCheckedAt;
+  return !at || Date.now() - Date.parse(at) > USAGE_CHECK_TTL_DAYS * DAY_MS;
+}
+
+export function recordUsageCheck(key: string): void {
+  const entry: VerdictEntry = cache.get(key) ?? { key, since: today() };
+  entry.usageCheckedAt = new Date().toISOString();
+  cache.set(key, entry);
+  persist();
 }
 
 export function recordTokenizerDelta(key: string, delta: number): void {
