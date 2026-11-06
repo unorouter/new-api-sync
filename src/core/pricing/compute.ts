@@ -580,7 +580,9 @@ function processStandardOffer(
         // Not from si's own list price: it gives glm-5.2 input as $0.006/M.
         const upstreamRatio =
           m.upstreamRatio !== undefined &&
-          (offer.providerKind === "si" || offer.providerKind === "ih") &&
+          (offer.providerKind === "si" ||
+            offer.providerKind === "ih" ||
+            offer.providerKind === "openai-compatible") &&
           m.upstreamCompletionRatio !== undefined &&
           written.completionRatio > 0
             ? Math.max(
