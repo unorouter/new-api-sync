@@ -104,6 +104,7 @@ import type { Channel, ModelMeta, TargetSnapshot, Vendor } from "@core/types";
 import { MODEL_OPTION_FIELD, MODEL_OPTION_KEYS } from "@core/types";
 import { NewApiClient } from "@core/vendors/newapi/client";
 import { recordRelayProbeCostRun } from "@core/vendors/shared/cost-tracker";
+import { realizedMarketplaceRatios } from "@core/pricing/realized-marketplace";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import stringify from "safe-stable-stringify";
@@ -948,6 +949,36 @@ export async function runMetadataSync(
   } catch (err) {
     consola.warn(
       t("CORE.LANE_GRADER.SKIPPED", {
+        reason: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+
+  try {
+    const realized = await realizedMarketplaceRatios(config, channels);
+    const current = store.object("GroupRatio");
+    const changed: Record<string, number> = {};
+    for (const [group, r] of realized) {
+      const was = Number(current[group]);
+      if (Number.isFinite(was) && Math.abs(was - r.ratio) <= was * 0.01)
+        continue;
+      changed[group] = r.ratio;
+      consola.info(
+        t("CORE.REALIZED.REPRICED", {
+          provider: r.provider,
+          group,
+          from: Number.isFinite(was) ? was : "-",
+          to: r.ratio,
+          realized: r.realized.toFixed(4),
+          requests: r.requests,
+        }),
+      );
+    }
+    if (Object.keys(changed).length > 0)
+      store.setEntries("GroupRatio", changed);
+  } catch (err) {
+    consola.warn(
+      t("CORE.REALIZED.SKIPPED", {
         reason: err instanceof Error ? err.message : String(err),
       }),
     );

@@ -664,6 +664,10 @@
       "DISABLE_FAILED": "[{provider}] could not disable {channel} ({reason}); the gateway update failed",
       "SKIPPED": "[{provider}] re-verify skipped this tick, the market did not answer: {reason}"
     },
+    "REALIZED": {
+      "REPRICED": "[{provider}] {group}: group ratio {from} to {to} (real cost ratio {realized} over {requests} requests)",
+      "SKIPPED": "[realized-pricing] skipped this tick: {reason}"
+    },
     "PROBE_IDS": {
       "PUSH_FAILED": "[probe-ids] {store}: push failed, local file kept ({error})",
       "PULL_FAILED": "[probe-ids] {store}: pull failed, using the local file ({error})",

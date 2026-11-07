@@ -664,6 +664,10 @@
       "DISABLE_FAILED": "[{provider}] 无法停用 {channel}（{reason}），网关更新失败",
       "SKIPPED": "[{provider}] 本轮跳过复验，市场无响应：{reason}"
     },
+    "REALIZED": {
+      "REPRICED": "[{provider}] {group}：分组倍率 {from} 调整为 {to}（{requests} 次请求的实际成本倍率 {realized}）",
+      "SKIPPED": "[realized-pricing] 本轮跳过：{reason}"
+    },
     "PROBE_IDS": {
       "PUSH_FAILED": "[probe-ids] {store}：推送失败，已保留本地文件（{error}）",
       "PULL_FAILED": "[probe-ids] {store}：拉取失败，使用本地文件（{error}）",

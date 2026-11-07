@@ -19,7 +19,7 @@ export const MARKETPLACE_KINDS: ReadonlySet<AnyProviderConfig["type"]> =
   new Set(["ih", "si"]);
 
 const USD_PER_M_PER_RATIO = 2;
-const DEFAULT_FALLBACK_MULTIPLE = 2;
+export const DEFAULT_FALLBACK_MULTIPLE = 2;
 export const DEFAULT_BID_QUANTILE = 0.5;
 // One seller behind a lane is one outage (or one dishonest key) from failing it.
 export const DEFAULT_MIN_SELLERS = 3;

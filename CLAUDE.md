@@ -301,7 +301,13 @@ unpin + pin re-confirms; `fallback_to_smart_routing` stays false.
 Marketplace lanes (`vendors/ih`, `vendors/si`, `vendors/shared/fallback-lanes.ts`):
 one channel per enabled model, priced at `profitMultiple` times the most its spend guard lets a
 request cost, raised to `minSellFraction` of list and cut to `maxSellFraction` of it (default 1),
-so they sort behind cheaper lanes in the auto groups. Every numeric knob (those three,
+so they sort behind cheaper lanes in the auto groups. Once a lane has 20 requests in 6 hours that the market billed (the gateway logs
+`admin_info.upstream_cost_usd`), its group ratio is that real cost times `profitMultiple`
+instead (`pricing/realized-marketplace.ts`, applied by every `metadata` tick and by the full run,
+never under cost x1.1, capped at list unless cost is above it), so the price the models page shows
+is what users pay. `upstreamCostMarkup` (1.1) is only the per-request floor: priced off the spend
+guard with a 5x floor, a request whose seller billed above the guard was charged 5x its cost, more
+than the lane's price claimed. Every numeric knob (those three,
 `bidQuantile`, `minSellers`) takes a scalar or a7's glob map with `default` (`resolvePerModel`,
 first match wins). Every URL is config only. `ih` calls `<pool>/<model>` with bid headers (`set_header` in
 param_override) at the `bidQuantile` ask of that pool, never under its `minSellers`-th ask (a

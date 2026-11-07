@@ -36,6 +36,7 @@ import { buildAIHordeChannels } from "@core/vendors/aihorde-image/provider";
 import { buildRunwareChannels } from "@core/vendors/runware-image/provider";
 import { buildTypeSafeChannels } from "@core/vendors/typesafe/provider";
 import { buildComfyUiChannels } from "@core/vendors/comfyui/provider";
+import { realizedMarketplaceRatios } from "@core/pricing/realized-marketplace";
 import { t } from "@server/i18n";
 import { consola } from "consola";
 import { buildBaseline } from "./baseline";
@@ -447,6 +448,26 @@ async function buildDesiredState(
       ? buildSurvivingGroups(targetSnapshot.channels, targetSnapshot.options)
       : undefined,
   );
+
+  // Marketplace lanes priced on what the market really billed them, so a full run
+  // does not reset the metadata tick's runtime price back to the order book guess.
+  if (targetSnapshot) {
+    try {
+      const realized = await realizedMarketplaceRatios(
+        config,
+        targetSnapshot.channels,
+      );
+      for (const [group, r] of realized)
+        if (group in optionMaps.groupRatio)
+          optionMaps.groupRatio[group] = r.ratio;
+    } catch (err) {
+      consola.warn(
+        t("CORE.REALIZED.SKIPPED", {
+          reason: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    }
+  }
 
   for (const provider of config.providers) {
     if (provider.type !== "comfyui") continue;
