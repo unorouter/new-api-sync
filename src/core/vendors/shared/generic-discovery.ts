@@ -268,7 +268,8 @@ export async function discoverModels(
         valuesAt(row, cfg.pricing.completion ?? "pricing.completion")[0],
       );
       if (input > 0) {
-        ratioByModel.set(id, (input * 1_000_000) / USD_PER_M_PER_RATIO);
+        const perM = cfg.pricing.unit === "million" ? input : input * 1_000_000;
+        ratioByModel.set(id, perM / USD_PER_M_PER_RATIO);
         if (output > 0) completionRatioByModel.set(id, output / input);
       }
     }
