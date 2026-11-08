@@ -11,7 +11,7 @@ interface VendorMatcher {
 // prettier-ignore
 export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   anthropic: { modelPatterns: ["claude"], displayName: "Anthropic", icon: "Claude.Color" },
-  google: { modelPatterns: ["gemini","palm","veo","gemma","lyria","imagen","nano-banana","embedding-001","embedding-gecko","text-embedding-004"], displayName: "Google", icon: "Gemini.Color" },
+  google: { modelPatterns: ["gemini","palm","veo","gemma","lyria","imagen","nano-banana","embedding-001","deep-research-","embedding-gecko","text-embedding-004"], displayName: "Google", icon: "Gemini.Color" },
   openai: { modelPatterns: ["gpt","o1-","o1:","o3","o4-","chatgpt","sora","text-embedding-3","text-embedding-ada","whisper","dall-e","tts-1","omni-moderation","openai"], displayName: "OpenAI", icon: "OpenAI" },
   kling: { modelPatterns: ["kling"], nameAliases: ["kling","可灵"], displayName: "Kling", icon: "Kling.Color" },
   // "inkling" contains "kling", so these need strongPatterns to outrank Kling.
@@ -25,7 +25,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   baichuan: { modelPatterns: ["baichuan"], nameAliases: ["百川","baichuan"], displayName: "Baichuan", icon: "Baichuan.Color" },
   meta: { modelPatterns: ["llama","muse-glimmer","muse-spark","muse-wonder"], strongPatterns: ["muse-glimmer","muse-spark","muse-wonder"], displayName: "Meta", icon: "Meta.Color" },
   nvidia: { modelPatterns: ["nemotron","riva-translate","ising-calibration","nvclip","nv-embed","nemoretriever","nvidia/vila","nvidia/neva"], strongPatterns: ["nemotron","riva-translate","ising-calibration","nvclip","nv-embed","nemoretriever"], displayName: "NVIDIA", icon: "Nvidia.Color" },
-  liquid: { modelPatterns: ["lfm-","lfm2"], nameAliases: ["liquid"], displayName: "Liquid", icon: "Liquid" },
+  liquid: { modelPatterns: ["lfm-","lfm2","lfm3"], nameAliases: ["liquid"], displayName: "Liquid", icon: "Liquid" },
   codeium: { modelPatterns: ["swe-1","swe-2","cascade"], strongPatterns: ["swe-1","swe-2"], nameAliases: ["codeium","windsurf"], displayName: "Codeium" },
   inclusionai: { modelPatterns: ["ling-","ring-"], nameAliases: ["inclusionai"], displayName: "InclusionAI" },
   nousresearch: { modelPatterns: ["hermes-"], nameAliases: ["nous","nousresearch"], displayName: "Nous Research", icon: "NousResearch" },
@@ -35,7 +35,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   alibaba: { modelPatterns: ["qwen","qwq-","qvq-","text-embedding-v"], nameAliases: ["阿里","通义","qwen","阿里巴巴"], displayName: "Alibaba", icon: "AlibabaCloud.Color" },
   bailian: { modelPatterns: ["wan2","z-image","happyhorse"], nameAliases: ["bailian","阿里云百炼"], displayName: "Bailian", icon: "AlibabaCloud.Color" },
   flux: { modelPatterns: ["flux-","flux.","flux"], nameAliases: ["flux"], displayName: "Flux", icon: "Flux" },
-  cohere: { modelPatterns: ["command-","c4ai-","cohere","aya-","tiny-aya","north-mini","embed-english-","embed-multilingual-","embed-v4","rerank-v3"], displayName: "Cohere", icon: "Cohere.Color" },
+  cohere: { modelPatterns: ["command-","c4ai-","cohere","aya-","tiny-aya","north-mini","embed-english-","embed-multilingual-","embed-v4","embed-v5","rerank-v3"], displayName: "Cohere", icon: "Cohere.Color" },
   minimax: { modelPatterns: ["abab","minimax-"], displayName: "MiniMax", icon: "Minimax.Color" },
   moonshot: { modelPatterns: ["moonshot-","kimi-","kimi","k2.6","k2-"], nameAliases: ["月之暗面","kimi"], displayName: "Moonshot", icon: "Moonshot" },
   // Moonshot's bare "k2-" would otherwise claim MBZUAI IFM's K2 models.
@@ -46,7 +46,9 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   perplexity: { modelPatterns: ["sonar"], displayName: "Perplexity", icon: "Perplexity.Color" },
   baidu: { modelPatterns: ["ernie-","qianfan-","embedding-v1"], nameAliases: ["百度","文心"], displayName: "Baidu", icon: "Wenxin" },
   xunfei: { modelPatterns: ["sparkdesk"], nameAliases: ["讯飞","spark"], displayName: "Xunfei", icon: "Spark.Color" },
-  tencent: { modelPatterns: ["hunyuan","hy3","hy4","hy-mt"], strongPatterns: ["hy3","hy4","hy-mt"], nameAliases: ["腾讯","混元"], displayName: "Tencent", icon: "Hunyuan" },
+  upstage: { modelPatterns: ["solar-"], displayName: "Upstage", icon: "Upstage" },
+  reka: { modelPatterns: ["reka-"], displayName: "Reka", icon: "Reka" },
+  tencent: { modelPatterns: ["hunyuan","hy3","hy4","hy-mt","hy-3d"], strongPatterns: ["hy3","hy4","hy-mt"], nameAliases: ["腾讯","混元"], displayName: "Tencent", icon: "Hunyuan" },
   bytedance: { modelPatterns: ["doubao-","seed-","sdxl-lightning"], strongPatterns: ["sdxl-lightning"], nameAliases: ["字节","豆包","doubao","bytedance"], displayName: "ByteDance", icon: "Doubao.Color" },
   stabilityai: { modelPatterns: ["stable-diffusion","stability","sdxl"], nameAliases: ["stability ai","stabilityai"], displayName: "Stability AI", icon: "Stability" },
   runware: { modelPatterns: [], nameAliases: ["runware"], displayName: "Runware", icon: "Runware" },
