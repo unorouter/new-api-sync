@@ -223,6 +223,71 @@ spec:
             - name: logs
               emptyDir: {}
 ---
+# OpenRouter every 6 hours, between the a7 full runs: its free catalogue changes
+# daily (stealth models arrive priced $0 under their own ids) and its paid models
+# are never probed, so a run costs only one cheap probe per free model. Same
+# config and pod label as the weekly job.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: new-api-sync-openrouter
+  namespace: services
+spec:
+  schedule: "30 1,7,13,19 * * *"
+  timeZone: "Europe/Berlin"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 7200
+      backoffLimit: 0
+      template:
+        metadata:
+          labels: { app: new-api-sync-weekly }
+        spec:
+          restartPolicy: Never
+          priorityClassName: batch
+          imagePullSecrets:
+            - name: ghcr-pull
+          containers:
+            - name: sync
+              image: ghcr.io/unorouter/new-api-sync:2f52cac096dee833928271828e5772cfd1a92506@sha256:519a231e3fde1c42f4abcbff0f40932c54bdabebe9a6c386374a082c81df9b0b
+              args: ["run", "--only", "open1,open2"]
+              env:
+                - name: GUEST_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: sync-env
+                      key: GUEST_API_KEY
+                - name: SYNC_S3_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: sync-env
+                      key: SYNC_S3_ACCESS_KEY
+                - name: SYNC_S3_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: sync-env
+                      key: SYNC_S3_SECRET_KEY
+                      optional: true
+              resources:
+                requests: { memory: 256Mi, cpu: 100m }
+                limits: { memory: 3Gi }
+              volumeMounts:
+                - name: config
+                  mountPath: /app/config.yml
+                  subPath: config.yml
+                - name: logs
+                  mountPath: /app/logs
+          volumes:
+            - name: config
+              secret: { secretName: sync-env-weekly }
+            # Not the shared PVC: the full run may hold it, and verdicts merge through the store.
+            - name: logs
+              emptyDir: {}
+---
 # Daily price and metadata reread for every non-marketplace provider, no probes:
 # a relay that reprices its groups is caught within a day, not at the weekly run.
 # Same pod label as the weekly job, so the same network policies admit it.

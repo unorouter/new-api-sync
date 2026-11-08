@@ -167,14 +167,16 @@ Release: bump `version`, merge to `main`, `release.yml` builds. Never ship binar
 
 ## Cluster
 
-Two CronJobs in `services` (`k8s/`; a push to `main` builds the image in GitHub Actions and pins it, no local builds):
+The CronJobs in `services` (`k8s/`; a push to `main` builds the image in GitHub Actions and pins it, no local builds):
 `new-api-sync` = `metadata` every 15 min Berlin except the two hours after each full run;
 `new-api-sync-full` = `run --only a7,ih,si` at 04:00, 10:00, 16:00 and 22:00, 3h deadline, `backoffLimit: 0`,
 the only job that probes. The marketplaces change constantly, so they sync on the cluster.
 
 `new-api-sync-weekly` = `run --only <paid non-marketplace providers>` (relay accounts and the
 few others with paid lanes) Wednesdays 01:30 Berlin, 6h deadline; `new-api-sync-daily-metadata` = `metadata`
-over every non-marketplace provider daily 03:15 Berlin (prices only, no probes). Both read OpenBao
+over every non-marketplace provider daily 03:15 Berlin (prices only, no probes). `new-api-sync-openrouter` = `run --only open1,open2` at 01:30, 07:30, 13:30 and 19:30 Berlin (2h
+deadline, between the full runs): OpenRouter's free catalogue changes daily and its paid models are never probed,
+so a run costs one cheap probe per free model; open1 left the weekly list for it. Both read OpenBao
 `secret/sync-env-weekly`: the local `config.yml` minus a7, ih, si and any provider excluded for cost or a ban, with
 the cluster's `target`, `verdictStore`, `targetDb` and `laneGrader` blocks, the first shard of each series that
 fronts one upstream, and `authenticityPassTtlHours: 216`
