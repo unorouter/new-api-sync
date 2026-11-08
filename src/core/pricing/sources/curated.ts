@@ -865,11 +865,35 @@ const CURATED: Record<string, SourceMetadata> = {
   // nvidia/Nemotron-3.5-Embed-*, aisingapore/Nemotron-SEA-LION-v4.8-120B-A12B).
   "agents-a1": { releaseDate: iso("2026-06-22") },
   "sage-a1.5": { releaseDate: iso("2026-10-15") },
-  "lfm-2.5-embedding-350m": { releaseDate: iso("2026-05-05") },
-  "nemotron-3.5-bolt-e4b": { releaseDate: iso("2026-10-05") },
+  "lfm-2.5-embedding-350m": {
+    releaseDate: iso("2026-05-05"),
+    contextWindow: 512,
+    maxInputTokens: 512,
+    description:
+      "LFM2.5-Embedding-350M is a multilingual dense bi encoder from Liquid AI built on LFM2.5-350M-Base with bidirectional attention, aimed at short context retrieval in 11 languages. It outputs a 1024 dimensional CLS vector.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
+  },
+  "nemotron-3.5-bolt-e4b": {
+    releaseDate: iso("2026-10-05"),
+    contextWindow: 65_536,
+    maxInputTokens: 65_536,
+    description:
+      "Nemotron 3.5 Bolt E4B is a small NVIDIA language model post trained from Gemma 4 E4B for local conversational agents such as voice assistants, interactive characters and robots. It supports reasoning with a thinking budget and multi step tool use.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
+  },
   "nemotron-3.5-embed-1b": { releaseDate: iso("2026-10-07") },
   "nemotron-3.5-embed-8b": { releaseDate: iso("2026-10-07") },
-  "nemotron-sea-lion-v4.8-120b-a12b": { releaseDate: iso("2026-09-08") },
+  "nemotron-sea-lion-v4.8-120b-a12b": {
+    releaseDate: iso("2026-09-08"),
+    contextWindow: 262_144,
+    maxInputTokens: 262_144,
+    description:
+      "Nemotron-SEA-LION-v4.8-120B-A12B is a Mamba2 Transformer hybrid MoE model from AI Singapore built with NVIDIA on Nemotron 3 Super 120B-A12B, with 12B parameters active. It received continued pretraining on English and Southeast Asian languages, then SFT and on policy distillation.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
+  },
   // Voltropy announced the Vast-10M family on its blog and PR Newswire on 2026-09-29.
   "vast-10m-flash": { releaseDate: iso("2026-09-29") },
   // Inception Mercury Decide (OpenRouter inception/mercury-decide:free, 2026-09-30):
@@ -1132,13 +1156,33 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsTools: true,
   },
+  // liquid.ai/blog/lfm3 (published 2026-10-27); context and inputs from the HF model card
+  "lfm3-vl-2b": {
+    releaseDate: iso("2026-10-27"),
+    contextWindow: 128_000,
+    supportsVision: true,
+    supportsVideo: true,
+    maxInputTokens: 128_000,
+    description:
+      "LFM3-VL-2B is a vision language model from Liquid AI for on device visual understanding, combining the LFM3 language model with a new in house vision encoder. It is the first LFM vision model that accepts video input.",
+    inputModalities: ["text", "image", "video"],
+    outputModalities: ["text"],
+  },
   // H Company
   "holo2-30b-a3b": {
     releaseDate: iso("2025-11-10"),
     contextWindow: 131_072,
   },
   // SDAIA
-  "allam-2-7b": { releaseDate: iso("2024-09-11"), contextWindow: 4_096 },
+  "allam-2-7b": {
+    releaseDate: iso("2024-09-11"),
+    contextWindow: 4_096,
+    maxInputTokens: 4_096,
+    description:
+      "ALLaM 2 7B is a 7B bilingual Arabic and English model developed by the National Center for Artificial Intelligence at the Saudi Data and AI Authority (SDAIA). It was pretrained from scratch, first on English and then on mixed Arabic and English data.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
+  },
   // TheDrummer (HF repo init 2025-11-08)
   "cydonia-24b-v4.3": {
     releaseDate: iso("2025-11-08"),
@@ -1201,6 +1245,11 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsVision: true,
     supportsTools: true,
+    maxInputTokens: 32_768,
+    description:
+      "Intern-S1 is a multimodal scientific reasoning model from Shanghai AI Laboratory, built on a 235B MoE Qwen3 language model and a 6B InternViT vision encoder. It was further pretrained on 5 trillion tokens, over half of them scientific data, and reads molecular formulas and protein sequences natively.",
+    inputModalities: ["text", "image", "video"],
+    outputModalities: ["text"],
   },
   "intern-s1-mini": {
     releaseDate: iso("2025-09-02"),
@@ -1209,6 +1258,11 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsVision: true,
     supportsTools: true,
+    maxInputTokens: 32_768,
+    description:
+      "Intern-S1-mini is a lightweight multimodal scientific reasoning model from Shanghai AI Laboratory, built on an 8B dense Qwen3 language model and a 0.3B InternViT vision encoder. It uses the same training recipe as Intern-S1, including 5 trillion tokens of continued pretraining with a large share of scientific data.",
+    inputModalities: ["text", "image", "video"],
+    outputModalities: ["text"],
   },
   "intern-s1-pro": {
     releaseDate: iso("2026-02-04"),
@@ -1217,6 +1271,11 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsVision: true,
     supportsTools: true,
+    maxInputTokens: 262_144,
+    description:
+      "Intern-S1-Pro is a trillion parameter MoE multimodal scientific reasoning model from Shanghai AI Laboratory, with 512 experts and 22B parameters active per token. It targets advanced reasoning and AI for science domains such as chemistry, materials, life science and earth science.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
   },
   "intern-s2-preview": {
     releaseDate: iso("2026-05-15"),
@@ -1225,6 +1284,11 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsVision: true,
     supportsTools: true,
+    maxInputTokens: 262_144,
+    description:
+      "Intern-S2-Preview is a 35B scientific multimodal foundation model from Shanghai AI Laboratory, continued pretrained from Qwen3.5. It scales hundreds of professional scientific tasks from pretraining through reinforcement learning and adds agent capabilities for scientific workflows.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
   },
   // InternVL 3.5 (trained 32K context per HF card; -latest aliases the 241B flagship)
   "internvl3.5-241b-a28b": {
@@ -1335,6 +1399,10 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Agnes",
     supportsVision: true,
     supportsTools: true,
+    description:
+      "Agnes 3.0 Flash is a new generation text model from Agnes AI built for agent tasks and development workflows, covering planning, tool use and final delivery. It accepts text and image URL input and supports up to 65,536 output tokens.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
   },
   // Agnes 2.5 + async image/video lanes (provider publishes no dates; estimated)
   "agnes-2.5-flash": {
@@ -1343,6 +1411,10 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Agnes",
     supportsVision: true,
     supportsTools: true,
+    description:
+      "Agnes 2.5 Flash is a language model from Agnes AI that upgrades Agnes 2.0 Flash with better coding, agent workflows, tool calling and image understanding. It keeps the same OpenAI compatible integration and supports up to 65.5K output tokens.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
   },
   "agnes-image-2.0-flash": {
     releaseDate: iso("2026-06-01"),
@@ -1353,6 +1425,10 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2026-07-01"),
     series: "Agnes",
     mode: "image",
+    description:
+      "Agnes Image 2.1 Flash is an image generation and editing model from Agnes AI optimized for high information density visuals. It supports text to image, image to image and multi image composition, returning images as URLs or Base64.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["image"],
   },
   "agnes-video-v2.0": {
     releaseDate: iso("2026-06-01"),
@@ -1510,6 +1586,11 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2024-11-16"),
     contextWindow: 131_072,
     series: "Mistral",
+    maxInputTokens: 131_072,
+    description:
+      "MN-Violet-Lotus-12B is a community merge by FallenMerick of Mistral Nemo 12B fine tunes, including Violet Twilight, Lumimaid, Lyra v4 and Mahou. It is aimed at roleplay and creative writing.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
   },
   // Google DiffusionGemma (Gemma 4 discrete-diffusion, MoE 25.2B/3.8B)
   "diffusiongemma-26b-a4b-it": {
@@ -1519,6 +1600,11 @@ const CURATED: Record<string, SourceMetadata> = {
     isReasoning: true,
     supportsVision: true,
     supportsTools: true,
+    maxInputTokens: 262_144,
+    description:
+      "DiffusionGemma is an experimental open model from Google DeepMind based on the Gemma 4 26B A4B MoE architecture that generates text with discrete diffusion. It denoises blocks of tokens in parallel instead of decoding one token at a time, which makes generation faster.",
+    inputModalities: ["text", "image", "video"],
+    outputModalities: ["text"],
   },
   // MegaNova Manta (closed; ctx from console, date = family announcement)
   "manta-flash-1.0": {
@@ -1538,6 +1624,28 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsTools: true,
     description:
       "IBM Granite 4.1 instruct model with 8 billion parameters, text only, with tool calling.",
+  },
+  // IBM Granite 4.0 announcement and HF model card (ibm-granite/granite-4.0-micro)
+  "granite-4.0-micro": {
+    releaseDate: iso("2025-10-02"),
+    series: "Granite",
+    contextWindow: 131_072,
+    maxInputTokens: 131_072,
+    description:
+      "Granite-4.0-Micro is a 3B dense long context instruct model from IBM, fine tuned from Granite-4.0-Micro-Base on permissively licensed and synthetic instruction data. It supports tool calling and multilingual dialog.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
+  },
+  // Upstage model history (console.upstage.ai/docs/models/history): version id
+  // syn-pro-251021, which their /v1/models also reports as created 20251021.
+  "syn-pro": {
+    releaseDate: iso("2025-10-21"),
+    contextWindow: 65_536,
+    series: "Syn",
+    description:
+      "Syn Pro is a 31B parameter Japanese focused language model co-developed by Upstage and Karakuri for enterprise use. It supports Japanese, English and Korean and was certified by Japan's METI as a domestic foundation model.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
   },
   // Nous Research Hermes 4 (huggingface.co/NousResearch/Hermes-4-70B)
   "hermes-4-70b": {
@@ -1732,6 +1840,11 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Mistral",
     supportsVision: true,
     supportsTools: true,
+    maxInputTokens: 262_144,
+    description:
+      "Mistral Small 4 is a 119B MoE model from Mistral AI that combines the Instruct, Magistral reasoning and Devstral coding lines in one model with switchable reasoning. It supports native function calling and JSON output.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
   },
   // TNG DeepSeek-R1T Chimera merges (R1 + V3-0324; inherit 163840 ctx)
   "deepseek-r1t-chimera": {
@@ -1900,6 +2013,10 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2026-01-15"),
     series: "FLUX",
     mode: "image",
+    description:
+      "FLUX.2 [klein] 9B is a 9B parameter rectified flow transformer from Black Forest Labs, paired with an 8B Qwen3 text embedder, that unifies text to image generation and multi reference image editing in one compact model. Its weights are released under the FLUX Non-Commercial License.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["image"],
   },
   "flux-kontext-max": { releaseDate: iso("2025-05-29"), mode: "image" },
   "flux-dev": { releaseDate: iso("2024-08-01"), mode: "image" },
@@ -1912,7 +2029,14 @@ const CURATED: Record<string, SourceMetadata> = {
     description:
       "FLUX.1 [dev], a 12B rectified-flow transformer for high prompt-adherence text-to-image.",
   },
-  "flux.1-schnell": { releaseDate: iso("2024-08-01"), mode: "image" },
+  "flux.1-schnell": {
+    releaseDate: iso("2024-08-01"),
+    mode: "image",
+    description:
+      "FLUX.1 [schnell] is a 12B parameter rectified flow transformer from Black Forest Labs that generates images from text in one to four steps. It is the fastest FLUX.1 variant and is released under the Apache 2.0 license.",
+    inputModalities: ["text"],
+    outputModalities: ["image"],
+  },
   // Zhipu image (guest lane). The -250304 suffix is 6 digits, so no
   // DATE_SUFFIX_PATTERN strips it and the bare name keeps it.
   "cogview-4-250304": {
@@ -1937,6 +2061,10 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2022-11-21"),
     series: "Stable Diffusion",
     mode: "image",
+    description:
+      "Deliberate is a general purpose Stable Diffusion 1.5 checkpoint by XpucT, published in versions up to v6 with matching inpainting variants. It responds best to detailed prompts and is licensed CC BY-NC-ND 4.0.",
+    inputModalities: ["text"],
+    outputModalities: ["image"],
   },
   "stable-diffusion": {
     releaseDate: iso("2022-08-22"),
@@ -1976,6 +2104,10 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2024-09-01"),
     series: "Pony",
     mode: "image",
+    description:
+      "Nova Anime XL is an anime, 2.5D and 3D style SDXL checkpoint by Crody published on Civitai, with versions built on SDXL 1.0, Pony and Illustrious bases. It emphasizes high quality anime style generations with good results on faces and bodies.",
+    inputModalities: ["text"],
+    outputModalities: ["image"],
   },
   // Runware Civitai checkpoints. No upstream pricing source lists community
   // checkpoints, so without these they render dateless and undescribed.
@@ -2011,11 +2143,19 @@ const CURATED: Record<string, SourceMetadata> = {
     contextWindow: 262_144,
     maxInputTokens: 262_144,
     supportsVision: true,
+    description:
+      "Ising Calibration 1.5 31B is an NVIDIA vision language model built on Gemma 4 31B that analyzes quantum computing calibration plots. It produces technical descriptions, conclusions, fit quality assessments, parameter extractions and success classifications for calibration experiments.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
   },
   "riva-translate-4b-instruct-v2": {
     releaseDate: iso("2026-04-15"),
     contextWindow: 8_192,
     maxInputTokens: 8_192,
+    description:
+      "Riva-Translate-4B-Instruct-v2 is an NVIDIA translation model that translates text between English and 36 other languages. It supports sentence and document level translation, with the language pair selected by a tag in the system prompt.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
   },
   // Meta Superintelligence Labs, distilled from Muse Spark. Multimodal.
   "muse-glimmer-30b": {
@@ -2182,6 +2322,10 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2024-10-01"),
     series: "Pony",
     mode: "image",
+    description:
+      "Nova Furry Pony is the Pony Diffusion based line (v1.0 to v6.0) of Crody's Nova Furry XL checkpoint on Civitai, a 2D and 2.5D furry and anthro model. It emphasizes detailed fur, scales and feathers.",
+    inputModalities: ["text"],
+    outputModalities: ["image"],
   },
   // AI Horde full image catalog (auto-generated from AI-Horde-image-model-reference)
   "albedobase-xl-31": {
@@ -2309,8 +2453,22 @@ const CURATED: Record<string, SourceMetadata> = {
   // Lykon DreamShaper (LCM distill of v8)
   "dreamshaper-8-lcm": { releaseDate: iso("2023-12-06"), mode: "image" },
   // Leonardo.Ai
-  "lucid-origin": { releaseDate: iso("2025-08-05"), mode: "image" },
-  "phoenix-1.0": { releaseDate: iso("2024-08-15"), mode: "image" },
+  "lucid-origin": {
+    releaseDate: iso("2025-08-05"),
+    mode: "image",
+    description:
+      "Lucid Origin is a text to image model from Leonardo.Ai that outputs Full HD images by default. It focuses on close prompt adherence, accurate text rendering and a wide range of styles from concept art to product mockups.",
+    inputModalities: ["text"],
+    outputModalities: ["image"],
+  },
+  "phoenix-1.0": {
+    releaseDate: iso("2024-08-15"),
+    mode: "image",
+    description:
+      "Phoenix 1.0 is Leonardo.Ai's foundational text to image model, the full release following Phoenix 0.9. It is built for strong prompt adherence and coherent text rendering in generated images.",
+    inputModalities: ["text"],
+    outputModalities: ["image"],
+  },
 
   // Tencent Hunyuan3D Studio pipeline stages (arxiv.org/abs/2509.12815). Each id
   // is one named module of that paper; hy-3d-texture ships from the earlier
@@ -2586,17 +2744,31 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2023-09-12"),
     contextWindow: 512,
     mode: "embedding",
+    maxInputTokens: 512,
+    description:
+      "bge-small-en-v1.5 is a small English text embedding model from BAAI, a v1.5 update of the BGE series with a more reasonable similarity distribution and better retrieval without instructions. It outputs 384 dimensional embeddings.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
   },
   "bge-multilingual-gemma2": {
     releaseDate: iso("2024-07-26"),
     contextWindow: 8_192,
     mode: "embedding",
+    description:
+      "bge-multilingual-gemma2 is an LLM based multilingual text embedding model from BAAI built on google/gemma-2-9b, trained on a broad range of languages and tasks including retrieval, classification and clustering.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
   },
   // Google
   "embeddinggemma-300m": {
     releaseDate: iso("2025-09-04"),
     contextWindow: 2_048,
     mode: "embedding",
+    maxInputTokens: 2_048,
+    description:
+      "EmbeddingGemma is a 308M parameter multilingual text embedding model from Google, trained on 100+ languages and designed to run on device. It outputs 768 dimensional embeddings with Matryoshka truncation to 512, 256 or 128 dimensions.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
   },
   "gemini-embedding-001": {
     releaseDate: iso("2025-07-14"),
@@ -2652,11 +2824,21 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2025-09-04"),
     contextWindow: 32_768,
     mode: "embedding",
+    maxInputTokens: 32_768,
+    description:
+      "jina-code-embeddings-0.5b is a code retrieval embedding model from Jina AI built on Qwen2.5-Coder-0.5B, covering text to code, code to code, code to text, code completion and technical question answering across 15+ programming languages. It outputs 896 dimensional embeddings that can be truncated down to 64 dimensions.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
   },
   "jina-code-embeddings-1.5b": {
     releaseDate: iso("2025-09-04"),
     contextWindow: 32_768,
     mode: "embedding",
+    maxInputTokens: 32_768,
+    description:
+      "jina-code-embeddings-1.5b is a code retrieval embedding model from Jina AI built on Qwen2.5-Coder-1.5B, covering text to code, code to code, code to text, code completion and technical question answering across 15+ programming languages. It outputs 1536 dimensional embeddings that can be truncated down to 128 dimensions.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
   },
   "jina-embeddings-v2-base-en": {
     releaseDate: iso("2023-10-28"),
@@ -2687,31 +2869,61 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2024-09-18"),
     contextWindow: 8_192,
     mode: "embedding",
+    maxInputTokens: 8_192,
+    description:
+      "jina-embeddings-v3 is a 570M parameter multilingual multi task text embedding model from Jina AI with task specific LoRA adapters for retrieval, classification, clustering and text matching. It outputs 1024 dimensional embeddings with Matryoshka truncation down to 32 dimensions.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
   },
   "jina-embeddings-v4": {
     releaseDate: iso("2025-06-25"),
     contextWindow: 32_768,
     mode: "embedding",
+    maxInputTokens: 32_768,
+    description:
+      "jina-embeddings-v4 is a multimodal multilingual embedding model from Jina AI built on Qwen2.5-VL-3B-Instruct that embeds text, images and visually rich documents for retrieval, text matching and code tasks. It outputs 2048 dimensional single vector embeddings (truncatable to 128) or 128 dimensional multi vector embeddings.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["embedding"],
   },
   "jina-embeddings-v5-text-nano": {
     releaseDate: iso("2026-02-18"),
     contextWindow: 8_192,
     mode: "embedding",
+    maxInputTokens: 8_192,
+    description:
+      "jina-embeddings-v5-text-nano is a 239M parameter multilingual text embedding model from Jina AI built on EuroBERT-210M and distilled from Qwen3-Embedding-4B, supporting retrieval, text matching, clustering and classification. It outputs 768 dimensional embeddings with Matryoshka truncation down to 32 dimensions.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
   },
   "jina-embeddings-v5-text-small": {
     releaseDate: iso("2026-02-18"),
     contextWindow: 32_768,
     mode: "embedding",
+    maxInputTokens: 32_768,
+    description:
+      "jina-embeddings-v5-text-small is a 677M parameter multilingual text embedding model from Jina AI built on Qwen3-0.6B-Base and distilled from Qwen3-Embedding-4B, supporting 119+ languages for retrieval, text matching, clustering and classification. It outputs 1024 dimensional embeddings with Matryoshka truncation down to 32 dimensions.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
   },
   "jina-embeddings-v5-omni-nano": {
     releaseDate: iso("2026-05-12"),
     contextWindow: 8_192,
     mode: "embedding",
+    maxInputTokens: 8_192,
+    description:
+      "jina-embeddings-v5-omni-nano is a multimodal embedding model from Jina AI that embeds text, images, video and audio into a vector space aligned with jina-embeddings-v5-text-nano. It has about 1.04B parameters and outputs 768 dimensional embeddings.",
+    inputModalities: ["text", "image", "video", "audio"],
+    outputModalities: ["embedding"],
   },
   "jina-embeddings-v5-omni-small": {
     releaseDate: iso("2026-05-12"),
     contextWindow: 32_768,
     mode: "embedding",
+    maxInputTokens: 32_768,
+    description:
+      "jina-embeddings-v5-omni-small is a multimodal embedding model from Jina AI that embeds text, images, video and audio into a vector space aligned with jina-embeddings-v5-text-small. It has about 1.74B parameters and outputs 1024 dimensional embeddings with Matryoshka truncation down to 32 dimensions.",
+    inputModalities: ["text", "image", "video", "audio"],
+    outputModalities: ["embedding"],
   },
   // NVIDIA NeMo Retriever (v1 = 512; nemotron v2 = 8192; vl = 10240)
   "llama-3.2-nv-embedqa-1b-v1": {
@@ -2739,6 +2951,11 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2025-04-11"),
     contextWindow: 4_096,
     mode: "embedding",
+    maxInputTokens: 4_096,
+    description:
+      "PLaMo-Embedding-1B is a Japanese text embedding model from Preferred Networks built on the PLaMo language model, for retrieval, classification and clustering. It outputs 2048 dimensional embeddings.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
   },
   // Alibaba Qwen3-Embedding (shared launch)
   "qwen3-embedding-0.6b": {
@@ -2820,6 +3037,18 @@ const CURATED: Record<string, SourceMetadata> = {
     contextWindow: 131_072,
     series: "DeepSeek",
     isReasoning: true,
+  },
+  // HF repo deepseek-ai/DeepSeek-R1-Distill-Llama-70B
+  "deepseek-r1-distill-llama-70b": {
+    releaseDate: iso("2025-01-20"),
+    contextWindow: 131_072,
+    series: "DeepSeek",
+    isReasoning: true,
+    maxInputTokens: 131_072,
+    description:
+      "DeepSeek-R1-Distill-Llama-70B is a reasoning model from DeepSeek, made by fine tuning Llama-3.3-70B-Instruct on samples generated by DeepSeek-R1. It emits a chain of thought before its answer.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
   },
   // DeepSeek reasoner API alias (rolling; mid-2026 = V4-Flash thinking, 1M)
   "deepseek-reasoner": {
@@ -3442,18 +3671,32 @@ const CURATED: Record<string, SourceMetadata> = {
     releaseDate: iso("2025-12-30"),
     contextWindow: 32_768,
     series: "Bielik",
+    maxInputTokens: 32_768,
+    description:
+      "Bielik-11B-v3.0-Instruct is an 11B instruction tuned model from SpeakLeash and ACK Cyfronet AGH. It covers 32 European languages and is optimized for Polish.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
   },
   // CYFRAGOVPL PLLuM (Polish government LLM)
   "pllum-12b-instruct": {
     releaseDate: iso("2025-02-01"),
     contextWindow: 131_072,
     series: "PLLuM",
+    maxInputTokens: 131_072,
+    description:
+      "PLLuM-12B-instruct is a 12B Polish language model from the PLLuM project, published by the Polish Ministry of Digital Affairs and built on Mistral-Nemo-Base-2407. It was instruction tuned on curated Polish instructions and trained for retrieval augmented generation.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
   },
   // VillanovaAI (small preview model)
   "villanova-2b-2512-preview-apnea-ft": {
     releaseDate: iso("2025-12-01"),
     contextWindow: 32_768,
     series: "Villanova",
+    description:
+      "Villanova-2B-2512-Preview-Apnea-FT is a fine tune of VillanovaAI's Villanova-2B-2512-Preview text model. Its model card gives no further details.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
   },
   // InclusionAI Ling
   "ling-flash-2.0": {
@@ -3800,6 +4043,11 @@ const CURATED: Record<string, SourceMetadata> = {
     contextWindow: 32_768,
     series: "Qwen",
     isReasoning: true,
+    maxInputTokens: 32_768,
+    description:
+      "Qwen-SEA-LION-v4-32B-IT is an instruction tuned model from AI Singapore built on Qwen3-32B, with continued pretraining on about 100B tokens of Southeast Asian language data. It is tuned for Burmese, Indonesian, Malay, Filipino, Tamil, Thai and Vietnamese alongside English.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
   },
   // Mistral Large 3 (675B MoE, multimodal, Dec 2025)
   "mistral-large-3-675b": {
@@ -3857,6 +4105,17 @@ const CURATED: Record<string, SourceMetadata> = {
     supportsVideo: true,
     supportsTools: true,
   },
+  // Gemma release notes (ai.google.dev/gemma/docs/releases): Gemma 4 12B on 2026-06-03
+  "gemma-4-12b": {
+    releaseDate: iso("2026-06-03"),
+    series: "Gemma",
+    contextWindow: 262_144,
+    maxInputTokens: 262_144,
+    description:
+      "Gemma 4 12B is an open model from Google DeepMind with an encoder free architecture that projects raw image and audio input directly into the language model. It sits between Gemma 4 E4B and the 26B MoE in size.",
+    inputModalities: ["text", "image", "audio", "video"],
+    outputModalities: ["text"],
+  },
   // Rolling aliases (track current GA: 2.5 Pro / Mistral Code launch)
   "gemini-pro-latest": {
     releaseDate: iso("2025-06-17"),
@@ -3879,22 +4138,42 @@ const CURATED: Record<string, SourceMetadata> = {
     contextWindow: 262_144,
     series: "Qwen",
     isReasoning: true,
+    maxInputTokens: 262_144,
+    description:
+      "Qwen-SEA-LION-v4.5-27B-IT is a 27B multimodal reasoning model from AI Singapore, post trained from Qwen3.6-27B in English and Southeast Asian languages. It keeps the base model's agentic and tool calling abilities and offers configurable thinking modes.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
   },
   // AI Singapore SEA-LION Embedding Suite (Mar 2026; 512 tuned seq length)
   "sea-lion-e5-embedding-600m": {
     releaseDate: iso("2026-03-01"),
     contextWindow: 512,
     series: "SEA-LION",
+    maxInputTokens: 512,
+    description:
+      "SEA-LION-E5-Embedding-600M is an AI Singapore text embedding model fine tuned from multilingual-e5-large for Burmese, Chinese, English, Filipino, Indonesian, Khmer, Lao, Malay, Tamil, Thai and Vietnamese. It outputs 1024 dimensional embeddings.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
   },
   "sea-lion-modernbert-embedding-300m": {
     releaseDate: iso("2026-03-01"),
     contextWindow: 512,
     series: "SEA-LION",
+    maxInputTokens: 8_192,
+    description:
+      "SEA-LION-ModernBERT-Embedding-300M is an AI Singapore text embedding model on the ModernBERT-base architecture with a 262K vocabulary Gemma 3 tokenizer, tuned for Burmese, Chinese, English, Filipino, Indonesian, Khmer, Lao, Malay, Tamil, Thai and Vietnamese.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
   },
   "sea-lion-modernbert-embedding-600m": {
     releaseDate: iso("2026-03-01"),
     contextWindow: 512,
     series: "SEA-LION",
+    maxInputTokens: 8_192,
+    description:
+      "SEA-LION-ModernBERT-Embedding-600M is an AI Singapore text embedding model on the ModernBERT-large architecture with a 262K vocabulary Gemma 3 tokenizer, tuned for Burmese, Chinese, English, Filipino, Indonesian, Khmer, Lao, Malay, Tamil, Thai and Vietnamese.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
   },
   // Voyage AI embeddings (32K context)
   "voyage-3": {
@@ -4164,6 +4443,11 @@ const CURATED: Record<string, SourceMetadata> = {
     contextWindow: 131_072,
     series: "MiniCPM",
     supportsTools: true,
+    maxInputTokens: 131_072,
+    description:
+      "MiniCPM5-2B is a dense 2B model from OpenBMB, the second model in the MiniCPM5 series. It is built for on device and local use as an assistant, coding agent and tool use model with native long context support.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
   },
   // OpenBMB MiniCPM5-1B (huggingface.co/openbmb/MiniCPM5-1B, Apache-2.0)
   "minicpm5-1b": {
@@ -4187,6 +4471,100 @@ const CURATED: Record<string, SourceMetadata> = {
     series: "Typhoon",
     isReasoning: true,
     supportsTools: true,
+    maxInputTokens: 131_072,
+    description:
+      "Typhoon 2.5 30B A3B is a Thai and English instruct MoE model from SCB 10X based on Qwen3 30B A3B, with 3B active parameters. It focuses on Thai fluency and function calling for agentic workflows.",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
+  },
+  // https://huggingface.co/internlm/Intern-S2-Preview (context: https://internlm.intern-ai.org.cn/docEn/docs/Models/, date: https://www.shlab.org.cn/news/5444267)
+  "intern-s2-preview-35b": {
+    releaseDate: iso("2026-05-15"),
+    contextWindow: 262_144,
+    maxInputTokens: 262_144,
+    description:
+      "Intern-S2-Preview-35B is a 35B scientific multimodal foundation model from Shanghai AI Laboratory, continued pretrained from Qwen3.5. It scales hundreds of professional scientific tasks from pretraining through reinforcement learning and adds agent capabilities for scientific workflows.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
+  },
+  // https://huggingface.co/internlm/Intern-S2-Preview-397B (context: https://internlm.intern-ai.org.cn/docEn/docs/Models/, date: https://www.qbitai.com/2026/07/452942.html)
+  "intern-s2-preview-397b": {
+    releaseDate: iso("2026-07-17"),
+    contextWindow: 262_144,
+    maxInputTokens: 262_144,
+    description:
+      "Intern-S2-Preview-397B is a 397B multimodal foundation model from Shanghai AI Laboratory for scientific reasoning and long horizon agent tasks, and the preview release of Intern-S2-397B. It learns from raw pages of scientific literature through visual pretraining and is trained with large scale multi task and agentic reinforcement learning.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
+  },
+  // https://cognition.com/blog/swe-1-6
+  "swe-1-6-slow": {
+    releaseDate: iso("2026-04-07"),
+    description:
+      "SWE-1.6 is a software engineering agent model from Cognition, available in Windsurf. This is the standard speed tier, which Windsurf serves at about 200 tokens per second, while paid users get a faster Cerebras tier.",
+  },
+  // https://blog.voyageai.com/2024/01/23/voyage-code-2-elevate-your-code-retrieval/
+  "voyage-code-2": {
+    releaseDate: iso("2024-01-23"),
+    contextWindow: 16_000,
+    maxInputTokens: 16_000,
+    description:
+      "voyage-code-2 is a Voyage AI embedding model tailored for semantic retrieval of code and related text from both natural language and code queries. It is a previous generation model succeeded by voyage-code-3.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
+  },
+  // https://blog.voyageai.com/2024/06/03/domain-specific-embeddings-finance-edition-voyage-finance-2/ (dimensions: https://docs.voyageai.com/docs/embeddings)
+  "voyage-finance-2": {
+    releaseDate: iso("2024-06-03"),
+    contextWindow: 32_000,
+    maxInputTokens: 32_000,
+    description:
+      "voyage-finance-2 is a Voyage AI text embedding model optimized for finance retrieval and RAG. It outputs 1024 dimensional embeddings.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
+  },
+  // https://blog.voyageai.com/2024/04/15/domain-specific-embeddings-and-retrieval-legal-edition-voyage-law-2/ (dimensions: https://docs.voyageai.com/docs/embeddings)
+  "voyage-law-2": {
+    releaseDate: iso("2024-04-15"),
+    contextWindow: 16_000,
+    maxInputTokens: 16_000,
+    description:
+      "voyage-law-2 is a Voyage AI text embedding model optimized for legal retrieval and RAG, trained on long legal documents and also improved across other domains. It outputs 1024 dimensional embeddings.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
+  },
+  // https://blog.voyageai.com/2024/06/10/voyage-multilingual-2-multilingual-embedding-model/ (dimensions: https://docs.voyageai.com/docs/embeddings)
+  "voyage-multilingual-2": {
+    releaseDate: iso("2024-06-10"),
+    contextWindow: 32_000,
+    maxInputTokens: 32_000,
+    description:
+      "voyage-multilingual-2 is a Voyage AI text embedding model optimized for multilingual retrieval and RAG, evaluated across 27 languages. It outputs 1024 dimensional embeddings.",
+    inputModalities: ["text"],
+    outputModalities: ["embedding"],
+  },
+  // https://huggingface.co/ByteDance/SDXL-Lightning https://arxiv.org/abs/2402.13929
+  "sdxl-lightning": {
+    releaseDate: iso("2024-02-21"),
+    description:
+      "SDXL-Lightning is a text to image model from ByteDance distilled from Stable Diffusion XL base 1.0 through progressive adversarial diffusion distillation. It generates 1024px images in 1, 2, 4 or 8 steps.",
+    inputModalities: ["text"],
+    outputModalities: ["image"],
+  },
+  // https://wiki.agnes-ai.com/en/docs/agnes-image-25-flash.md
+  "agnes-image-2.5-flash": {
+    description:
+      "Agnes Image 2.5 Flash is the latest generation Agnes AI image model, keeping the request contract of Agnes Image 2.1 Flash with stronger generation quality. It supports text to image, image to image and multi image composition.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["image"],
+  },
+  // https://docs.mindshub.ai/inference/capability-matrix/
+  "mindshub-air": {
+    description:
+      "MindsHub Air is a moving alias on MindsHub Inference (MindsDB) that tracks the newest release of an OpenAI hosted model, which MindsHub does not name. It reasons on every request with effort levels none, low and medium, and serves the free tier allowance.",
+    contextWindow: 1050000,
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
   },
 };
 

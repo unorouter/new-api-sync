@@ -42,11 +42,15 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   axon: { modelPatterns: ["axon-"], strongPatterns: ["axon-"], nameAliases: ["axon","axon-labs"], displayName: "Axon Labs" },
   apodex: { modelPatterns: ["apodex-"], strongPatterns: ["apodex-"], nameAliases: ["apodex"], displayName: "Apodex" },
   ifm: { modelPatterns: ["k2-horizon"], strongPatterns: ["k2-horizon"], nameAliases: ["ifm","mbzuai"], displayName: "IFM" },
+  recursive: { modelPatterns: ["flint-v"], strongPatterns: ["flint-v"], nameAliases: ["recursive","recursivesi"], displayName: "Recursive" },
+  // MindsDB's MindsHub: mindshub-air is its own alias whose underlying model changes.
+  mindshub: { modelPatterns: ["mindshub"], strongPatterns: ["mindshub"], nameAliases: ["mindshub","mindsdb"], displayName: "MindsHub" },
   zhipu: { modelPatterns: ["glm-","glm4","glm5","glm6","chatglm","cogview","cogvideo","cogagent"], nameAliases: ["智谱","zhipu ai","chatglm","z.ai","z-ai","zai"], displayName: "Zhipu", icon: "Zhipu.Color" },
   perplexity: { modelPatterns: ["sonar"], displayName: "Perplexity", icon: "Perplexity.Color" },
   baidu: { modelPatterns: ["ernie-","qianfan-","embedding-v1"], nameAliases: ["百度","文心"], displayName: "Baidu", icon: "Wenxin" },
   xunfei: { modelPatterns: ["sparkdesk"], nameAliases: ["讯飞","spark"], displayName: "Xunfei", icon: "Spark.Color" },
-  upstage: { modelPatterns: ["solar-"], displayName: "Upstage", icon: "Upstage" },
+  // syn-pro: Syn Pro, Upstage's Japanese model co-developed with Karakuri.
+  upstage: { modelPatterns: ["solar-","syn-pro"], displayName: "Upstage", icon: "Upstage" },
   reka: { modelPatterns: ["reka-"], displayName: "Reka", icon: "Reka" },
   tencent: { modelPatterns: ["hunyuan","hy3","hy4","hy-mt","hy-3d"], strongPatterns: ["hy3","hy4","hy-mt"], nameAliases: ["腾讯","混元"], displayName: "Tencent", icon: "Hunyuan" },
   bytedance: { modelPatterns: ["doubao-","seed-","sdxl-lightning"], strongPatterns: ["sdxl-lightning"], nameAliases: ["字节","豆包","doubao","bytedance"], displayName: "ByteDance", icon: "Doubao.Color" },
