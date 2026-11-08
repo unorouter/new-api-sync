@@ -2238,6 +2238,29 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // Passthrough lane: the checkpoint is chosen per request, so it has no single
   // release date or architecture to report.
+  // PKRD's own roleplay models on Pawan.Krd; dates are the /v1/models listing time,
+  // context from pawan.krd/models.
+  "cosmosrp-2.1": {
+    releaseDate: iso("2026-02-20"),
+    contextWindow: 16_384,
+    series: "CosmosRP",
+    supportsVision: true,
+    description:
+      "CosmosRP 2.1 is a roleplay tuned chat model from PKRD (Pawan.Krd), optimized for character consistency and creative dialogue. It accepts text and image input.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
+  },
+  "cosmosrp-4.0-flash": {
+    releaseDate: iso("2026-11-03"),
+    contextWindow: 16_384,
+    series: "CosmosRP",
+    supportsVision: true,
+    supportsTools: true,
+    description:
+      "CosmosRP 4.0 Flash is an experimental small and fast model from PKRD (Pawan.Krd) for creativity, roleplay and general tasks, with optional thinking, tool calling and image input.",
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
+  },
   "custom-civitai": {
     mode: "image",
     inputModalities: ["text"],
@@ -4551,8 +4574,11 @@ const CURATED: Record<string, SourceMetadata> = {
     inputModalities: ["text"],
     outputModalities: ["image"],
   },
-  // https://wiki.agnes-ai.com/en/docs/agnes-image-25-flash.md
+  // https://wiki.agnes-ai.com/en/docs/agnes-image-25-flash.md (dated July 2026 by intelligentliving.co)
   "agnes-image-2.5-flash": {
+    releaseDate: iso("2026-07-01"),
+    series: "Agnes",
+    mode: "image",
     description:
       "Agnes Image 2.5 Flash is the latest generation Agnes AI image model, keeping the request contract of Agnes Image 2.1 Flash with stronger generation quality. It supports text to image, image to image and multi image composition.",
     inputModalities: ["text", "image"],

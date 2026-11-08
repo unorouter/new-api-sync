@@ -44,6 +44,8 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   ifm: { modelPatterns: ["k2-horizon"], strongPatterns: ["k2-horizon"], nameAliases: ["ifm","mbzuai"], displayName: "IFM" },
   recursive: { modelPatterns: ["flint-v"], strongPatterns: ["flint-v"], nameAliases: ["recursive","recursivesi"], displayName: "Recursive" },
   // MindsDB's MindsHub: mindshub-air is its own alias whose underlying model changes.
+  // Pawan.Krd house models (PKRD, LLC).
+  pkrd: { modelPatterns: ["cosmosrp"], strongPatterns: ["cosmosrp"], nameAliases: ["pkrd","pawan"], displayName: "PKRD" },
   mindshub: { modelPatterns: ["mindshub"], strongPatterns: ["mindshub"], nameAliases: ["mindshub","mindsdb"], displayName: "MindsHub" },
   zhipu: { modelPatterns: ["glm-","glm4","glm5","glm6","chatglm","cogview","cogvideo","cogagent"], nameAliases: ["智谱","zhipu ai","chatglm","z.ai","z-ai","zai"], displayName: "Zhipu", icon: "Zhipu.Color" },
   perplexity: { modelPatterns: ["sonar"], displayName: "Perplexity", icon: "Perplexity.Color" },
