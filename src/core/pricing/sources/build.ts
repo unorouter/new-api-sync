@@ -44,6 +44,7 @@ export function buildPricingMaps<T>(opts: {
 } {
   const pricingMap = new Map<string, BaseModelPricing>();
   const metadataMap = new Map<string, SourceMetadata>();
+  const freeOnly: [string, SourceMetadata][] = [];
 
   for (const [key, entry] of opts.entries) {
     const pricing = opts.toPricing(key, entry);
@@ -58,8 +59,14 @@ export function buildPricingMaps<T>(opts: {
     if (Object.keys(metadata).length > 0) {
       if (!metadataMap.has(key)) metadataMap.set(key, metadata);
       if (!metadataMap.has(bare)) metadataMap.set(bare, metadata);
+      if (bare.endsWith(":free"))
+        freeOnly.push([bare.slice(0, -":free".length), metadata]);
     }
   }
+  // A model a source lists only as `<id>:free` is looked up by its bare id, so
+  // without this it had no metadata at all; a paid listing of the same id wins.
+  for (const [name, metadata] of freeOnly)
+    if (!metadataMap.has(name)) metadataMap.set(name, metadata);
 
   return { pricingMap, metadataMap };
 }
