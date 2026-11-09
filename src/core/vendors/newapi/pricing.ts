@@ -35,7 +35,11 @@ export async function fetchPricing(
     raw = body;
     break;
   }
-  if (!raw) throw new Error(t("ERROR.NEWAPI_FETCH_PRICING_FAILED"));
+  if (!raw) {
+    const catalog = await fetchModelsCatalog(ctx);
+    if (catalog) return catalog;
+    throw new Error(t("ERROR.NEWAPI_FETCH_PRICING_FAILED"));
+  }
 
   const supportedEndpoint = (raw.supported_endpoint ?? {}) as Record<
     string,
@@ -635,6 +639,131 @@ function parsePricingV3(
     endpointPaths: {},
     audioRatios,
     audioCompletionRatios,
+    billingModes: {},
+    billingExprs: {},
+    pricingVersions: {},
+  };
+}
+
+interface CatalogPrice {
+  source?: string;
+  unit?: string;
+  fixed?: number;
+  base?: {
+    input?: number;
+    output?: number;
+    cache_read?: number;
+    cache_write?: number;
+  };
+  schedule?: {
+    windows?: Array<{ prices?: { input?: number; output?: number } }>;
+  };
+}
+interface CatalogModel {
+  id: string;
+  groups?: string[];
+  endpoints?: string[];
+  price?: CatalogPrice;
+}
+interface CatalogResponse {
+  data?: {
+    groups?: Record<string, { ratio?: number; desc?: string }>;
+    models?: CatalogModel[];
+  };
+}
+
+const CATALOG_ENDPOINTS: Record<string, string> = {
+  chat: "openai",
+  claude: "anthropic",
+};
+
+// Relays on a forked pricing page publish USD per million tokens on
+// /api/models-catalog instead of ratios (1 ratio = $2/M). CNY priced rows are
+// skipped: their unit is not the wallet's, and a time-of-day schedule is priced
+// at its dearest window since one published price covers every hour.
+async function fetchModelsCatalog(
+  ctx: ClientContext,
+): Promise<UpstreamPricing | undefined> {
+  const body = await tryFetchJson<CatalogResponse>(
+    `${ctx.baseUrl}/api/models-catalog`,
+    { headers: ctx.headers },
+  );
+  const rows = body?.data?.models;
+  if (!Array.isArray(rows) || !rows.length) return undefined;
+  const groupInfo = body?.data?.groups ?? {};
+  const models: ModelInfo[] = [];
+  for (const m of rows) {
+    const price = m.price;
+    if (!price || price.source === "catalog_cny" || price.source === "none")
+      continue;
+    const info: ModelInfo = {
+      name: m.id,
+      completionRatio: 1,
+      groups: m.groups ?? [],
+      supportedEndpoints: (m.endpoints ?? []).map(
+        (e) => CATALOG_ENDPOINTS[e] ?? e,
+      ),
+    };
+    if (price.unit === "request" && price.fixed !== undefined) {
+      info.modelPrice = price.fixed;
+      info.quotaType = 1;
+    } else if (price.unit === "token" && price.base?.input) {
+      let input = price.base.input;
+      let output = price.base.output ?? input;
+      for (const w of price.schedule?.windows ?? []) {
+        input = Math.max(input, w.prices?.input ?? 0);
+        output = Math.max(output, w.prices?.output ?? 0);
+      }
+      info.ratio = input / 2;
+      info.completionRatio = output / input;
+      if (price.base.cache_read !== undefined)
+        info.cacheRatio = price.base.cache_read / price.base.input;
+      if (price.base.cache_write !== undefined)
+        info.createCacheRatio = price.base.cache_write / price.base.input;
+    } else continue;
+    models.push(info);
+  }
+  const groupModels = new Map<string, string[]>();
+  for (const info of models)
+    for (const g of info.groups)
+      groupModels.set(g, [...(groupModels.get(g) ?? []), info.name]);
+  const groupRatios: Record<string, number> = {};
+  const groups: GroupInfo[] = [];
+  for (const [name, g] of Object.entries(groupInfo)) {
+    if (!name) continue;
+    groupRatios[name] = g.ratio ?? 1;
+    groups.push({
+      name,
+      description: g.desc || name,
+      ratio: g.ratio ?? 1,
+      models: groupModels.get(name) ?? [],
+      channelType: CHANNEL_TYPES.OPENAI,
+    });
+  }
+  const modelRatios: Record<string, number> = {};
+  const completionRatios: Record<string, number> = {};
+  for (const info of models) {
+    if (info.ratio !== undefined) modelRatios[info.name] = info.ratio;
+    if (info.completionRatio > 0)
+      completionRatios[info.name] = info.completionRatio;
+  }
+  consola.info(
+    t("CORE.NEWAPI.V1_FORMAT", {
+      name: ctx.name,
+      groups: groups.length,
+      models: models.length,
+    }),
+  );
+  return {
+    groups,
+    models,
+    groupRatios,
+    modelRatios,
+    completionRatios,
+    vendorIdToName: {},
+    endpointPaths: {},
+    audioRatios: {},
+    audioCompletionRatios: {},
     billingModes: {},
     billingExprs: {},
     pricingVersions: {},
