@@ -30,7 +30,7 @@ import {
   recordFingerprintRun,
 } from "./answer-fingerprints";
 import { consola } from "consola";
-import { cannedReplyMarker } from "./canned-replies";
+import { cannedReplyMarker, injectedLinkMarker } from "./canned-replies";
 import { recordReplyCost } from "./probe-cost";
 import { recordProbeRequestId } from "./probe-ids";
 import type { AuthenticityProbeLog } from "./types";
@@ -391,16 +391,20 @@ export async function runAuthenticity(
       }),
     );
 
-  const canned = cannedReplyMarker([
+  const replyTextsSeen = [
     ...run.probes.map((p) => p.responseText),
     ...(run.reports.survey ?? []).map((s) => s.text),
-  ]);
-  if (canned) {
-    const reason = `canned reply: "${canned}"`;
+  ];
+  const canned = cannedReplyMarker(replyTextsSeen);
+  const injected = canned ? undefined : injectedLinkMarker(replyTextsSeen);
+  if (canned || injected) {
+    const reason = canned
+      ? `canned reply: "${canned}"`
+      : `injected content: ${injected}`;
     consola.warn(
       t("CORE.TESTER.AUTHENTICITY_FAIL", {
         model: opts.model,
-        rule: "canned-reply",
+        rule: canned ? "canned-reply" : "injected-content",
         reason,
       }),
     );

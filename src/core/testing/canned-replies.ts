@@ -43,3 +43,25 @@ export function replyTexts(data: unknown, depth = 0): string[] {
       : replyTexts(value, depth + 1),
   );
 }
+
+const LINK_RE = /(?:https?:\/\/|www\.)([a-z0-9-]+(?:\.[a-z0-9-]+)+)/gi;
+
+// A host splicing ads or scraped text into answers repeats the same domain across
+// unrelated questions (sum, JSON, history); no real model cites one site in all.
+export function injectedLinkMarker(
+  replies: readonly (string | null | undefined)[],
+  minReplies = 2,
+): string | undefined {
+  const seen = new Map<string, number>();
+  for (const reply of replies) {
+    const hosts = new Set(
+      [...(reply ?? "").matchAll(LINK_RE)].map((m) =>
+        (m[1] ?? "").toLowerCase().replace(/^www\./, ""),
+      ),
+    );
+    for (const h of hosts) seen.set(h, (seen.get(h) ?? 0) + 1);
+  }
+  for (const [host, n] of seen)
+    if (n >= minReplies) return `${host} in ${n} replies`;
+  return undefined;
+}
