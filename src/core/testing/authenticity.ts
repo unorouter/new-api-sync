@@ -411,6 +411,20 @@ export async function runAuthenticity(
     return { authentic: false, ...(fingerprint ? { fingerprint } : {}) };
   }
 
+  // Observe-only silences a rule's fail, not its lack of evidence: a reseller
+  // passed 10 lanes on 2026-11-09 with every probe answering 402.
+  if (
+    !decisive &&
+    !run.probes.some((p) => !p.transient && (p.responseText ?? "") !== "")
+  ) {
+    consola.warn(
+      t("CORE.TESTER.AUTHENTICITY_INCONCLUSIVE", {
+        model: opts.model,
+        reason: "no probe answered",
+      }),
+    );
+    return { authentic: null, ...(fingerprint ? { fingerprint } : {}) };
+  }
   if (!decisive) {
     setAuthenticityVerdict(opts.logKey, "pass", "");
     return { authentic: true, ...(fingerprint ? { fingerprint } : {}) };
