@@ -345,6 +345,9 @@ export const ConfigSchema = T.Object({
       maxPerTick: Opt(T.Integer({ minimum: 1 })),
       // Usage inflation: a lane far faster than its peers that also bills far more
       // input than it cached (or than its peers average) on a handful of requests.
+      // Acts even while dryRun holds the other rules: billed counts no model can
+      // produce are fraud, not a quality call (a7 6714, 2026-11-10).
+      inflationLive: Opt(T.Boolean()),
       inflationMinRequests: Opt(T.Integer({ minimum: 1 })),
       inflationSpeedMultiple: Opt(T.Number({ minimum: 1 })),
       inflationMinTokensPerSecond: Opt(T.Number({ minimum: 1 })),

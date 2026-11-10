@@ -26,6 +26,7 @@ export function resolveGrader(cfg: LaneGraderConfig): ResolvedGrader {
   return {
     providers: cfg.providers,
     dryRun: cfg.dryRun ?? true,
+    inflationLive: cfg.inflationLive ?? true,
     windowHours: cfg.windowHours ?? 6,
     minRequests: cfg.minRequests ?? 20,
     minUsers: cfg.minUsers ?? 3,
@@ -108,6 +109,7 @@ export interface Judgement {
   stat: LaneStat;
   peers: PeerRates;
   reasons: string[];
+  inflation?: boolean;
 }
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -152,7 +154,13 @@ export function judgeLanes(
     const peers = peerRates(others);
     const inflation = inflationReason(s, others, g);
     if (inflation) {
-      out.push({ channel: ch, stat: s, peers, reasons: [inflation] });
+      out.push({
+        channel: ch,
+        stat: s,
+        peers,
+        reasons: [inflation],
+        inflation: true,
+      });
       continue;
     }
     if (s.requests < g.minRequests || s.users < g.minUsers) continue;
@@ -393,9 +401,10 @@ export async function gradeLanes(
     const live = liveByModel.get(model) ?? 0;
     const out = outByModel.get(model) ?? 0;
     const reason = j.reasons.join(", ");
+    const dryRun = g.dryRun && !(j.inflation && g.inflationLive);
     const base = {
       at: nowIso,
-      dryRun: g.dryRun,
+      dryRun,
       channelId: ch.id ?? 0,
       name: ch.name,
       provider: ch.tag ?? "",
@@ -423,7 +432,7 @@ export async function gradeLanes(
     );
     const until = new Date(now + hours * HOUR_MS).toISOString();
     if (strike >= g.candidateStrikes) result.candidates.push(ch.name);
-    if (g.dryRun) {
+    if (dryRun) {
       decisions.push({ ...base, action: "would-quarantine", until, strike });
       consola.info(
         t("CORE.LANE_GRADER.WOULD_QUARANTINE", {
