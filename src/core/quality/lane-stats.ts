@@ -23,6 +23,10 @@ export interface LaneStat {
   p50TokensPerSecond: number | null;
   /** Mean billed input over cached input, on rows with a sizable cache hit. */
   promptPerCached: number | null;
+  /** Streamed replies the gateway measured (admin_info.streamed_output_bytes). */
+  measuredOut: number;
+  /** Of those, replies billing far more output tokens than bytes streamed. */
+  paddedOut: number;
 }
 
 export const SHORT_MAX_OUT = 30;
@@ -46,7 +50,10 @@ SELECT
   quantileIf(0.5)(use_time, type = 2) AS p50,
   avgIf(prompt_tokens, type = 2) AS avgPrompt,
   quantileIf(0.5)(completion_tokens / greatest(use_time, 1), type = 2 AND completion_tokens > 200) AS p50Tps,
-  avgIf(prompt_tokens / JSONExtractInt(other, 'cache_tokens'), type = 2 AND JSONExtractInt(other, 'cache_tokens') > 1000) AS promptPerCached
+  avgIf(prompt_tokens / JSONExtractInt(other, 'cache_tokens'), type = 2 AND JSONExtractInt(other, 'cache_tokens') > 1000) AS promptPerCached,
+  countIf(type = 2 AND JSONExtractInt(other, 'admin_info', 'streamed_output_bytes') > 0) AS measuredOut,
+  countIf(type = 2 AND JSONExtractInt(other, 'admin_info', 'streamed_output_bytes') > 0
+    AND completion_tokens > 2 * JSONExtractInt(other, 'admin_info', 'streamed_output_bytes') + 200) AS paddedOut
 FROM logs
 WHERE type IN (2, 5) AND channel_id > 0
   AND created_at >= {from:Int64} AND created_at < {to:Int64}
@@ -104,6 +111,8 @@ export async function fetchLaneStats(
       avgPrompt: num(r.avgPrompt),
       p50TokensPerSecond: finite(r.p50Tps),
       promptPerCached: finite(r.promptPerCached),
+      measuredOut: num(r.measuredOut),
+      paddedOut: num(r.paddedOut),
     };
   });
 }

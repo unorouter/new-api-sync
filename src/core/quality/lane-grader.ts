@@ -49,6 +49,8 @@ export function resolveGrader(cfg: LaneGraderConfig): ResolvedGrader {
     inflationMinTokensPerSecond: cfg.inflationMinTokensPerSecond ?? 300,
     inflationPromptPerCached: cfg.inflationPromptPerCached ?? 3,
     inflationPromptMultiple: cfg.inflationPromptMultiple ?? 2.5,
+    paddingMinReplies: cfg.paddingMinReplies ?? 3,
+    paddingShare: cfg.paddingShare ?? 0.2,
   };
 }
 
@@ -97,6 +99,25 @@ function inflationReason(
   return null;
 }
 
+// A seller that bills output it never streamed: a token is at least about one
+// byte of text, so a reply billing far more tokens than the bytes the gateway
+// relayed is padded (a7 6714 billed 1,388 tokens for a 300 byte notice). Judged
+// against the model's other lanes so a family that hides its thinking is not.
+function paddingReason(
+  s: LaneStat,
+  others: readonly LaneStat[],
+  g: ResolvedGrader,
+): string | null {
+  if (s.paddedOut < g.paddingMinReplies || s.measuredOut === 0) return null;
+  const share = s.paddedOut / s.measuredOut;
+  if (share < g.paddingShare) return null;
+  const peerMeasured = others.reduce((n, o) => n + o.measuredOut, 0);
+  const peerPadded = others.reduce((n, o) => n + o.paddedOut, 0);
+  const peerShare = peerMeasured > 0 ? peerPadded / peerMeasured : 0;
+  if (peerShare * 4 > share) return null;
+  return `padded output: ${s.paddedOut} of ${s.measuredOut} replies billed over twice the bytes streamed, peers ${pct(peerShare)}`;
+}
+
 export interface PeerRates {
   empty: number;
   short: number;
@@ -109,7 +130,8 @@ export interface Judgement {
   stat: LaneStat;
   peers: PeerRates;
   reasons: string[];
-  inflation?: boolean;
+  /** Billing fraud rather than quality: acts even while dryRun holds the rest. */
+  fraud?: boolean;
 }
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -152,15 +174,12 @@ export function judgeLanes(
     );
     if (others.length === 0) continue;
     const peers = peerRates(others);
-    const inflation = inflationReason(s, others, g);
-    if (inflation) {
-      out.push({
-        channel: ch,
-        stat: s,
-        peers,
-        reasons: [inflation],
-        inflation: true,
-      });
+    const fraud = [
+      inflationReason(s, others, g),
+      paddingReason(s, others, g),
+    ].filter((r): r is string => r !== null);
+    if (fraud.length > 0) {
+      out.push({ channel: ch, stat: s, peers, reasons: fraud, fraud: true });
       continue;
     }
     if (s.requests < g.minRequests || s.users < g.minUsers) continue;
@@ -401,7 +420,7 @@ export async function gradeLanes(
     const live = liveByModel.get(model) ?? 0;
     const out = outByModel.get(model) ?? 0;
     const reason = j.reasons.join(", ");
-    const dryRun = g.dryRun && !(j.inflation && g.inflationLive);
+    const dryRun = g.dryRun && !(j.fraud && g.inflationLive);
     const base = {
       at: nowIso,
       dryRun,

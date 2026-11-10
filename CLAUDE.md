@@ -37,7 +37,7 @@ traffic: 54 of 66 bad lanes caught, half within 4 hours. Probe verdicts caught n
 needs only `inflationMinRequests` (3) and one user: median output speed at least
 `inflationSpeedMultiple` (5x) the model's other lanes and at least 300 tok/s, together with billed
 input at least 3x its cached tokens or 2.5x the peers' average input (a merchant running one
-request several times bills the sum; speed alone is just a fast host). This rule acts even under `dryRun` (`inflationLive`, default true): billed counts no model can produce are fraud, not a quality call. Marketplace probes
+request several times bills the sum; speed alone is just a fast host). A padding rule does the same for output: the gateway logs the bytes a stream really carried (`admin_info.streamed_output_bytes`, OpenAI streams with upstream usage), and a lane where at least 3 replies and 20% of its measured ones bill more than twice those bytes plus 200 tokens, at four times its peers' share, is padded (a7 6714 billed 1,388 tokens for a 300 byte notice). Both rules act even under `dryRun` (`inflationLive`, default true): billed counts no model can produce are fraud, not a quality call. Marketplace probes
 (`usageTruth`, a7, ih and si) back it up once a week per lane (`usageCheckedAt` in the verdict
 cache, `testing/usage-truth.ts`): 1, 2 and 80 copies of a fixed paragraph, and the long prompt must
 bill about the short count plus 79 per paragraph deltas; 1.5x over and 1000 tokens over is an

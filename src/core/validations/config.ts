@@ -353,6 +353,9 @@ export const ConfigSchema = T.Object({
       inflationMinTokensPerSecond: Opt(T.Number({ minimum: 1 })),
       inflationPromptPerCached: Opt(T.Number({ minimum: 1 })),
       inflationPromptMultiple: Opt(T.Number({ minimum: 1 })),
+      // Padding: replies billing over twice the streamed bytes plus 200 tokens.
+      paddingMinReplies: Opt(T.Integer({ minimum: 1 })),
+      paddingShare: Opt(T.Number({ minimum: 0, maximum: 1 })),
     }),
   ),
   skipUnprofitableText: Opt(T.Boolean()),
