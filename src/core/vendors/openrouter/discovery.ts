@@ -187,14 +187,22 @@ export async function discoverOpenRouterFreeModels(
     candidates.map((m) =>
       limit(async () => {
         const endpoints = await fetchModelEndpoints(baseUrl, apiKey, m.id);
-        return { id: m.id, providers: freeProvidersOf(endpoints) };
+        return {
+          id: m.id,
+          providers: freeProvidersOf(endpoints),
+          unlisted: endpoints.length === 0,
+        };
       }),
     ),
   );
 
   const freeProviders = new Map<string, string[]>();
+  // OpenRouter often publishes no endpoint list for a model's first days (Inkling 2
+  // Small, ERNIE 5.5 Flash and LFM3 on 2026-11-11), while the catalogue already
+  // prices its :free id at zero. Keep it: the free probe still has to pass.
   for (const r of results)
     if (r.providers.length > 0) freeProviders.set(r.id, r.providers);
+    else if (r.unlisted && r.id.endsWith(":free")) freeProviders.set(r.id, []);
 
   const paidEndpoints = new Map<string, OpenRouterPaidEndpoint[]>();
   await Promise.all(
