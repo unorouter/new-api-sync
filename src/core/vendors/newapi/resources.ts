@@ -274,11 +274,29 @@ export async function createModel(
     headers: ctx.headers,
     body: model,
   });
+  // Another sync Job created the name after our snapshot (daily-metadata and
+  // weekly overlap on Wednesdays): take over its row instead of failing the run.
+  if (data && !data.success && data.message === "Model name already exists") {
+    const live = await findModelByName(ctx, model.model_name);
+    if (live?.id != null) return updateModel(ctx, { ...model, id: live.id });
+  }
   return recordIfFailed(data, "createModel", model.model_name ?? "<unnamed>", {
     model_name: model.model_name,
     vendor_id: model.vendor_id,
     endpoints: model.endpoints,
   });
+}
+
+async function findModelByName(
+  ctx: ClientContext,
+  name: string | undefined,
+): Promise<ModelMeta | undefined> {
+  if (!name) return undefined;
+  const data = await tryFetchJson<ApiResponse<{ items?: ModelMeta[] }>>(
+    `${ctx.baseUrl}/api/models/search?keyword=${encodeURIComponent(name)}&p=1&page_size=${PS}`,
+    { headers: ctx.headers, ...FETCH_OPTS },
+  );
+  return data?.data?.items?.find((m) => m.model_name === name);
 }
 
 export async function updateModel(
