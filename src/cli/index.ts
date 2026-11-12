@@ -143,6 +143,8 @@ program
       printMetadataSummary(result);
       if (result.failed > 0 || result.optionErrors.length > 0)
         process.exitCode = 1;
+      // re-verify may leave unresolved probes running past its cutoff
+      process.exit();
     },
   );
 

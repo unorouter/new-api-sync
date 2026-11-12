@@ -213,7 +213,9 @@ survives while it is fresh); artifacts mirror to `artifacts/`. Functional passes
 authenticity passes after 12 hours (`authenticityPassTtlHours` per provider overrides it, a7 uses 4 so every 6-hourly walk re-probes), authenticity fails after 24 hours, doubling per consecutive failed retest and permanent at the third (`authFailStrikes`, reset by a pass, the merge keeps the higher count; unblock by deleting the key from the cache), and the `metadata` cron re-probes live a7 lanes whose
 pass is stale (`vendors/a7/reverify.ts`, 32 per tick, Claude first, disables the channel on a fail; a pool as
 wide as the a7 gate starts no lane later than 11 minutes into the tick, the rest wait for the next one, since
-the Job dies at 20 minutes and a killed tick also loses its option flush). Every authenticity
+the Job dies at 20 minutes and a killed tick also loses its option flush; at 16 minutes the tick stops waiting
+for lanes still probing, since a ladder cannot be cancelled and one hung for 13 minutes, and the command exits
+explicitly so those probes do not hold the Job open). Every authenticity
 outcome is appended to `verdict-history.jsonl` beside the cache. The probes themselves are
 `ai-model-verifier`'s rule engine (`testing/authenticity.ts` is a thin adapter: `runRules` on the
 wire the channel is sold on, judged against the model's MAKER (`makerForModel`,

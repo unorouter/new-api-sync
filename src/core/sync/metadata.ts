@@ -692,6 +692,7 @@ function planRowPatch(
 // The metadata Job is killed at 20 minutes, and a killed tick also loses the
 // option flush that follows re-verify: no lane starts later than this.
 const REVERIFY_START_BEFORE_MS = 11 * 60_000;
+const REVERIFY_FINISH_BEFORE_MS = 16 * 60_000;
 
 export async function runMetadataSync(
   config: RuntimeConfig,
@@ -940,7 +941,12 @@ export async function runMetadataSync(
     options: store.raw(),
   };
   await syncUpstreamPricing(store, config, snap, inScope, target);
-  await reverifyLanes(target, config, startedAt + REVERIFY_START_BEFORE_MS);
+  await reverifyLanes(
+    target,
+    config,
+    startedAt + REVERIFY_START_BEFORE_MS,
+    startedAt + REVERIFY_FINISH_BEFORE_MS,
+  );
 
   try {
     const realized = await realizedMarketplaceRatios(config, channels);
@@ -1013,6 +1019,7 @@ async function reverifyLanes(
   target: NewApiClient,
   config: RuntimeConfig,
   startBefore: number,
+  finishBefore: number,
 ): Promise<void> {
   const a7Providers = config.providers.filter((p) => p.type === "a7");
   if (a7Providers.length === 0) return;
@@ -1054,6 +1061,7 @@ async function reverifyLanes(
         target,
         liveChannels,
         startBefore,
+        finishBefore,
       );
       consola.info(t("CORE.REVERIFY.SUMMARY", { provider: p.name, ...r }));
       if (r.due > 0)

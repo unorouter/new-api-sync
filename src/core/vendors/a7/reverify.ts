@@ -52,8 +52,10 @@ export async function reverifyLiveLanes(
   config: RuntimeConfig,
   target: NewApiClient,
   channels: Channel[],
-  /** No lane starts after this instant; in-flight ones finish. */
+  /** No lane starts after this instant. */
   startBefore: number,
+  /** Lanes still running at this instant are left behind unresolved. */
+  finishBefore: number,
 ): Promise<ReverifyResult> {
   const result: ReverifyResult = {
     live: 0,
@@ -194,8 +196,16 @@ export async function reverifyLiveLanes(
       await verifyLane(item);
     }
   };
-  await Promise.all(
+  const workers = Promise.all(
     Array.from({ length: Math.min(slots, batch.length) }, worker),
   );
+  // A ladder cannot be cancelled (every call carries its own timeout) and one
+  // lane can hang well past the Job deadline, which would also lose the flush.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cutoff = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, Math.max(0, finishBefore - Date.now()));
+  });
+  await Promise.race([workers, cutoff]);
+  clearTimeout(timer);
   return result;
 }
