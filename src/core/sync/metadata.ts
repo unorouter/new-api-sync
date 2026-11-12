@@ -60,7 +60,6 @@ import {
   saveVerdictCache,
 } from "@core/testing/verdict-cache";
 import { reverifyLiveLanes } from "@core/vendors/a7/reverify";
-import { gradeLanes } from "@core/quality/lane-grader";
 import { setAuthenticityObserveOnly } from "@core/testing/authenticity";
 import { setReasoningRequired } from "@core/testing/runner";
 import {
@@ -942,17 +941,6 @@ export async function runMetadataSync(
   };
   await syncUpstreamPricing(store, config, snap, inScope, target);
   await reverifyLanes(target, config, startedAt + REVERIFY_START_BEFORE_MS);
-  // Grading reads the gateway's own request log; a failed tick only logs, the
-  // next one grades the same window again.
-  try {
-    await gradeLanes(target, config);
-  } catch (err) {
-    consola.warn(
-      t("CORE.LANE_GRADER.SKIPPED", {
-        reason: err instanceof Error ? err.message : String(err),
-      }),
-    );
-  }
 
   try {
     const realized = await realizedMarketplaceRatios(config, channels);

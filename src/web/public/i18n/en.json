@@ -255,7 +255,8 @@
       "BALANCE_DESC": "check the target and every configured provider's remaining balance; read-only, no probing or writes",
       "RECONCILE_DESC": "match every upstream provider's own usage log against our gateway logs for a window; lists usage that never came through us and foreign tokens; read-only",
       "FINGERPRINTS_DESC": "print the answer fingerprint summary: per model family the trusted profiles, then every lane with its divergence, identity mix, wrapper size and style class; read-only",
-      "LANE_REPORT_DESC": "Lane grader: a day's per-lane traffic rollup, or the current window judged without acting (--live)"
+      "LANE_REPORT_DESC": "Lane grader: a day's per-lane traffic rollup, or the current window judged without acting (--live)",
+      "GRADE_DESC": "Lane grader only: judge the current window and quarantine flagged lanes, independent of the metadata and full-run schedule"
     },
     "OPTION": {
       "CONFIG_PATH": "config file path",

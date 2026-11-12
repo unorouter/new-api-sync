@@ -19,8 +19,9 @@ bun sync fingerprints [--model glob] [--json]   # answer fingerprint ledger: tru
 bun sync lane-report [--day 2026-10-11] [--live] [--json]   # lane grader: a day's per-lane traffic rollup, or the current window judged without acting
 ```
 
-Lane grader (`src/core/quality/`, config `laneGrader`, needs `targetDb`): every metadata tick, after
-reverify, it reads the last `windowHours` (6) of each live lane in `providers` (channel tags, `*` for
+Lane grader (`src/core/quality/`, config `laneGrader`, needs `targetDb`): `bun sync grade`, run every 15
+minutes by its own CronJob `new-api-sync-grader` (the metadata job skips the hours around each full run,
+when that run adds new lanes), reads the last `windowHours` (6) of each live lane in `providers` (channel tags, `*` for
 every lane; `lane-report --all` shows every provider either way) from the gateway's
 request log and compares it against every other lane of the same model in the same window. A lane
 with enough traffic (20 requests, 3 users) and clearly worse empty successes (8%, 3x peers), short
@@ -169,6 +170,7 @@ Release: bump `version`, merge to `main`, `release.yml` builds. Never ship binar
 
 The CronJobs in `services` (`k8s/`; a push to `main` builds the image in GitHub Actions and pins it, no local builds):
 `new-api-sync` = `metadata` every 15 min Berlin except the two hours after each full run;
+`new-api-sync-grader` = `grade` (the lane grader alone) every 15 min around the clock;
 `new-api-sync-full` = `run --only a7,ih,si` at 04:00, 10:00, 16:00 and 22:00, 3h deadline, `backoffLimit: 0`,
 the only job that probes. The marketplaces change constantly, so they sync on the cluster.
 

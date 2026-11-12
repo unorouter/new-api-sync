@@ -5,6 +5,8 @@ import {
   loadConfig,
 } from "@core/config";
 import { fetchBasellmEntries } from "@core/catalog/metadata";
+import { gradeLanes } from "@core/quality/lane-grader";
+import { NewApiClient } from "@core/vendors/newapi/client";
 import { fetchAllPricingSources } from "@core/pricing/resolver";
 import { resolveCanonicalByVote } from "@core/pricing/vote";
 import { checkBalances, printBalanceSummary } from "@core/sync/balance";
@@ -237,6 +239,28 @@ program
       else printFingerprintSummary(summary, options.model);
     },
   );
+
+program
+  .command("grade")
+  .description(t("CLI.COMMAND.GRADE_DESC"))
+  .option("-c, --config <path>", t("CLI.OPTION.CONFIG_PATH"))
+  .action(async (options: { config?: string }) => {
+    const config = await loadConfig(options.config);
+    try {
+      const result = await gradeLanes(
+        new NewApiClient(config.target, "target"),
+        config,
+      );
+      if (!result) process.exitCode = 1;
+    } catch (err) {
+      consola.warn(
+        t("CORE.LANE_GRADER.SKIPPED", {
+          reason: err instanceof Error ? err.message : String(err),
+        }),
+      );
+      process.exitCode = 1;
+    }
+  });
 
 program
   .command("lane-report")
