@@ -255,12 +255,10 @@ program
       );
       if (!result) process.exitCode = 1;
     } catch (err) {
-      consola.warn(
-        t("CORE.LANE_GRADER.SKIPPED", {
-          reason: err instanceof Error ? err.message : String(err),
-        }),
-      );
-      process.exitCode = 1;
+      const reason = err instanceof Error ? err.message : String(err);
+      consola.warn(t("CORE.LANE_GRADER.SKIPPED", { reason }));
+      // A sync churning channels mid walk; the next 15 minute tick reads a full list.
+      if (!reason.startsWith("channel list incomplete")) process.exitCode = 1;
     }
   });
 
