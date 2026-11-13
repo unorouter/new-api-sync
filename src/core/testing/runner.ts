@@ -566,8 +566,15 @@ async function testModels(opts: {
           let withEffort: boolean | undefined;
           if (!visible && !callerSetEffort) {
             const second = await ask(true);
-            if (second.status === 200)
-              withEffort = second.reasoningChars >= MIN_REASONING_CHARS;
+            // A retry that never answered says nothing about the lane; si's Argon
+            // took 89 s on the plain ask and thought fine once effort was set.
+            if (second.status !== 200) {
+              consola.info(
+                `[${prefix}] ${model}: ${t("CORE.TESTER.REASONING_UNMEASURED", { status: second.status ?? "-" })}`,
+              );
+              return null;
+            }
+            withEffort = second.reasoningChars >= MIN_REASONING_CHARS;
           }
           recordReasoning(blacklistKey, {
             visible,

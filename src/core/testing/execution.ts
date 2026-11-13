@@ -415,7 +415,8 @@ export async function testReasoningRequest(
     out.contentChars = answer.length - (inline?.[0].length ?? 0);
     return out;
   } catch (err) {
-    return { ...out, error: errMsg(err) };
+    // A stream cut off mid-read is unmeasured, not a 200 that never thought.
+    return { ...out, status: undefined, error: errMsg(err) };
   }
 }
 
