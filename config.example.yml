@@ -28,6 +28,12 @@ target:
 #   url: http://reader:<password>@127.0.0.1:18123/new_api_logs
 # Public egress addresses of the gateway; upstream rows from any other ip are flagged.
 # targetEgressIps: ["203.0.113.10", "203.0.113.11"]
+# Per model glob (optionally per provider): a longer test timeout, and body keys merged into the
+# functional probes. Gemini 4 thinks before its first token and can pass the 20 s default.
+probeOverrides:
+  - models: ["gemini-4-*"]
+    timeoutMs: 90000
+
 blacklist:
   - kiro
   - nsfw

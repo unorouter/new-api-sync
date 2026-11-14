@@ -278,6 +278,38 @@ function reasoningWhitelisted(prefix: string, model: string): boolean {
   });
 }
 
+export interface ProbeOverride {
+  models: string[];
+  providers?: string[];
+  timeoutMs?: number;
+  body?: Record<string, unknown>;
+}
+
+/** From config.yml `probeOverrides`. */
+let probeOverrides: ProbeOverride[] = [];
+
+export function setProbeOverrides(rules?: ProbeOverride[]): void {
+  probeOverrides = rules ?? [];
+}
+
+// Every matching rule applies in order, a later timeout or body key wins.
+function probeOverrideFor(
+  prefix: string,
+  model: string,
+): { timeoutMs?: number; body?: Record<string, unknown> } {
+  const provider = prefix.split(/[:/]/)[0] ?? "";
+  const bare = (model.split("/").pop() ?? model).toLowerCase();
+  let timeoutMs: number | undefined;
+  let body: Record<string, unknown> | undefined;
+  for (const rule of probeOverrides) {
+    if (rule.providers && !rule.providers.includes(provider)) continue;
+    if (!matchesAnyPattern(bare, rule.models)) continue;
+    if (rule.timeoutMs) timeoutMs = rule.timeoutMs;
+    if (rule.body) body = { ...body, ...rule.body };
+  }
+  return { timeoutMs, body };
+}
+
 const REASONING_PROMPT =
   "Is 1001 prime? Think it through step by step, then answer.";
 // Real glm-5.3 thinks about 1500 characters on this prompt; a7:5367 sent 30
@@ -444,6 +476,20 @@ async function testModels(opts: {
         };
         const modelType = inferModelType(model, undefined, opts.modelEndpoints);
         const isText = modelType === "text";
+        // The override body rides on the functional probes only; the reasoning
+        // probe sets its own effort and the ladder asks its own questions.
+        const override = probeOverrideFor(prefix, model);
+        const laneTimeoutMs = override.timeoutMs ?? timeoutMs;
+        const withProbeBody = <
+          C extends { body: unknown; headers: Record<string, string> },
+        >(
+          cfg: C,
+        ): C => {
+          const merged = withExtraBody(cfg);
+          return override.body
+            ? { ...merged, body: mergeProbeBody(merged.body, override.body) }
+            : merged;
+        };
 
         // Verdict reuse (logs/verdict-cache.json): a pair with a recorded pass is
         // not re-probed; force a retest by deleting its entry. Text pairs
@@ -529,7 +575,7 @@ async function testModels(opts: {
                   },
                   completionMarker: "",
                 },
-                timeoutMs,
+                laneTimeoutMs,
               );
           } else {
             const base = getStreamRequestConfig(reqOpts);
@@ -550,7 +596,7 @@ async function testModels(opts: {
                     ...(effort && { reasoning_effort: "high" }),
                   },
                 },
-                timeoutMs,
+                laneTimeoutMs,
               );
           }
           const probe = await ask(false);
@@ -630,12 +676,12 @@ async function testModels(opts: {
         }
 
         const streamBase = isText ? getStreamRequestConfig(reqOpts) : null;
-        const streamConfig = streamBase && withExtraBody(streamBase);
+        const streamConfig = streamBase && withProbeBody(streamBase);
         const toolBase =
           isText && !cachedTool
             ? getToolCallConfig(reqOpts, opts.capabilities?.get(model))
             : null;
-        const toolCfg = toolBase && withExtraBody(toolBase);
+        const toolCfg = toolBase && withProbeBody(toolBase);
         const retry = (fn: () => Promise<TestExchange>) =>
           withRetry(fn, (r) => r.pass, opts.retryPolicy);
         // A definitive tool fail is paid generation; only transients are worth re-buying.
@@ -647,15 +693,15 @@ async function testModels(opts: {
         const [httpResult, streamResult, toolResult] = await Promise.all([
           retry(() =>
             testRequest(
-              withExtraBody(HTTP_CONFIG_BY_TYPE[modelType](reqOpts)),
-              timeoutMs,
+              withProbeBody(HTTP_CONFIG_BY_TYPE[modelType](reqOpts)),
+              laneTimeoutMs,
             ),
           ),
           streamConfig
-            ? retry(() => testStreamRequest(streamConfig, timeoutMs))
+            ? retry(() => testStreamRequest(streamConfig, laneTimeoutMs))
             : null,
           toolCfg
-            ? retryTool(() => testToolCallRequest(toolCfg, timeoutMs))
+            ? retryTool(() => testToolCallRequest(toolCfg, laneTimeoutMs))
             : null,
         ]);
         // A relay that answers a cheaper model than the one billed for passes
@@ -728,7 +774,7 @@ async function testModels(opts: {
             apiKey,
             model,
             maker,
-            timeoutMs,
+            timeoutMs: laneTimeoutMs,
             logKey: blacklistKey,
             wire:
               opts.channelType === CHANNEL_TYPES.ANTHROPIC

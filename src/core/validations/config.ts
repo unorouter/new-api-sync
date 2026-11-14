@@ -362,6 +362,18 @@ export const ConfigSchema = T.Object({
   globalConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),
   perUpstreamConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),
   blacklist: Opt(T.Array(str)),
+  // Per model glob, optionally per provider: a longer test timeout and body keys
+  // merged into the functional probes (gemini-4-* thinks for 20 s before a token).
+  probeOverrides: Opt(
+    T.Array(
+      T.Object({
+        models: T.Array(str),
+        providers: Opt(T.Array(str)),
+        timeoutMs: Opt(T.Integer({ minimum: 1000, maximum: 600000 })),
+        body: Opt(T.Record(T.String(), T.Unknown())),
+      }),
+    ),
+  ),
   // Authenticity ladder rules that only log, per maker id (`deepseek`, `openai`,
   // ...) or `*` for every maker without its own entry. Absent: every rule
   // observes for every maker except anthropic. `[]` gives a maker's verdicts
