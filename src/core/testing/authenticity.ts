@@ -84,9 +84,13 @@ const LADDER: readonly RuleId[] = [
 // model run without its reasoning, which users read as a worse one. A persona
 // prompt cannot change how the backend splits text, so a vocabulary of another
 // maker is another model. A Western lab's model that will not talk about
-// Tiananmen 1989 is a Chinese model under its name.
+// Tiananmen 1989 is a Chinese model under its name. A thinking signature that
+// holds no signature was written by whatever invented the block, and one-word
+// picks genuine Claude never makes are the substitute's own taste.
 const ENFORCED: readonly RuleId[] = [
   "masked-identity",
+  "signature",
+  "foreign-answers",
   "fake-200",
   "censored-history",
   "substituted",
@@ -98,7 +102,6 @@ const ENFORCED: readonly RuleId[] = [
 // system prompt, a sum, a JSON self-description); the answer fingerprint is
 // the one-word battery accumulated per lane in answer-fingerprints.ts.
 const OBSERVED: readonly RuleId[] = [
-  "signature",
   "token-truth",
   "envelope",
   "survey",
@@ -342,13 +345,13 @@ export async function runAuthenticity(
   // Claude-only inside the library, so for other makers it is the two deltas
   // on the record and nothing else.
   // A rule named in `only` runs even with its check off, so a warm lane drops
-  // the battery from the list rather than only from `checks`.
+  // the battery and the rule judging it from the list rather than only from `checks`.
   const battery = opts.ladder && answerFingerprintDue(opts.logKey);
   const only: RuleId[] = [
     ...(opts.ladder
       ? [
           ...LADDER,
-          ...ENFORCED,
+          ...ENFORCED.filter((r) => battery || r !== "foreign-answers"),
           ...OBSERVED.filter((r) => battery || r !== "answer-fingerprint"),
         ]
       : []),
