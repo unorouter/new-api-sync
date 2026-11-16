@@ -351,6 +351,12 @@ const BALANCE_ERROR_RE =
 export const isBalanceError = (d: ModelTestDetail): boolean =>
   !d.success && d.errorText !== undefined && BALANCE_ERROR_RE.test(d.errorText);
 
+/** A probe the upstream answered with 429 or 5xx: the market was busy, the lane is not dead. */
+export const isTransientProbeFailure = (d: ModelTestDetail): boolean =>
+  !d.success &&
+  d.httpStatus !== undefined &&
+  (d.httpStatus === 429 || d.httpStatus >= 500);
+
 // Rate limits, gateway errors and timeouts clear within hours; a 4xx, a wrong
 // model or a substitution does not.
 function isTransientStatus(status: number | undefined): boolean {

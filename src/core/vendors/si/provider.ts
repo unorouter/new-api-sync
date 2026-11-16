@@ -10,7 +10,11 @@ import type {
   ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import { isBalanceError, testAndFilterModels } from "@core/testing/runner";
+import {
+  isBalanceError,
+  isTransientProbeFailure,
+  testAndFilterModels,
+} from "@core/testing/runner";
 import type { ModelTestDetail } from "@core/testing/types";
 import type { ProviderReport } from "@core/types";
 import type { SiProviderConfig } from "@core/validations/config";
@@ -284,7 +288,13 @@ export async function processSiProvider(
         extraBody: lane.probeBody,
       });
       if (probe.details?.some(isBalanceError)) balanceErrors++;
-      if (!probe.workingModels.includes(lane.upstream)) continue;
+      if (!probe.workingModels.includes(lane.upstream)) {
+        // One busy answer from the market deleted a lane serving 100 requests an
+        // hour; the diff keeps an unverified model's lane and the tester pulls a dead one.
+        if (probe.details?.some(isTransientProbeFailure))
+          unverified.push(lane.exposed);
+        continue;
+      }
       details.set(
         lane.upstream,
         probe.details?.find((d) => d.model === lane.upstream),
@@ -292,6 +302,8 @@ export async function processSiProvider(
       if (probe.rateLimitedModels.includes(lane.upstream))
         throttled.add(lane.upstream);
     }
+
+    if (unverified.length > 0) report.unverifiedModels = unverified;
 
     for (const lane of lanes) {
       if (!details.has(lane.upstream)) continue;

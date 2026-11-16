@@ -10,7 +10,11 @@ import type {
   ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import { isBalanceError, testAndFilterModels } from "@core/testing/runner";
+import {
+  isBalanceError,
+  isTransientProbeFailure,
+  testAndFilterModels,
+} from "@core/testing/runner";
 import type { ProviderReport } from "@core/types";
 import type { IhProviderConfig } from "@core/validations/config";
 import {
@@ -205,6 +209,7 @@ export async function processIhProvider(
         a.pool.localeCompare(b.pool),
     );
     const kept = new Map<string, number>();
+    const busy = new Set<string>();
     // One probe set per lane, carrying its bid: without it the relay routes to
     // its best-scoring provider, which is not the one the lane is priced on.
     let balanceErrors = 0;
@@ -228,7 +233,11 @@ export async function processIhProvider(
         ...(lane.probeHeaders ? { extraHeaders: lane.probeHeaders } : {}),
       });
       if (probe.details?.some(isBalanceError)) balanceErrors++;
-      if (!probe.workingModels.includes(lane.upstream)) continue;
+      if (!probe.workingModels.includes(lane.upstream)) {
+        if (probe.details?.some(isTransientProbeFailure))
+          busy.add(lane.exposed);
+        continue;
+      }
       const testDetail = probe.details?.find((d) => d.model === lane.upstream);
       const probed: FallbackLane = {
         ...lane,
@@ -247,6 +256,10 @@ export async function processIhProvider(
         }),
       );
     }
+
+    // A model whose every pool was busy keeps its lanes (si does the same).
+    const unverified = [...busy].filter((model) => !kept.has(model));
+    if (unverified.length > 0) report.unverifiedModels = unverified;
 
     report.groups = offers.length;
     report.models = new Set(lanes.map((l) => l.exposed)).size;
