@@ -225,12 +225,16 @@ function isTransientToolFailure(r: TestExchange): boolean {
   return r.status === undefined || r.status === 429 || r.status >= 500;
 }
 
-// The model name a response claims, when the upstream echoes one.
+// The model name a response claims, when the upstream echoes one. Gemini's
+// native reply names it in modelVersion: resold Gemini groups answered part of
+// their Carbon and Argon traffic as 3.1-flash-lite there, invisible to `model`.
 function servedModel(r: TestExchange | null): string | null {
   const data = r?.response;
   if (!data || typeof data !== "object") return null;
-  const m = (data as { model?: unknown }).model;
-  return typeof m === "string" && m.length > 0 ? m : null;
+  const d = data as { model?: unknown; modelVersion?: unknown };
+  for (const m of [d.model, d.modelVersion])
+    if (typeof m === "string" && m.length > 0) return m;
+  return null;
 }
 
 // Dots and dashes are interchangeable across relays (claude-opus-4.8 vs
@@ -717,7 +721,11 @@ async function testModels(opts: {
         // Both replies count: one relay echoed the requested id on the plain call
         // and the real one (gpt-oss-20b for gpt-5-mini) only on the stream.
         const served =
-          [servedModel(httpResult), servedModel(streamResult)].find(
+          [
+            servedModel(httpResult),
+            servedModel(streamResult),
+            servedModel(toolResult),
+          ].find(
             (s): s is string => s !== null && !modelsMatch(model, s),
           ) ?? null;
         const substituted = served !== null;
