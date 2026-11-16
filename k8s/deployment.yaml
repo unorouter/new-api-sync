@@ -31,7 +31,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:0505ea5726646d2e9873708d4f24c57e68f333d8@sha256:cbd5021b0f42b023bff945661942821a900207548fc26baf91eaa6c631c728fc
+              image: ghcr.io/unorouter/new-api-sync:b05d88c29affd8325fdc084f68396029384986f4@sha256:84dcdef8bee69325b5757e0b65f3b162994839efd37db0702365e24b8a125a80
               args: ["metadata"]
               # The guest token's model_limits is refreshed from the gateway's
               # OWN free channels, so it needs no provider config -- only the
@@ -93,7 +93,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:0505ea5726646d2e9873708d4f24c57e68f333d8@sha256:cbd5021b0f42b023bff945661942821a900207548fc26baf91eaa6c631c728fc
+              image: ghcr.io/unorouter/new-api-sync:b05d88c29affd8325fdc084f68396029384986f4@sha256:84dcdef8bee69325b5757e0b65f3b162994839efd37db0702365e24b8a125a80
               args: ["grade"]
               env:
                 - name: SYNC_S3_ACCESS_KEY
@@ -171,7 +171,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:0505ea5726646d2e9873708d4f24c57e68f333d8@sha256:cbd5021b0f42b023bff945661942821a900207548fc26baf91eaa6c631c728fc
+              image: ghcr.io/unorouter/new-api-sync:b05d88c29affd8325fdc084f68396029384986f4@sha256:84dcdef8bee69325b5757e0b65f3b162994839efd37db0702365e24b8a125a80
               args: ["run", "--only", "a7,ih,si"]
               env:
                 - name: GUEST_API_KEY
@@ -236,7 +236,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:0505ea5726646d2e9873708d4f24c57e68f333d8@sha256:cbd5021b0f42b023bff945661942821a900207548fc26baf91eaa6c631c728fc
+              image: ghcr.io/unorouter/new-api-sync:b05d88c29affd8325fdc084f68396029384986f4@sha256:84dcdef8bee69325b5757e0b65f3b162994839efd37db0702365e24b8a125a80
               args: ["run", "--only", "$(WEEKLY_ONLY)"]
               env:
                 - name: WEEKLY_ONLY
@@ -306,7 +306,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:0505ea5726646d2e9873708d4f24c57e68f333d8@sha256:cbd5021b0f42b023bff945661942821a900207548fc26baf91eaa6c631c728fc
+              image: ghcr.io/unorouter/new-api-sync:b05d88c29affd8325fdc084f68396029384986f4@sha256:84dcdef8bee69325b5757e0b65f3b162994839efd37db0702365e24b8a125a80
               args: ["run", "--only", "open1,open2"]
               env:
                 - name: GUEST_API_KEY
@@ -370,7 +370,7 @@ spec:
             - name: ghcr-pull
           containers:
             - name: sync
-              image: ghcr.io/unorouter/new-api-sync:0505ea5726646d2e9873708d4f24c57e68f333d8@sha256:cbd5021b0f42b023bff945661942821a900207548fc26baf91eaa6c631c728fc
+              image: ghcr.io/unorouter/new-api-sync:b05d88c29affd8325fdc084f68396029384986f4@sha256:84dcdef8bee69325b5757e0b65f3b162994839efd37db0702365e24b8a125a80
               args: ["metadata"]
               env:
                 - name: GUEST_API_KEY
