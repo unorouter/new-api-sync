@@ -258,6 +258,9 @@ export async function processSiProvider(
             ...(pins.some((pin) => GOOGLE_SELLER_PINS.has(pin))
               ? GOOGLE_STRIP_OPERATIONS
               : []),
+            // Some sellers take message content only as a string and 400 the
+            // text-part array clients send for prompt caching.
+            ...(claude ? [] : [{ mode: "flatten_text" }]),
           ],
           probeBody: { provider: pins },
           remark: `${exposed} via ${name} (${eligible.length} trusted sellers on ${pins.join(", ")}, priced on the #${minSellers} ask, floor ${floor}% under list)`,
