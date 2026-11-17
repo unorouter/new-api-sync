@@ -391,6 +391,9 @@ export const ConfigSchema = T.Object({
       // of one that never reasons, plainly or when asked, keeps serving under a
       // "-nothink" name so people pinning providers can see it.
       nothinkModels: Opt(T.Array(str)),
+      // Lanes known never to reason whatever the probe saw, as provider/model glob
+      // (gm*/gemini-3.6-flash: the anonymous Gemini web route ignores the thinking switch).
+      nothinkLanes: Opt(T.Array(str)),
       // The one-word answer battery: `repeats` per cell per ladder run
       // (default 3, 24 calls), Jensen-Shannon thresholds in bits (0.25 match,
       // 0.35 mismatch) and the valid answers a cell needs before it counts (10).

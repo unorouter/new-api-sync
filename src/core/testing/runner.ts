@@ -262,14 +262,18 @@ let reasoningWhitelist: string[] = [];
 
 let nothinkModels: string[] = ["kimi-*"];
 
+let nothinkLanes: string[] = [];
+
 export function setReasoningRequired(
   cfg?: Record<string, string[]>,
   whitelist?: string[],
   nothink?: string[],
+  lanes?: string[],
 ): void {
   reasoningRequired = cfg ?? {};
   reasoningWhitelist = whitelist ?? [];
   nothinkModels = nothink ?? ["kimi-*"];
+  nothinkLanes = lanes ?? [];
 }
 
 // prefix is the lane label (a7:2846, si, relay/group/vendor); an entry names it as
@@ -668,11 +672,20 @@ async function testModels(opts: {
         // probe (a 429) must not rename the lane back and break pins.
         const withNoThink = (detail: ModelTestDetail): ModelTestDetail => {
           const known = getVerdict(blacklistKey)?.reasoning;
+          const provider = prefix.split(/[:/]/)[0] ?? "";
+          const declared = nothinkLanes.some((entry) => {
+            const [p, glob] = entry.split("/");
+            return (
+              matchesAnyPattern(provider, [p ?? ""]) &&
+              matchesAnyPattern(bareModel, [glob ?? "*"])
+            );
+          });
           const noThink =
-            matchesAnyPattern(bareModel, nothinkModels) &&
-            known !== undefined &&
-            !known.visible &&
-            known.withEffort === false;
+            declared ||
+            (matchesAnyPattern(bareModel, nothinkModels) &&
+              known !== undefined &&
+              !known.visible &&
+              known.withEffort === false);
           return noThink ? { ...detail, noThink } : detail;
         };
         const cachedTool =

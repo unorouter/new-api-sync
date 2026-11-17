@@ -231,6 +231,7 @@ async function buildDesiredState(
     config.authenticity?.requireReasoning,
     config.authenticity?.reasoningWhitelist,
     config.authenticity?.nothinkModels,
+    config.authenticity?.nothinkLanes,
   );
   setProbeOverrides(config.probeOverrides);
   setAnswerFingerprintOptions(config.authenticity?.answerFingerprint);
