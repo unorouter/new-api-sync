@@ -337,8 +337,7 @@ never a per-call price: the gateway settles on the upstream's own token counts.
 
 Nothink lanes: a model in `authenticity.nothinkModels` (default `kimi-*`) that the reasoning probe sees
 answer without any reasoning, plainly and when asked, keeps serving under `<name>-nothink`. The flag reads the
-cached reasoning measurement, so an unmeasured probe never flips the name; `authenticity.nothinkLanes`
-(provider/model globs) marks lanes known never to reason without a measurement (our anonymous Gemini web shards). A lane gaining or losing the suffix
+cached reasoning measurement, so an unmeasured probe never flips the name. A lane gaining or losing the suffix
 is renamed in place (`planNothinkRenames`, the same path as splice renames): channel id kept, group options moved
 in two phases, and every user's token pins moved through the gateway's sync route `PUT /api/token/group-rename`.
 
