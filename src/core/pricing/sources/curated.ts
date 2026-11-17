@@ -19,6 +19,8 @@ const iso = (d: string) => `${d}T00:00:00.000Z`;
 // these fields win over ALL sources. Keyed by BARE name. Use ONLY when a live
 // source is factually wrong and verified against the official model card.
 export const CURATED_OVERRIDE: Record<string, SourceMetadata> = {
+  // OpenRouter files Particle under series "Other".
+  "particle-1": { series: "Particle" },
   // Family-only relay models. OpenRouter dropped gemini-1.5-flash and grok-beta
   // from its catalog, so one publishes a fuzzy-matched 8192 context that is wrong
   // for the real model AND wrong for ours, and the other publishes none at all.

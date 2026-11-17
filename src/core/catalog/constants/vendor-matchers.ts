@@ -42,6 +42,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   axon: { modelPatterns: ["axon-"], strongPatterns: ["axon-"], nameAliases: ["axon","axon-labs"], displayName: "Axon Labs" },
   apodex: { modelPatterns: ["apodex-"], strongPatterns: ["apodex-"], nameAliases: ["apodex"], displayName: "Apodex" },
   ifm: { modelPatterns: ["k2-horizon"], strongPatterns: ["k2-horizon"], nameAliases: ["ifm","mbzuai"], displayName: "IFM" },
+  particle: { modelPatterns: ["particle-"], strongPatterns: ["particle-"], nameAliases: ["particle","particle ai","particle-ai"], displayName: "Particle" },
   recursive: { modelPatterns: ["flint-v"], strongPatterns: ["flint-v"], nameAliases: ["recursive","recursivesi"], displayName: "Recursive" },
   // MindsDB's MindsHub: mindshub-air is its own alias whose underlying model changes.
   // Pawan.Krd house models (PKRD, LLC).
