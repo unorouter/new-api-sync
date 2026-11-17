@@ -16,6 +16,7 @@ import {
   applyGroupRenames,
   applyGroupRenamesToChannels,
   planGroupRenames,
+  planNothinkRenames,
   printGroupRenamePlan,
 } from "@core/sync/group-rename";
 import { updateGuestTokenIfConfigured } from "@core/sync/guest-token";
@@ -186,6 +187,16 @@ export async function runSync(
       },
     );
     timingMark("discover+price");
+    const suffixPlan = planNothinkRenames(snap.channels, desired.channels);
+    if (dryRun) {
+      printGroupRenamePlan(suffixPlan);
+      store.renameGroups(suffixPlan.renames, "add");
+      store.renameGroups(suffixPlan.renames, "remove");
+      applyGroupRenamesToChannels(suffixPlan.renames);
+    } else if (suffixPlan.renames.length > 0) {
+      await applyGroupRenames(target, suffixPlan, store, snap.channels);
+    }
+    snap.options = store.raw();
 
     throwIfRunAborted();
     // Dry-run: no vendor/channel/model/option writes, no guest-token update.

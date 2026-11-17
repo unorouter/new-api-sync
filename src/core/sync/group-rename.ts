@@ -10,6 +10,7 @@ import {
   sanitizeGroupName,
   spliceGroupLabel,
 } from "@core/catalog/constants/patterns";
+import { NOTHINK_SUFFIX } from "@core/pricing/emit";
 import type { OptionStore } from "@core/sync/option-store";
 import type { Channel } from "@core/types";
 import type { NewApiClient } from "@core/vendors/newapi/client";
@@ -58,6 +59,26 @@ export function planGroupRenames(
     }
     taken.add(to);
     plan.renames.push(rename);
+  }
+  return plan;
+}
+
+// A lane that gains or loses the nothink suffix is the same lane: renamed in place
+// so its id, stats and users' pins survive, instead of a create plus delete.
+export function planNothinkRenames(
+  live: Channel[],
+  desired: Channel[],
+): GroupRenamePlan {
+  const plan: GroupRenamePlan = { renames: [], collisions: [] };
+  const liveByName = new Map(live.map((ch) => [ch.name, ch]));
+  for (const want of desired) {
+    if (liveByName.has(want.name)) continue;
+    const from = want.name.endsWith(NOTHINK_SUFFIX)
+      ? want.name.slice(0, -NOTHINK_SUFFIX.length)
+      : want.name + NOTHINK_SUFFIX;
+    const ch = liveByName.get(from);
+    if (!ch || ch.tag !== want.tag || ch.group !== ch.name) continue;
+    plan.renames.push({ channel: ch, from, to: want.name });
   }
   return plan;
 }
@@ -128,6 +149,19 @@ export async function applyGroupRenames(
         to: r.to,
       }),
     );
+    const pins = await target.renameTokenGroup(r.from, r.to);
+    if (pins === null)
+      consola.warn(
+        t("CORE.METADATA.GROUP_RENAME_PINS_FAILED", { from: r.from, to: r.to }),
+      );
+    else if (pins > 0)
+      consola.info(
+        t("CORE.METADATA.GROUP_RENAME_PINS_MOVED", {
+          count: pins,
+          from: r.from,
+          to: r.to,
+        }),
+      );
   }
   applyGroupRenamesToChannels(done);
   // Old keys go only for groups whose channel really moved; a failed rename

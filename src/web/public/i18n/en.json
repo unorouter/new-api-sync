@@ -529,6 +529,8 @@
       "GROUP_RENAME_PLANNED": "[metadata] would rename channel #{id} \"{from}\" -> \"{to}\"",
       "GROUP_RENAMED": "[metadata] renamed channel #{id} \"{from}\" -> \"{to}\"",
       "GROUP_RENAME_FAILED": "[metadata] failed to rename channel #{id} \"{from}\" -> \"{to}\"; its old group keys are kept",
+      "GROUP_RENAME_PINS_MOVED": "[metadata] moved {count} token pin(s) \"{from}\" -> \"{to}\"",
+      "GROUP_RENAME_PINS_FAILED": "[metadata] could not move token pins \"{from}\" -> \"{to}\"; pinned tokens fall back to auto for this model",
       "GROUP_RENAME_COLLISION": "[metadata] skipped rename \"{from}\" -> \"{to}\": a channel with the new name already exists",
       "GROUP_RENAME_SUMMARY": "[metadata] group label renames: {count} planned, {collisions} collision(s)",
       "CHANNEL_PASSTHROUGH_ENABLED": "[metadata] enabled body pass-through on media channel \"{name}\"",

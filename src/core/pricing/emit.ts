@@ -15,8 +15,17 @@ interface EmitResult {
   mergedModels: Map<string, MergedModel>;
 }
 
+export const NOTHINK_SUFFIX = "-nothink";
+
 export function emitChannels(args: EmitArgs): EmitResult {
   const liveTiers = args.plan.tiers.filter((tier) => tier.models.length > 0);
+  for (const tier of liveTiers)
+    if (
+      tier.testDetails?.length &&
+      tier.testDetails.every((d) => d.noThink) &&
+      !tier.channelName.endsWith(NOTHINK_SUFFIX)
+    )
+      tier.channelName += NOTHINK_SUFFIX;
 
   const seen = new Map<string, { source: "baseline" | "plan"; tag?: string }>();
   for (const ch of args.baseline.channels)

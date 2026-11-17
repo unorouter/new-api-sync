@@ -123,6 +123,19 @@ export class NewApiClient {
     return data?.success ?? false;
   }
 
+  // Null when the gateway refused or predates the route.
+  async renameTokenGroup(from: string, to: string): Promise<number | null> {
+    const data = await tryFetchJson<{
+      success: boolean;
+      data?: { changed?: number };
+    }>(`${this.baseUrl}/api/token/group-rename`, {
+      method: "PUT",
+      headers: this.headers,
+      body: { from, to },
+    });
+    return data?.success ? (data.data?.changed ?? 0) : null;
+  }
+
   fetchPricing = (): Promise<UpstreamPricing> => fetchPricing(this.ctx);
   listTokens = (): Promise<UpstreamToken[]> => listTokens(this.ctx);
   createToken = (name: string, group: string) =>

@@ -260,12 +260,16 @@ let reasoningRequired: Record<string, string[]> = {};
 /** From config.yml `authenticity.requireReasoning`. */
 let reasoningWhitelist: string[] = [];
 
+let nothinkModels: string[] = ["kimi-*"];
+
 export function setReasoningRequired(
   cfg?: Record<string, string[]>,
   whitelist?: string[],
+  nothink?: string[],
 ): void {
   reasoningRequired = cfg ?? {};
   reasoningWhitelist = whitelist ?? [];
+  nothinkModels = nothink ?? ["kimi-*"];
 }
 
 // prefix is the lane label (a7:2846, si, relay/group/vendor); an entry names it as
@@ -660,6 +664,17 @@ async function testModels(opts: {
           setAuthenticityVerdict(blacklistKey, "fail", REASONING_FAIL_REASON);
           return true;
         };
+        // Read from the cached measurement, not this run's probe: an unmeasured
+        // probe (a 429) must not rename the lane back and break pins.
+        const withNoThink = (detail: ModelTestDetail): ModelTestDetail => {
+          const known = getVerdict(blacklistKey)?.reasoning;
+          const noThink =
+            matchesAnyPattern(bareModel, nothinkModels) &&
+            known !== undefined &&
+            !known.visible &&
+            known.withEffort === false;
+          return noThink ? { ...detail, noThink } : detail;
+        };
         const cachedTool =
           cached && cached.toolCallSuccess != null
             ? {
@@ -674,14 +689,16 @@ async function testModels(opts: {
           (!identityChecked || isAuthenticityPassFresh(cached, opts.baseUrl))
         ) {
           const reasoningFailed = failsReasoning(await probeReasoning());
-          return mkDetail(
-            model,
-            opts.channelType,
-            !reasoningFailed,
-            cached.streamSuccess ?? null,
-            cachedTool?.pass ?? null,
-            cachedTool ? cachedTool.parallel : null,
-            false,
+          return withNoThink(
+            mkDetail(
+              model,
+              opts.channelType,
+              !reasoningFailed,
+              cached.streamSuccess ?? null,
+              cachedTool?.pass ?? null,
+              cachedTool ? cachedTool.parallel : null,
+              false,
+            ),
           );
         }
 
@@ -725,9 +742,8 @@ async function testModels(opts: {
             servedModel(httpResult),
             servedModel(streamResult),
             servedModel(toolResult),
-          ].find(
-            (s): s is string => s !== null && !modelsMatch(model, s),
-          ) ?? null;
+          ].find((s): s is string => s !== null && !modelsMatch(model, s)) ??
+          null;
         const substituted = served !== null;
         if (substituted) {
           consola.warn(
@@ -895,16 +911,18 @@ async function testModels(opts: {
           tool: toLog(toolResult, toolCallSuccess === true),
         });
 
-        return mkDetail(
-          model,
-          opts.channelType,
-          finalSuccess,
-          finalStream,
-          toolCallSuccess,
-          toolParallel,
-          identityChecked && (success || streamSuccess === true),
-          httpResult.status,
-          finalSuccess ? undefined : exchangeErrorText(httpResult),
+        return withNoThink(
+          mkDetail(
+            model,
+            opts.channelType,
+            finalSuccess,
+            finalStream,
+            toolCallSuccess,
+            toolParallel,
+            identityChecked && (success || streamSuccess === true),
+            httpResult.status,
+            finalSuccess ? undefined : exchangeErrorText(httpResult),
+          ),
         );
       }),
     ),

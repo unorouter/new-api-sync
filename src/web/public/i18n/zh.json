@@ -529,6 +529,8 @@
       "GROUP_RENAME_PLANNED": "[metadata] 将重命名渠道 #{id}「{from}」->「{to}」",
       "GROUP_RENAMED": "[metadata] 已重命名渠道 #{id}「{from}」->「{to}」",
       "GROUP_RENAME_FAILED": "[metadata] 渠道 #{id}「{from}」->「{to}」重命名失败；保留其旧分组键",
+      "GROUP_RENAME_PINS_MOVED": "[metadata] 已将 {count} 个令牌固定分组「{from}」->「{to}」迁移",
+      "GROUP_RENAME_PINS_FAILED": "[metadata] 令牌固定分组「{from}」->「{to}」迁移失败；固定该分组的令牌在此模型上回退到自动分组",
       "GROUP_RENAME_COLLISION": "[metadata] 已跳过重命名「{from}」->「{to}」：已存在同名渠道",
       "GROUP_RENAME_SUMMARY": "[metadata] 分组名重命名：计划 {count} 个，冲突 {collisions} 个",
       "CHANNEL_PASSTHROUGH_ENABLED": "[metadata] 已为媒体渠道「{name}」启用请求体透传",

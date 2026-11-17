@@ -186,6 +186,8 @@ export interface ModelTestDetail {
   toolCallSuccess: boolean | null;
   toolParallel: boolean | null;
   authenticityProbed: boolean;
+  /** A model that always thinks, served here without any reasoning. */
+  noThink?: boolean;
   httpStatus?: number;
   /** Failed HTTP probe only: the start of the upstream's error, for callers that
    *  must tell an empty wallet from a dead lane. */

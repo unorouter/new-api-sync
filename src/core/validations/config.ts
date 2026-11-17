@@ -387,6 +387,10 @@ export const ConfigSchema = T.Object({
       // Lanes exempt from requireReasoning, as provider/merchant with an optional
       // /model glob (a7/2846, a7/2846/kimi-*): a trusted seller keeps its lanes.
       reasoningWhitelist: Opt(T.Array(str)),
+      // Model globs that always think when served properly (default kimi-*). A lane
+      // of one that never reasons, plainly or when asked, keeps serving under a
+      // "-nothink" name so people pinning providers can see it.
+      nothinkModels: Opt(T.Array(str)),
       // The one-word answer battery: `repeats` per cell per ladder run
       // (default 3, 24 calls), Jensen-Shannon thresholds in bits (0.25 match,
       // 0.35 mismatch) and the valid answers a cell needs before it counts (10).
