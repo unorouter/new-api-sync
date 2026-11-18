@@ -49,7 +49,8 @@ export async function listTokens(ctx: ClientContext): Promise<UpstreamToken[]> {
 interface TokenCreateResponse {
   success: boolean;
   message?: string;
-  data?: { key?: string };
+  // Some forks answer the bare key string instead of an object.
+  data?: { key?: string } | string;
 }
 
 // null is "the relay refused for rate, ask again": the cooldown is armed, and the
@@ -109,8 +110,9 @@ export async function createToken(
     return { ok: false };
   }
   clearTokenThrottle(ctx.baseUrl);
-  // Some forks (ephone) return the full key only here and mask it on later reads.
-  return { ok: true, key: data.data?.key };
+  // Some forks (ephone, olx1) return the full key only here and mask it on later reads.
+  const key = typeof data.data === "string" ? data.data : data.data?.key;
+  return { ok: true, key };
 }
 
 export async function getTokenFullKey(
@@ -351,11 +353,14 @@ export async function ensureTokens(
       groupsAwaitingCreate.push({ group, tokenName });
       continue;
     }
-    if (existingToken.key.includes("**")) {
+    // A fork that lists no key at all (olx1 shows only a tail) is masked too:
+    // sending the empty value as a key locks the account out for invalid tokens.
+    if (!existingToken.key || existingToken.key.includes("**")) {
       const held = options?.evict?.has(tokenName)
         ? undefined
         : getLaneKey(ctx.name, existingToken.id, tokenName);
-      if (held) {
+      // Earlier runs cached the empty listed key as a bare "sk-".
+      if (held && normalizeKey(held) !== "sk-") {
         result[group.name] = normalizeKey(held);
         existing++;
       } else {
@@ -445,10 +450,21 @@ export async function ensureTokens(
       }
       return true;
     });
-    const refreshedByName =
-      needLookup.length > 0
-        ? new Map((await listTokens(ctx)).map((tk) => [tk.name, tk]))
-        : new Map<string, UpstreamToken>();
+    const refreshedByName = new Map(
+      (await listTokens(ctx)).map((tk) => [tk.name, tk]),
+    );
+    // A key seen only on create is cached by token id, or the next run finds it
+    // masked again and deletes and recreates every token.
+    for (const entry of successfulCreates) {
+      const token = refreshedByName.get(entry.tokenName);
+      if (entry.inlineKey && token)
+        putLaneKey(
+          ctx.name,
+          token.id,
+          token.name,
+          normalizeKey(entry.inlineKey),
+        );
+    }
     const newTokensNeedingReveal: {
       entry: (typeof successfulCreates)[number];
       token: UpstreamToken;
