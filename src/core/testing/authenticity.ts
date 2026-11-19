@@ -86,9 +86,13 @@ const LADDER: readonly RuleId[] = [
 // maker is another model. A Western lab's model that will not talk about
 // Tiananmen 1989 is a Chinese model under its name. A thinking signature that
 // holds no signature was written by whatever invented the block, and one-word
-// picks genuine Claude never makes are the substitute's own taste.
+// picks genuine Claude never makes are the substitute's own taste. Reasoning
+// that speaks as another model, or quotes a private identity prompt in another
+// maker's clipped style, shows the persona the answers hide.
 const ENFORCED: readonly RuleId[] = [
   "masked-identity",
+  "foreign-self-reference",
+  "covert-persona",
   "signature",
   "foreign-answers",
   "fake-200",
@@ -106,6 +110,7 @@ const OBSERVED: readonly RuleId[] = [
   "envelope",
   "survey",
   "think-leak",
+  "reasoning-style",
   "wrapper-leak",
   "mask-contradiction",
   "answer-fingerprint",

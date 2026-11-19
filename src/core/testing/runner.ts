@@ -557,15 +557,16 @@ async function testModels(opts: {
         const probeReasoning = async (): Promise<boolean | null> => {
           if (!isText || opts.channelType === CHANNEL_TYPES.ANTHROPIC)
             return null;
-          // An entry that never tried the effort variant cannot say the lane
-          // is unable to think, so it is measured again.
+          // Only a lane seen thinking is taken from the cache: on a marketplace
+          // one probe that reached a non-thinking seller replayed as a fresh
+          // fail every run for a day (si glm-5.2, 2026-11-19).
           const known = getVerdict(blacklistKey)?.reasoning;
           if (
             isReasoningFresh(blacklistKey) &&
             known &&
-            (known.visible || known.withEffort !== undefined)
+            (known.visible || known.withEffort === true)
           )
-            return known.visible || known.withEffort === true;
+            return true;
           let ask: (effort: boolean) => Promise<ReasoningProbe>;
           let callerSetEffort = false;
           if (opts.channelType === CHANNEL_TYPES.GEMINI) {
