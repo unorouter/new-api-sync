@@ -256,7 +256,8 @@
       "RECONCILE_DESC": "按时间窗口把每个上游供应商自己的用量日志与我方网关日志逐条对账；列出未经我方网关的用量与外来令牌；只读",
       "FINGERPRINTS_DESC": "打印答案指纹汇总：每个模型族的可信参考，再列出每条通道的散度、身份混合率、包装层大小与风格类别；只读",
       "LANE_REPORT_DESC": "线路评估：某天每条线路的流量汇总，或立即评估当前窗口但不做任何改动（--live）",
-      "GRADE_DESC": "仅运行线路评估：评估当前窗口并隔离被标记的线路，与元数据和完整同步的计划无关"
+      "GRADE_DESC": "仅运行线路评估：评估当前窗口并隔离被标记的线路，与元数据和完整同步的计划无关",
+      "CATALOG_DESC": "把每个上游实际提供的模型与我们发布的内容并排导出到一个平面文件，每行对应一个上游、分组和模型；只读，不探测也不写入"
     },
     "OPTION": {
       "CONFIG_PATH": "配置文件路径",
@@ -276,7 +277,9 @@
       "LANE_DAY": "汇总的 UTC 日期（默认昨天）",
       "LANE_LIVE": "立即评估当前窗口，不做任何改动",
       "LANE_LIMIT": "显示的线路数量",
-      "LANE_ALL": "所有提供商的线路，而不只是配置的范围"
+      "LANE_ALL": "所有提供商的线路，而不只是配置的范围",
+      "CATALOG_OUT": "输出路径（默认 logs/catalog-<UTC 时间戳>.tsv）",
+      "CATALOG_JSON": "输出 JSON 而不是 TSV"
     },
     "STATUS": {
       "UI_RUNNING": "new-api-sync 界面运行于 http://localhost:{port}"
@@ -357,6 +360,14 @@
       "NO_PROFILE": "暂无",
       "LANE": "  {key}：运行 {runs} 次，有效答案 {samples} | {verdict} jsd {jsd} 对比 {against} | 身份混合率 {mix} | 包装层 {wrapper} token | 风格 {style}",
       "NONE": "尚无指纹汇总：请先运行一次同步"
+    },
+    "CATALOG": {
+      "WROTE": "目录：来自 {providers} 个上游的 {rows} 行已写入 {path}",
+      "SUMMARY_WROTE": "按上游汇总：{path}",
+      "SKIPPED_LINE": "[{name}] {reason}",
+      "MARKETPLACE_SKIPPED": "已跳过市场类上游，传入 --models 才会列出",
+      "DECLARATIVE": "声明式上游，仅按配置列出",
+      "DISCOVERY_FAILED": "[{name}] 发现失败：{error}"
     }
   },
   "MODEL_TYPE": {

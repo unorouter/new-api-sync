@@ -2,12 +2,14 @@ import { normalizeEndpointTypes } from "@core/catalog/constants/endpoints";
 import { inferModelType } from "@core/catalog/constants/inference";
 import {
   dedupBase,
+  findBlacklistMatch,
   matchesAnyPattern,
   matchesBlacklist,
   sanitizeGroupName,
   spliceGroupLabel,
 } from "@core/catalog/constants/patterns";
 import { toBareName } from "@core/catalog/bare-name";
+import type { ConfigState } from "@core/catalog/filter";
 import { collapseEffortVariants, type EffortFamily } from "./effort-variants";
 import {
   getEnabledModelGlobs,
@@ -56,6 +58,7 @@ import { colorize } from "consola/utils";
 import { buildCapabilityMap, lowercaseExposed } from "../shared/capability-map";
 import { partitionByVendor } from "../shared/partition";
 import { NewApiClient } from "./client";
+import type { ModelInfo } from "./types";
 import { nativeShapeForVendor, probeChannelType } from "./probe-channel-type";
 
 // Parse failure -> placeholder ratio -> silent "no-fit" drop. Warn once/model so it's diagnosable.
@@ -90,6 +93,95 @@ function filterGroupModels(
     );
   }
   return r;
+}
+
+// Relays publish vendor-prefixed ids ("openai/gpt-oss-20b"). Publish the bare
+// name like every other provider kind, EXCEPT where the same bare name maps to
+// more than one upstream id in this provider's catalog: a relay serves a free
+// "z-ai/glm-5.2" alongside a paid "glm-5.2", so collapsing them would sell the
+// paid lane under the free name. Counted over the WHOLE catalog, not the
+// per-vendor working set, so a twin in another bucket still blocks the strip.
+export function newApiExposedNamer(
+  models: ModelInfo[],
+  modelMapping: Record<string, string> | undefined,
+): (upstreamName: string) => string {
+  const bareNameCounts = new Map<string, number>();
+  for (const m of models) {
+    const bare = toBareName(m.name);
+    bareNameCounts.set(bare, (bareNameCounts.get(bare) ?? 0) + 1);
+  }
+  return (upstreamName) => {
+    const mapped = modelMapping?.[upstreamName];
+    if (mapped !== undefined) return mapped.toLowerCase();
+    const bare = toBareName(upstreamName);
+    return (bareNameCounts.get(bare) === 1 ? bare : upstreamName).toLowerCase();
+  };
+}
+
+/** A relay group is skipped whole when no model matches enabledModels or its name or description is fenced. */
+export function newApiGroupState(
+  group: GroupInfo,
+  config: RuntimeConfig,
+  providerConfig: ProviderConfig,
+): ConfigState {
+  const enabledGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
+  if (
+    enabledGlobs?.length &&
+    !group.models.some((m) => matchesAnyPattern(m, enabledGlobs))
+  )
+    return { kind: "not_in_enabledModels" };
+  const rule =
+    findBlacklistMatch(group.name, config.blacklist, providerConfig.name) ??
+    findBlacklistMatch(
+      group.description,
+      config.blacklist,
+      providerConfig.name,
+    );
+  return rule !== undefined
+    ? { kind: "blacklisted", rule }
+    : { kind: "enabled" };
+}
+
+/** Effort variants collapse into one family only when every member bills the same. */
+export function newApiPriceKeyOf(
+  pricingByName: Map<string, ModelInfo>,
+): (model: string) => string | undefined {
+  return (model) => {
+    const m = pricingByName.get(model);
+    if (!m || (m.ratio === undefined && m.modelPrice === undefined))
+      return undefined;
+    return JSON.stringify([
+      m.ratio,
+      m.completionRatio,
+      m.modelPrice,
+      m.quotaType,
+      m.billingExpr,
+    ]);
+  };
+}
+
+// Tiered models ship a placeholder model_ratio that would trip the canonical
+// cap; the effective ratio comes from the DEAREST tier, since one published
+// price has to cover every request.
+export function newApiUpstreamRatios(models: ModelInfo[]): {
+  tieredByName: Map<string, ReturnType<typeof effectiveTieredOrWarn>>;
+  upstreamPricing: Map<string, number>;
+} {
+  const tieredByName = new Map<
+    string,
+    ReturnType<typeof effectiveTieredOrWarn>
+  >();
+  const upstreamPricing = new Map<string, number>();
+  for (const m of models) {
+    const effective = m.billingExpr
+      ? effectiveTieredOrWarn(m.billingExpr, m.name)
+      : undefined;
+    tieredByName.set(m.name, effective);
+    if (effective !== undefined)
+      upstreamPricing.set(m.name, effective.modelRatio);
+    else if (typeof m.ratio === "number") upstreamPricing.set(m.name, m.ratio);
+  }
+  return { tieredByName, upstreamPricing };
 }
 
 const CHEAPEST_FALLBACK_MAX = 3;
@@ -404,25 +496,10 @@ export async function processNewApiProvider(
     const upstream = new NewApiClient(providerConfig, pName);
     const pricing = await upstream.fetchPricing();
     const pricingByName = new Map(pricing.models.map((m) => [m.name, m]));
-    // Relays publish vendor-prefixed ids ("openai/gpt-oss-20b"). Publish the bare
-    // name like every other provider kind, EXCEPT where the same bare name maps to
-    // more than one upstream id in this provider's catalog: a relay serves a free
-    // "z-ai/glm-5.2" alongside a paid "glm-5.2", so collapsing them would sell the
-    // paid lane under the free name. Counted over the WHOLE catalog, not the
-    // per-vendor working set, so a twin in another bucket still blocks the strip.
-    const bareNameCounts = new Map<string, number>();
-    for (const m of pricing.models) {
-      const bare = toBareName(m.name);
-      bareNameCounts.set(bare, (bareNameCounts.get(bare) ?? 0) + 1);
-    }
-    const exposedNameFor = (upstreamName: string): string => {
-      const mapped = config.modelMapping?.[upstreamName];
-      if (mapped !== undefined) return mapped.toLowerCase();
-      const bare = toBareName(upstreamName);
-      return (
-        bareNameCounts.get(bare) === 1 ? bare : upstreamName
-      ).toLowerCase();
-    };
+    const exposedNameFor = newApiExposedNamer(
+      pricing.models,
+      config.modelMapping,
+    );
     for (const m of pricing.models) {
       if (m.supportedEndpoints?.length)
         localNormalizedEndpoints.set(
@@ -432,37 +509,12 @@ export async function processNewApiProvider(
     }
     for (const [ep, info] of Object.entries(pricing.endpointPaths))
       endpointPaths.set(ep, info);
-    let groups: GroupInfo[] = pricing.groups;
-    const enabledGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
-    if (enabledGlobs?.length)
-      groups = groups.filter((g) =>
-        g.models.some((m) => matchesAnyPattern(m, enabledGlobs)),
-      );
-    if (config.blacklist?.length) {
-      groups = groups.filter(
-        (g) =>
-          !matchesBlacklist(g.name, config.blacklist, pName) &&
-          !matchesBlacklist(g.description, config.blacklist, pName),
-      );
-    }
-    // Tiered models ship a placeholder model_ratio that would trip the canonical
-    // cap; the effective ratio comes from the DEAREST tier, since one published
-    // price has to cover every request.
-    const tieredByName = new Map<
-      string,
-      ReturnType<typeof effectiveTieredOrWarn>
-    >();
-    const upstreamPricing = new Map<string, number>();
-    for (const m of pricing.models) {
-      const effective = m.billingExpr
-        ? effectiveTieredOrWarn(m.billingExpr, m.name)
-        : undefined;
-      tieredByName.set(m.name, effective);
-      if (effective !== undefined)
-        upstreamPricing.set(m.name, effective.modelRatio);
-      else if (typeof m.ratio === "number")
-        upstreamPricing.set(m.name, m.ratio);
-    }
+    const groups: GroupInfo[] = pricing.groups.filter(
+      (g) => newApiGroupState(g, config, providerConfig).kind === "enabled",
+    );
+    const { tieredByName, upstreamPricing } = newApiUpstreamRatios(
+      pricing.models,
+    );
     // Completion ratios feed the cap's per-token image cost estimate (imagePerCallUsd).
     const upstreamCompletionRatios = new Map<string, number>();
     for (const m of pricing.models)
@@ -513,18 +565,7 @@ export async function processNewApiProvider(
     const groupsWithNoWorkingModels: string[] = [];
     const usedSanitizedNames = new Map<string, number>();
     const effortFamilies = new Map<string, Map<string, EffortFamily>>();
-    const priceKeyOf = (model: string): string | undefined => {
-      const m = pricingByName.get(model);
-      if (!m || (m.ratio === undefined && m.modelPrice === undefined))
-        return undefined;
-      return JSON.stringify([
-        m.ratio,
-        m.completionRatio,
-        m.modelPrice,
-        m.quotaType,
-        m.billingExpr,
-      ]);
-    };
+    const priceKeyOf = newApiPriceKeyOf(pricingByName);
     const exposedInGroup = (upstreamName: string, group: string): string => {
       const family = effortFamilies.get(group)?.get(upstreamName);
       return exposedNameFor(family ? family.base : upstreamName);

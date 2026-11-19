@@ -10,6 +10,7 @@ import { NewApiClient } from "@core/vendors/newapi/client";
 import { fetchAllPricingSources } from "@core/pricing/resolver";
 import { resolveCanonicalByVote } from "@core/pricing/vote";
 import { checkBalances, printBalanceSummary } from "@core/sync/balance";
+import { runCatalog } from "@core/sync/catalog/run";
 import { printReconcileSummary, runReconcile } from "@core/sync/reconcile/run";
 import {
   liveLaneReport,
@@ -176,6 +177,56 @@ program
       const result = await checkBalances(config);
       if (options.json) console.log(JSON.stringify(result, null, 2));
       else printBalanceSummary(result);
+    },
+  );
+
+program
+  .command("catalog")
+  .description(t("CLI.COMMAND.CATALOG_DESC"))
+  .option("-c, --config <path>", t("CLI.OPTION.CONFIG_PATH"))
+  .option(
+    "--only <providers>",
+    t("CLI.OPTION.ONLY_PROVIDERS"),
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[],
+  )
+  .option(
+    "--models <globs>",
+    t("CLI.OPTION.ONLY_MODELS"),
+    (value: string, prev: string[]) => [...prev, value],
+    [] as string[],
+  )
+  .option("--out <path>", t("CLI.OPTION.CATALOG_OUT"))
+  .option("--json", t("CLI.OPTION.CATALOG_JSON"))
+  .option("-v, --verbose", t("CLI.OPTION.VERBOSE"))
+  .action(
+    async (options: {
+      config?: string;
+      only: string[];
+      models: string[];
+      out?: string;
+      json?: boolean;
+      verbose?: boolean;
+    }) => {
+      if (options.verbose) consola.level = 4;
+      const config = applyModelFilter(
+        applyOnlyProviders(await loadConfig(options.config), options.only),
+        options.models,
+      );
+      const result = await runCatalog(config, {
+        out: options.out,
+        json: options.json,
+      });
+      consola.success(
+        t("CLI.CATALOG.WROTE", {
+          rows: result.rows,
+          providers: result.providers,
+          path: result.path,
+        }),
+      );
+      consola.info(
+        t("CLI.CATALOG.SUMMARY_WROTE", { path: result.summaryPath }),
+      );
     },
   );
 

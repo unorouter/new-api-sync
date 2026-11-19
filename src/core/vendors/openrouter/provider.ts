@@ -33,7 +33,10 @@ import { consola } from "consola";
 import { buildCapabilityMap, lowercaseExposed } from "../shared/capability-map";
 import { withCostTracking } from "../shared/cost-tracker";
 import { partitionByVendor } from "../shared/partition";
-import { discoverOpenRouterFreeModels } from "./discovery";
+import {
+  discoverOpenRouterFreeModels,
+  type OpenRouterCatalogue,
+} from "./discovery";
 import { ensureProvisionedKeys } from "./keys";
 
 // new-api's per-token base: model_ratio 1 == $2/M tokens.
@@ -187,6 +190,30 @@ function median(values: number[]): number {
     : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
+// Exact (non-glob) enabled ids are the explicitly requested paid models; their
+// per-host endpoint pricing is fetched during discovery.
+export function openRouterRequestedPaidIds(
+  providerConfig: OpenRouterProviderConfig,
+): string[] {
+  return (getEnabledModelGlobs(providerConfig.enabledModels) ?? []).filter(
+    (id) => !id.includes("*") && !id.includes("?"),
+  );
+}
+
+// A requested id with a paid host stays paid even when another provider
+// serves it free: that provider gets a separate :free lane pinned to it.
+export function openRouterPaidSet(
+  requestedPaidIds: string[],
+  catalogue: OpenRouterCatalogue,
+): Set<string> {
+  const freeSet = new Set(catalogue.freeIds);
+  return new Set(
+    requestedPaidIds.filter(
+      (id) => !freeSet.has(id) || catalogue.paidEndpoints.has(id),
+    ),
+  );
+}
+
 export async function processOpenRouterProvider(
   providerConfig: OpenRouterProviderConfig,
   config: RuntimeConfig,
@@ -223,13 +250,7 @@ export async function processOpenRouterProvider(
         // sent so a rate limit counts against the account, not the anonymous pool.
         const readKey =
           providerConfig.managementKey ?? providerConfig.apiKey ?? "";
-        const enabledGlobs =
-          getEnabledModelGlobs(providerConfig.enabledModels) ?? [];
-        // Exact (non-glob) enabled ids = explicitly-requested paid models. Fetch
-        // their per-host endpoint pricing during discovery.
-        const requestedPaidIds = enabledGlobs.filter(
-          (id) => !id.includes("*") && !id.includes("?"),
-        );
+        const requestedPaidIds = openRouterRequestedPaidIds(providerConfig);
 
         const catalogue = await discoverOpenRouterFreeModels(
           providerConfig.baseUrl,
@@ -244,13 +265,7 @@ export async function processOpenRouterProvider(
         );
 
         const freeSet = new Set(catalogue.freeIds);
-        // A requested id with a paid host stays paid even when another provider
-        // serves it free: that provider gets a separate :free lane pinned to it.
-        const paidSet = new Set(
-          requestedPaidIds.filter(
-            (id) => !freeSet.has(id) || catalogue.paidEndpoints.has(id),
-          ),
-        );
+        const paidSet = openRouterPaidSet(requestedPaidIds, catalogue);
 
         const candidateIds = [...new Set([...freeSet, ...paidSet])];
         if (candidateIds.length === 0) {

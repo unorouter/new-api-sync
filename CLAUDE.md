@@ -17,7 +17,15 @@ bun sync balance [--json]
 bun sync reconcile [--only p] [--since 24h | --from 2026-08-26 --to now] [--json]   # upstream usage logs vs our logs, exit 1 on unaccounted usage
 bun sync fingerprints [--model glob] [--json]   # answer fingerprint ledger: trusted profiles per family, every lane with divergence, identity mix, wrapper size, style class
 bun sync lane-report [--day 2026-10-11] [--live] [--json]   # lane grader: a day's per-lane traffic rollup, or the current window judged without acting
+bun sync catalog [--only p1,p2] [--models "<glob>"] [--out f] [--json]   # every provider's listing next to what we publish, logs/catalog-<stamp>.tsv plus -summary
 ```
+
+`catalog` (`src/core/sync/catalog/`) is read only: listing and pricing GETs upstream (generic discovery
+skips `probeOutputCap`), channels and the six price/group options from the target, no probe, token, key,
+verdict, store or lock. One row per provider, upstream group and model with the published name the run
+would emit, upstream price (relay numbers as labelled), config state (filtered rows stay, with the reason),
+our channels and sell price, and the cheapest live lane of another provider. a7, ih and si are listed only
+with `--models`; comfyui, aihorde, runware and typesafe come from config.
 
 Lane grader (`src/core/quality/`, config `laneGrader`, needs `targetDb`): `bun sync grade`, run every 15
 minutes by its own CronJob `new-api-sync-grader` (the metadata job skips the hours around each full run,
@@ -72,7 +80,7 @@ bun run dev | typecheck | build | prettier
 ## Layout
 
 ```
-src/cli/index.ts          run | reset | metadata | balance | reconcile | ui | baseline
+src/cli/index.ts          run | reset | metadata | balance | reconcile | catalog | ui | baseline
 src/build.ts              compiles 6 binaries; embedded-assets.ts is GENERATED (empty = dev)
 src/core/sync/            run, diff, apply, reset, metadata, option-store, pipeline/, reconcile/
 src/core/pricing/         compute, vote, resolver, emit, sources/, tiered-expr

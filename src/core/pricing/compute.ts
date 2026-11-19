@@ -743,6 +743,14 @@ function processNoUpstreamOffer(
     pushBucketsAsTiers(offer, buckets, tiers, modelRatios, sourced, args);
 }
 
+/** The model name a lane publishes: a free lane gets `{name}:free`. */
+export function laneModelName(baseName: string, free: boolean): string {
+  // Some free providers put "-free" in the id itself (sage-a1.5-free).
+  return free && !baseName.endsWith(":free")
+    ? `${baseName.replace(/-free$/, "")}:free`
+    : baseName;
+}
+
 // One channel per model: each model maps to its own new-api channel so a per-model
 // rate-limit (429) or a scheduled-test failure disables only that model, never its
 // siblings. Channel name = {sanitizedBase}-{model} where sanitizedBase is the
@@ -774,12 +782,10 @@ function pushBucketsAsTiers(
       // unchanged (modelMapping -> m.upstream).
       // A provider whose lanes are split off the shared name (publishAs) publishes
       // under that name; pricing still comes from `exposed`, mirrored below.
-      const baseName = m.publishAs ?? m.exposed;
-      // Some free providers put "-free" in the id itself (sage-a1.5-free).
-      const publishedName =
-        groupRatio === 0 && !baseName.endsWith(":free")
-          ? `${baseName.replace(/-free$/, "")}:free`
-          : baseName;
+      const publishedName = laneModelName(
+        m.publishAs ?? m.exposed,
+        groupRatio === 0,
+      );
 
       const modelMapping: Record<string, string> = {};
       if (publishedName !== m.upstream)

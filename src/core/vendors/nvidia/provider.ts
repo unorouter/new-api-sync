@@ -30,6 +30,36 @@ import {
 import { partitionByVendor } from "../shared/partition";
 import { discoverNvidiaModels } from "./discovery";
 
+/** Config `models` verbatim, else the NIM listing plus exact enabled image ids it cannot list. */
+export async function listNvidiaModels(
+  providerConfig: NvidiaProviderConfig,
+): Promise<string[]> {
+  const name = providerConfig.name;
+  if (providerConfig.models?.length) {
+    consola.info(
+      t("CORE.PROVIDER.USING_EXPLICIT_MODELS", {
+        name,
+        count: providerConfig.models.length,
+      }),
+    );
+    return providerConfig.models;
+  }
+  const models = await discoverNvidiaModels(
+    providerConfig.baseUrl,
+    providerConfig.apiKey,
+  );
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERED_MODELS", { name, count: models.length }),
+  );
+  const discoveredSet = new Set(models);
+  for (const glob of getEnabledModelGlobs(providerConfig.enabledModels) ?? []) {
+    if (glob.includes("*") || glob.includes("?")) continue;
+    if (!discoveredSet.has(glob) && inferModelType(glob) === "image")
+      models.push(glob);
+  }
+  return models;
+}
+
 export async function processNvidiaProvider(
   providerConfig: NvidiaProviderConfig,
   config: RuntimeConfig,
@@ -47,33 +77,7 @@ export async function processNvidiaProvider(
   const endpointMetadata = { endpointPaths: new Map() };
 
   try {
-    let allModels: string[];
-    if (providerConfig.models?.length) {
-      allModels = providerConfig.models;
-      consola.info(
-        t("CORE.PROVIDER.USING_EXPLICIT_MODELS", {
-          name,
-          count: allModels.length,
-        }),
-      );
-    } else {
-      allModels = await discoverNvidiaModels(
-        providerConfig.baseUrl,
-        providerConfig.apiKey,
-      );
-      consola.info(
-        t("CORE.PROVIDER.DISCOVERED_MODELS", { name, count: allModels.length }),
-      );
-      const enabledGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
-      if (enabledGlobs?.length) {
-        const discoveredSet = new Set(allModels);
-        for (const glob of enabledGlobs) {
-          if (glob.includes("*") || glob.includes("?")) continue;
-          if (!discoveredSet.has(glob) && inferModelType(glob) === "image")
-            allModels.push(glob);
-        }
-      }
-    }
+    let allModels = await listNvidiaModels(providerConfig);
     if (allModels.length === 0) {
       report.error = t("CORE.ERROR.NO_MODELS_FOUND");
       return { report, offers, endpointMetadata };

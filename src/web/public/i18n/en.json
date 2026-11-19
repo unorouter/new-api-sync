@@ -256,7 +256,8 @@
       "RECONCILE_DESC": "match every upstream provider's own usage log against our gateway logs for a window; lists usage that never came through us and foreign tokens; read-only",
       "FINGERPRINTS_DESC": "print the answer fingerprint summary: per model family the trusted profiles, then every lane with its divergence, identity mix, wrapper size and style class; read-only",
       "LANE_REPORT_DESC": "Lane grader: a day's per-lane traffic rollup, or the current window judged without acting (--live)",
-      "GRADE_DESC": "Lane grader only: judge the current window and quarantine flagged lanes, independent of the metadata and full-run schedule"
+      "GRADE_DESC": "Lane grader only: judge the current window and quarantine flagged lanes, independent of the metadata and full-run schedule",
+      "CATALOG_DESC": "dump what every provider serves next to what we publish, one row per provider, upstream group and model, into one flat file; read-only, no probes or writes"
     },
     "OPTION": {
       "CONFIG_PATH": "config file path",
@@ -276,7 +277,9 @@
       "LANE_DAY": "UTC day of the rollup (default yesterday)",
       "LANE_LIVE": "Judge the current window now, change nothing",
       "LANE_LIMIT": "Lanes to print",
-      "LANE_ALL": "Every provider's lanes, not only the configured scope"
+      "LANE_ALL": "Every provider's lanes, not only the configured scope",
+      "CATALOG_OUT": "output path (default logs/catalog-<UTC stamp>.tsv)",
+      "CATALOG_JSON": "write JSON instead of TSV"
     },
     "STATUS": {
       "UI_RUNNING": "new-api-sync UI running at http://localhost:{port}"
@@ -357,6 +360,14 @@
       "NO_PROFILE": "none yet",
       "LANE": "  {key}: runs {runs}, valid answers {samples} | {verdict} jsd {jsd} vs {against} | identity mix {mix} | wrapper {wrapper} tok | style {style}",
       "NONE": "no fingerprint summary yet: run a sync first"
+    },
+    "CATALOG": {
+      "WROTE": "Catalog: {rows} rows from {providers} providers written to {path}",
+      "SUMMARY_WROTE": "Per provider summary: {path}",
+      "SKIPPED_LINE": "[{name}] {reason}",
+      "MARKETPLACE_SKIPPED": "marketplace skipped, pass --models to list it",
+      "DECLARATIVE": "declarative provider, listed from config only",
+      "DISCOVERY_FAILED": "[{name}] discovery failed: {error}"
     }
   },
   "MODEL_TYPE": {

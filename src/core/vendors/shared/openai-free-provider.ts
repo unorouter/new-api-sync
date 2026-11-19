@@ -194,6 +194,37 @@ function emitFreeTextOffers(opts: {
   return offers;
 }
 
+/** The provider's model list: config `models` verbatim, else its `discovery` block. */
+export async function discoverOpenAICompatibleModels(
+  providerConfig: OpenAICompatibleProviderConfig,
+  opts: { listOnly?: boolean } = {},
+): Promise<OpenAIFreeDiscovery> {
+  const name = providerConfig.name;
+  if (providerConfig.models?.length) {
+    consola.info(
+      t("CORE.PROVIDER.USING_EXPLICIT_MODELS", {
+        name,
+        count: providerConfig.models.length,
+      }),
+    );
+    return { models: providerConfig.models, maxOutputByModel: new Map() };
+  }
+  const discovered = await discoverModels(
+    providerConfig.baseUrl,
+    providerConfig.apiKey,
+    providerConfig.label ?? name,
+    providerConfig.discovery,
+    opts,
+  );
+  consola.info(
+    t("CORE.PROVIDER.DISCOVERED_MODELS", {
+      name,
+      count: discovered.models.length,
+    }),
+  );
+  return discovered;
+}
+
 /** Discover -> test -> emit free text channels. Shared by every simple OpenAI-compatible free provider. */
 export async function processOpenAICompatibleFreeProvider(
   opts: OpenAIFreeOpts,
@@ -217,35 +248,12 @@ export async function processOpenAICompatibleFreeProvider(
   const endpointMetadata = { endpointPaths: new Map() };
 
   try {
-    let allModels: string[];
-    let maxOutputByModel = new Map<string, number>();
-    let typeHints: Map<string, ModelType> | undefined;
-    let ratioByModel: Map<string, number> | undefined;
-    let completionRatioByModel: Map<string, number> | undefined;
-    if (providerConfig.models?.length) {
-      allModels = providerConfig.models;
-      consola.info(
-        t("CORE.PROVIDER.USING_EXPLICIT_MODELS", {
-          name,
-          count: allModels.length,
-        }),
-      );
-    } else {
-      const discovered = await discoverModels(
-        providerConfig.baseUrl,
-        providerConfig.apiKey,
-        label,
-        providerConfig.discovery,
-      );
-      allModels = discovered.models;
-      maxOutputByModel = discovered.maxOutputByModel;
-      typeHints = discovered.modelTypeHints;
-      ratioByModel = discovered.ratioByModel;
-      completionRatioByModel = discovered.completionRatioByModel;
-      consola.info(
-        t("CORE.PROVIDER.DISCOVERED_MODELS", { name, count: allModels.length }),
-      );
-    }
+    const discovered = await discoverOpenAICompatibleModels(providerConfig);
+    let allModels = discovered.models;
+    const maxOutputByModel = discovered.maxOutputByModel;
+    const typeHints = discovered.modelTypeHints;
+    const ratioByModel = discovered.ratioByModel;
+    const completionRatioByModel = discovered.completionRatioByModel;
     const typeOf = (m: string): ModelType =>
       typeHints?.get(m) ?? inferModelType(m);
     if (allModels.length === 0) {

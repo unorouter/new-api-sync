@@ -45,10 +45,19 @@ export function matchesBlacklist(
   blacklist?: string[],
   scope?: string,
 ): boolean {
-  if (!blacklist?.length || !text) return false;
+  return findBlacklistMatch(text, blacklist, scope) !== undefined;
+}
+
+/** The first blacklist entry that fences `text`, as written in config. */
+export function findBlacklistMatch(
+  text: string | null | undefined,
+  blacklist?: string[],
+  scope?: string,
+): string | undefined {
+  if (!blacklist?.length || !text) return undefined;
   const t = text.toLowerCase();
   const s = scope?.toLowerCase();
-  return blacklist.some((raw) => {
+  return blacklist.find((raw) => {
     const pattern = raw.toLowerCase();
     const slashIdx = pattern.indexOf("/");
     if (slashIdx !== -1 && s !== undefined) {

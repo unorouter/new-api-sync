@@ -217,6 +217,7 @@ export async function discoverModels(
   apiKey: string,
   label: string,
   cfg: DiscoveryConfig = {},
+  opts: { listOnly?: boolean } = {},
 ): Promise<OpenAIFreeDiscovery> {
   const headers = authHeaders(apiKey, cfg);
   if (cfg.mode === "free-groups")
@@ -275,7 +276,8 @@ export async function discoverModels(
     }
   }
 
-  if (cfg.probeOutputCap) {
+  // The cap probe is a chat POST; a listing-only caller must send none.
+  if (cfg.probeOutputCap && !opts.listOnly) {
     for (const id of models) {
       if (/embed/i.test(id)) continue;
       const cap = await probeOutputCap(baseUrl, headers, id);

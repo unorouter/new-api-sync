@@ -1,34 +1,46 @@
 import {
+  findBlacklistMatch,
   matchesAnyPattern,
-  matchesBlacklist,
 } from "@core/catalog/constants/patterns";
 import { getEnabledModelGlobs, type RuntimeConfig } from "@core/config";
-import type {
-  NvidiaProviderConfig,
-  OpenAICompatibleProviderConfig,
-} from "@core/validations/config";
+import type { AnyProviderConfig } from "@core/validations/config";
 
-export function filterModels(
-  models: string[],
+export type ConfigState =
+  | { kind: "enabled" }
+  | { kind: "blacklisted"; rule: string }
+  | { kind: "not_in_enabledModels" };
+
+/** Why config keeps or drops one upstream id for one provider; --models is not part of it. */
+export function configStateOf(
+  id: string,
   config: RuntimeConfig,
-  providerConfig: NvidiaProviderConfig | OpenAICompatibleProviderConfig,
-): string[] {
-  const modelGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
-  // Only the simple free-provider schema carries this; the union's other
-  // members legitimately lack it.
+  providerConfig: AnyProviderConfig,
+): ConfigState {
+  // Checked before the blacklist so a globally-fenced name can be readmitted
+  // for this provider alone; the fence stays in force everywhere else.
   const allowed =
     "allowBlacklisted" in providerConfig
       ? providerConfig.allowBlacklisted
       : undefined;
+  const exempt = allowed?.length ? matchesAnyPattern(id, allowed) : false;
+  const rule = exempt
+    ? undefined
+    : findBlacklistMatch(id, config.blacklist, providerConfig.name);
+  if (rule !== undefined) return { kind: "blacklisted", rule };
+  const modelGlobs = getEnabledModelGlobs(providerConfig.enabledModels);
+  if (modelGlobs?.length && !matchesAnyPattern(id, modelGlobs))
+    return { kind: "not_in_enabledModels" };
+  return { kind: "enabled" };
+}
+
+export function filterModels(
+  models: string[],
+  config: RuntimeConfig,
+  providerConfig: AnyProviderConfig,
+): string[] {
   return models.filter((id) => {
-    // Checked before the blacklist so a globally-fenced name can be readmitted
-    // for this provider alone; the fence stays in force everywhere else.
-    const exempt = allowed?.length ? matchesAnyPattern(id, allowed) : false;
-    if (!exempt && matchesBlacklist(id, config.blacklist, providerConfig.name))
+    if (configStateOf(id, config, providerConfig).kind !== "enabled")
       return false;
-    if (modelGlobs?.length) {
-      if (!matchesAnyPattern(id, modelGlobs)) return false;
-    }
     if (config.modelFilter?.length) {
       if (!matchesAnyPattern(id, config.modelFilter)) return false;
     }

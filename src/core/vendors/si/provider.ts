@@ -63,7 +63,7 @@ const GOOGLE_STRIP_OPERATIONS: Record<string, unknown>[] = [
   "logit_bias",
 ].map((path) => ({ path, mode: "delete" }));
 
-function sellerPin(
+export function sellerPin(
   offer: BookOffer,
   providers: SellerProviderInfo[],
 ): string | undefined {
