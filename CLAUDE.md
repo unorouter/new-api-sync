@@ -132,6 +132,14 @@ Never a full `sync run` for one model. `DELETE FROM channels WHERE id IN (...)` 
 - `applyPriceAdjustment(cost, adj, ceiling)` (`pricing/index.ts`) is the only markup: adj > 0
   interpolates toward the ceiling (adj=1 -> 1x), cost >= ceiling -> `cost * 1.05`, adj <= 0 ->
   `cost * (1 + adj)`. Bounded `(-1, 1]` by schema. No path-local `(1 + adj)`.
+- Margin floor (`enforceMargin` in `compute.ts`, `marginFloor` in `pricing/index.ts`): a paid
+  lane of a provider with `costFactor` (real USD per upstream-labelled USD) sells at
+  `max(price, cost * costFactor * minMargin)`, `minMargin` defaulting to `MIN_MARGIN` 2 and
+  globbable per model; a higher price (a per-model override) is kept. Above list the lane is
+  dropped (`below-min-margin`) unless `marginAboveList`; below it the price is capped at list.
+  An unknown cost drops the lane (`no-cost-factor`). A provider without `costFactor` is
+  unfloored until the global `requireCostFactor` is on. a7, ih and si are exempt
+  (`profitMultiple`).
 - Fixed-price models: `cost = groupRatio * (relayModelPrice / sticker)` per lane; a flat base sold
   image models below cost. Relay prices are yuan labelled USD.
 - `ConcurrencyGate.run` takes the per-upstream limit outside the global one. `throwIfRunAborted()`

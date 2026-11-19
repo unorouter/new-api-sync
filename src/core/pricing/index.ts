@@ -3,6 +3,33 @@ import type { ProviderConfig } from "@core/validations/config";
 
 const MAX_ABOVE_1X = 1.05;
 
+// Subscriptions buy quota at a discount, so a paid lane sold near its cost loses
+// money on every subscriber who uses it.
+export const MIN_MARGIN = 2;
+
+export interface LaneMargin {
+  /** Real USD paid for one upstream-labelled USD (yuan relays ~0.137, USD 1). */
+  costFactor?: number;
+  minMargin?: number | Record<string, number>;
+  /** Sell at the floor even above list instead of dropping the lane. */
+  aboveList?: boolean;
+}
+
+/** Lowest sell price, in the same unit as `cost`, that clears the provider's
+ *  minimum margin; undefined when its real cost per labelled unit is unknown. */
+export function marginFloor(
+  cost: number,
+  margin: LaneMargin | undefined,
+  model: string,
+): number | undefined {
+  if (margin?.costFactor === undefined) return undefined;
+  return (
+    cost *
+    margin.costFactor *
+    resolvePerModel(margin.minMargin, model, MIN_MARGIN)
+  );
+}
+
 /**
  * THE universal priceAdjustment rule. Every path that prices an offer goes
  * through this; cost and ceiling must share a unit (group-ratio space, plain

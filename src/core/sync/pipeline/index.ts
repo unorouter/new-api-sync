@@ -15,6 +15,7 @@ import {
 import { dataPolicyByTag, settingWithDataPolicy } from "@core/data-policy";
 import { computePricedPlan } from "@core/pricing/compute";
 import { emitChannels } from "@core/pricing/emit";
+import type { LaneMargin } from "@core/pricing/index";
 import { fetchAllPricingSources } from "@core/pricing/resolver";
 import { ConcurrencyGate, setConcurrencyGate } from "@core/infra/concurrency";
 import { setAuthenticityObserveOnly } from "@core/testing/authenticity";
@@ -191,6 +192,7 @@ async function buildDesiredState(
     string,
     number | Record<string, number>
   >();
+  const marginByProvider = new Map<string, LaneMargin>();
   for (const p of config.providers) {
     if ("baseUrl" in p && p.baseUrl && p.perUpstreamConcurrency)
       overrides.set(p.baseUrl, p.perUpstreamConcurrency);
@@ -216,6 +218,12 @@ async function buildDesiredState(
       channelLimitsByProvider.set(p.name, p.channelLimits);
     if ("upstreamCostMarkup" in p && p.upstreamCostMarkup !== undefined)
       upstreamCostMarkupByProvider.set(p.name, p.upstreamCostMarkup);
+    if ("costFactor" in p || "minMargin" in p)
+      marginByProvider.set(p.name, {
+        costFactor: p.costFactor,
+        minMargin: p.minMargin,
+        aboveList: p.marginAboveList,
+      });
   }
   setConcurrencyGate(
     new ConcurrencyGate({
@@ -286,6 +294,8 @@ async function buildDesiredState(
     forceUpstreamStreamByProvider,
     channelLimitsByProvider,
     upstreamCostMarkupByProvider,
+    marginByProvider,
+    requireCostFactor: config.requireCostFactor,
     autoTestIntervalMaxByProvider,
     headerOverrideByProvider,
   });

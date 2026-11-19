@@ -100,6 +100,11 @@ providers:
       - claude-*-4-5*
       - gpt-5*
     priceAdjustment: -0.67
+    # Real USD paid for one upstream-labelled USD (1 yuan per labelled $1 is ~0.14).
+    # With it every paid lane sells at least minMargin (default 2) times its real
+    # cost; a lane whose floor sits above list is dropped unless marginAboveList.
+    costFactor: 0.14
+    # minMargin: { "claude-*": 3, default: 2 }
 
   # TypeSafe Jev, a decisions model: serves only POST /v1/decisions, never chat.
   # Prices are the SELL price per 1M tokens.

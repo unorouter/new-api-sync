@@ -13,6 +13,8 @@ import type { MergedModel } from "@core/types";
 import {
   applyMarkupOverride,
   applyPriceAdjustment,
+  type LaneMargin,
+  marginFloor,
   resolvePriceAdjustment,
   resolvePriceAdjustmentDetailed,
   type ResolvedAdjustment,
@@ -64,11 +66,56 @@ interface ComputeArgs {
     { maxConcurrency?: number; maxRps?: number }
   >;
   upstreamCostMarkupByProvider?: Map<string, number | Record<string, number>>;
+  marginByProvider?: Map<string, LaneMargin>;
+  /** Without it a provider that has no costFactor keeps its old pricing. */
+  requireCostFactor?: boolean;
   headerOverrideByProvider?: Map<string, string>;
   autoTestIntervalMaxByProvider?: Map<string, number>;
 }
 
 const PAID_GROUP_RATIO_CANDIDATES = [1, 0.5, 0.25, 0.1, 0.05, 0.01] as const;
+
+// Marketplace lanes already sell at profitMultiple (>= MIN_MARGIN) of the real
+// market cost, which the gateway also enforces per request.
+const MARGIN_EXEMPT_KINDS = new Set(["a7", "ih", "si"]);
+
+type MarginVerdict =
+  | { ratio: number }
+  | { drop: "below-min-margin" | "no-cost-factor"; detail: string };
+
+// Raises a paid lane to its provider's minimum margin over real cost; a price
+// already above the floor (a per-model override) is kept. A lane whose real cost
+// is unknown, or whose floor sits above list, is not sold at all, unless the
+// provider sells above list on purpose (marginAboveList).
+function enforceMargin(
+  offer: UpstreamOffer,
+  model: string,
+  cost: number | undefined,
+  ratio: number,
+  ceiling: number,
+  capExempt: boolean,
+  args: ComputeArgs,
+): MarginVerdict {
+  if (MARGIN_EXEMPT_KINDS.has(offer.providerKind)) return { ratio };
+  const margin = args.marginByProvider?.get(offer.provider);
+  if (margin?.costFactor === undefined && !args.requireCostFactor)
+    return { ratio };
+  if (cost === undefined)
+    return { drop: "no-cost-factor", detail: "upstream price unknown" };
+  const floor = marginFloor(cost, margin, model);
+  if (floor === undefined)
+    return { drop: "no-cost-factor", detail: `provider ${offer.provider}` };
+  if (capExempt || ceiling <= 0 || margin?.aboveList)
+    return { ratio: Math.max(ratio, floor) };
+  if (floor > ceiling + 1e-9)
+    return {
+      drop: "below-min-margin",
+      detail: `floor=${floor.toFixed(4)} ceiling=${ceiling.toFixed(4)}`,
+    };
+  // A yuan relay's labelled cost can sit above list while its real cost is a
+  // seventh of that: list still clears the floor, so sell at list.
+  return { ratio: Math.min(Math.max(ratio, floor), ceiling) };
+}
 
 const CLAUDE_CONTEXT_1M_PATTERN = /^claude-/i;
 const CLAUDE_CONTEXT_1M_BETA = "context-1m-2025-08-07";
@@ -456,8 +503,16 @@ export function computePricedPlan(args: ComputeArgs): PricedPlan {
 
   for (const offer of phaseAOffers)
     if (offer.paidTier)
-      processPaidOffer(offer, modelRatios, canonical, tiers, drops, sourced);
-    else processStandardOffer(offer, modelRatios, args, tiers, sourced);
+      processPaidOffer(
+        offer,
+        modelRatios,
+        canonical,
+        args,
+        tiers,
+        drops,
+        sourced,
+      );
+    else processStandardOffer(offer, modelRatios, args, tiers, drops, sourced);
 
   const cheapestForPhaseB = buildBaselineCheapestMap(baseline);
   for (const tier of tiers) {
@@ -559,13 +614,16 @@ function processStandardOffer(
   modelRatios: Map<string, MergedModel>,
   args: ComputeArgs,
   tiers: PricedTier[],
+  drops: PricedDrop[],
   sourced: Set<string>,
 ): void {
   const buckets = new Map<number, OfferModel[]>();
+  const channel = channelOf(offer);
   for (const m of offer.models) {
     const written = modelRatios.get(m.exposed);
     if (!written) continue;
     let groupRatio: number;
+    let verdict: MarginVerdict;
     if (m.isFree) groupRatio = 0;
     else {
       const resolved = resolveAdjustmentDetailed(offer, m, args);
@@ -607,9 +665,21 @@ function processStandardOffer(
           upstreamRatio !== undefined && written.ratio > 0
             ? upstreamRatio / written.ratio
             : cost;
-        groupRatio =
-          applyMarkupOverride(markupBase, resolved) ??
-          applyPriceAdjustment(cost, adj, ceiling);
+        const override = applyMarkupOverride(markupBase, resolved);
+        groupRatio = override ?? applyPriceAdjustment(cost, adj, ceiling);
+        verdict = enforceMargin(
+          offer,
+          m.exposed,
+          upstreamRatio !== undefined
+            ? offer.groupRatio > 0
+              ? cost
+              : markupBase
+            : undefined,
+          groupRatio,
+          ceiling,
+          override !== undefined,
+          args,
+        );
       } else {
         // Per-request (fixed price): cost tracks this channel's own per-call price
         // vs the stored sticker (cheapest relay wins the sticker), so a pricier
@@ -624,10 +694,31 @@ function processStandardOffer(
         // made one relay's gpt-image-2.5 ceiling 62.5 and its adj 0.9 sold images at
         // $2.25. No per-call list exists here, so the sticker is the ceiling.
         const ceiling = sticker !== undefined && sticker > 0 ? 1 : 0;
-        groupRatio =
-          applyMarkupOverride(cost, resolved) ??
-          applyPriceAdjustment(cost, adj, ceiling);
+        const override = applyMarkupOverride(cost, resolved);
+        groupRatio = override ?? applyPriceAdjustment(cost, adj, ceiling);
+        verdict = enforceMargin(
+          offer,
+          m.exposed,
+          mp !== undefined && sticker !== undefined && sticker > 0
+            ? cost
+            : undefined,
+          groupRatio,
+          ceiling,
+          override !== undefined,
+          args,
+        );
       }
+      if ("drop" in verdict) {
+        drops.push({
+          model: m.exposed,
+          channel,
+          reason: verdict.drop,
+          effectiveRatio: groupRatio,
+          detail: verdict.detail,
+        });
+        continue;
+      }
+      groupRatio = verdict.ratio;
     }
     addToBucket(buckets, bucketKey(groupRatio), m);
   }
@@ -639,6 +730,7 @@ function processPaidOffer(
   offer: UpstreamOffer,
   modelRatios: Map<string, MergedModel>,
   canonical: Map<string, number>,
+  args: ComputeArgs,
   tiers: PricedTier[],
   drops: PricedDrop[],
   sourced: Set<string>,
@@ -678,13 +770,34 @@ function processPaidOffer(
         effectiveRatio: chosen.ratio,
         detail: `at chosen group_ratio=${chosen.ratio}`,
       });
-  pushBucketsAsTiers(
-    offer,
-    new Map([[chosen.ratio, chosen.kept]]),
-    tiers,
-    modelRatios,
-    sourced,
-  );
+  const buckets = new Map<number, OfferModel[]>();
+  for (const m of chosen.kept) {
+    const ratio = modelRatios.get(m.exposed)?.ratio ?? 1;
+    const verdict = enforceMargin(
+      offer,
+      m.exposed,
+      m.upstreamRatio !== undefined && ratio > 0
+        ? m.upstreamRatio / ratio
+        : undefined,
+      chosen.ratio,
+      ratio > 0 ? (canonical.get(m.exposed) ?? ratio) / ratio : 0,
+      false,
+      args,
+    );
+    if ("drop" in verdict) {
+      drops.push({
+        model: m.exposed,
+        channel,
+        reason: verdict.drop,
+        effectiveRatio: chosen.ratio,
+        detail: verdict.detail,
+      });
+      continue;
+    }
+    addToBucket(buckets, bucketKey(verdict.ratio), m);
+  }
+  if (buckets.size > 0)
+    pushBucketsAsTiers(offer, buckets, tiers, modelRatios, sourced);
 }
 
 function processNoUpstreamOffer(
@@ -719,15 +832,36 @@ function processNoUpstreamOffer(
     // operator is pricing this model at cost*(1+adj) regardless of canonical (its
     // only market comparison sits below the target markup).
     const override = applyMarkupOverride(base, resolved);
-    if (override !== undefined) {
-      addToBucket(buckets, bucketKey(override), m);
+    const ceilingRatio = written > 0 ? ceiling / written : 0;
+    const verdict = enforceMargin(
+      offer,
+      m.exposed,
+      // Without a per-model price the provider's own ratio is its cost against
+      // list (set from what its top-up really buys); unset it is 1, list itself.
+      m.upstreamRatio !== undefined && written > 0
+        ? m.upstreamRatio / written
+        : offer.groupRatio > 0
+          ? offer.groupRatio
+          : undefined,
+      override ?? applyPriceAdjustment(base, adj, ceilingRatio),
+      ceilingRatio,
+      override !== undefined,
+      args,
+    );
+    if ("drop" in verdict) {
+      drops.push({
+        model: m.exposed,
+        channel,
+        reason: verdict.drop,
+        detail: verdict.detail,
+      });
       continue;
     }
-    const groupRatio = applyPriceAdjustment(
-      base,
-      adj,
-      written > 0 ? ceiling / written : 0,
-    );
+    if (override !== undefined) {
+      addToBucket(buckets, bucketKey(verdict.ratio), m);
+      continue;
+    }
+    const groupRatio = verdict.ratio;
     if (groupRatio > 1 && written * groupRatio > ceiling + 1e-9) {
       drops.push({
         model: m.exposed,

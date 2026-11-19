@@ -76,7 +76,12 @@ export interface PricedTier {
   failoverDuplicate?: boolean;
 }
 
-type PricedDropReason = "cap-exceeded" | "no-fit" | "collision";
+type PricedDropReason =
+  | "cap-exceeded"
+  | "no-fit"
+  | "collision"
+  | "below-min-margin"
+  | "no-cost-factor";
 
 export interface PricedDrop {
   model: string;
