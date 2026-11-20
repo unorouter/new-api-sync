@@ -614,15 +614,18 @@ export async function processOpenRouterProvider(
                         r.upstream,
                         host.supportedParameters,
                       )),
+                // The host's own input price and output share: pricing applies the
+                // dearer side once against the model's completion ratio, so the
+                // ranking's median-based effective price must not reach it too.
                 upstreamRatio:
-                  (effectivePrompt(host) * 1_000_000) / USD_PER_M_PER_RATIO,
+                  ((host.prompt > 0 ? host.prompt : effectivePrompt(host)) *
+                    1_000_000) /
+                  USD_PER_M_PER_RATIO,
                 upstreamCompletionRatio:
-                  effectivePrompt(host) > 0
-                    ? host.completion / effectivePrompt(host)
-                    : 1,
+                  host.prompt > 0 ? host.completion / host.prompt : 1,
                 cacheRatio:
-                  host.cacheRead != null && effectivePrompt(host) > 0
-                    ? host.cacheRead / effectivePrompt(host)
+                  host.cacheRead != null && host.prompt > 0
+                    ? host.cacheRead / host.prompt
                     : undefined,
                 paramOverride: JSON.stringify({
                   provider: { only: [host.provider], allow_fallbacks: false },
