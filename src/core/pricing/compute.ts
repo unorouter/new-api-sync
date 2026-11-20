@@ -667,11 +667,13 @@ function processStandardOffer(
             : cost;
         const override = applyMarkupOverride(markupBase, resolved);
         groupRatio = override ?? applyPriceAdjustment(cost, adj, ceiling);
+        // An OpenRouter lane's groupRatio is its markup, not a cost multiplier,
+        // so its floor reads the host's own price; a relay's is its real cost.
         verdict = enforceMargin(
           offer,
           m.exposed,
           upstreamRatio !== undefined
-            ? offer.groupRatio > 0
+            ? offer.groupRatio > 0 && offer.providerKind !== "openrouter"
               ? cost
               : markupBase
             : undefined,
