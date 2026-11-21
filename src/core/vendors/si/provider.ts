@@ -44,8 +44,11 @@ import {
 // in config and only offers the market itself marks trusted are counted.
 // The market bills whole micro-dollars, so a small request's estimated discount
 // tops out near 97%: a 97% floor refused deepseek-v3.1 with 49 sellers at 98% off
-// (2026-09-19, "best otherwise-eligible 96.9697%"). Floors stay at or under 90.
-const FLOOR_CAP_PCT = 90;
+// (2026-09-19, "best otherwise-eligible 96.9697%"). A floor is set once per sync and
+// the cheap sellers it was set on sell out in between: at 90 the market refused 2,695
+// requests a day by 2026-11-21 ("best eligible 80%"). The per-request cost floor
+// (upstreamCostMarkup) keeps the margin when a dearer seller serves.
+const FLOOR_CAP_PCT = 80;
 // A lane is priced on the expected seller; the floor only has to keep the dearest
 // seller it still admits at this multiple.
 const WORST_CASE_MULTIPLE = 2;
