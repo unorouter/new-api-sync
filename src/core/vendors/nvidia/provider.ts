@@ -17,7 +17,7 @@ import type {
   ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import { NVIDIA_RETRY_POLICY } from "@core/testing/execution";
+import { TRANSIENT_RETRY_POLICY } from "@core/testing/execution";
 import { testAndFilterModels } from "@core/testing/runner";
 import type { ProviderReport } from "@core/types";
 import type { NvidiaProviderConfig } from "@core/validations/config";
@@ -109,7 +109,7 @@ export async function processNvidiaProvider(
         // NIM cold-starts flagship containers (550B/675B/MoE) well past the 20s
         // default, so they timeout on first probe. Give the probe room.
         timeoutMs: 60_000,
-        retryPolicy: NVIDIA_RETRY_POLICY,
+        retryPolicy: TRANSIENT_RETRY_POLICY,
         acceptRateLimited: providerConfig.acceptRateLimited ?? false,
         capabilities: buildCapabilityMap(
           textModels,

@@ -53,7 +53,7 @@ export async function withRetry<T>(
   return last;
 }
 
-export const NVIDIA_RETRY_POLICY: RetryPolicy<TestExchange> = {
+export const TRANSIENT_RETRY_POLICY: RetryPolicy<TestExchange> = {
   attempts: 3,
   backoffMs: [2000, 4000],
   shouldRetry: (r) => r.status == null || r.status === 429 || r.status >= 500,

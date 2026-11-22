@@ -20,7 +20,7 @@ import type {
   ProviderRunContext,
   UpstreamOffer,
 } from "@core/pricing/offers";
-import { NVIDIA_RETRY_POLICY } from "@core/testing/execution";
+import { TRANSIENT_RETRY_POLICY } from "@core/testing/execution";
 import { testAndFilterModels } from "@core/testing/runner";
 import type { ModelType, ProviderReport } from "@core/types";
 import type {
@@ -373,7 +373,7 @@ export async function processOpenAICompatibleFreeProvider(
         channelType: modality.channelType,
         providerLabel: name,
         testableModelTypes: new Set([modality.modelType]),
-        retryPolicy: NVIDIA_RETRY_POLICY,
+        retryPolicy: TRANSIENT_RETRY_POLICY,
         modelEndpoints,
         // acceptRateLimited keeps 429-failing models (chat throttling = capacity,
         // not breakage). Embeddings don't get that grace: a 429 or any failure on
