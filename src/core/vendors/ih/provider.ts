@@ -162,16 +162,21 @@ export async function processIhProvider(
         };
         const multiple = laneMultiple(provider, price);
         if (multiple === undefined) continue;
+        const anthropic =
+          !!provider.anthropicWire &&
+          matchesAnyPattern(m.upstreamModelId, provider.anthropicWire.models);
         lanes.push({
           ...price,
           upstream: `${up.prefix}/${m.upstreamModelId}`,
           multiple,
-          // Claude over the Anthropic wire keeps thinking blocks and their
-          // signatures intact; the OpenAI wire drops both.
-          channelType: m.upstreamModelId.startsWith("claude-")
+          // The Anthropic wire keeps thinking blocks and their signatures
+          // intact; the OpenAI wire drops both.
+          channelType: anthropic
             ? CHANNEL_TYPES.ANTHROPIC
             : CHANNEL_TYPES.OPENAI,
-          baseUrl,
+          baseUrl: anthropic
+            ? `${baseUrl}${provider.anthropicWire?.path ?? ""}`
+            : baseUrl,
           // Without a bid the relay routes to its best-scoring provider at up
           // to half the official price; with one it refuses (402) instead of
           // charging more than the lane was priced at, and the gateway fails over.
@@ -253,6 +258,7 @@ export async function processIhProvider(
           providerKind: "ih",
           apiKey: provider.apiKey,
           lane: probed,
+          context1mAlias: config.context1mAlias,
         }),
       );
     }

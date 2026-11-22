@@ -27,6 +27,7 @@ import {
   setProviderNothink,
   setReasoningRequired,
 } from "@core/testing/runner";
+import { setAnthropicReplyDenylist } from "@core/testing/request-configs";
 import { setAnswerFingerprintOptions } from "@core/testing/answer-fingerprints";
 import { setAuthenticityPassTtlByHost } from "@core/testing/verdict-cache";
 import type {
@@ -264,6 +265,7 @@ async function buildDesiredState(
     config.authenticity?.nothinkModels,
   );
   setProbeOverrides(config.probeOverrides);
+  setAnthropicReplyDenylist(config.authenticity?.anthropicReplyDenylist);
   setAnswerFingerprintOptions(config.authenticity?.answerFingerprint);
 
   const managedProviders = new Set(config.providers.map((p) => p.name));
@@ -320,6 +322,7 @@ async function buildDesiredState(
     marginByProvider,
     marginExemptProviders,
     costlierSideKinds: new Set(config.pricing?.costlierSideTypes ?? []),
+    context1mAlias: config.context1mAlias,
     requireCostFactor: config.requireCostFactor,
     autoTestIntervalMaxByProvider,
     headerOverrideByProvider,

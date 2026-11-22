@@ -4,7 +4,10 @@ import {
 } from "@core/catalog/constants/patterns";
 import { inferVendorFromModelName } from "@core/catalog/constants/vendor-matchers";
 import { resolvePerModel } from "@core/pricing";
-import { CLAUDE_CONTEXT_1M_OPERATIONS } from "@core/pricing/compute";
+import {
+  context1mOperations,
+  type Context1mAlias,
+} from "@core/pricing/compute";
 import type { OfferModel, UpstreamOffer } from "@core/pricing/offers";
 import type { ModelTestDetail } from "@core/testing/types";
 import type { AnyProviderConfig } from "@core/validations/config";
@@ -169,6 +172,7 @@ export function buildFallbackOffer(opts: {
   providerKind: string;
   apiKey: string;
   lane: FallbackLane;
+  context1mAlias?: Context1mAlias;
 }): UpstreamOffer {
   const lane = opts.lane;
   const vendor = inferVendorFromModelName(lane.exposed) ?? "other";
@@ -176,7 +180,7 @@ export function buildFallbackOffer(opts: {
   // Claude lane carries that operation itself; it only fires on the alias.
   const operations =
     vendor === "anthropic"
-      ? [...lane.operations, ...CLAUDE_CONTEXT_1M_OPERATIONS]
+      ? [...lane.operations, ...context1mOperations(opts.context1mAlias)]
       : lane.operations;
   const model: OfferModel = {
     exposed: lane.exposed,

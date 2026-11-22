@@ -10,6 +10,7 @@ import {
   sanitizeGroupName,
 } from "@core/catalog/constants/patterns";
 import type { MergedModel } from "@core/types";
+import type { ConfigSchemaType } from "@core/validations/config";
 import {
   applyMarkupOverride,
   applyPriceAdjustment,
@@ -71,6 +72,7 @@ interface ComputeArgs {
   marginExemptProviders?: Set<string>;
   /** Provider kinds priced on the costlier side of their upstream ratio. */
   costlierSideKinds?: ReadonlySet<string>;
+  context1mAlias?: Context1mAlias;
   /** Without it a provider that has no costFactor keeps its old pricing. */
   requireCostFactor?: boolean;
   headerOverrideByProvider?: Map<string, string>;
@@ -117,26 +119,28 @@ function enforceMargin(
   return { ratio: Math.min(Math.max(ratio, floor), ceiling) };
 }
 
-const CLAUDE_CONTEXT_1M_PATTERN = /^claude-/i;
-const CLAUDE_CONTEXT_1M_BETA = "context-1m-2025-08-07";
+export type Context1mAlias = NonNullable<ConfigSchemaType["context1mAlias"]>;
 
-export const CLAUDE_CONTEXT_1M_OPERATIONS: Record<string, unknown>[] = [
-  {
-    mode: "set_header",
-    path: "anthropic-beta",
-    value: { $append: [CLAUDE_CONTEXT_1M_BETA] },
-    conditions: [
-      {
-        path: "original_model",
-        mode: "suffix",
-        value: CLAUDE_CONTEXT_1M_SUFFIX,
-      },
-    ],
-  },
-];
-const CLAUDE_CONTEXT_1M_PARAM_OVERRIDE = JSON.stringify({
-  operations: CLAUDE_CONTEXT_1M_OPERATIONS,
-});
+/** The header operation a `[1m]` alias request carries; none without config. */
+export function context1mOperations(
+  cfg: Context1mAlias | undefined,
+): Record<string, unknown>[] {
+  if (!cfg) return [];
+  return [
+    {
+      mode: "set_header",
+      path: cfg.header,
+      value: { $append: cfg.values },
+      conditions: [
+        {
+          path: "original_model",
+          mode: "suffix",
+          value: CLAUDE_CONTEXT_1M_SUFFIX,
+        },
+      ],
+    },
+  ];
+}
 
 // Opt-in (per-model, via enabledModels metadata.disableThinking) override for
 // reasoning models that spend the whole output budget on reasoning_content and
@@ -155,9 +159,13 @@ function isAnthropicNativeOffer(offer: UpstreamOffer): boolean {
   return offer.vendor === "anthropic";
 }
 
-function shouldAddContext1mAlias(modelName: string): boolean {
+function shouldAddContext1mAlias(
+  modelName: string,
+  cfg: Context1mAlias | undefined,
+): boolean {
   return (
-    CLAUDE_CONTEXT_1M_PATTERN.test(modelName) &&
+    !!cfg &&
+    matchesAnyPattern(modelName, cfg.models) &&
     !modelName.endsWith(CLAUDE_CONTEXT_1M_SUFFIX)
   );
 }
@@ -929,7 +937,10 @@ function pushBucketsAsTiers(
 
       const models = [publishedName];
       let hasContext1mAlias = false;
-      if (isAnthropicNativeOffer(offer) && shouldAddContext1mAlias(m.exposed)) {
+      if (
+        isAnthropicNativeOffer(offer) &&
+        shouldAddContext1mAlias(m.exposed, args?.context1mAlias)
+      ) {
         const alias = `${publishedName}${CLAUDE_CONTEXT_1M_SUFFIX}`;
         models.push(alias);
         modelMapping[alias] = m.upstream;
@@ -956,7 +967,9 @@ function pushBucketsAsTiers(
       const channelName = `${offer.sanitizedBase}-${sanitizeGroupName(publishedName)}`;
       let paramOverride = m.paramOverride;
       if (!paramOverride && hasContext1mAlias)
-        paramOverride = CLAUDE_CONTEXT_1M_PARAM_OVERRIDE;
+        paramOverride = JSON.stringify({
+          operations: context1mOperations(args?.context1mAlias),
+        });
       else if (!paramOverride && m.metadata?.disableThinking)
         paramOverride = DISABLE_THINKING_PARAM_OVERRIDE;
       paramOverride = applyChannelParamOverride(

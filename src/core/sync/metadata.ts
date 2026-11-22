@@ -69,6 +69,7 @@ import {
   setProviderNothink,
   setReasoningRequired,
 } from "@core/testing/runner";
+import { setAnthropicReplyDenylist } from "@core/testing/request-configs";
 import {
   judgeAndPushAnswerFingerprints,
   loadAnswerFingerprints,
@@ -1068,6 +1069,7 @@ async function reverifyLanes(
     config.authenticity?.nothinkModels,
   );
   setProbeOverrides(config.probeOverrides);
+  setAnthropicReplyDenylist(config.authenticity?.anthropicReplyDenylist);
   setAnswerFingerprintOptions(config.authenticity?.answerFingerprint);
   // The market or the gateway being unreachable for a tick is not a failed
   // sync: the lanes keep their verdicts and the next tick tries again.

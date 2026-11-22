@@ -94,6 +94,9 @@ const MinSellersSchema = PerModel(T.Integer({ minimum: 1 }));
 // every model, so price comes from the per-merchant listings, and one upstream
 // token is minted and pinned per (model, merchant) lane.
 const A7ProviderSchema = T.Object({ type: T.Literal("a7"), ...ProviderCommonProps, baseUrl: uri, systemAccessToken: str, userId: T.Integer({ minimum: 1 }), profitMultiple: Opt(ProfitMultipleSchema), maxSellFraction: Opt(MaxSellFractionSchema), minSellFraction: Opt(MinSellFractionSchema), hostsPerModel: Opt(T.Record(T.String(), T.Integer({ minimum: 1 }))), minSuccessRate: Opt(PerModel(T.Integer({ minimum: 0, maximum: 10000 }))), guaranteedOnly: Opt(T.Boolean()), acceptRateLimited: Opt(T.Boolean()) });
+// Models (globs) sold over the Anthropic wire instead of OpenAI, with an optional
+// path appended to the lane's base URL for that wire.
+const AnthropicWireSchema = T.Object({ models: T.Array(str), path: Opt(str) });
 // prettier-ignore
 // A flat allowlist, or glob-keyed per model ("claude-*": [bedrock]) with "default" as the catch-all.
 const PoolAllowlistSchema = T.Union([T.Array(str, { minItems: 1 }), T.Record(T.String(), T.Array(str))]);
@@ -103,7 +106,7 @@ const PoolAllowlistSchema = T.Union([T.Array(str, { minItems: 1 }), T.Record(T.S
 // request routes to the relay's best-scoring provider at up to half the
 // official price, so every lane sends bid headers and is priced at that bid.
 // URLs live in config only.
-const IhProviderSchema = T.Object({ type: T.Literal("ih"), ...ProviderCommonProps, apiKey: str, baseUrl: uri, catalogUrl: uri, upstreams: PoolAllowlistSchema, hostsPerModel: Opt(PerModel(T.Integer({ minimum: 1 }))), profitMultiple: Opt(ProfitMultipleSchema), maxSellFraction: Opt(MaxSellFractionSchema), minSellFraction: Opt(MinSellFractionSchema), bidQuantile: Opt(PerModel(T.Number({ exclusiveMinimum: 0, maximum: 1 }))), minSellers: Opt(MinSellersSchema), acceptRateLimited: Opt(T.Boolean()) });
+const IhProviderSchema = T.Object({ type: T.Literal("ih"), ...ProviderCommonProps, apiKey: str, baseUrl: uri, catalogUrl: uri, upstreams: PoolAllowlistSchema, hostsPerModel: Opt(PerModel(T.Integer({ minimum: 1 }))), profitMultiple: Opt(ProfitMultipleSchema), maxSellFraction: Opt(MaxSellFractionSchema), minSellFraction: Opt(MinSellFractionSchema), bidQuantile: Opt(PerModel(T.Number({ exclusiveMinimum: 0, maximum: 1 }))), minSellers: Opt(MinSellersSchema), acceptRateLimited: Opt(T.Boolean()), anthropicWire: Opt(AnthropicWireSchema) });
 // prettier-ignore
 // Lanes over an order book of resold API keys, one per enabled model, pinned
 // to every allowed seller provider (a `provider` body field). The only spend
@@ -113,7 +116,7 @@ const IhProviderSchema = T.Object({ type: T.Literal("ih"), ...ProviderCommonProp
 // sellerParamStrip: seller pin to body fields deleted when a lane pins it (sellers that 400 on them).
 // floorCapPct: highest discount floor a lane may set (absent: no cap).
 // worstCaseMultiple: multiple the dearest seller a floor still admits must earn (absent: 1).
-const SiProviderSchema = T.Object({ type: T.Literal("si"), ...ProviderCommonProps, apiKey: str, baseUrl: uri, providers: PoolAllowlistSchema, profitMultiple: Opt(ProfitMultipleSchema), maxSellFraction: Opt(MaxSellFractionSchema), minSellFraction: Opt(MinSellFractionSchema), minSellers: Opt(MinSellersSchema), acceptRateLimited: Opt(T.Boolean()), sellerParamStrip: Opt(T.Record(str, T.Array(str))), floorCapPct: Opt(T.Integer({ minimum: 1, maximum: 99 })), worstCaseMultiple: Opt(T.Number({ minimum: 1 })) });
+const SiProviderSchema = T.Object({ type: T.Literal("si"), ...ProviderCommonProps, apiKey: str, baseUrl: uri, providers: PoolAllowlistSchema, profitMultiple: Opt(ProfitMultipleSchema), maxSellFraction: Opt(MaxSellFractionSchema), minSellFraction: Opt(MinSellFractionSchema), minSellers: Opt(MinSellersSchema), acceptRateLimited: Opt(T.Boolean()), sellerParamStrip: Opt(T.Record(str, T.Array(str))), floorCapPct: Opt(T.Integer({ minimum: 1, maximum: 99 })), worstCaseMultiple: Opt(T.Number({ minimum: 1 })), anthropicWire: Opt(AnthropicWireSchema) });
 // prettier-ignore
 const NvidiaProviderSchema = T.Object({ type: T.Literal("nvidia"), ...ProviderCommonProps, baseUrl: uri, imageBaseUrl: uri, apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ exclusiveMinimum: 0 })), acceptRateLimited: Opt(T.Boolean()) });
 // prettier-ignore
@@ -412,6 +415,9 @@ export const ConfigSchema = T.Object({
       // of one that never reasons, plainly or when asked, keeps serving under a
       // "-nothink" name so people pinning providers can see it.
       nothinkModels: Opt(T.Array(str)),
+      // Words that fail the Anthropic-wire channel probe when its reply contains one
+      // (case-insensitive): a relay that names its real backend.
+      anthropicReplyDenylist: Opt(T.Array(str)),
       // The one-word answer battery: `repeats` per cell per ladder run
       // (default 3, 24 calls), Jensen-Shannon thresholds in bits (0.25 match,
       // 0.35 mismatch) and the valid answers a cell needs before it counts (10).
@@ -426,6 +432,10 @@ export const ConfigSchema = T.Object({
     }),
   ),
   modelMapping: Opt(T.Record(T.String(), T.String())),
+  // Anthropic-vendor models (globs) that also publish a "[1m]" alias on their channel;
+  // the alias appends `values` to request header `header` to route the long context.
+  // prettier-ignore
+  context1mAlias: Opt(T.Object({ models: T.Array(str), header: str, values: T.Array(str, { minItems: 1 }) })),
   // Splice upstream group labels before they become channel names: key is a
   // fragment (optionally `provider/fragment`), value replaces just that fragment.
   // Runs after the blacklist, so it renames a lane rather than readmitting one.

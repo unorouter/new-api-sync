@@ -17,6 +17,13 @@ import type {
 
 const TEST_PROMPT = "Reply with only the word ok.";
 
+/** From config.yml `authenticity.anthropicReplyDenylist`. */
+let anthropicReplyDenylist: string[] = [];
+
+export function setAnthropicReplyDenylist(words?: string[]): void {
+  anthropicReplyDenylist = (words ?? []).map((w) => w.toLowerCase());
+}
+
 // OpenAI gpt-5*, gpt-6* and o1/o3/o4 reasoning models reject `max_tokens` (require
 // `max_completion_tokens`). new-api's OpenAI adaptor translates this for user traffic, but
 // the sync probe hits the upstream directly, so build the correct field here by bare name.
@@ -71,7 +78,7 @@ export function getRequestConfig(opts: ModelRequestOpts): RequestConfig {
           .map((b) => b.text ?? "")
           .join(" ")
           .toLowerCase();
-        return !fullText.includes("kiro");
+        return !anthropicReplyDenylist.some((w) => fullText.includes(w));
       },
     };
   if (channelType === CHANNEL_TYPES.GEMINI)

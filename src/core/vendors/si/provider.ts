@@ -237,7 +237,9 @@ export async function processSiProvider(
         const pins = [...allowed].filter((pin) =>
           eligible.some((o) => sellerPin(o, sellers.data) === pin),
         );
-        const claude = exposed.startsWith("claude-");
+        const anthropic =
+          !!provider.anthropicWire &&
+          matchesAnyPattern(exposed, provider.anthropicWire.models);
         lanes.push({
           exposed,
           upstream: id,
@@ -247,16 +249,16 @@ export async function processSiProvider(
           listInputUsd,
           listOutputUsd,
           multiple,
-          channelType: claude ? CHANNEL_TYPES.ANTHROPIC : CHANNEL_TYPES.OPENAI,
-          baseUrl: claude
-            ? `${baseUrl}/anthropic/min${floor}`
-            : `${baseUrl}/min${floor}`,
+          channelType: anthropic
+            ? CHANNEL_TYPES.ANTHROPIC
+            : CHANNEL_TYPES.OPENAI,
+          baseUrl: `${baseUrl}${anthropic ? (provider.anthropicWire?.path ?? "") : ""}/min${floor}`,
           operations: [
             { mode: "set", path: "provider", value: pins },
             ...sellerStripOperations(provider.sellerParamStrip, pins),
             // Some sellers take message content only as a string and 400 the
             // text-part array clients send for prompt caching.
-            ...(claude ? [] : [{ mode: "flatten_text" }]),
+            ...(anthropic ? [] : [{ mode: "flatten_text" }]),
           ],
           probeBody: { provider: pins },
           remark: `${exposed} via ${name} (${eligible.length} trusted sellers on ${pins.join(", ")}, priced on the #${minSellers} ask, floor ${floor}% under list)`,
@@ -318,6 +320,7 @@ export async function processSiProvider(
           providerKind: "si",
           apiKey: provider.apiKey,
           lane: probed,
+          context1mAlias: config.context1mAlias,
         }),
       );
     }

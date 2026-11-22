@@ -255,6 +255,8 @@ providers:
   #   baseUrl: https://relay.example.invalid
   #   catalogUrl: https://relay.example.invalid/api/catalog
   #   upstreams: { "claude-*": [pool-a], default: [pool-b] }
+  #   # Models sold over the Anthropic wire (ih and si), path appended to the base URL.
+  #   anthropicWire: { models: ["claude-*"], path: /anthropic }
   #   enabledModels: [some-model, other-model]
   #   profitMultiple:
   #     other-model: 5
@@ -308,3 +310,13 @@ channelParamOverride:
 authenticity:
   # Always-thinking models served without any reasoning keep serving as "<name>-nothink".
   nothinkModels: ["kimi-*"]
+  # Words that fail the Anthropic-wire channel probe when the reply contains one
+  # (case-insensitive), for relays that name their real backend.
+  # anthropicReplyDenylist: [some-backend]
+
+# Anthropic-vendor models (globs) that also publish "<model>[1m]" on their channel; a
+# request to the alias appends `values` to the request header `header`.
+# context1mAlias:
+#   models: ["claude-*"]
+#   header: anthropic-beta
+#   values: [context-1m-2025-08-07]
