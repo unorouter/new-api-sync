@@ -61,9 +61,6 @@ import { buildOptionMaps, buildSurvivingGroups } from "./option-maps";
 import { runAllProviders } from "./providers";
 import { timingMark } from "@core/infra/timing";
 
-// One host carries every model a7 walks at once; 5 left probes queueing for minutes.
-const A7_DEFAULT_CONCURRENCY = 10;
-
 interface SnapshotPricing {
   modelRatio: Record<string, number>;
   modelPrice: Record<string, number>;
@@ -206,8 +203,6 @@ async function buildDesiredState(
     if (p.marginExempt) marginExemptProviders.add(p.name);
     if ("baseUrl" in p && p.baseUrl && p.perUpstreamConcurrency)
       overrides.set(p.baseUrl, p.perUpstreamConcurrency);
-    else if (p.type === "a7" && p.baseUrl)
-      overrides.set(p.baseUrl, A7_DEFAULT_CONCURRENCY);
     if ("baseUrl" in p && p.baseUrl && p.perUpstreamRpm)
       rpmOverrides.set(p.baseUrl, p.perUpstreamRpm);
     if ("baseUrl" in p && p.baseUrl && p.authenticityPassTtlHours)

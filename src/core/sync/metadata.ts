@@ -1037,7 +1037,9 @@ async function reverifyLanes(
   startBefore: number,
   finishBefore: number,
 ): Promise<void> {
-  const a7Providers = config.providers.filter((p) => p.type === "a7");
+  const a7Providers = config.providers.flatMap((p) =>
+    p.type === "a7" && p.reverify ? [p] : [],
+  );
   if (a7Providers.length === 0) return;
   const verdicts = config.verdictStore
     ? new VerdictStore(config.verdictStore)
@@ -1139,14 +1141,13 @@ async function syncUpstreamPricing(
   ].filter(inScope);
   if (served.length === 0) return;
 
-  // Scoped to kinds whose discovery is a read-only pricing fetch that honors
-  // dryRun end to end: newapi (/api/pricing) and a7 (one marketplace
-  // snapshot). nvidia/openrouter still run live discovery probes even
-  // under dryRun, so including them would burn upstream test traffic.
+  // Only adaptors whose discovery is a read-only pricing fetch that honors
+  // dryRun end to end carry metadataReprice: the others still run live discovery
+  // probes even under dryRun and would burn upstream test traffic.
   const newapiConfig: RuntimeConfig = {
     ...config,
     providers: config.providers.filter(
-      (p) => p.type === "newapi" || p.type === "a7",
+      (p) => "metadataReprice" in p && p.metadataReprice,
     ),
   };
   if (newapiConfig.providers.length === 0) return;

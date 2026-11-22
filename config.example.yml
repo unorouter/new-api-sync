@@ -198,6 +198,14 @@ providers:
   # - type: a7
   #   name: a7
   #   authenticityPassTtlHours: 4
+  # metadataReprice (newapi and a7 blocks) lets `sync metadata` re-price the names the
+  # provider publishes; reverify (a7) re-probes its live lanes whose authenticity pass
+  # is stale on the metadata cron, reverifyConcurrency at once (default
+  # perUpstreamConcurrency, then the global one).
+  #   metadataReprice: true
+  #   reverify: true
+  #   reverifyConcurrency: 5
+  #   perUpstreamConcurrency: 10
   # Marketplace flags, set per provider (all off by default): usageTruth runs the
   # weekly usage-truth probe (1, 2 and 80 copies of a paragraph) on its lanes;
   # marginExempt skips the costFactor margin floor for lanes already priced at

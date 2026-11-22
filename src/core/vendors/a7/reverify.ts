@@ -183,7 +183,9 @@ export async function reverifyLiveLanes(
   // only taken off the queue when it can start: queued behind the gate, every
   // lane would pass the deadline check at once and the tick would overrun its Job.
   const slots =
-    provider.perUpstreamConcurrency ?? config.perUpstreamConcurrency;
+    provider.reverifyConcurrency ??
+    provider.perUpstreamConcurrency ??
+    config.perUpstreamConcurrency;
   let next = 0;
   const worker = async (): Promise<void> => {
     for (let i = next++; i < batch.length; i = next++) {
