@@ -371,6 +371,13 @@ export const ConfigSchema = T.Object({
     }),
   ),
   skipUnprofitableText: Opt(T.Boolean()),
+  pricing: Opt(
+    T.Object({
+      // Provider types whose per-token lanes are priced on whichever side (input or
+      // output) costs more against the sticker's out:in (none by default).
+      costlierSideTypes: Opt(T.Array(str)),
+    }),
+  ),
   // Off: a provider without a costFactor is priced without the margin floor.
   requireCostFactor: Opt(T.Boolean()),
   globalConcurrency: Opt(T.Integer({ minimum: 1, maximum: 1000 })),

@@ -319,6 +319,7 @@ async function buildDesiredState(
     upstreamCostMarkupByProvider,
     marginByProvider,
     marginExemptProviders,
+    costlierSideKinds: new Set(config.pricing?.costlierSideTypes ?? []),
     requireCostFactor: config.requireCostFactor,
     autoTestIntervalMaxByProvider,
     headerOverrideByProvider,

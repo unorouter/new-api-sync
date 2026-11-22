@@ -34,6 +34,12 @@ probeOverrides:
   - models: ["gemini-4-*"]
     timeoutMs: 90000
 
+# Provider types whose per-token lanes are priced on whichever side costs more against
+# the sticker's out:in, for upstreams that discount input far deeper than output.
+# Absent: every lane is priced on its input ratio.
+# pricing:
+#   costlierSideTypes: [openai-compatible]
+
 blacklist:
   # Formerly built into the code: models no lane should serve (moved to config 2026-11-22).
   - "ai-synthetic-video-detector"

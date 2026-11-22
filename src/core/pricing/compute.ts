@@ -69,6 +69,8 @@ interface ComputeArgs {
   marginByProvider?: Map<string, LaneMargin>;
   /** Providers whose lanes already sell at profitMultiple of the real cost. */
   marginExemptProviders?: Set<string>;
+  /** Provider kinds priced on the costlier side of their upstream ratio. */
+  costlierSideKinds?: ReadonlySet<string>;
   /** Without it a provider that has no costFactor keeps its old pricing. */
   requireCostFactor?: boolean;
   headerOverrideByProvider?: Map<string, string>;
@@ -629,16 +631,12 @@ function processStandardOffer(
       if (!isFixed(written)) {
         // Per-token: cost tracks this channel's own upstream ratio vs the stored
         // sticker, so a pricier relay charges proportionally more.
-        // A marketplace lane is billed on the sticker's out:in, but its sellers discount
-        // input far deeper than output (si glm-5.2: $0.00008/M in, $0.026/M out against a
-        // 3.14 list), so priced on input its output sold at a sixth of cost and the cost
-        // floor billed users 6x the shown rate. Price it on whichever side costs more.
-        // Not from si's own list price: it gives glm-5.2 input as $0.006/M.
+        // A lane is billed on the sticker's out:in, but some upstreams discount input far
+        // deeper than output, so priced on input their output sold at a fraction of cost
+        // and the cost floor billed users a multiple of the shown rate.
         const upstreamRatio =
           m.upstreamRatio !== undefined &&
-          (offer.providerKind === "si" ||
-            offer.providerKind === "ih" ||
-            offer.providerKind === "openai-compatible") &&
+          args.costlierSideKinds?.has(offer.providerKind) &&
           m.upstreamCompletionRatio !== undefined &&
           written.completionRatio > 0
             ? Math.max(
