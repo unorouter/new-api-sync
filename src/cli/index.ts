@@ -364,7 +364,10 @@ program
   .description("Dump every canonical (voted) list price as USD per 1M tokens")
   .option("--out <path>", "output JSON path", "baseline.json")
   .action(async (options: { out: string }) => {
-    const sources = await fetchAllPricingSources(await fetchBasellmEntries());
+    const sources = await fetchAllPricingSources(
+      await fetchBasellmEntries(),
+      await loadConfig(),
+    );
     const names = new Set<string>();
     for (const s of sources)
       for (const k of s.pricing.candidates.keys()) names.add(k);

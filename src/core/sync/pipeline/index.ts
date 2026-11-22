@@ -274,7 +274,7 @@ async function buildDesiredState(
     fetchBasellmEntries(),
     fetchOpenRouterDescriptions(),
   ]);
-  const pricingSources = await fetchAllPricingSources(basellmEntries);
+  const pricingSources = await fetchAllPricingSources(basellmEntries, config);
   timingMark("pricing-sources");
   const reverseMapping = buildReverseMapping(config.modelMapping);
 

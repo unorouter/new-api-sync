@@ -40,6 +40,26 @@ probeOverrides:
 # pricing:
 #   costlierSideTypes: [openai-compatible]
 
+# Extra pricing and metadata catalogs, all off when absent: a VoAPI-style /api/pricing
+# whose data.model_info fills metadata gaps, the models.dev provider keys whose own
+# quote wins over the median (in order), and Runware parameter schemas for hosted
+# image models (doc slugs to fetch, published names to the AIR their schema carries).
+# pricingSources:
+#   modelInfoUrl: https://relay.example.invalid/api/pricing
+#   modelsDevFirstParty: [openai, anthropic, google]
+#   imageSchemaSlugs: [vendor-image-model-1]
+#   imageModelAirs:
+#     image-model-1: "vendor:1@1"
+
+# Model metadata keyed by bare name that wins over every source, for figures measured
+# through one lane (a relay's context cap) rather than the vendor's card.
+# metadataOverrides:
+#   some-model:
+#     contextWindow: 24576
+#     maxOutputTokens: 8192
+#     mode: chat
+#     description: "Some model, served through a relay that caps its context."
+
 blacklist:
   # Formerly built into the code: models no lane should serve (moved to config 2026-11-22).
   - "ai-synthetic-video-detector"

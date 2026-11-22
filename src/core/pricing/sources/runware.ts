@@ -28,21 +28,6 @@ const ARCHITECTURES = [
   "hidream-i1-full",
 ];
 
-const MODEL_SLUGS = [
-  "bfl-flux-2-max",
-  "bfl-flux-2-pro",
-  "bfl-flux-2-flex",
-  "bfl-flux-2-dev",
-  "bfl-flux-2-klein-4b",
-  "bfl-flux-2-klein-9b",
-  "openai-gpt-image-1",
-  "openai-gpt-image-2",
-  "bytedance-seedream-4-0",
-  "bytedance-seedream-4-5",
-  "bytedance-seedream-5-0-pro",
-  "bytedance-seedream-5-0-lite",
-];
-
 // Joins the catalog's `series` label to Runware's architecture slugs.
 const SERIES_TO_ARCHITECTURE: Record<string, string> = {
   sdxl: "sdxl",
@@ -52,19 +37,6 @@ const SERIES_TO_ARCHITECTURE: Record<string, string> = {
   "stable diffusion": "sd-1-5",
   flux: "flux-1-dev",
   hidream: "hidream-i1-dev",
-};
-
-// Provider-hosted rows carry neither AIR nor series, so without this they resolve
-// to nothing and render a Steps slider on FLUX.2 max, which rejects it.
-const MODEL_NAME_TO_AIR: Record<string, string> = {
-  "flux.2-max": "bfl:7@1",
-  "flux.2-pro": "bfl:5@1",
-  "flux.2-flex": "bfl:6@1",
-  "flux.2-dev": "runware:400@1",
-  "flux.2-klein-9b": "runware:400@2",
-  "flux.2-klein-4b": "runware:400@4",
-  "gpt-image-1": "openai:1@1",
-  "gpt-image-2": "openai:gpt-image@2",
 };
 
 type JsonObject = Record<string, unknown>;
@@ -195,11 +167,21 @@ function distill(
 export interface RunwareSchemaIndex {
   byAir: Record<string, ImageParams>;
   byArchitecture: Record<string, ImageParams>;
+  /** Hosted rows carry neither AIR nor series: published name to AIR (config). */
+  modelAirs: Record<string, string>;
 }
 
-export async function fetchRunwareSchemas(): Promise<RunwareSchemaIndex | null> {
+/** Hosted model schemas come from config: doc slugs to fetch, names to their AIR. */
+export async function fetchRunwareSchemas(
+  modelSlugs: readonly string[],
+  modelAirs: Record<string, string>,
+): Promise<RunwareSchemaIndex | null> {
   const limit = pLimit(FETCH_CONCURRENCY);
-  const index: RunwareSchemaIndex = { byAir: {}, byArchitecture: {} };
+  const index: RunwareSchemaIndex = {
+    byAir: {},
+    byArchitecture: {},
+    modelAirs,
+  };
 
   const load = (slug: string, architecture: boolean) =>
     limit(async () => {
@@ -214,7 +196,7 @@ export async function fetchRunwareSchemas(): Promise<RunwareSchemaIndex | null> 
 
   const results = await Promise.all([
     ...ARCHITECTURES.map((s) => load(s, true)),
-    ...MODEL_SLUGS.map((s) => load(s, false)),
+    ...modelSlugs.map((s) => load(s, false)),
   ]);
 
   // A missing architecture silently strips every control from its checkpoints.
@@ -244,7 +226,7 @@ export function lookupImageParams(
     .trim()
     .toLowerCase()
     .replace(/:free$/, "");
-  const air = MODEL_NAME_TO_AIR[bare];
+  const air = index.modelAirs[bare];
   if (air && index.byAir[air]) return index.byAir[air];
   if (!series) return undefined;
   const key = series.trim().toLowerCase();

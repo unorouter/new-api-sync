@@ -16,7 +16,7 @@ import {
 // endpoint for the ephone PROVIDER (pricing); this source reuses the same shape
 // as a METADATA fallback for the whole catalog (fills gaps openrouter/basellm
 // leave, e.g. Chinese-vendor video/audio + fresh flagships ePhone catalogs early).
-const EPHONE_PRICING_URL = "https://api.ephone.ai/api/pricing";
+// The URL is config `pricingSources.modelInfoUrl`.
 
 interface EphoneModelInfo {
   model_name?: string;
@@ -70,8 +70,11 @@ function toMetadata(m: EphoneModelInfo): SourceMetadata {
   return md;
 }
 
-export async function fetchEphoneMetadataSource(): Promise<PricingSource | null> {
-  const raw = await tryFetchJson<EphonePricingResponse>(EPHONE_PRICING_URL, {
+export async function fetchEphoneMetadataSource(
+  url: string | undefined,
+): Promise<PricingSource | null> {
+  if (!url) return null;
+  const raw = await tryFetchJson<EphonePricingResponse>(url, {
     timeoutMs: 20_000,
   }).catch(() => null);
   const list = raw?.data?.model_info;

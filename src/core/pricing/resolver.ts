@@ -1,7 +1,12 @@
 import { toBareName } from "@core/catalog/bare-name";
 import { inferModelType } from "@core/catalog/constants/inference";
 import { type BasellmEntry, lookup } from "@core/catalog/metadata";
+import type { RuntimeConfig } from "@core/config";
 import type { ModelType } from "@core/types";
+import type {
+  MetadataOverride,
+  PricingSourcesConfig,
+} from "@core/validations/config";
 import { t } from "@server/i18n";
 import { fetchAipricingSource } from "./sources/aipricing";
 import { buildBasellmCanonicalSource } from "./sources/basellm";
@@ -32,17 +37,24 @@ import type {
 // zone until its own line executes, so loading into it from a call higher in the
 // file leaves the value reset to null.
 let runwareSchemas: RunwareSchemaIndex | null = null;
+let metadataOverrides: Record<string, MetadataOverride> = {};
 
-async function loadRunwareSchemas(): Promise<void> {
-  runwareSchemas = await fetchRunwareSchemas();
+async function loadRunwareSchemas(cfg: PricingSourcesConfig): Promise<void> {
+  runwareSchemas = await fetchRunwareSchemas(
+    cfg.imageSchemaSlugs ?? [],
+    cfg.imageModelAirs ?? {},
+  );
 }
 
 export async function fetchAllPricingSources(
   basellmEntries: BasellmEntry[],
+  config: Pick<RuntimeConfig, "pricingSources" | "metadataOverrides">,
 ): Promise<PricingSource[]> {
+  const cfg = config.pricingSources ?? {};
   // Loaded alongside the sources so both sync entry points get it without either
   // having to remember; image capability flags are resolved from it downstream.
-  const runwareLoad = loadRunwareSchemas();
+  metadataOverrides = config.metadataOverrides ?? {};
+  const runwareLoad = loadRunwareSchemas(cfg);
   const [
     llmPrices,
     litellm,
@@ -55,10 +67,10 @@ export async function fetchAllPricingSources(
     fetchLlmPricesSource(),
     fetchLiteLLMSource(),
     fetchOpenRouterPricingSource(),
-    fetchModelsDevSource(),
+    fetchModelsDevSource(cfg.modelsDevFirstParty ?? []),
     fetchAipricingSource(),
     fetchGenaiPricesSource(),
-    fetchEphoneMetadataSource(),
+    fetchEphoneMetadataSource(cfg.modelInfoUrl),
   ]);
   const basellm = buildBasellmCanonicalSource(basellmEntries);
   await runwareLoad;
@@ -84,11 +96,11 @@ export async function fetchAllPricingSources(
     modelsDev,
     aipricing,
     genaiPrices,
-    // ePhone metadata (description/release/cutoff/context/tags) fills gaps the
+    // model_info metadata (description/release/cutoff/context/tags) fills gaps the
     // pricing-focused live sources leave blank, esp. Chinese-vendor video/audio
     // + fresh flagships. Array order = priority (earlier wins via the reverse
-    // Object.assign in resolveOneName), so ePhone outranks curated: ePhone ships
-    // real catalog dates for models curated only hand-guessed.
+    // Object.assign in resolveOneName), so it outranks curated: it ships real
+    // catalog dates for models curated only hand-guessed.
     ephone,
     // last = lowest priority: only fills gaps every other source left blank
     buildCuratedSource(),
@@ -241,6 +253,8 @@ function resolveOneName(
   // Corrections that win over every live source (verified known-wrong upstreams).
   const override = CURATED_OVERRIDE[modelName];
   if (override) Object.assign(merged, override);
+  const configured = metadataOverrides[modelName];
+  if (configured) Object.assign(merged, configured);
   // Sort key derived once here rather than by every consumer: releaseDate stays
   // the human-readable ISO string the model pages render, releaseTs is the epoch
   // the catalog sorts on. Always emitted, 0 when the model has no release date,
@@ -383,8 +397,10 @@ export function buildModelMetadata(opts: {
   const type: ModelType = mode.startsWith("audio")
     ? "audio"
     : (opts.modelType ?? inferModelType(opts.modelName));
+  const bareName = toBareName(opts.modelName);
   const curatedOutputs =
-    CURATED_OVERRIDE[toBareName(opts.modelName)]?.outputModalities;
+    metadataOverrides[bareName]?.outputModalities ??
+    CURATED_OVERRIDE[bareName]?.outputModalities;
   const existing = merged.outputModalities;
   const published = Array.isArray(existing) ? existing : [];
   const textOnly = published.length === 1 && published[0] === "text";

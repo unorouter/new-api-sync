@@ -760,7 +760,7 @@ export async function runMetadataSync(
     target.listVendors(),
     target.listChannels(),
   ]);
-  const sources = await fetchAllPricingSources(basellmEntries);
+  const sources = await fetchAllPricingSources(basellmEntries, config);
   const reverseMapping = buildReverseMapping(config.modelMapping);
   const vendorIdCache = new Map<string, number | undefined>();
 

@@ -290,6 +290,22 @@ export type TypeSafeProviderConfig = Static<typeof TypeSafeProviderSchema>;
 export type AnyProviderConfig = ProviderConfig | A7ProviderConfig | IhProviderConfig | SiProviderConfig | NvidiaProviderConfig | OpenRouterProviderConfig | OpenAICompatibleProviderConfig | ComfyUiProviderConfig | AIHordeProviderConfig | RunwareProviderConfig | TypeSafeProviderConfig;
 export type EnabledModelEntry = Static<typeof EnabledModelEntrySchema>;
 
+// Pricing and metadata catalogs read on every sync, beside the built-in public ones.
+const PricingSourcesSchema = T.Object({
+  // A VoAPI-style /api/pricing whose data.model_info fills metadata gaps (absent: off).
+  modelInfoUrl: Opt(uri),
+  // models.dev provider keys whose own quote wins over the median, in order (absent: median only).
+  modelsDevFirstParty: Opt(T.Array(str)),
+  // Runware doc slugs of hosted image models whose parameter schema is fetched.
+  imageSchemaSlugs: Opt(T.Array(str)),
+  // Published image model name to the AIR id its fetched schema is keyed by.
+  imageModelAirs: Opt(T.Record(str, str)),
+});
+// prettier-ignore
+const MetadataOverrideSchema = T.Object({ releaseDate: Opt(str), knowledgeCutoff: Opt(str), contextWindow: Opt(T.Integer({ minimum: 1 })), maxInputTokens: Opt(T.Integer({ minimum: 1 })), maxOutputTokens: Opt(T.Integer({ minimum: 1 })), mode: Opt(str), series: Opt(str), description: Opt(str), isReasoning: Opt(T.Boolean()), supportsTools: Opt(T.Boolean()), supportsVision: Opt(T.Boolean()), inputModalities: Opt(T.Array(str)), outputModalities: Opt(T.Array(str)) });
+export type PricingSourcesConfig = Static<typeof PricingSourcesSchema>;
+export type MetadataOverride = Static<typeof MetadataOverrideSchema>;
+
 const LocaleEnum = T.Union([T.Literal("en"), T.Literal("zh")]);
 // prettier-ignore
 const ThemeEnum = T.Union([T.Literal("light"), T.Literal("dark"), T.Literal("system")]);
@@ -436,6 +452,10 @@ export const ConfigSchema = T.Object({
     }),
   ),
   modelMapping: Opt(T.Record(T.String(), T.String())),
+  pricingSources: Opt(PricingSourcesSchema),
+  // Model metadata (keyed by bare name) that wins over every source, for figures
+  // measured through one lane rather than the vendor's card.
+  metadataOverrides: Opt(T.Record(str, MetadataOverrideSchema)),
   // Anthropic-vendor models (globs) that also publish a "[1m]" alias on their channel;
   // the alias appends `values` to request header `header` to route the long context.
   // prettier-ignore

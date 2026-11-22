@@ -11,22 +11,6 @@ import {
 
 const MODELS_DEV_URL = "https://models.dev/api.json";
 
-// First-party vendor catalogs win over reseller/region-list quotes when a
-// model appears in them: a vendor's own entry is the authoritative list price.
-// "zhipuai" is Zhipu's CNY open-platform list (inflated vs international); it is
-// deliberately NOT preferred so glm-* clusters on the international USD price.
-const FIRST_PARTY_PRIORITY = [
-  "zai",
-  "openai",
-  "anthropic",
-  "google",
-  "mistral",
-  "deepseek",
-  "xai",
-  "moonshotai",
-  "alibaba",
-] as const;
-
 interface ModelsDevCost {
   input?: number;
   output?: number;
@@ -61,14 +45,16 @@ function median(nums: number[]): number {
 }
 
 /**
- * One quote per bare model id. The vendor's own catalog (FIRST_PARTY_PRIORITY)
- * wins outright when present; otherwise the median across every provider quote
- * collapses reseller spread + region-list outliers (e.g. zhipuai $6) to a
- * single consensus price.
+ * One quote per bare model id. A first-party catalog (config, in order) wins
+ * outright when present; otherwise the median across every provider quote
+ * collapses reseller spread and region-list outliers to a single consensus price.
  */
-function pickQuote(quotes: Quote[]): Quote | undefined {
+function pickQuote(
+  quotes: Quote[],
+  firstParty: readonly string[],
+): Quote | undefined {
   if (quotes.length === 0) return undefined;
-  for (const p of FIRST_PARTY_PRIORITY) {
+  for (const p of firstParty) {
     const hit = quotes.find((q) => q.provider === p);
     if (hit) return hit;
   }
@@ -79,7 +65,9 @@ function pickQuote(quotes: Quote[]): Quote | undefined {
   return { ...closest, input: inMed };
 }
 
-export async function fetchModelsDevSource(): Promise<PricingSource | null> {
+export async function fetchModelsDevSource(
+  firstParty: readonly string[],
+): Promise<PricingSource | null> {
   const raw = await tryFetchJson<ModelsDevResponse>(MODELS_DEV_URL, {
     timeoutMs: 15_000,
   });
@@ -109,7 +97,7 @@ export async function fetchModelsDevSource(): Promise<PricingSource | null> {
 
   const pricingMap = new Map<string, BaseModelPricing>();
   for (const [model, quotes] of byModel) {
-    const q = pickQuote(quotes);
+    const q = pickQuote(quotes, firstParty);
     if (!q) continue;
     const pricing: BaseModelPricing = {
       modelRatio: usdPerTokenToRatio(q.input / 1_000_000),

@@ -151,7 +151,7 @@ Never a full `sync run` for one model. `DELETE FROM channels WHERE id IN (...)` 
   `0`/`undefined` inverts the cap.
 - 37.5 / completion 1 is new-api's "no price" pair, mapped to `undefined` by `publishedRatio`.
   Models only a non-newapi provider serves are repriced by `sync run --only <p>`, not `metadata`.
-- `CURATED_OVERRIDE` beats every source; wrong fuzzy bases (`glm-5-turbo` -> `glm-5`) go there.
+- `CURATED_OVERRIDE` (then config `metadataOverrides`, for figures measured through one lane) beats every source; wrong fuzzy bases (`glm-5-turbo` -> `glm-5`) go there.
   `fuzzyLookup` keeps its exact-match fast path (token-set scoring drops repeated digits).
 - Embeddings force `acceptRateLimited: false`. `fetchPricing` must send `ctx.headers`.
 - a7 `minSuccessRate` defaults to 0: a7's own success rate is not trusted, the live probe is the
