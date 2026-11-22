@@ -105,7 +105,10 @@ const IhProviderSchema = T.Object({ type: T.Literal("ih"), ...ProviderCommonProp
 // guard the market honours is a discount floor in the path (/min{N}), set where
 // at least minSellers trusted offers qualify; the lane is priced at that bound.
 // URLs live in config only.
-const SiProviderSchema = T.Object({ type: T.Literal("si"), ...ProviderCommonProps, apiKey: str, baseUrl: uri, providers: PoolAllowlistSchema, profitMultiple: Opt(ProfitMultipleSchema), maxSellFraction: Opt(MaxSellFractionSchema), minSellFraction: Opt(MinSellFractionSchema), minSellers: Opt(MinSellersSchema), acceptRateLimited: Opt(T.Boolean()) });
+// sellerParamStrip: seller pin to body fields deleted when a lane pins it (sellers that 400 on them).
+// floorCapPct: highest discount floor a lane may set (absent: no cap).
+// worstCaseMultiple: multiple the dearest seller a floor still admits must earn (absent: 1).
+const SiProviderSchema = T.Object({ type: T.Literal("si"), ...ProviderCommonProps, apiKey: str, baseUrl: uri, providers: PoolAllowlistSchema, profitMultiple: Opt(ProfitMultipleSchema), maxSellFraction: Opt(MaxSellFractionSchema), minSellFraction: Opt(MinSellFractionSchema), minSellers: Opt(MinSellersSchema), acceptRateLimited: Opt(T.Boolean()), sellerParamStrip: Opt(T.Record(str, T.Array(str))), floorCapPct: Opt(T.Integer({ minimum: 1, maximum: 99 })), worstCaseMultiple: Opt(T.Number({ minimum: 1 })) });
 // prettier-ignore
 const NvidiaProviderSchema = T.Object({ type: T.Literal("nvidia"), ...ProviderCommonProps, baseUrl: uri, imageBaseUrl: uri, apiKey: str, models: Opt(T.Array(str)), ratio: Opt(T.Number({ exclusiveMinimum: 0 })), acceptRateLimited: Opt(T.Boolean()) });
 // prettier-ignore

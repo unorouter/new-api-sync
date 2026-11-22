@@ -245,7 +245,9 @@ providers:
   # si: an order book over resold keys. providers allowlists seller
   # providers; a lane pins all of them, prices on the minSellers-th cheapest
   # trusted offer and sets a discount floor (/min{N}) so the dearest seller
-  # it admits still earns 2x.
+  # it admits still earns worstCaseMultiple (default 1), never above floorCapPct
+  # (default: no cap). sellerParamStrip deletes body fields a pinned seller
+  # rejects (with 400) whenever a lane pins that seller.
   # - type: si
   #   name: si
   #   apiKey: ...
@@ -255,6 +257,10 @@ providers:
   #   profitMultiple: 10
   #   minSellFraction: { other-model: 0.2 }
   #   minSellers: { other-model: 5, default: 3 }
+  #   floorCapPct: 80
+  #   worstCaseMultiple: 2
+  #   sellerParamStrip:
+  #     seller-a: [top_k, min_p]
 
 # Per-channel-name param_override additions, merged onto whatever the channel
 # already carries. These two a7 pin groups are one merchant (a7 channel 4134,

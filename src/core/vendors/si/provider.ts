@@ -43,28 +43,19 @@ import {
 // GPT model with another request's nonce), so the allowlist is per model family
 // in config and only offers the market itself marks trusted are counted.
 // The market bills whole micro-dollars, so a small request's estimated discount
-// tops out near 97%: a 97% floor refused deepseek-v3.1 with 49 sellers at 98% off
-// (2026-09-19, "best otherwise-eligible 96.9697%"). A floor is set once per sync and
-// the cheap sellers it was set on sell out in between: at 90 the market refused 2,695
-// requests a day by 2026-11-21 ("best eligible 80%"). The per-request cost floor
-// (upstreamCostMarkup) keeps the margin when a dearer seller serves.
-const FLOOR_CAP_PCT = 80;
-// A lane is priced on the expected seller; the floor only has to keep the dearest
-// seller it still admits at this multiple.
-const WORST_CASE_MULTIPLE = 2;
+// tops out near 97%, and a floor set once per sync outlives the cheap sellers it was
+// set on: floorCapPct bounds it. The per-request cost floor (upstreamCostMarkup)
+// keeps the margin when a dearer seller serves.
 const BOOK_CONCURRENCY = 3;
-// Google's sellers answer 400 "Unknown name top_k" like our own Gemini lanes, and
-// RP clients send those fields by default, so a pin reaching them strips the same set.
-const GOOGLE_SELLER_PINS = new Set(["google-ai-studio", "google-vertex"]);
-const GOOGLE_STRIP_OPERATIONS: Record<string, unknown>[] = [
-  "top_k",
-  "frequency_penalty",
-  "repetition_penalty",
-  "min_p",
-  "top_a",
-  "reasoning",
-  "logit_bias",
-].map((path) => ({ path, mode: "delete" }));
+
+/** Delete operations for every field a pinned seller rejects, in config order. */
+function sellerStripOperations(
+  strip: Record<string, string[]> | undefined,
+  pins: readonly string[],
+): Record<string, unknown>[] {
+  const fields = new Set(pins.flatMap((pin) => strip?.[pin] ?? []));
+  return [...fields].map((path) => ({ path, mode: "delete" }));
+}
 
 export function sellerPin(
   offer: BookOffer,
@@ -226,15 +217,19 @@ export async function processSiProvider(
         if (multiple === undefined) return;
         // The market caps no price; its only spend guard is a floor on the
         // discount off list. It sits where the dearest admitted seller still
-        // earns WORST_CASE_MULTIPLE, never above the expected seller's discount.
+        // earns worstCaseMultiple, never above the expected seller's discount.
+        const worstCase = provider.worstCaseMultiple ?? 1;
         const bound = Math.max(
           expected.share,
           Math.min(
-            (multiple * inputUsd) / (WORST_CASE_MULTIPLE * listInputUsd),
-            (multiple * outputUsd) / (WORST_CASE_MULTIPLE * listOutputUsd),
+            (multiple * inputUsd) / (worstCase * listInputUsd),
+            (multiple * outputUsd) / (worstCase * listOutputUsd),
           ),
         );
-        const floor = Math.min(FLOOR_CAP_PCT, Math.floor(100 * (1 - bound)));
+        const floor = Math.min(
+          provider.floorCapPct ?? 100,
+          Math.floor(100 * (1 - bound)),
+        );
         if (floor < 1) {
           consola.warn(t("CORE.SI.NO_FLOOR", { name, model: exposed }));
           return;
@@ -258,9 +253,7 @@ export async function processSiProvider(
             : `${baseUrl}/min${floor}`,
           operations: [
             { mode: "set", path: "provider", value: pins },
-            ...(pins.some((pin) => GOOGLE_SELLER_PINS.has(pin))
-              ? GOOGLE_STRIP_OPERATIONS
-              : []),
+            ...sellerStripOperations(provider.sellerParamStrip, pins),
             // Some sellers take message content only as a string and 400 the
             // text-part array clients send for prompt caching.
             ...(claude ? [] : [{ mode: "flatten_text" }]),
