@@ -167,6 +167,11 @@ Never a full `sync run` for one model. `DELETE FROM channels WHERE id IN (...)` 
 
 ## Conventions
 
+- **Provider-, merchant-, host- or model-specific behaviour lives in config.yml, never in code.** Put it in that
+  provider's own block (or a global block when it truly spans providers) and read it through the schema in
+  `src/core/validations/config.ts`. No string literal, regex or constant set naming a lane, seller, host or model
+  family that changes filtering, pricing, probing, renaming or verdicts; vendor adaptors implement protocols only.
+
 No prop/hook destructuring, no `useMemo`/`useCallback`, comments only for a non-obvious why, double
 quotes + semicolons + `bun run prettier`, `import type`, no barrel files, ASCII punctuation outside
 code and Chinese, no AI attribution in git. Strings via `t("SECTION.KEY")` with real translations in
@@ -351,11 +356,14 @@ discovery or probe (the endpoint is in `NON_TESTABLE_ENDPOINT_TYPES`), the model
 tokens (2x OpenRouter's $0.042 input, output free) and land in `ModelRatio`/`CompletionRatio`,
 never a per-call price: the gateway settles on the upstream's own token counts.
 
-Nothink lanes: a model in `authenticity.nothinkModels` (default `kimi-*`) that the reasoning probe sees
+Nothink lanes: a model in `authenticity.nothinkModels` (default `kimi-*`) or in a provider block's own `nothinkModels` that the reasoning probe sees
 answer without any reasoning, plainly and when asked, keeps serving under `<name>-nothink`. The flag reads the
 cached reasoning measurement, so an unmeasured probe never flips the name. A lane gaining or losing the suffix
 is renamed in place (`planNothinkRenames`, the same path as splice renames): channel id kept, group options moved
-in two phases, and every user's token pins moved through the gateway's sync route `PUT /api/token/group-rename`.
+in two phases, and every user's token pins moved through the gateway's sync route `PUT /api/token/group-rename`. A provider block's
+`selfReferenceAllowed` (model glob to names) lets a lane's reasoning call itself one of those names without failing
+`foreign-self-reference`, for models trained on another maker's outputs; every quote the rule found must name an
+allowed one.
 
 A stream probe that reaches EOF after an OpenAI `finish_reason` passes without `data: [DONE]`:
 some upstreams omit the sentinel and the gateway ends those streams normally.

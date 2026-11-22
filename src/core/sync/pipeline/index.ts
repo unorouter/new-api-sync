@@ -18,8 +18,15 @@ import { emitChannels } from "@core/pricing/emit";
 import type { LaneMargin } from "@core/pricing/index";
 import { fetchAllPricingSources } from "@core/pricing/resolver";
 import { ConcurrencyGate, setConcurrencyGate } from "@core/infra/concurrency";
-import { setAuthenticityObserveOnly } from "@core/testing/authenticity";
-import { setProbeOverrides, setReasoningRequired } from "@core/testing/runner";
+import {
+  setAuthenticityObserveOnly,
+  setSelfReferenceAllowed,
+} from "@core/testing/authenticity";
+import {
+  setProbeOverrides,
+  setProviderNothink,
+  setReasoningRequired,
+} from "@core/testing/runner";
 import { setAnswerFingerprintOptions } from "@core/testing/answer-fingerprints";
 import { setAuthenticityPassTtlByHost } from "@core/testing/verdict-cache";
 import type {
@@ -235,6 +242,20 @@ async function buildDesiredState(
   );
   setAuthenticityPassTtlByHost(authenticityTtlOverrides);
   setAuthenticityObserveOnly(config.authenticity?.observeOnly);
+  setSelfReferenceAllowed(
+    Object.fromEntries(
+      config.providers.flatMap((p) =>
+        p.selfReferenceAllowed ? [[p.name, p.selfReferenceAllowed]] : [],
+      ),
+    ),
+  );
+  setProviderNothink(
+    Object.fromEntries(
+      config.providers.flatMap((p) =>
+        p.nothinkModels ? [[p.name, p.nothinkModels]] : [],
+      ),
+    ),
+  );
   setReasoningRequired(
     config.authenticity?.requireReasoning,
     config.authenticity?.reasoningWhitelist,

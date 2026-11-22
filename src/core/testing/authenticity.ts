@@ -7,6 +7,7 @@
  * in config.yml promotes a maker by naming fewer rules, `[]` for none.
  */
 
+import { matchesAnyPattern } from "@core/catalog/constants/patterns";
 import { paceUpstreamRequest } from "@core/infra/concurrency";
 import { fetchSameHost } from "@core/infra/http";
 import { t } from "@server/i18n";
@@ -130,6 +131,38 @@ function observedFor(maker: MakerId | null): ReadonlySet<string> {
     (maker ? observeOnlyByMaker[maker] : undefined) ?? observeOnlyByMaker["*"];
   if (cfg) return new Set(cfg);
   return new Set(maker === "anthropic" ? [] : LADDER);
+}
+
+let selfReferenceNames: Record<string, Record<string, readonly string[]>> = {};
+
+/** Each provider block's own `selfReferenceAllowed` (model glob to names), keyed by provider name. */
+export function setSelfReferenceAllowed(
+  cfg?: Record<string, Record<string, readonly string[]>>,
+): void {
+  selfReferenceNames = cfg ?? {};
+}
+
+// Every quote the rule found must name one of the allowed names, so an allowed
+// "I am Claude" never covers an "I am Kimi" in the same run.
+function selfReferenceAllowed(
+  logKey: string,
+  model: string,
+  f: Finding,
+): boolean {
+  if (f.rule !== "foreign-self-reference") return false;
+  const provider = (logKey.split("|")[0] ?? "").split(/[:/]/)[0] ?? "";
+  const bare = (model.split("/").pop() ?? model).toLowerCase();
+  const hits = Reflect.get(Object(f.data), "hits");
+  const quotes = Array.isArray(hits)
+    ? hits.map((h) =>
+        String(Reflect.get(Object(h), "quote") ?? "").toLowerCase(),
+      )
+    : [f.reason.toLowerCase()];
+  return Object.entries(selfReferenceNames[provider] ?? {}).some(
+    ([glob, names]) =>
+      matchesAnyPattern(bare, [glob]) &&
+      quotes.every((q) => names.some((n) => q.includes(n.toLowerCase()))),
+  );
 }
 
 type ReplyMeta = { requestId?: string; replyCost?: number };
@@ -387,7 +420,10 @@ export async function runAuthenticity(
 
   const observed = observedFor(opts.maker);
   const decisive: Finding | undefined = run.findings.find(
-    (f) => f.severity !== "note" && !observed.has(f.rule),
+    (f) =>
+      f.severity !== "note" &&
+      !observed.has(f.rule) &&
+      !selfReferenceAllowed(opts.logKey, opts.model, f),
   );
   observe(opts, run, observed, decisive);
   for (const f of run.findings.filter((f) => f.severity === "note"))

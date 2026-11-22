@@ -60,8 +60,15 @@ import {
   saveVerdictCache,
 } from "@core/testing/verdict-cache";
 import { reverifyLiveLanes } from "@core/vendors/a7/reverify";
-import { setAuthenticityObserveOnly } from "@core/testing/authenticity";
-import { setProbeOverrides, setReasoningRequired } from "@core/testing/runner";
+import {
+  setAuthenticityObserveOnly,
+  setSelfReferenceAllowed,
+} from "@core/testing/authenticity";
+import {
+  setProbeOverrides,
+  setProviderNothink,
+  setReasoningRequired,
+} from "@core/testing/runner";
 import {
   judgeAndPushAnswerFingerprints,
   loadAnswerFingerprints,
@@ -1033,6 +1040,20 @@ async function reverifyLanes(
     a7Providers.map((p) => p.name),
   );
   setAuthenticityObserveOnly(config.authenticity?.observeOnly);
+  setSelfReferenceAllowed(
+    Object.fromEntries(
+      config.providers.flatMap((p) =>
+        p.selfReferenceAllowed ? [[p.name, p.selfReferenceAllowed]] : [],
+      ),
+    ),
+  );
+  setProviderNothink(
+    Object.fromEntries(
+      config.providers.flatMap((p) =>
+        p.nothinkModels ? [[p.name, p.nothinkModels]] : [],
+      ),
+    ),
+  );
   setReasoningRequired(
     config.authenticity?.requireReasoning,
     config.authenticity?.reasoningWhitelist,

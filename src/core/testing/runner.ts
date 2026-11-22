@@ -262,6 +262,13 @@ let reasoningWhitelist: string[] = [];
 
 let nothinkModels: string[] = ["kimi-*"];
 
+let providerNothink: Record<string, string[]> = {};
+
+/** Each provider block's own `nothinkModels`, keyed by provider name. */
+export function setProviderNothink(cfg?: Record<string, string[]>): void {
+  providerNothink = cfg ?? {};
+}
+
 export function setReasoningRequired(
   cfg?: Record<string, string[]>,
   whitelist?: string[],
@@ -669,8 +676,12 @@ async function testModels(opts: {
         // probe (a 429) must not rename the lane back and break pins.
         const withNoThink = (detail: ModelTestDetail): ModelTestDetail => {
           const known = getVerdict(blacklistKey)?.reasoning;
+          const provider = prefix.split(/[:/]/)[0] ?? "";
           const noThink =
-            matchesAnyPattern(bareModel, nothinkModels) &&
+            matchesAnyPattern(bareModel, [
+              ...nothinkModels,
+              ...(providerNothink[provider] ?? []),
+            ]) &&
             known !== undefined &&
             !known.visible &&
             known.withEffort === false;
