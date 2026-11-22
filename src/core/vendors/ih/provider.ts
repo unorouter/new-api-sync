@@ -221,7 +221,7 @@ export async function processIhProvider(
       );
       if ((kept.get(lane.exposed) ?? 0) >= cap) continue;
       const probe = await testAndFilterModels({
-        usageTruth: true,
+        usageTruth: provider.usageTruth ?? false,
         allModels: [lane.upstream],
         baseUrl,
         apiKey: provider.apiKey,

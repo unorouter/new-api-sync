@@ -386,7 +386,9 @@ export async function processOpenAICompatibleFreeProvider(
         skipAuthenticity: providerConfig.skipAuthenticity ?? false,
         // Resellers bill like the marketplaces, so a hidden injected prompt or a
         // fanned-out request shows up the same way.
-        usageTruth: (providerConfig.paidModels?.length ?? 0) > 0,
+        usageTruth:
+          providerConfig.usageTruth ??
+          (providerConfig.paidModels?.length ?? 0) > 0,
         capabilities: buildCapabilityMap(models, mapExposed, ctx),
         ...(providerConfig.probeBody
           ? { extraBody: providerConfig.probeBody }

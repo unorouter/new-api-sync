@@ -24,7 +24,7 @@ bun sync catalog [--only p1,p2] [--models "<glob>"] [--out f] [--json]   # every
 skips `probeOutputCap`), channels and the six price/group options from the target, no probe, token, key,
 verdict, store or lock. One row per provider, upstream group and model with the published name the run
 would emit, upstream price (relay numbers as labelled), config state (filtered rows stay, with the reason),
-our channels and sell price, and the cheapest live lane of another provider. a7, ih and si are listed only
+our channels and sell price, and the cheapest live lane of another provider. Providers with `catalogOnlyWithModels` are listed only
 with `--models`; comfyui, aihorde, runware and typesafe come from config.
 
 Lane grader (`src/core/quality/`, config `laneGrader`, needs `targetDb`): `bun sync grade`, run every 15
@@ -47,7 +47,7 @@ needs only `inflationMinRequests` (3) and one user: median output speed at least
 `inflationSpeedMultiple` (5x) the model's other lanes and at least 300 tok/s, together with billed
 input at least 3x its cached tokens or 2.5x the peers' average input (a merchant running one
 request several times bills the sum; speed alone is just a fast host). A padding rule does the same for output: the gateway logs the bytes a stream really carried (`admin_info.streamed_output_bytes`, OpenAI streams with upstream usage), and a lane where at least 3 replies and 20% of its measured ones bill more than twice those bytes plus 200 tokens, at four times its peers' share, is padded (a7 6714 billed 1,388 tokens for a 300 byte notice). Both rules act even under `dryRun` (`inflationLive`, default true): billed counts no model can produce are fraud, not a quality call. Marketplace probes
-(`usageTruth`, a7, ih and si) back it up once a week per lane (`usageCheckedAt` in the verdict
+(provider flag `usageTruth`, set on a7, ih and si) back it up once a week per lane (`usageCheckedAt` in the verdict
 cache, `testing/usage-truth.ts`): 1, 2 and 80 copies of a fixed paragraph, and the long prompt must
 bill about the short count plus 79 per paragraph deltas; 1.5x over and 1000 tokens over is an
 authenticity fail. Every short probe passed on the two merchants it was built for.
@@ -138,8 +138,8 @@ Never a full `sync run` for one model. `DELETE FROM channels WHERE id IN (...)` 
   globbable per model; a higher price (a per-model override) is kept. Above list the lane is
   dropped (`below-min-margin`) unless `marginAboveList`; below it the price is capped at list.
   An unknown cost drops the lane (`no-cost-factor`). A provider without `costFactor` is
-  unfloored until the global `requireCostFactor` is on. a7, ih and si are exempt
-  (`profitMultiple`).
+  unfloored until the global `requireCostFactor` is on. Providers with `marginExempt` are exempt
+  (a7, ih and si: `profitMultiple`).
 - Fixed-price models: `cost = groupRatio * (relayModelPrice / sticker)` per lane; a flat base sold
   image models below cost. Relay prices are yuan labelled USD.
 - `ConcurrencyGate.run` takes the per-upstream limit outside the global one. `throwIfRunAborted()`

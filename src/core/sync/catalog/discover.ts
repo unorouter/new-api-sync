@@ -96,7 +96,6 @@ const DECLARATIVE_TYPES: ReadonlySet<string> = new Set([
   "runware",
   "typesafe",
 ]);
-const MARKETPLACE_TYPES: ReadonlySet<string> = new Set(["a7", "ih", "si"]);
 
 function stateLabel(state: ConfigState): string {
   return state.kind === "blacklisted"
@@ -631,7 +630,7 @@ export async function discoverCatalog(
       }));
     return out;
   }
-  if (MARKETPLACE_TYPES.has(pc.type) && !config.modelFilter?.length) {
+  if (pc.catalogOnlyWithModels && !config.modelFilter?.length) {
     out.note = "marketplace_skipped";
     return out;
   }

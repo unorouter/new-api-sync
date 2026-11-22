@@ -192,6 +192,18 @@ providers:
   # - type: a7
   #   name: a7
   #   authenticityPassTtlHours: 4
+  # Marketplace flags, set per provider (all off by default): usageTruth runs the
+  # weekly usage-truth probe (1, 2 and 80 copies of a paragraph) on its lanes;
+  # marginExempt skips the costFactor margin floor for lanes already priced at
+  # profitMultiple of real cost; realizedPricing reprices live lanes from what the
+  # market really billed (targetDb); catalogOnlyWithModels lists the provider in
+  # `sync catalog` only with --models; fingerprintSource: market judges its answer
+  # fingerprints and never trusts them as a reference profile.
+  #   usageTruth: true
+  #   marginExempt: true
+  #   realizedPricing: true
+  #   catalogOnlyWithModels: true
+  #   fingerprintSource: market
   # Every text lane runs the authenticity ladder, judged against the model's maker.
   # Only anthropic's findings reject a lane; every other maker is observed (the
   # finding is logged to logs/observe-<date>.jsonl, the lane passes) until the log

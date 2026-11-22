@@ -200,7 +200,9 @@ async function buildDesiredState(
     number | Record<string, number>
   >();
   const marginByProvider = new Map<string, LaneMargin>();
+  const marginExemptProviders = new Set<string>();
   for (const p of config.providers) {
+    if (p.marginExempt) marginExemptProviders.add(p.name);
     if ("baseUrl" in p && p.baseUrl && p.perUpstreamConcurrency)
       overrides.set(p.baseUrl, p.perUpstreamConcurrency);
     else if (p.type === "a7" && p.baseUrl)
@@ -316,6 +318,7 @@ async function buildDesiredState(
     channelLimitsByProvider,
     upstreamCostMarkupByProvider,
     marginByProvider,
+    marginExemptProviders,
     requireCostFactor: config.requireCostFactor,
     autoTestIntervalMaxByProvider,
     headerOverrideByProvider,

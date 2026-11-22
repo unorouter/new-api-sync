@@ -67,6 +67,8 @@ interface ComputeArgs {
   >;
   upstreamCostMarkupByProvider?: Map<string, number | Record<string, number>>;
   marginByProvider?: Map<string, LaneMargin>;
+  /** Providers whose lanes already sell at profitMultiple of the real cost. */
+  marginExemptProviders?: Set<string>;
   /** Without it a provider that has no costFactor keeps its old pricing. */
   requireCostFactor?: boolean;
   headerOverrideByProvider?: Map<string, string>;
@@ -74,10 +76,6 @@ interface ComputeArgs {
 }
 
 const PAID_GROUP_RATIO_CANDIDATES = [1, 0.5, 0.25, 0.1, 0.05, 0.01] as const;
-
-// Marketplace lanes already sell at profitMultiple (>= MIN_MARGIN) of the real
-// market cost, which the gateway also enforces per request.
-const MARGIN_EXEMPT_KINDS = new Set(["a7", "ih", "si"]);
 
 type MarginVerdict =
   | { ratio: number }
@@ -96,7 +94,7 @@ function enforceMargin(
   capExempt: boolean,
   args: ComputeArgs,
 ): MarginVerdict {
-  if (MARGIN_EXEMPT_KINDS.has(offer.providerKind)) return { ratio };
+  if (args.marginExemptProviders?.has(offer.provider)) return { ratio };
   const margin = args.marginByProvider?.get(offer.provider);
   if (margin?.costFactor === undefined && !args.requireCostFactor)
     return { ratio };

@@ -51,11 +51,11 @@ type MarketplaceProvider = {
 function marketplaceProviders(config: RuntimeConfig): MarketplaceProvider[] {
   const out: MarketplaceProvider[] = [];
   for (const p of config.providers)
-    if (p.type === "si" || p.type === "ih")
+    if (p.realizedPricing)
       out.push({
         name: p.name,
         type: p.type,
-        profitMultiple: p.profitMultiple,
+        profitMultiple: "profitMultiple" in p ? p.profitMultiple : undefined,
       });
   return out;
 }
