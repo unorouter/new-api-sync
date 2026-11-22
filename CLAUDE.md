@@ -181,7 +181,7 @@ Release: bump `version`, merge to `main`, `release.yml` builds. Never ship binar
 
 ## Gotchas
 
-- `scripts/`, `reference/`, `config*.yml` gitignored. Builtin blacklist merges additively.
+- `scripts/`, `reference/`, `config*.yml` gitignored.
 - Option maps have no lock: write only while no sync Job is active, via
   `OptionStore.load` / `setEntries` / `flush`, never `client.updateOption`.
 - Vanilla new-api is detected by a 404 on `PUT /api/token/guest-model-limits`
@@ -356,7 +356,7 @@ discovery or probe (the endpoint is in `NON_TESTABLE_ENDPOINT_TYPES`), the model
 tokens (2x OpenRouter's $0.042 input, output free) and land in `ModelRatio`/`CompletionRatio`,
 never a per-call price: the gateway settles on the upstream's own token counts.
 
-Nothink lanes: a model in `authenticity.nothinkModels` (default `kimi-*`) or in a provider block's own `nothinkModels` that the reasoning probe sees
+Nothink lanes: a model in `authenticity.nothinkModels` or in a provider block's own `nothinkModels` that the reasoning probe sees
 answer without any reasoning, plainly and when asked, keeps serving under `<name>-nothink`. The flag reads the
 cached reasoning measurement, so an unmeasured probe never flips the name. A lane gaining or losing the suffix
 is renamed in place (`planNothinkRenames`, the same path as splice renames): channel id kept, group options moved

@@ -260,7 +260,7 @@ let reasoningRequired: Record<string, string[]> = {};
 /** From config.yml `authenticity.requireReasoning`. */
 let reasoningWhitelist: string[] = [];
 
-let nothinkModels: string[] = ["kimi-*"];
+let nothinkModels: string[] = [];
 
 let providerNothink: Record<string, string[]> = {};
 
@@ -276,7 +276,7 @@ export function setReasoningRequired(
 ): void {
   reasoningRequired = cfg ?? {};
   reasoningWhitelist = whitelist ?? [];
-  nothinkModels = nothink ?? ["kimi-*"];
+  nothinkModels = nothink ?? [];
 }
 
 // prefix is the lane label (a7:2846, si, relay/group/vendor); an entry names it as

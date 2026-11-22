@@ -842,14 +842,22 @@ export async function runMetadataSync(
     if (!vendorByChannel.has(name))
       vendorByChannel.set(name, inferVendorFromModelName(name) ?? "typesafe");
 
+  const publishedBase = new Map(
+    config.providers.flatMap((p) =>
+      Object.entries(p.publishAs ?? {}).map(([base, published]) => [
+        published,
+        base,
+      ]),
+    ),
+  );
   for (const name of names) {
     // `{model}:free` published names have no `:free` key in the pricing sources;
     // fall back to the bare base so the alias inherits the real metadata.
     const modelType = imageChannelModels.has(name)
       ? "image"
       : inferModelType(name);
-    // A provider split off the shared name (publishAs or-<model>) is the same model.
-    const lookupName = name.startsWith("or-") ? name.slice("or-".length) : name;
+    // A provider split off the shared name (its publishAs) is the same model.
+    const lookupName = publishedBase.get(name) ?? name;
     const merged =
       buildModelMetadata({
         modelName: lookupName,
