@@ -506,7 +506,13 @@ export async function gradeLanes(
 
   await recordDecisions(store, decisions);
   await saveLedger(store, ledger);
-  await writeDailyRollupIfDue(config.targetDb.url, channels, ledger, store);
+  await writeDailyRollupIfDue(
+    config.targetDb.url,
+    channels,
+    ledger,
+    store,
+    new Map(config.providers.map((p) => [p.name, p.type])),
+  );
   consola.info(
     t("CORE.LANE_GRADER.SUMMARY", {
       ...result,

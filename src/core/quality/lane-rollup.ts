@@ -25,20 +25,29 @@ const rollupPath = (day: string) =>
 const rollupObject = (day: string) => `lane-stats/${day}.jsonl`;
 
 // a7-<supplier>-<merchant>-<model>, si-<model>, ih-<pool>-<model>; the observe
-// keys are a7:<merchant>|<model>, si|<model>, ih|<pool>/<model>.
-export function laneKeyOf(ch: Channel): string | null {
+// keys are a7:<merchant>|<model>, si|<model>, ih|<pool>/<model>. The tag is the
+// provider name and its adaptor type picks the shape.
+export function laneKeyOf(
+  ch: Channel,
+  typeOf: ReadonlyMap<string, string>,
+): string | null {
   const model = ch.models.split(",")[0]?.trim() ?? "";
-  if (ch.tag === "a7") {
+  const tag = ch.tag ?? "";
+  const type = typeOf.get(tag);
+  if (type === "a7") {
     const prefix = ch.name.endsWith(`-${model}`)
       ? ch.name.slice(0, -(model.length + 1))
       : ch.name;
     const m = /-(\d{2,6})$/.exec(prefix);
-    return m ? `a7:${m[1]}|${model}` : null;
+    return m ? `${tag}:${m[1]}|${model}` : null;
   }
-  if (ch.tag === "si") return `si|${model}`;
-  if (ch.tag === "ih") {
-    const m = /^ih-([^-]+)-/.exec(ch.name);
-    return m ? `ih|${m[1]}/${model}` : null;
+  if (type === "si") return `${tag}|${model}`;
+  if (type === "ih") {
+    const rest = ch.name.startsWith(`${tag}-`)
+      ? ch.name.slice(tag.length + 1)
+      : "";
+    const dash = rest.indexOf("-");
+    return dash > 0 ? `${tag}|${rest.slice(0, dash)}/${model}` : null;
   }
   return `${ch.tag ?? ch.name}|${model}`;
 }
@@ -48,6 +57,7 @@ export function rollupRows(
   stats: readonly LaneStat[],
   channels: readonly Channel[],
   ledger: QuarantineLedger,
+  typeOf: ReadonlyMap<string, string>,
 ): RollupRow[] {
   const byId = new Map(channels.map((c) => [c.id, c]));
   const out = new Set(ledger.active.map((e) => e.channelId));
@@ -59,7 +69,7 @@ export function rollupRows(
       name: ch?.name ?? null,
       provider: ch?.tag ?? null,
       status: ch?.status ?? null,
-      laneKey: ch ? laneKeyOf(ch) : null,
+      laneKey: ch ? laneKeyOf(ch, typeOf) : null,
       quarantined: out.has(s.channelId),
     };
   });
@@ -71,13 +81,14 @@ export async function writeDailyRollupIfDue(
   channels: readonly Channel[],
   ledger: QuarantineLedger,
   store: VerdictStore | null,
+  typeOf: ReadonlyMap<string, string>,
 ): Promise<void> {
   const todayStart = Math.floor(Date.now() / 1000 / DAY_S) * DAY_S;
   const day = new Date((todayStart - DAY_S) * 1000).toISOString().slice(0, 10);
   if (existsSync(rollupPath(day))) return;
   if (store && (await store.readText(rollupObject(day))) !== null) return;
   const stats = await fetchLaneStats(url, todayStart - DAY_S, todayStart);
-  const rows = rollupRows(day, stats, channels, ledger);
+  const rows = rollupRows(day, stats, channels, ledger, typeOf);
   const body = rows.map((r) => JSON.stringify(r)).join("\n") + "\n";
   mkdirSync(join(logsDir(), "lane-stats"), { recursive: true });
   writeFileSync(rollupPath(day), body);
