@@ -4523,6 +4523,8 @@ const CURATED: Record<string, SourceMetadata> = {
   "mindshub-air": {
     description:
       "MindsHub Air is a moving alias on MindsHub Inference (MindsDB) that tracks the newest release of an OpenAI hosted model, which MindsHub does not name. It reasons on every request with effort levels none, low and medium, and serves the free tier allowance.",
+    // MindsHub publishes no date for the alias; this is when it went live here.
+    releaseDate: iso("2026-11-08"),
     contextWindow: 1050000,
     inputModalities: ["text", "image"],
     outputModalities: ["text"],
