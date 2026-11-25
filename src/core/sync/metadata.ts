@@ -858,7 +858,16 @@ export async function runMetadataSync(
       ? "image"
       : inferModelType(name);
     // A provider split off the shared name (its publishAs) is the same model.
-    const lookupName = publishedBase.get(name) ?? name;
+    // publishAs also renames raw upstream ids to plain names; only a name the
+    // sources do not know (a split like `or-x`) falls back to the id it came from.
+    const aliasBase = publishedBase.get(name);
+    const lookupName =
+      aliasBase &&
+      !Object.keys(resolveSourceMetadata(name, sources, reverseMapping)).some(
+        (k) => k !== "description",
+      )
+        ? aliasBase
+        : name;
     const baseStored =
       lookupName !== name
         ? parseJsonObject(existingByName.get(lookupName)?.metadata)

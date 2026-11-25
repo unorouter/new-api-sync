@@ -129,6 +129,21 @@ export function buildDesiredModels(opts: {
   publishAliasBase: Map<string, string>;
 }): Map<string, DesiredModelSpec> {
   const models = new Map<string, DesiredModelSpec>();
+  // publishAs also renames raw upstream ids to plain names (`glm-5.3-flash (free)`
+  // to `glm-5.3-flash`); the sources know the published name, so only a name they
+  // do not know (a split like `or-x`) falls back to the id it came from.
+  const metadataName = (modelName: string): string => {
+    const base = opts.publishAliasBase.get(toBareName(modelName));
+    if (!base) return modelName;
+    const known = resolveSourceMetadata(
+      modelName,
+      opts.pricingSources,
+      opts.reverseMapping,
+    );
+    return Object.keys(known).some((k) => k !== "description")
+      ? modelName
+      : base;
+  };
 
   const channelModelUpstream = buildChannelModelUpstream(opts.channels);
   const aiHordeModels = buildAiHordeModels(opts.channels);
@@ -239,7 +254,7 @@ export function buildDesiredModels(opts: {
     // ePhone (and other pricing sources) carry full descriptions; OpenRouter's is
     // often truncated. Take the fuller/non-truncated of the two.
     const sourceDescription = resolveSourceMetadata(
-      aliasBase ?? modelName,
+      metadataName(modelName),
       opts.pricingSources,
       opts.reverseMapping,
     ).description;
@@ -277,7 +292,7 @@ export function buildDesiredModels(opts: {
     const prefix = isTaskModel ? `${typeTag},Task` : typeTag;
     const sourceTags = deriveTagsFromMetadata(
       resolveSourceMetadata(
-        opts.publishAliasBase.get(toBareName(modelName)) ?? modelName,
+        metadataName(modelName),
         opts.pricingSources,
         opts.reverseMapping,
       ),
@@ -299,19 +314,20 @@ export function buildDesiredModels(opts: {
 
   for (const [modelName, spec] of models) {
     const upstream = channelModelUpstream.get(modelName) ?? modelName;
-    const aliasBase = opts.publishAliasBase.get(toBareName(modelName));
-    // No source knows a split name or a new base id, but the base row already
-    // carries the metadata the base resolved to.
-    const baseStored = aliasBase
-      ? opts.snapshotMetadata.get(aliasBase)
-      : undefined;
+    const lookupName = metadataName(modelName);
+    // No source knows a split name like `or-x`, but the base row already carries
+    // the metadata the base resolved to.
+    const baseStored =
+      lookupName !== modelName
+        ? opts.snapshotMetadata.get(lookupName)
+        : undefined;
     const configured =
       opts.metadataByUpstream[upstream] ?? opts.metadataByUpstream[modelName];
     const override =
       baseStored || configured ? { ...baseStored, ...configured } : undefined;
     const merged =
       buildModelMetadata({
-        modelName: aliasBase ?? modelName,
+        modelName: lookupName,
         sources: opts.pricingSources,
         reverseMapping: opts.reverseMapping,
         override,
