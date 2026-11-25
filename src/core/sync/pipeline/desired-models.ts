@@ -299,12 +299,19 @@ export function buildDesiredModels(opts: {
 
   for (const [modelName, spec] of models) {
     const upstream = channelModelUpstream.get(modelName) ?? modelName;
-    const override =
+    const aliasBase = opts.publishAliasBase.get(toBareName(modelName));
+    // No source knows a split name or a new base id, but the base row already
+    // carries the metadata the base resolved to.
+    const baseStored = aliasBase
+      ? opts.snapshotMetadata.get(aliasBase)
+      : undefined;
+    const configured =
       opts.metadataByUpstream[upstream] ?? opts.metadataByUpstream[modelName];
+    const override =
+      baseStored || configured ? { ...baseStored, ...configured } : undefined;
     const merged =
       buildModelMetadata({
-        modelName:
-          opts.publishAliasBase.get(toBareName(modelName)) ?? modelName,
+        modelName: aliasBase ?? modelName,
         sources: opts.pricingSources,
         reverseMapping: opts.reverseMapping,
         override,

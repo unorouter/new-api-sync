@@ -859,11 +859,16 @@ export async function runMetadataSync(
       : inferModelType(name);
     // A provider split off the shared name (its publishAs) is the same model.
     const lookupName = publishedBase.get(name) ?? name;
+    const baseStored =
+      lookupName !== name
+        ? parseJsonObject(existingByName.get(lookupName)?.metadata)
+        : undefined;
     const merged =
       buildModelMetadata({
         modelName: lookupName,
         sources,
         reverseMapping,
+        override: baseStored,
         modelType,
       }) ??
       buildModelMetadata({
