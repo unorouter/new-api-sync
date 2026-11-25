@@ -964,7 +964,13 @@ function pushBucketsAsTiers(
           matchesAnyPattern(publishedName, r.models),
       );
 
-      const channelName = `${offer.sanitizedBase}-${sanitizeGroupName(publishedName)}`;
+      // A further upstream ID behind the same published name keeps its own lane.
+      const laneName = !m.lane
+        ? publishedName
+        : publishedName.endsWith(":free")
+          ? `${publishedName.slice(0, -":free".length)}-${m.lane}:free`
+          : `${publishedName}-${m.lane}`;
+      const channelName = `${offer.sanitizedBase}-${sanitizeGroupName(laneName)}`;
       let paramOverride = m.paramOverride;
       if (!paramOverride && hasContext1mAlias)
         paramOverride = JSON.stringify({

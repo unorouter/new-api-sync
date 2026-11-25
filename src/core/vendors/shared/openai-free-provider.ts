@@ -126,7 +126,7 @@ function emitFreeTextOffers(opts: {
     "other",
   );
   const toOfferModel = (x: Resolution): OfferModel => {
-    const upstream = opts.rev[x.exposed] ?? x.upstream;
+    const upstream = x.lane ? x.upstream : (opts.rev[x.exposed] ?? x.upstream);
     const family = opts.effortFamilies?.get(x.upstream);
     const publishAs = publishAsFor(x.exposed) ?? family?.base;
     const maxOut = opts.maxOutputByModel.get(upstream);
@@ -145,6 +145,7 @@ function emitFreeTextOffers(opts: {
     return {
       exposed: x.exposed,
       upstream,
+      ...(x.lane ? { lane: x.lane } : {}),
       modelType,
       isFree: !paid,
       ...(upstreamRatio !== undefined ? { upstreamRatio } : {}),
@@ -320,7 +321,9 @@ export async function processOpenAICompatibleFreeProvider(
       if (models.length === 0) continue;
 
       if (!testable.has(modality.modelType)) {
-        const resolutions = resolveBareNames(models, config.modelMapping);
+        const resolutions = resolveBareNames(models, config.modelMapping, {
+          laneDuplicates: true,
+        });
         totalWorking += models.length;
         consola.info(
           t("CORE.NVIDIA.TEXT_WORKING", {
@@ -405,7 +408,9 @@ export async function processOpenAICompatibleFreeProvider(
           total: models.length,
         }),
       );
-      const resolutions = resolveBareNames(working, config.modelMapping);
+      const resolutions = resolveBareNames(working, config.modelMapping, {
+        laneDuplicates: true,
+      });
       offers.push(
         ...emitFreeTextOffers({
           resolutions,

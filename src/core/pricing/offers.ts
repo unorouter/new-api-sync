@@ -13,6 +13,8 @@ type ProviderKind = string;
 export interface OfferModel {
   exposed: string;
   upstream: string;
+  /** Numbered lane for a further upstream ID published under the same name. */
+  lane?: number;
   /** Publish under this name instead of `exposed`, keeping the exposed name for
    *  pricing and the cap. Splits a provider's lanes off the shared model name so
    *  auto cannot route to them (see `publishAs` in the provider config). */

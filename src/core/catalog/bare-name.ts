@@ -20,12 +20,16 @@ interface BareNameResolution {
   exposed: string;
   /** Original full ID, forwarded upstream. */
   upstream: string;
+  /** 2, 3, ... for a further upstream ID that resolved to the same name; it gets its
+   *  own numbered lane instead of being dropped. */
+  lane?: number;
 }
 
 /** Bare-name collision = same bare maps to ≥2 distinct upstream IDs (dups don't count). */
 export function resolveBareNames(
   upstreamIds: string[],
   userMapping: Record<string, string> | undefined,
+  opts: { laneDuplicates?: boolean } = {},
 ): BareNameResolution[] {
   const bareToUpstreams = new Map<string, Set<string>>();
   for (const id of upstreamIds) {
@@ -34,7 +38,7 @@ export function resolveBareNames(
     bareToUpstreams.get(bare)!.add(id);
   }
 
-  const seen = new Set<string>();
+  const seen = new Map<string, number>();
   const result: BareNameResolution[] = [];
   for (const id of upstreamIds) {
     const bare = toBareName(id);
@@ -42,9 +46,11 @@ export function resolveBareNames(
     const fallback = (collides ? id : bare).toLowerCase();
     const mapped = userMapping?.[collides ? id : bare];
     const exposed = (mapped ?? fallback).toLowerCase();
-    if (seen.has(exposed)) continue;
-    seen.add(exposed);
-    result.push({ exposed, upstream: id });
+    const count = (seen.get(exposed) ?? 0) + 1;
+    seen.set(exposed, count);
+    if (count === 1) result.push({ exposed, upstream: id });
+    else if (opts.laneDuplicates)
+      result.push({ exposed, upstream: id, lane: count });
   }
   return result;
 }
@@ -55,7 +61,7 @@ export function buildChannelModelMapping(
 ): Record<string, string> {
   const mapping: Record<string, string> = {};
   for (const r of resolutions) {
-    if (r.exposed !== r.upstream) mapping[r.exposed] = r.upstream;
+    if (!r.lane && r.exposed !== r.upstream) mapping[r.exposed] = r.upstream;
   }
   return mapping;
 }
