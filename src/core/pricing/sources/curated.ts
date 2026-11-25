@@ -4527,25 +4527,6 @@ const CURATED: Record<string, SourceMetadata> = {
     inputModalities: ["text", "image"],
     outputModalities: ["text"],
   },
-};
-
-// A maker's own rate card, checked by hand, for models where the sources agree on a
-// reseller's price. LiteLLM gives a bare name to its first entry in file order:
-// glm-5.3 took coralbricks' $1.12 input and free cache reads, OpenRouter agreed on
-// the $1.12, and 1.1 billion cached tokens a day were billed at nothing. Exact
-// names only, and it beats the vote.
-const GLM_5_3_LIST: BaseModelPricing = {
-  // docs.z.ai/guides/overview/pricing, 2026-10-28: $1.40 in, $0.26 cached, $4.40 out.
-  modelRatio: 0.7,
-  completionRatio: 4.4 / 1.4,
-  cacheRatio: 0.26 / 1.4,
-  createCacheRatio: 1,
-  source: "curated",
-  sourceKey: "zai/glm-5.3",
-};
-export const CURATED_PRICING: Record<string, BaseModelPricing> = {
-  "glm-5.3": GLM_5_3_LIST,
-  "or-glm-5.3": GLM_5_3_LIST,
   // Reflection AI Beam 1.0, the same model as `beam` (developers.reflection.ai/serving-weights)
   "beam-1-0": {
     releaseDate: iso("2026-10-16"),
@@ -4733,6 +4714,25 @@ export const CURATED_PRICING: Record<string, BaseModelPricing> = {
     contextWindow: 1_048_576,
     series: "GLM",
   },
+};
+
+// A maker's own rate card, checked by hand, for models where the sources agree on a
+// reseller's price. LiteLLM gives a bare name to its first entry in file order:
+// glm-5.3 took coralbricks' $1.12 input and free cache reads, OpenRouter agreed on
+// the $1.12, and 1.1 billion cached tokens a day were billed at nothing. Exact
+// names only, and it beats the vote.
+const GLM_5_3_LIST: BaseModelPricing = {
+  // docs.z.ai/guides/overview/pricing, 2026-10-28: $1.40 in, $0.26 cached, $4.40 out.
+  modelRatio: 0.7,
+  completionRatio: 4.4 / 1.4,
+  cacheRatio: 0.26 / 1.4,
+  createCacheRatio: 1,
+  source: "curated",
+  sourceKey: "zai/glm-5.3",
+};
+export const CURATED_PRICING: Record<string, BaseModelPricing> = {
+  "glm-5.3": GLM_5_3_LIST,
+  "or-glm-5.3": GLM_5_3_LIST,
 };
 
 export function buildCuratedSource(): PricingSource {
