@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Reconciler: discovers what each upstream provider serves, probes every model live, prices it under
+Reconciler. It discovers what each upstream provider serves, probes every model live, prices it under
 a hard retail cap, then makes a [new-api](https://github.com/QuantumNous/new-api) gateway's
 channels, models and options match. Partial runs never touch out-of-scope state.
 
@@ -15,97 +15,42 @@ bun sync metadata [--dry-run]     # re-seed metadata + re-price, no probes
 bun sync reset                    # delete all synced data
 bun sync balance [--json]
 bun sync reconcile [--only p] [--since 24h | --from 2026-08-26 --to now] [--json]   # upstream usage logs vs our logs, exit 1 on unaccounted usage
-bun sync fingerprints [--model glob] [--json]   # answer fingerprint ledger: trusted profiles per family, every lane with divergence, identity mix, wrapper size, style class
-bun sync lane-report [--day 2026-10-11] [--live] [--json]   # lane grader: a day's per-lane traffic rollup, or the current window judged without acting
-bun sync catalog [--only p1,p2] [--models "<glob>"] [--out f] [--json]   # every provider's listing next to what we publish, logs/catalog-<stamp>.tsv plus -summary
-```
-
-`catalog` (`src/core/sync/catalog/`) is read only: listing and pricing GETs upstream (generic discovery
-skips `probeOutputCap`), channels and the six price/group options from the target, no probe, token, key,
-verdict, store or lock. One row per provider, upstream group and model with the published name the run
-would emit, upstream price (relay numbers as labelled), config state (filtered rows stay, with the reason),
-our channels and sell price, and the cheapest live lane of another provider. Providers with `catalogOnlyWithModels` are listed only
-with `--models`; comfyui, aihorde, runware and typesafe come from config.
-
-Lane grader (`src/core/quality/`, config `laneGrader`, needs `targetDb`): `bun sync grade`, run every 15
-minutes by its own CronJob `new-api-sync-grader` (the metadata job skips the hours around each full run,
-when that run adds new lanes), reads the last `windowHours` (6) of each live lane in `providers` (channel tags, `*` for
-every lane; `lane-report --all` shows every provider either way) from the gateway's
-request log and compares it against every other lane of the same model in the same window. A lane
-with enough traffic (20 requests, 3 users) and clearly worse empty successes (8%, 3x peers), short
-answers to long prompts (15%, 2x) or errors without 429s (30%, 2x plus 10 points) is set to status 2
-for `quarantineHours` (4), doubling per strike up to 24, and released by the grader itself when it
-expires; status 2 because the gateway's tester re-enables status 3 on its first harmless pass. It
-never takes out more than a third of a model's live lanes or leaves fewer than 2, at most 10 per
-tick. Three strikes in 7 days logs a blacklist candidate; nothing is blacklisted automatically.
-`dryRun` (the default) logs `would-quarantine` and changes nothing. Ledger: store
-`lane-quarantine.json`; decisions: `lane-grader/<day>.jsonl`; the first tick of a UTC day writes
-yesterday's per-lane rollup to `lane-stats/<day>.jsonl` with the observe log's lane key, which is
-what a new verifier rule is checked against. Thresholds come from replaying a week of marketplace
-traffic: 54 of 66 bad lanes caught, half within 4 hours. Probe verdicts caught none of them. A separate usage inflation rule
-needs only `inflationMinRequests` (3) and one user: median output speed at least
-`inflationSpeedMultiple` (5x) the model's other lanes and at least 300 tok/s, together with billed
-input at least 3x its cached tokens or 2.5x the peers' average input (a merchant running one
-request several times bills the sum; speed alone is just a fast host). A padding rule does the same for output: the gateway logs the bytes a stream really carried (`admin_info.streamed_output_bytes`, OpenAI streams with upstream usage), and a lane where at least 3 replies and 20% of its measured ones bill more than twice those bytes plus 200 tokens, at four times its peers' share, is padded (a7 6714 billed 1,388 tokens for a 300 byte notice). Both rules act even under `dryRun` (`inflationLive`, default true): billed counts no model can produce are fraud, not a quality call. Marketplace probes
-(provider flag `usageTruth`, set on a7, ih and si) back it up once a week per lane (`usageCheckedAt` in the verdict
-cache, `testing/usage-truth.ts`): 1, 2 and 80 copies of a fixed paragraph, and the long prompt must
-bill about the short count plus 79 per paragraph deltas; 1.5x over and 1000 tokens over is an
-authenticity fail. Every short probe passed on the two merchants it was built for.
-
-`reconcile` (`src/core/sync/reconcile/`) pulls every relay account's own `/api/log/self` (100 rows
-a page, one page at a time per account, 750 ms apart, 429 backs off up to 80 s; every page is
-checkpointed into `logs/reconcile-cache/<provider>.jsonl` and the store object
-`reconcile/<provider>.jsonl`, 45 days retained, so a rerun fetches only the tail) and joins each row
-to our `logs` table (read-only `targetDb`: a postgres DSN, or an http(s) URL for the ClickHouse log
-store, where rows without an id get a stable negative one hashed from their content) by
-`upstream_request_id` = the relay's `request_id`, on any channel including deleted lanes, then by
-tokens and time, then by model and time. Every probe the sync sends records the relay's request id
-(`testing/probe-ids.ts`, `logs/probe-ids.jsonl` and store `reconcile/probe-ids.jsonl`), so probe
-rows reconcile exactly. Leftover upstream rows are classed abandoned (an error row of ours for the
-model within 3 min: the gateway timed out and retried, the relay billed the attempt), probe-shaped,
-or unexplained; only unexplained rows, foreign tokens with usage, or a source ip outside
-`targetEgressIps` that appears solely on unaccounted rows flip the exit code to 1 (a relay may log
-its edge proxy ip, so an ip seen on id-matched rows counts as ours). Source ips need `record_ip_log`
-on the relay account (per-user setting, `PUT /api/user/setting`).
-
-```bash
+bun sync fingerprints [--model glob] [--json]   # answer fingerprint ledger summary
+bun sync grade                    # lane grader, one tick
+bun sync lane-report [--day 2026-10-11] [--live] [--json]
+bun sync catalog [--only p1,p2] [--models "<glob>"] [--out f] [--json]   # read only, upstream listing vs what we publish
 bun sync baseline [--out f.json]  # dump voted canonical list prices
 bun sync ui --port 3000           # dashboard (alias: bun ui)
 bun run dev | typecheck | build | prettier
 ```
 
-`config.yml` (gitignored) plus optional `config.global.yml`; only `config.example.yml` is committed.
+`config.yml` (gitignored) plus optional `config.global.yml`. Only `config.example.yml` is committed.
 `--only` and `--models` intersect.
 
 ## Layout
 
 ```
-src/cli/index.ts          run | reset | metadata | balance | reconcile | catalog | ui | baseline
 src/build.ts              compiles 6 binaries; embedded-assets.ts is GENERATED (empty = dev)
-src/core/sync/            run, diff, apply, reset, metadata, option-store, pipeline/, reconcile/
+src/core/sync/            run, diff, apply, reset, metadata, option-store, pipeline/, reconcile/, catalog/
 src/core/pricing/         compute, vote, resolver, emit, sources/, tiered-expr
-src/core/vendors/         protocol adaptors only (a7, ih, si, newapi, openrouter, nvidia, ...);
-                          every OpenAI-compatible upstream is `type: openai-compatible` in
-                          config.yml (shared/generic-discovery.ts reads its `discovery` block)
-src/core/testing/         runner, authenticity, request-configs, verdict-cache
-src/core/catalog/ infra/  name norm + fuzzy metadata; abort, concurrency, http, lock, retry
+src/core/vendors/         protocol adaptors only; every OpenAI-compatible upstream is
+                          `type: openai-compatible` in config.yml (shared/generic-discovery.ts)
+src/core/testing/         runner, authenticity, request-configs, verdict-cache, answer-fingerprints
+src/core/quality/         lane grader
+src/core/catalog/ infra/  name norm + fuzzy metadata; abort, concurrency, http, lock, retry, lane-keys
 src/server/ src/web/      Elysia routes + SSE; React app (lib/rpc.ts, lib/react-query/keys.ts)
 ```
 
-Aliases `@core/*`, `@server/*`, `@web/*`; no relative imports across packages.
+Aliases `@core/*`, `@server/*`, `@web/*`. No relative imports across packages.
 
 ## Pipeline (`src/core/sync/run.ts`)
 
 snapshot -> discover + probe per provider -> canonical price by vote (`pricing/vote.ts`) ->
-`computePricedPlan` / `emitChannels` / `buildDesiredModels` / `buildOptionMaps` -> diff -> apply
-(options via one `OptionStore.flush`, channels, models, FixAbility + orphaned-model cleanup, group
-prune, guest token, `[pricing-audit]`).
+`computePricedPlan` / `emitChannels` / `buildDesiredModels` / `buildOptionMaps` -> diff -> apply.
 
-`metadata` runs the pipeline dry over providers with `metadataReprice` (newapi and a7 blocks only) and rewrites metadata and
-the price maps (`ModelRatio`, `CompletionRatio`, `ModelPrice`, `Image*`, `Cache*`, `Audio*`,
-`ModelQuotaType`, `ModelGridPricing`, `billing_setting.*`, `GroupRatio`) for names the target
-already publishes. Exit 1 (alert `NewApiSyncJobFailed`) when the flush healed an entry or an enabled
-model has no price.
+`metadata` runs the pipeline dry over providers with `metadataReprice` and rewrites metadata and
+price maps for names the target already publishes. It exits 1 (alert `NewApiSyncJobFailed`) when the
+flush healed an entry or an enabled model has no price.
 
 ### Fixing a bad channel
 
@@ -113,109 +58,90 @@ Never a full `sync run` for one model. `DELETE FROM channels WHERE id IN (...)` 
 (`kubectl -n databases get cluster newapi-pg -o jsonpath='{.status.currentPrimary}'`), restart
 `deploy/new-api-master` (channel cache), delete the pair from `logs/verdict-cache.json` (keys
 `a7:<merchant>|<model>` or `<provider>|<model>`, or wait for its TTL), then
-`bun sync run --only <p> --models "<glob>"`. A channel that comes back passed authenticity: fix
+`bun sync run --only <p> --models "<glob>"`. A channel that comes back passed authenticity. Fix
 `testing/authenticity.ts` (or the maker table in `ai-model-verifier`).
 
 ### Invariants
 
-- Partial mode (`--only` or `--models`) preserves out-of-scope ratios (`mergeProtected`); a managed
+- Partial mode (`--only` or `--models`) preserves out-of-scope ratios (`mergeProtected`). A managed
   model leaves the guard only when the run prices it.
-- Every option-map write goes through `OptionStore` (`sync/option-store.ts`); `settle` heals any
-  enabled model or carried group that would lose its price/group entries, then exits 1.
-- Group options merge additively. The only remover is `OptionStore.pruneGroups`: drops a
-  usable/auto entry only when no channel of any status carries it, never touches GroupRatio.
-- `buildSurvivingGroups` re-asserts every group with a `status === 1` channel that is already in
-  `UserUsableGroups`.
-- `cleanupEmptyGroupTokens` runs only without `--models`/`--type`: a filtered run would delete keys
+- Every option-map write goes through `OptionStore` (`OptionStore.load` / `setEntries` / `flush`), never
+  `client.updateOption`. Option maps have no lock, so write only while no sync Job is active. `settle`
+  heals any enabled model or carried group that would lose its price or group entries, then exits 1.
+- Group options merge additively. The only remover is `OptionStore.pruneGroups`. It drops a
+  usable/auto entry only when no channel of any status carries it and never touches GroupRatio.
+- `buildSurvivingGroups` re-asserts every group with a `status === 1` channel already in `UserUsableGroups`.
+- `cleanupEmptyGroupTokens` runs only without `--models`/`--type`. A filtered run would delete keys
   out-of-scope channels still use.
-- Cap: `modelRatio * candidate <= (canonical ?? ratio)` (`compute.ts`), no knob.
-- `applyPriceAdjustment(cost, adj, ceiling)` (`pricing/index.ts`) is the only markup: adj > 0
-  interpolates toward the ceiling (adj=1 -> 1x), cost >= ceiling -> `cost * 1.05`, adj <= 0 ->
-  `cost * (1 + adj)`. Bounded `(-1, 1]` by schema. No path-local `(1 + adj)`.
-- Margin floor (`enforceMargin` in `compute.ts`, `marginFloor` in `pricing/index.ts`): a paid
-  lane of a provider with `costFactor` (real USD per upstream-labelled USD) sells at
-  `max(price, cost * costFactor * minMargin)`, `minMargin` defaulting to `MIN_MARGIN` 2 and
-  globbable per model; a higher price (a per-model override) is kept. Above list the lane is
-  dropped (`below-min-margin`) unless `marginAboveList`; below it the price is capped at list.
-  An unknown cost drops the lane (`no-cost-factor`). A provider without `costFactor` is
-  unfloored until the global `requireCostFactor` is on. Providers with `marginExempt` are exempt
-  (a7, ih and si: `profitMultiple`).
-- Fixed-price models: `cost = groupRatio * (relayModelPrice / sticker)` per lane; a flat base sold
+- Cap is `modelRatio * candidate <= (canonical ?? ratio)` (`compute.ts`), no knob.
+- `applyPriceAdjustment(cost, adj, ceiling)` (`pricing/index.ts`) is the only markup. No path-local `(1 + adj)`.
+- Margin floor (`enforceMargin`, `marginFloor`). A paid lane of a provider with `costFactor` (real USD
+  per upstream-labelled USD) sells at `max(price, cost * costFactor * minMargin)`, `minMargin` default
+  `MIN_MARGIN` 2. Above list the lane is dropped (`below-min-margin`) unless `marginAboveList`. An
+  unknown cost drops the lane. Without `costFactor` a provider is unfloored until global
+  `requireCostFactor` is on. `marginExempt` providers (a7, ih, si) use `profitMultiple`.
+- Fixed-price models use `cost = groupRatio * (relayModelPrice / sticker)` per lane. A flat base sold
   image models below cost. Relay prices are yuan labelled USD.
 - `ConcurrencyGate.run` takes the per-upstream limit outside the global one. `throwIfRunAborted()`
   in every long loop.
 
 ### Sharp edges
 
-- Vote needs >= 2 agreeing sources, else the stored ratio is kept uncapped; a canonical of
+- Vote needs >= 2 agreeing sources, else the stored ratio is kept uncapped. A canonical of
   `0`/`undefined` inverts the cap.
 - 37.5 / completion 1 is new-api's "no price" pair, mapped to `undefined` by `publishedRatio`.
   Models only a non-newapi provider serves are repriced by `sync run --only <p>`, not `metadata`.
-- `CURATED_OVERRIDE` (then config `metadataOverrides`, for figures measured through one lane) beats every source; wrong fuzzy bases (`glm-5-turbo` -> `glm-5`) go there.
-  `fuzzyLookup` keeps its exact-match fast path (token-set scoring drops repeated digits).
+- `CURATED_OVERRIDE` (then config `metadataOverrides`) beats every source. Wrong fuzzy bases
+  (`glm-5-turbo` -> `glm-5`) go there. `fuzzyLookup` keeps its exact-match fast path.
 - Embeddings force `acceptRateLimited: false`. `fetchPricing` must send `ctx.headers`.
-- a7 `minSuccessRate` defaults to 0: a7's own success rate is not trusted, the live probe is the
-  gate, and the candidate walk runs until `hostsPerModel` lanes pass or the price-filtered list ends.
-- a7 listings are fetched one model at a time (`model=<exact name>`, spellings from `/api/pricing`),
-  three in flight, 120 s each: the unfiltered snapshot answers 200 and stalls mid-stream. The walk probes on the a7 block's `perUpstreamConcurrency` (10), sends replacements in batches of max(2x shortfall, 4) after the first round, keeps no more than `hostsPerModel` serving lanes, and puts listings of a channel with a blocking authenticity fail on any model last (such a channel fails its other models 54% of the time, against 28%). A model
-  the marketplace cannot serve this run is `unverifiedModels` on the report: the walk skips it, the
-  diff keeps its lanes (`DesiredState.unverifiedLanes`) and the stale-token cleanup keeps its
-  tokens. Only a run that could read no model at all fails with "no listings".
-- a7 `minSellFraction` = retail floor (raises the group ratio), `maxSellFraction` = merchant cut,
-  default 1 (cost \* profitMultiple <= canonical list; the engine never sells above list anyway);
-  `sweepLiveLanes` re-runs the math on every held lane because the gateway re-enables lanes itself.
+- a7 `minSuccessRate` defaults to 0. a7's own success rate is not trusted, the live probe is the gate.
+- a7 listings are fetched one model at a time (`model=<exact name>`). The unfiltered snapshot answers
+  200 and stalls mid-stream. A model the marketplace cannot serve this run, or that the walk did not
+  reach before `WALK_BUDGET_MS` (150 min), is `unverifiedModels`. The diff keeps its lanes and the
+  stale-token cleanup keeps its tokens. Only a run that read no model at all fails with "no listings".
+- `sweepLiveLanes` re-runs the price math on every held lane because the gateway re-enables lanes itself.
+- A stream probe that reaches EOF after an OpenAI `finish_reason` passes without `data: [DONE]`.
+- Vanilla new-api is detected by a 404 on `PUT /api/token/guest-model-limits`
+  (`vendors/newapi/context.ts`). Listing, orphan cleanup, guest limits and reseed degrade.
+- Token routes are rate limited per account. A 429 arms one cooldown per base url
+  (`vendors/newapi/token-throttle.ts`). A walk that lost lanes that way sets `deletesWithheld`, which
+  keeps the provider out of the delete set and withholds the stale-token cleanup.
 
 ## Conventions
 
 - **Provider-, merchant-, host- or model-specific behaviour lives in config.yml, never in code.** Put it in that
   provider's own block (or a global block when it truly spans providers) and read it through the schema in
   `src/core/validations/config.ts`. No string literal, regex or constant set naming a lane, seller, host or model
-  family that changes filtering, pricing, probing, renaming or verdicts; vendor adaptors implement protocols only.
+  family that changes filtering, pricing, probing, renaming or verdicts. Vendor adaptors implement protocols only.
 
 No prop/hook destructuring, no `useMemo`/`useCallback`, comments only for a non-obvious why, double
 quotes + semicolons + `bun run prettier`, `import type`, no barrel files, ASCII punctuation outside
 code and Chinese, no AI attribution in git. Strings via `t("SECTION.KEY")` with real translations in
 `src/web/public/i18n/{en,zh}.json` and `src/server/i18n.ts`. Query keys from `lib/react-query/keys.ts`.
 
-Release: bump `version`, merge to `main`, `release.yml` builds. Never ship binaries by hand.
-
-## Gotchas
-
-- `scripts/`, `reference/`, `config*.yml` gitignored.
-- Option maps have no lock: write only while no sync Job is active, via
-  `OptionStore.load` / `setEntries` / `flush`, never `client.updateOption`.
-- Vanilla new-api is detected by a 404 on `PUT /api/token/guest-model-limits`
-  (`vendors/newapi/context.ts`); listing, orphan cleanup, guest limits and reseed degrade.
+Release by bumping `version` and merging to `main`, `release.yml` builds. Never ship binaries by hand.
+`scripts/`, `reference/`, `config*.yml` are gitignored.
 
 ## Cluster
 
-The CronJobs in `services` (`k8s/`; a push to `main` builds the image in GitHub Actions and pins it, no local builds):
-`new-api-sync` = `metadata` every 15 min Berlin except the two hours after each full run;
-`new-api-sync-grader` = `grade` (the lane grader alone) every 15 min around the clock;
-`new-api-sync-full` = `run --only a7,ih,si` at 04:00, 10:00, 16:00 and 22:00, 3h deadline, `backoffLimit: 0`,
-the only job that probes. The marketplaces change constantly, so they sync on the cluster.
+CronJobs in `services` (`k8s/`). A push to `main` builds and pins the image, no local builds.
 
-`new-api-sync-weekly` = `run --only <paid non-marketplace providers>` (relay accounts and the
-few others with paid lanes) Wednesdays 01:30 Berlin, 6h deadline; `new-api-sync-daily-metadata` = `metadata`
-over every non-marketplace provider daily 03:15 Berlin (prices only, no probes). `new-api-sync-openrouter` = `run --only open1,open2` at 01:30, 07:30, 13:30 and 19:30 Berlin (2h
-deadline, between the full runs): OpenRouter's free catalogue changes daily and its paid models are never probed,
-so a run costs one cheap probe per free model; open1 left the weekly list for it. Both read OpenBao
-`secret/sync-env-weekly`: the local `config.yml` minus a7, ih, si and any provider excluded for cost or a ban, with
-the cluster's `target`, `verdictStore`, `targetDb` and `laneGrader` blocks, the first shard of each series that
-fronts one upstream, and `authenticityPassTtlHours: 216`
-on every provider. Both use an `emptyDir` for logs and the pod label `new-api-sync-weekly`, which the network
-policies admit next to `new-api-sync-full`. A provider added or re-keyed locally is not covered until that secret
-and the weekly `--only` list (`WEEKLY_ONLY` in that secret) are rebuilt the same way. Relay credits are mostly yuan labelled dollars, so a run's
-"Test cost" overstates real spend about 7x on those providers.
+- `new-api-sync` runs `metadata` every 15 min Berlin except the two hours after each full run.
+- `new-api-sync-grader` runs `grade` every 15 min.
+- `new-api-sync-full` runs `run --only a7,ih,si` at 04:00, 10:00, 16:00, 22:00, 3h deadline, `backoffLimit: 0`.
+- `new-api-sync-weekly` runs the paid non-marketplace providers Wednesdays 01:30 Berlin, 6h deadline.
+- `new-api-sync-daily-metadata` runs `metadata` over every non-marketplace provider daily 03:15 Berlin.
+- `new-api-sync-openrouter` runs `run --only open1,open2` every 6h from 01:30 Berlin.
 
-Pass lifetimes of 24h or more stretch with `passStreak` (consecutive passes with an unchanged tokenizer delta):
-x1, x2, x4, x8, capped at 720h, minus a fixed per-lane share of up to 20% so a stable fleet does not expire on one
-day. A fail or a moved delta resets it. a7 (4h) and the 12h default never stretch.
+Weekly, daily-metadata and openrouter read OpenBao `secret/sync-env-weekly` (local `config.yml` minus a7,
+ih, si and excluded providers, plus the cluster's `target`, `verdictStore`, `targetDb`, `laneGrader`,
+`authenticityPassTtlHours: 216` per provider, `WEEKLY_ONLY`). A provider added or re-keyed locally is not
+covered until that secret is rebuilt. Relay "Test cost" overstates real spend about 7x (yuan labelled dollars).
 
-Cluster config (OpenBao `secret/sync-env` key `config.yml`) declares a7, ih and si only; local
-`bun sync metadata` covers the rest. Mirror every edit to those blocks and to the shared blocks
-(`rateLimit`, `modelMapping`, `groupMapping`, `blacklist`, `modelAlias`, `channelParamOverride`, `dataPolicies`).
-Payload over stdin, `patch` never `put` (the secret also holds `GUEST_API_KEY`), read back:
+Cluster config (OpenBao `secret/sync-env` key `config.yml`) declares a7, ih and si only. Mirror every
+edit to those blocks and to the shared blocks (`rateLimit`, `modelMapping`, `groupMapping`, `blacklist`,
+`modelAlias`, `channelParamOverride`, `dataPolicies`). Payload over stdin, `patch` never `put` (the
+secret also holds `GUEST_API_KEY`), read back.
 
 ```bash
 cd ../infra && BT=$(sops -d secrets/openbao-init.sops.yaml | grep -oP 'root_token:\s*\K\S+')
@@ -224,153 +150,98 @@ cd ../infra && BT=$(sops -d secrets/openbao-init.sops.yaml | grep -oP 'root_toke
 kubectl -n services annotate externalsecret sync-env force-sync=$(date +%s) --overwrite
 ```
 
-Verdict cache: `logs/verdict-cache.json` is the working copy on every machine; the shared truth
-is the object `new-api-sync/verdict-cache.json` in bucket `unorouter-sync` behind the S3 gateway
-(`verdictStore` in config.yml; cluster config points at `https://s3.unorouter.com`, local at
-`https://s3.unorouter.com:19443` through the `tsh-s3` user unit plus a `/etc/hosts` line). Every
-`sync run` merges the object in at start and pushes at end (union by key, newest stamp wins, a fail
-survives while it is fresh); artifacts mirror to `artifacts/`. Functional passes expire after 7 days (jittered
-2), functional fails after 24 hours, or 2 hours when the fail was a 429, 5xx or timeout (a dead merchant is re-probed once a day, not once a run),
-authenticity passes after 12 hours (`authenticityPassTtlHours` per provider overrides it, a7 uses 4 so every 6-hourly walk re-probes), authenticity fails after 24 hours, doubling per consecutive failed retest and permanent at the third (`authFailStrikes`, reset by a pass, the merge keeps the higher count; unblock by deleting the key from the cache), and the `metadata` cron re-probes live lanes of an a7 block with `reverify` (`reverifyConcurrency` at once) whose
-pass is stale (`vendors/a7/reverify.ts`, 32 per tick, Claude first, disables the channel on a fail; a pool as
-wide as the a7 gate starts no lane later than 11 minutes into the tick, the rest wait for the next one, since
-the Job dies at 20 minutes and a killed tick also loses its option flush; at 16 minutes the tick stops waiting
-for lanes still probing, since a ladder cannot be cancelled and one hung for 13 minutes, and the command exits
-explicitly so those probes do not hold the Job open). Every authenticity
-outcome is appended to `verdict-history.jsonl` beside the cache. The probes themselves are
-`ai-model-verifier`'s rule engine (`testing/authenticity.ts` is a thin adapter: `runRules` on the
-wire the channel is sold on, judged against the model's MAKER (`makerForModel`,
-`ai-model-verifier/makers`: anthropic, openai, google, deepseek, moonshot, zhipu, minimax, xiaomi,
-mistral, alibaba, meta, xai, tencent; an unknown id is judged by the wire's default maker), with the
-seller pin as `bodyExtras` and the ih bid as headers, findings mapped onto the verdict cache, the
-first decisive finding's reason as the blacklist reason, an inconclusive one leaving the lane
-unverified without a cache write). Every text lane runs the ladder; only anthropic's findings have
-authority, except `masked-identity`, `fake-200` (a platform refusal or error page sent as the
-reply at HTTP 200, tripped by the survey's `sensitive` question), `substituted` and
-`served-model-mismatch` (the reply's own model field names another model), which judge every
-maker. The functional test applies the same model-field check to both its plain and its stream
-reply: one relay echoed the requested id on one and the real model on the other. For every
-other maker every ladder rule is observe only (`authenticity.observeOnly` in
-config.yml overrides per maker id or `*`; `[]` promotes a maker), the lane passes and the finding is
-recorded: `logs/observe-<date>.jsonl` and the store object `observe/<hour>.jsonl` carry one line per
-ladder run with maker, wire, every probe's reply, every finding, `wouldFlag` and every report
-(signature, token truth, envelope, throughput, survey, think leak, wrapper leak, answer fingerprint).
-The survey (`reports.survey`) is five questions asked beside the ladder and recorded as answered: a
-verbatim replay of prior instructions (a relay's injected system prompt, matched by `wrapper-leak`
-and `mask-contradiction`, both notes), a sum with a fact check and its hidden token count, a JSON
-object naming maker and model, a one sentence self description, and a historical question Chinese
-input filters block, the only one judged (by `fake-200`). That log is what a maker is promoted from.
+The logs PVC is `local-path`, pinned to the node the first job ran on
+(`kubectl -n services get pvc new-api-sync-logs -o jsonpath='{.metadata.annotations.volume\.kubernetes\.io/selected-node}'`).
+If that node is cordoned or gone the full job stays Pending (uncordon, or delete PVC + PV and re-seed from the local file).
 
-Answer fingerprints (`testing/answer-fingerprints.ts`): a ladder run also asks the one-word
-battery (8 cells x `authenticity.answerFingerprint.repeats`, default 3, at temperature 1, no nonce,
-4 calls in flight) until the lane holds 4 sampled runs, then at most once a day
-(`answerFingerprintDue`); the battery in every ladder, 24 calls in a row, cost a median 105 s per lane
-and pushed both CronJobs past their deadlines on 2026-09-22. Every ladder run appends one record to a
-per-lane ledger (`logs/answer-fingerprints.json`, store object
-`answer-fingerprints.json`, merged by run stamp, 60 runs or 30 days). The store object (about 18 MB) is rewritten only by a process that recorded a run. Before every store push
-(`run.ts` finally, `metadata.ts` reverify) each lane's pooled distribution is judged against its
-family's trusted profiles: the maker's own route (`official: <profile>` on the provider in config.yml: the
-maker's API or its consumer product), one profile per known host (our shards, each ih
-pool), or the largest cluster of the family when no official route carries it. Verdicts are
-`known`, `novel`, `uncertain` or `insufficient` (Jensen-Shannon in bits, 0.25 match, 0.35 mismatch,
-10 valid answers per cell, arXiv 2607.10252) and are notes: nothing here disables a lane. Two
-history notes ride on the same ledger: `identityMix`, the share of the last 10 runs whose identity
-probes named another family (a mixed pool behind one merchant), and `wrapperTokens`, the creative
-probe's prompt tokens above the family's trusted baseline (the injected wrapper, constant per
-backend). A naive Bayes style classifier over the emotional, creative and self replies, trained on
-the official lanes only, emits `styleMaker` once its leave-one-lane-out accuracy clears 0.9; it
-names a family, never a version, which no black-box method does. Each observe line carries the
-previous pass's judgement as `laneHistory`; `bun sync fingerprints` prints the summary
-(`logs/answer-fingerprints-summary.json`, store `answer-fingerprints/summary.json`).
-
-Only Claude's tokenizer fingerprint has a verdict; every maker now measures it (`delta` on the
-apple text, `diverseDelta` on a script-mixed text that separates vocabularies, `tokenizerDelta` on
-the entry): a delta that moved since the last probe voids the cached pass for that run. It names no tier (4.6-era models share a tokenizer,
-relays count differently), so it never fails a lane by itself. Without `verdictStore` the sync is local-only.
-Every verdict write saves the local file at once and pushes the store at most every 2 minutes, so a
-run killed at any point (Job deadline, OOM, Ctrl-C) keeps everything it probed: the next run loads the
-local file (the PVC on the cluster) before merging the store.
-
-Lane keys (`infra/lane-keys.ts`): every revealed upstream token secret is kept sealed with the
-store cipher (`verdictStore.encryptionKey`, same value locally and in the cluster) in
-`logs/lane-keys/<provider>.json.enc` and the store object `lane-keys/<provider>.json.enc`, keyed
-by token id, so `ensureLaneTokens` and `ensureTokens` reveal only ids they do not hold. Load is
-local then store; push is read-merge-write with eviction tombstones. The store copy is pushed at most every 10 minutes per provider (the local file on every flush) plus a forced push at run end: each store write keeps a noncurrent version, and a push per reveal batch was 416 a day. A key is evicted on two
-signals: a live channel the gateway auto disabled with a credential reason (`other_info.status_reason`
-`status_code=401`/`403` or a7's `账号或令牌状态不允许`, `vendors/newapi/disable-reason.ts`), and an a7
-probe answering 401/403 on a cached key (the fail verdict is cleared, the lane re-revealed and
-re-probed once). Each provider logs `keys: N cached, N revealed, N evicted (probe), N evicted
-(gateway), N rejected` and carries the same on its report. No cipher means no cache and no plain file.
-
-The PVC is `local-path`, pinned to whichever Talos node the first job ran on (`kubectl -n services get pvc new-api-sync-logs -o jsonpath='{.metadata.annotations.volume\.kubernetes\.io/selected-node}'`): if that node is cordoned or gone the full job stays
-Pending (uncordon, or delete PVC + PV and re-seed from the local file).
-
-Token routes are rate limited per account, so a 429 on create or reveal arms one cooldown per base
-url (`vendors/newapi/token-throttle.ts`, 60 s or the `Retry-After`): every later call in that window
-returns empty at once instead of walking its own retry ladder, and the lanes it skipped are keyed on
-a later round or the next run. A walk that lost lanes that way sets `deletesWithheld` on its report,
-which keeps the provider out of the delete set and withholds the stale-token cleanup exactly as a
-failed report did; the run itself stays green unless more than a fifth of the lanes were lost.
-
-The a7 walk starts no model after 150 minutes (`WALK_BUDGET_MS`); a model it did not reach keeps its
-lanes and tokens like one the market could not describe (`unverifiedModels`), so the full run always
-reaches its apply inside the 3 hour Job. The 14:00Z run on 2026-09-22 was killed mid apply.
+## a7 runs
 
 One a7 run at a time, anywhere, >= 30 min apart. Start local a7 runs at :01 to :13 with no active
-`new-api-sync-*` Job; suspend the metadata cron for a full `--only a7` (~25 min). A throttled full
-run deletes lanes it could not key or pin: kill it before `Providers:`/`Channels:` appear. Run it
+`new-api-sync-*` Job. Suspend the metadata cron for a full `--only a7` (~25 min). A throttled full
+run deletes lanes it could not key or pin, so kill it before `Providers:`/`Channels:` appear. Run it
 detached (`setsid nohup`), the harness kills commands at 10 min.
 
-a7 pins (`vendors/a7/pins.ts`): a reprice pauses the pin, accept via
-`price-notices/<id>/accept`; a drop creates no notice and keeps billing the old snapshot, only
-unpin + pin re-confirms; `fallback_to_smart_routing` stays false.
+a7 pins (`vendors/a7/pins.ts`). A reprice pauses the pin, accept via `price-notices/<id>/accept`. A drop
+creates no notice and keeps billing the old snapshot, only unpin + pin re-confirms.
+`fallback_to_smart_routing` stays false.
 
-Marketplace lanes (`vendors/ih`, `vendors/si`, `vendors/shared/fallback-lanes.ts`):
-one channel per enabled model, priced at `profitMultiple` times the most its spend guard lets a
-request cost, raised to `minSellFraction` of list and cut to `maxSellFraction` of it (default 1),
-so they sort behind cheaper lanes in the auto groups. Once a lane has 20 requests in 6 hours that the market billed (the gateway logs
-`admin_info.upstream_cost_usd`), its group ratio is that real cost times `profitMultiple`
-instead (`pricing/realized-marketplace.ts`, applied by every `metadata` tick and by the full run,
-never under cost x1.1, capped at list unless cost is above it), so the price the models page shows
-is what users pay. `upstreamCostMarkup` (1.1) is only the per-request floor: priced off the spend
-guard with a 5x floor, a request whose seller billed above the guard was charged 5x its cost, more
-than the lane's price claimed. Every numeric knob (those three,
-`bidQuantile`, `minSellers`) takes a scalar or a7's glob map with `default` (`resolvePerModel`,
-first match wins). Every URL is config only. `ih` calls `<pool>/<model>` with bid headers (`set_header` in
-param_override) at the `bidQuantile` ask of that pool, never under its `minSellers`-th ask (a
-thinner pool gets no lane); its probes carry the same bid (`testAndFilterModels({ extraHeaders })`),
-so the verdict is for the provider the lane is priced on, and a 402 is the honest fail. `si` pins every allowed seller
-provider in the `provider` body field (probes carry it too, `testAndFilterModels({ extraBody })`),
-prices on the `minSellers`-th cheapest trusted offer, and sets a `/min{N}` discount floor capped at
-90: the market bills whole micro-dollars, so a small request's estimated discount tops out near 97%
-and a higher floor refuses it. Both run on the cluster (in the cluster config since 2026-09-19). `metadata` never
-touches their `param_override` (`MARKETPLACE_KINDS`): an si pin is a plain `set`, which the
-reconcile would read as its own and clear.
+## Verdict cache and authenticity
 
-TypeSafe lanes (`vendors/typesafe`, config `type: typesafe`): a decisions model answers
-typed questions (`noul`, `choice`, `score`) over a shared `state` on POST `/v1/decisions` and
-never chat, so the provider is declarative like runware: one channel of the gateway's TypeSafe type
-(1003), `setting.decisions_upstream_path` pointing at OpenRouter's `/api/alpha/decisions`, no
-discovery or probe (the endpoint is in `NON_TESTABLE_ENDPOINT_TYPES`), the model pinned to the
-`typesafe-decisions` endpoint (the gateway's own endpoint type name) with vendor `typesafe`. Prices in the block are the sell price per million
-tokens (2x OpenRouter's $0.042 input, output free) and land in `ModelRatio`/`CompletionRatio`,
-never a per-call price: the gateway settles on the upstream's own token counts.
+`logs/verdict-cache.json` is the working copy. The shared truth is `new-api-sync/verdict-cache.json` in
+bucket `unorouter-sync` (`verdictStore`, cluster `https://s3.unorouter.com`, local
+`https://s3.unorouter.com:19443` via the `tsh-s3` user unit plus a `/etc/hosts` line). Every `sync run`
+merges it in at start and pushes at end. Without `verdictStore` the sync is local only. Every write saves
+the local file at once, so a killed run keeps what it probed.
 
-Nothink lanes: a model in `authenticity.nothinkModels` or in a provider block's own `nothinkModels` that the reasoning probe sees
-answer without any reasoning, plainly and when asked, keeps serving under `<name>-nothink`. The flag reads the
-cached reasoning measurement, so an unmeasured probe never flips the name. A lane gaining or losing the suffix
-is renamed in place (`planNothinkRenames`, the same path as splice renames): channel id kept, group options moved
-in two phases, and every user's token pins moved through the gateway's sync route `PUT /api/token/group-rename`. A provider block's
-`selfReferenceAllowed` (model glob to names) lets a lane's reasoning call itself one of those names without failing
-`foreign-self-reference`, for models trained on another maker's outputs; every quote the rule found must name an
-allowed one.
+TTLs. Functional pass 7 days, functional fail 24h (2h on 429, 5xx or timeout). Authenticity pass 12h
+(`authenticityPassTtlHours` overrides, a7 uses 4). Pass lifetimes of 24h or more stretch with `passStreak`
+up to 720h. Authenticity fails start at 24h, double per failed retest and become permanent at the third
+(`authFailStrikes`). Unblock by deleting the key from the cache.
 
-A stream probe that reaches EOF after an OpenAI `finish_reason` passes without `data: [DONE]`:
-some upstreams omit the sentinel and the gateway ends those streams normally.
+The `metadata` cron re-probes stale live lanes of an a7 block with `reverify` (`vendors/a7/reverify.ts`)
+and disables the channel on a fail. The Job dies at 20 minutes and a killed tick loses its option flush,
+which is why reverify starts no lane late in the tick.
+
+Probes are `ai-model-verifier`'s rule engine (`testing/authenticity.ts` is a thin adapter), judged against
+the model's maker (`makerForModel`). Only anthropic's findings have authority, except `masked-identity`,
+`fake-200`, `substituted` and `served-model-mismatch`, which judge every maker. Everything else is observe
+only (`authenticity.observeOnly` per maker or `*`, `[]` promotes a maker) and lands in
+`logs/observe-<date>.jsonl` and store `observe/<hour>.jsonl`. That log is what a maker is promoted from.
+The functional test checks the reply's model field on both the plain and the stream reply.
+
+Claude's tokenizer fingerprint is the only one with a verdict. A delta that moved since the last probe
+voids the cached pass for that run. It names no tier, so it never fails a lane by itself.
+
+Answer fingerprints (`testing/answer-fingerprints.ts`) are notes only, nothing here disables a lane. The
+battery runs at most once a day per lane after 4 sampled runs (`answerFingerprintDue`), because running it
+every ladder pushed both CronJobs past their deadlines (2026-09-22). The store object (about 18 MB) is
+rewritten only by a process that recorded a run.
+
+Lane keys (`infra/lane-keys.ts`). Revealed upstream token secrets are sealed with
+`verdictStore.encryptionKey` (same value locally and in the cluster) in `logs/lane-keys/` and the store.
+No cipher means no cache and no plain file. The store copy is pushed at most every 10 minutes per provider,
+since each store write keeps a noncurrent version. A key is evicted when the gateway auto disabled its
+channel with a credential reason (`vendors/newapi/disable-reason.ts`) or an a7 probe answers 401/403 on it.
+
+## Marketplace lanes (ih, si)
+
+`vendors/ih`, `vendors/si`, `vendors/shared/fallback-lanes.ts`. Priced at `profitMultiple` times the most
+the spend guard lets a request cost, between `minSellFraction` and `maxSellFraction` of list. Once a lane
+has enough billed traffic its ratio comes from real cost (`pricing/realized-marketplace.ts`). Numeric knobs
+take a scalar or a glob map with `default` (`resolvePerModel`, first match wins). Every URL is config only.
+Probes carry the same bid headers (ih) or seller pin (si) as the lane, so a 402 is the honest fail. The si
+`/min{N}` discount floor is capped at 90, since a higher floor refuses small requests. `metadata` never
+touches their `param_override` (`MARKETPLACE_KINDS`), because an si pin is a plain `set` the reconcile
+would clear.
+
+## Lane grader and reconcile
+
+Lane grader (`src/core/quality/`, config `laneGrader`, needs `targetDb`). It compares each lane's recent
+gateway log against other lanes of the same model and quarantines outliers with status 2, never 3, since
+the gateway's tester re-enables status 3 on its first pass. `dryRun` is the default. The usage inflation
+and padding rules act even under `dryRun` (`inflationLive`), since billed counts no model can produce are
+fraud. Nothing is blacklisted automatically.
+
+`reconcile` (`src/core/sync/reconcile/`) joins each relay account's `/api/log/self` to our logs by
+`upstream_request_id`, then tokens and time. Every probe records the relay's request id
+(`testing/probe-ids.ts`), so probe rows reconcile exactly. Only unexplained rows, foreign tokens with usage,
+or an ip outside `targetEgressIps` seen only on unaccounted rows flip the exit code. Source ips need
+`record_ip_log` on the relay account (`PUT /api/user/setting`).
+
+## Other lane types
+
+TypeSafe (`vendors/typesafe`) is declarative like runware. One channel of gateway type 1003, no discovery
+or probe (`NON_TESTABLE_ENDPOINT_TYPES`). Block prices are sell price per million tokens into
+`ModelRatio`/`CompletionRatio`, never a per-call price, since the gateway settles on upstream token counts.
+
+Nothink lanes. A model in `nothinkModels` that the reasoning probe sees answer without reasoning serves as
+`<name>-nothink`. Only a cached measurement flips the name. The rename is in place (`planNothinkRenames`),
+moving token pins through `PUT /api/token/group-rename`. `selfReferenceAllowed` lets a model's reasoning name
+the listed makers without failing `foreign-self-reference`.
 
 ## Local runs
 
 `TRUSTED_NETWORKS` is pod CIDR + loopback, so the local target is `http://127.0.0.1:13000` from the
-user unit `tsh-newapi` (`kubectl -n services port-forward svc/new-api 13000:3000`; restart after a
-tsh re-login). Never add a home prefix to `TRUSTED_NETWORKS`; the public hostname gives 401 plus an
+user unit `tsh-newapi` (`kubectl -n services port-forward svc/new-api 13000:3000`, restart after a
+tsh re-login). Never add a home prefix to `TRUSTED_NETWORKS`. The public hostname gives 401 plus an
 `InvalidCredentialReplayed` alert.
