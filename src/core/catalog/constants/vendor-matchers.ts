@@ -68,7 +68,7 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   essentialai: { modelPatterns: ["rnj-"], strongPatterns: ["rnj-"], nameAliases: ["essentialai","essential ai"], displayName: "Essential AI" },
   meituan: { modelPatterns: ["longcat"], strongPatterns: ["longcat"], nameAliases: ["meituan","美团","longcat"], displayName: "Meituan" },
   kuaishou: { modelPatterns: ["kat-coder","kat-dev","kwaipilot"], strongPatterns: ["kat-coder","kat-dev"], nameAliases: ["kuaishou","快手","kwaipilot","streamlake"], displayName: "Kuaishou" },
-  internlm: { modelPatterns: ["internlm","internvl","intern-s","intern-latest","atria-dawn","agents-a1","sage-a1"], strongPatterns: ["internlm","internvl","intern-s","atria-dawn","agents-a1","sage-a1"], nameAliases: ["internlm","intern","书生","浦语","shanghai ai"], displayName: "InternLM", icon: "InternLM" },
+  internlm: { modelPatterns: ["internlm","internvl","intern-s","intern-latest","atria-dawn","agents-a1","sage-a1","compassjudger"], strongPatterns: ["internlm","internvl","intern-s","atria-dawn","agents-a1","sage-a1","compassjudger"], nameAliases: ["internlm","intern","书生","浦语","shanghai ai"], displayName: "InternLM", icon: "InternLM" },
   reflection: { modelPatterns: ["beam-1","beam"], strongPatterns: ["beam-1"], nameAliases: ["reflection","reflection ai"], displayName: "Reflection AI" },
   teleai: { modelPatterns: ["xing4","telechat"], strongPatterns: ["xing4","telechat"], nameAliases: ["teleai","xingchen","xingchen-agi","天翼"], displayName: "TeleAI" },
   voltropy: { modelPatterns: ["vast-10m","vast-"], strongPatterns: ["vast-10m"], nameAliases: ["voltropy"], displayName: "Voltropy" },
@@ -121,12 +121,18 @@ export const VENDOR_MATCHERS: Record<string, VendorMatcher> = {
   // Unreleased models whose developer is deliberately undisclosed during preview.
   // The gateways that carry them (OpenCode Zen, OpenRouter's stealth/ namespace)
   // are distributors, not the vendor, so attributing one of them would be wrong.
-  stealth: { modelPatterns: ["ox-alpha", "union-alpha", "space-bunny"], strongPatterns: ["ox-alpha", "union-alpha", "space-bunny"], nameAliases: ["stealth"], displayName: "Stealth" },
+  stealth: { modelPatterns: ["ox-alpha", "union-alpha", "space-bunny", "glyph-cluster"], strongPatterns: ["ox-alpha", "union-alpha", "space-bunny", "glyph-cluster"], nameAliases: ["stealth"], displayName: "Stealth" },
   orcarouter: { modelPatterns: ["orca-router","orca-fusion"], strongPatterns: ["orca-fusion","orca-router"], nameAliases: ["orcarouter","orca router"], displayName: "OrcaRouter" },
   swissai: { modelPatterns: ["apertus"], strongPatterns: ["apertus"], nameAliases: ["swiss ai","swiss-ai","swissai","eth zurich","epfl"], displayName: "Swiss AI" },
   regolo: { modelPatterns: ["brick"], strongPatterns: ["brick-complexity","brick-v1"], nameAliases: ["regolo","regolo.ai"], displayName: "Regolo" },
   openbmb: { modelPatterns: ["minicpm"], strongPatterns: ["minicpm"], nameAliases: ["openbmb","面壁"], displayName: "OpenBMB" },
   sarvam: { modelPatterns: ["sarvam"], strongPatterns: ["sarvam"], nameAliases: ["sarvam","sarvam ai","sarvam.ai"], displayName: "Sarvam" },
+  cloudflare: { modelPatterns: ["clef-"], strongPatterns: ["clef-"], nameAliases: ["cloudflare"], displayName: "Cloudflare", icon: "Cloudflare.Color" },
+  daily: { modelPatterns: ["phonellm"], strongPatterns: ["phonellm"], nameAliases: ["daily","daily.co","daily-co"], displayName: "Daily" },
+  baseten: { modelPatterns: ["mammoth-"], strongPatterns: ["mammoth-"], nameAliases: ["baseten"], displayName: "Baseten", icon: "Baseten" },
+  morph: { modelPatterns: ["morph-"], strongPatterns: ["morph-"], nameAliases: ["morph","morphllm"], displayName: "Morph", icon: "Morph.Color" },
+  lgai: { modelPatterns: ["exaone"], strongPatterns: ["exaone"], nameAliases: ["lg ai research","lg ai","exaone"], displayName: "LG AI Research", icon: "LG.Color" },
+  tagflow: { modelPatterns: ["tagflow"], strongPatterns: ["tagflow"], nameAliases: ["tagflow","tagflow ai"], displayName: "Tagflow AI" },
   typhoon: { modelPatterns: ["typhoon"], strongPatterns: ["typhoon"], nameAliases: ["typhoon","opentyphoon","scb 10x","scb10x"], displayName: "Typhoon" },
   utterproject: { modelPatterns: ["eurollm"], strongPatterns: ["eurollm"], nameAliases: ["utter-project","utter project","eurollm"], displayName: "EuroLLM" },
   dictail: { modelPatterns: ["dictalm"], strongPatterns: ["dictalm"], nameAliases: ["dicta-il","dicta","dictalm"], displayName: "Dicta" },

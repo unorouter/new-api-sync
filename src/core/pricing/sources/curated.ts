@@ -3374,7 +3374,8 @@ const CURATED: Record<string, SourceMetadata> = {
   },
   // Inception Mercury (diffusion LLM)
   "mercury-2": {
-    contextWindow: 32_768,
+    releaseDate: iso("2026-02-24"),
+    contextWindow: 128_000,
     series: "Mercury",
     supportsTools: true,
   },
@@ -4545,6 +4546,193 @@ const GLM_5_3_LIST: BaseModelPricing = {
 export const CURATED_PRICING: Record<string, BaseModelPricing> = {
   "glm-5.3": GLM_5_3_LIST,
   "or-glm-5.3": GLM_5_3_LIST,
+  // Reflection AI Beam 1.0, the same model as `beam` (developers.reflection.ai/serving-weights)
+  "beam-1-0": {
+    releaseDate: iso("2026-10-16"),
+    contextWindow: 1_048_576,
+  },
+  // Cloudflare Clef Flash on Workers AI (changelog 2026-10-01; the hosted model serves 24,576)
+  "clef-flash": {
+    releaseDate: iso("2026-10-01"),
+    contextWindow: 24_576,
+  },
+  // Daily PhoneLLM Mini alpha 2 (daily.co/blog/phonellm-alpha-2)
+  "phonellm-mini-alpha-2": {
+    releaseDate: iso("2026-10-15"),
+    contextWindow: 262_140,
+  },
+  // OpenCompass CompassJudger 1, Hugging Face repo creation
+  "compassjudger-1-32b-instruct": {
+    releaseDate: iso("2024-10-10"),
+    contextWindow: 32_768,
+  },
+  // Gemini Deep Research agents (Gemini API changelog)
+  "deep-research-max-preview-04-2026": {
+    releaseDate: iso("2026-04-21"),
+    contextWindow: 1_048_576,
+  },
+  "deep-research-preview-04-2026": {
+    releaseDate: iso("2026-04-21"),
+    contextWindow: 1_048_576,
+  },
+  "deep-research-pro-preview-12-2025": {
+    releaseDate: iso("2025-12-11"),
+    contextWindow: 1_048_576,
+  },
+  // Cohere Embed v5 (docs.cohere.com/changelog/embed-v5)
+  "embed-v5.0-pro": {
+    releaseDate: iso("2026-09-30"),
+  },
+  "embed-v5.0-fast": {
+    releaseDate: iso("2026-09-30"),
+  },
+  // Baidu ERNIE 4.5 open weights, public on 2025-06-30
+  "ernie-4.5-0.3b-pt": {
+    releaseDate: iso("2025-06-30"),
+    contextWindow: 131_072,
+  },
+  "ernie-4.5-21b-a3b-pt": {
+    releaseDate: iso("2025-06-30"),
+    contextWindow: 131_072,
+  },
+  "ernie-4.5-300b-a47b-pt": {
+    releaseDate: iso("2025-06-30"),
+    contextWindow: 131_072,
+  },
+  "ernie-4.5-vl-28b-a3b-pt": {
+    releaseDate: iso("2025-06-30"),
+    contextWindow: 131_072,
+  },
+  // EuroLLM 9B Instruct (huggingface.co/blog/eurollm-team/eurollm-9b)
+  "eurollm-9b-it": {
+    releaseDate: iso("2024-12-02"),
+  },
+  // Anonymous stealth model, date first listed
+  "glyph-cluster": {
+    releaseDate: iso("2026-10-07"),
+    contextWindow: 256_000,
+  },
+  // Tencent Hy4 (tencent.com launch post for Flash, press for the flagship of 2026-11-04)
+  hy4flash: {
+    releaseDate: iso("2026-11-16"),
+    contextWindow: 1_048_576,
+    series: "Hunyuan",
+  },
+  hy4std: {
+    releaseDate: iso("2026-11-04"),
+    contextWindow: 1_048_576,
+    series: "Hunyuan",
+  },
+  // Same model as internvl3.5-241b-a28b under the underscore spelling
+  "internvl3_5-241b-a28b": {
+    releaseDate: iso("2025-08-25"),
+    contextWindow: 32_768,
+  },
+  // LG AI Research K-EXAONE 2.5, free API opened 2026-11-09
+  "k-exaone-2.5": {
+    releaseDate: iso("2026-11-09"),
+    contextWindow: 512_000,
+    series: "EXAONE",
+  },
+  // Poolside Laguna S 2.1 announcement
+  "laguna-s-2.1": {
+    releaseDate: iso("2026-07-21"),
+  },
+  "llama-3.2-1b": {
+    releaseDate: iso("2024-09-25"),
+    contextWindow: 131_072,
+  },
+  // Meituan LongCat 2.5 preview (full release followed 2026-11-02)
+  "longcat-2-5-preview": {
+    releaseDate: iso("2026-09-25"),
+    contextWindow: 1_000_000,
+  },
+  // Baseten Mammoth 1 decision model (baseten.co blog)
+  "mammoth-1": {
+    releaseDate: iso("2026-10-21"),
+    contextWindow: 16_000,
+  },
+  // Inception Mercury launch posts
+  "mercury-2.5": {
+    releaseDate: iso("2026-09-08"),
+    contextWindow: 260_000,
+    series: "Mercury",
+  },
+  "mercury-3": {
+    releaseDate: iso("2026-10-19"),
+    contextWindow: 1_000_000,
+    series: "Mercury",
+  },
+  // Morph's id for DeepSeek V4.1 Flash; date is DeepSeek's release
+  "morph-dsv41flash": {
+    releaseDate: iso("2026-09-10"),
+    contextWindow: 1_048_576,
+  },
+  // OpenRouter lanes published under or- names, dates of the base models
+  "or-claude-haiku-5-5": {
+    releaseDate: iso("2026-10-07"),
+    contextWindow: 1_000_000,
+    series: "Claude",
+  },
+  "or-gemini-4-argon": {
+    releaseDate: iso("2026-10-13"),
+    contextWindow: 1_048_576,
+    series: "Gemini",
+  },
+  "or-gemini-4-carbon": {
+    releaseDate: iso("2026-11-10"),
+    contextWindow: 1_048_576,
+    series: "Gemini",
+  },
+  "or-gemini-4-hydrogen": {
+    releaseDate: iso("2026-11-12"),
+    contextWindow: 1_048_576,
+    series: "Gemini",
+  },
+  "or-gemini-4-neon": {
+    releaseDate: iso("2026-11-18"),
+    contextWindow: 1_048_576,
+    series: "Gemini",
+  },
+  "or-kimi-k2.7-code": {
+    releaseDate: iso("2026-06-12"),
+    contextWindow: 262_144,
+    series: "Kimi",
+  },
+  // DeepReinforce Ornith 1.5 122B
+  "ornith-1-5-122b": {
+    releaseDate: iso("2026-10-20"),
+    contextWindow: 262_144,
+  },
+  "qwen3.6-max-preview": {
+    releaseDate: iso("2026-04-20"),
+    contextWindow: 262_144,
+  },
+  // Tagflow AI; no announced release, first available in ADCode
+  "tagflow-code-27b": {
+    releaseDate: iso("2026-10-09"),
+    contextWindow: 262_144,
+  },
+  "tongyi-deepresearch-30b-a3b": {
+    releaseDate: iso("2025-09-17"),
+    contextWindow: 131_072,
+  },
+  // A relay's gemini-2.5-pro variant; date is gemini-2.5-pro GA
+  "gemini-2.5-pro-c-ep-h": {
+    releaseDate: iso("2025-06-17"),
+    contextWindow: 1_048_576,
+  },
+  // GLM-5.3 Flash coding variant (huggingface.co/zai-org/GLM-5.3-Flash)
+  "coding-glm-5.3-flash-free": {
+    releaseDate: iso("2026-08-26"),
+    contextWindow: 1_048_576,
+    series: "GLM",
+  },
+  "glm-5.3-flash": {
+    releaseDate: iso("2026-08-26"),
+    contextWindow: 1_048_576,
+    series: "GLM",
+  },
 };
 
 export function buildCuratedSource(): PricingSource {
