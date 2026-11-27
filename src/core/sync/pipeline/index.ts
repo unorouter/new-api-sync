@@ -307,6 +307,11 @@ async function buildDesiredState(
     reverseMapping,
     modelMapping: config.modelMapping,
     modelAlias: config.modelAlias,
+    nothinkByProvider: new Map(
+      config.providers.flatMap((p) =>
+        p.nothinkModels ? [[p.name, p.nothinkModels]] : [],
+      ),
+    ),
     maxDiscount: config.maxDiscount,
     systemPrompt: config.systemPrompt,
     channelParamOverride: config.channelParamOverride,
