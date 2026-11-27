@@ -48,8 +48,6 @@ interface ComputeArgs {
   reverseMapping: Map<string, string>;
   modelMapping: Record<string, string>;
   modelAlias?: Record<string, string[]>;
-  /** Per provider: model globs whose lanes think without returning the text. */
-  nothinkByProvider?: Map<string, string[]>;
   maxDiscount?: Record<string, number>;
   systemPrompt?: {
     models: string[];
@@ -955,15 +953,6 @@ function pushBucketsAsTiers(
       // no independent upstream source (e.g. deepseek-v3.2-exp == deepseek-v3.2).
       for (const alias of args?.modelAlias?.[publishedName] ?? []) {
         if (models.includes(alias)) continue;
-        // A thinking name on a lane that hides the reasoning sells a model without it.
-        if (
-          alias.endsWith("-thinking") &&
-          matchesAnyPattern(
-            publishedName,
-            args?.nothinkByProvider?.get(offer.provider) ?? [],
-          )
-        )
-          continue;
         models.push(alias);
         modelMapping[alias] = m.upstream;
         mirrorAliasRatio(modelRatios, publishedName, alias, sourced);
