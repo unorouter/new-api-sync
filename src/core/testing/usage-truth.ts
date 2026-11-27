@@ -60,7 +60,10 @@ export async function probeUsageTruth(lane: {
     if (!usage || typeof usage !== "object" || !("prompt_tokens" in usage))
       return null;
     const tokens = Number(usage.prompt_tokens);
-    return Number.isFinite(tokens) && tokens > 0 ? tokens : null;
+    if (!Number.isFinite(tokens) || tokens <= 0) return null;
+    // Cache writes larger than the prompt cannot be part of it, so they are billed on top.
+    const writes = cacheWrites(usage);
+    return writes > tokens ? tokens + writes : tokens;
   };
 
   const one = await billedPrompt(1);
@@ -85,4 +88,29 @@ export async function probeUsageTruth(lane: {
       reason: `usage inflation: billed ${long} input tokens for a prompt of about ${expected}`,
     };
   return { verdict: "pass", billed: long, expected };
+}
+
+function cacheWrites(usage: object): number {
+  const fields: unknown[] = [
+    "cache_creation_input_tokens" in usage
+      ? usage.cache_creation_input_tokens
+      : 0,
+  ];
+  if (
+    "prompt_tokens_details" in usage &&
+    usage.prompt_tokens_details &&
+    typeof usage.prompt_tokens_details === "object"
+  ) {
+    const d = usage.prompt_tokens_details;
+    for (const key of [
+      "cache_creation_input_tokens",
+      "cached_creation_tokens",
+      "cache_write_tokens",
+    ])
+      fields.push(Reflect.get(d, key));
+  }
+  return Math.max(
+    0,
+    ...fields.map((v) => Number(v)).filter((v) => Number.isFinite(v)),
+  );
 }
