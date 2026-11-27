@@ -396,6 +396,9 @@ export async function processOpenAICompatibleFreeProvider(
         ...(providerConfig.probeBody
           ? { extraBody: providerConfig.probeBody }
           : {}),
+        ...(providerConfig.headerOverride
+          ? { extraHeaders: providerConfig.headerOverride }
+          : {}),
       });
       const working = r.workingModels;
       if (working.length === 0) continue;
